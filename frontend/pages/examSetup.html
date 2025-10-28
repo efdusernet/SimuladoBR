@@ -137,121 +137,189 @@
       <div class="tab" data-aba="areas">Área de Conhecimento</div>
     </div>
 
-    <!-- CHECKLIST -->
-    <div id="checklist" class="checklist"></div>
+  <!-- CHECKLIST -->
+  <div id="checklist" class="checklist"></div>
 
     <!-- RESUMO -->
     <div class="resumo">
       <h3>Resumo da Personalização</h3>
       <p>Quantidade de questões: <span id="resumo-qtd">-</span></p>
       <p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
+      <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+        <button id="startExamBtn" style="background:#007bff;color:#fff;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;">Iniciar simulado</button>
+        <span id="startError" style="color:crimson; display:none;"></span>
+      </div>
     </div>
   </div>
 
   <script>
-    // Tipo de usuário (pode ser alterado)
-    const usuarioPagante = true;
-    const limiteQuestoes = usuarioPagante ? 200 : 40;
+    // Resolve backend base if window.SIMULADOS_CONFIG is present (optional)
+    const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
 
-    document.getElementById("limite-texto").textContent = usuarioPagante
-      ? "Usuário pagante: limite de 200 questões."
-      : "Usuário gratuito: limite de 40 questões.";
-    document.getElementById("limite-info").textContent = `(máx. ${limiteQuestoes})`;
+    const quantidadeInput = document.getElementById('quantidade');
+    const resumoQtd = document.getElementById('resumo-qtd');
+    const resumoFocos = document.getElementById('resumo-focos');
+    const checklistDiv = document.getElementById('checklist');
+    const tabs = document.querySelectorAll('.tab');
+    const startBtn = document.getElementById('startExamBtn');
+    const startError = document.getElementById('startError');
 
-    const quantidadeInput = document.getElementById("quantidade");
-    const resumoQtd = document.getElementById("resumo-qtd");
-    const resumoFocos = document.getElementById("resumo-focos");
+    // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 40), else premium (200)
+    const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
+    const limiteQuestoes = bloqueado ? 40 : 200;
+    document.getElementById('limite-texto').textContent = bloqueado
+      ? 'Usuário gratuito: limite de 40 questões.'
+      : 'Usuário pagante: limite de 200 questões.';
+    document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
+    quantidadeInput.setAttribute('max', String(limiteQuestoes));
+    quantidadeInput.setAttribute('min', '1');
 
-    const dominios = [
-      "Partes Interessadas",
-      "Equipe",
-      "Abordagem de Desenvolvimento e Ciclo de Vida",
-      "Planejamento",
-      "Trabalho do Projeto",
-      "Entrega",
-      "Medição",
-      "Incertezas"
-    ];
+    // State for meta lists and selections
+    let abaAtual = 'dominios';
+    let meta = { dominios: [], grupos: [], areas: [] };
+    let selecionados = { dominios: [], grupos: [], areas: [] }; // arrays of ids
 
-    const gruposProcessos = [
-      "Iniciação",
-      "Planejamento",
-      "Execução",
-      "Monitoramento e Controle",
-      "Encerramento"
-    ];
+    // Try to rehydrate saved filters
+    try {
+      const raw = localStorage.getItem('examFilters');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed.dominios)) selecionados.dominios = parsed.dominios.map(Number).filter(n=>!Number.isNaN(n));
+          if (Array.isArray(parsed.grupos)) selecionados.grupos = parsed.grupos.map(Number).filter(n=>!Number.isNaN(n));
+          if (Array.isArray(parsed.areas)) selecionados.areas = parsed.areas.map(Number).filter(n=>!Number.isNaN(n));
+          if (parsed.activeTab && (parsed.activeTab === 'dominios' || parsed.activeTab === 'grupos' || parsed.activeTab === 'areas')) abaAtual = parsed.activeTab;
+        }
+      }
+    } catch(e) {}
 
-    const areasConhecimento = [
-      "Integração",
-      "Escopo",
-      "Cronograma",
-      "Custos",
-      "Qualidade",
-      "Recursos",
-      "Comunicações",
-      "Riscos",
-      "Aquisições",
-      "Partes Interessadas"
-    ];
-
-    const checklistDiv = document.getElementById("checklist");
-    const tabs = document.querySelectorAll(".tab");
-    let abaAtual = "dominios";
-    let selecionados = [];
-
-    function renderChecklist(lista) {
-      checklistDiv.innerHTML = "";
-      lista.forEach(item => {
-        const btn = document.createElement("button");
-        btn.textContent = item;
-        btn.classList.add("check-btn");
-        if (selecionados.includes(item)) btn.classList.add("active");
-
-        btn.addEventListener("click", () => {
-          if (selecionados.includes(item)) {
-            selecionados = selecionados.filter(i => i !== item);
-            btn.classList.remove("active");
-          } else {
-            selecionados.push(item);
-            btn.classList.add("active");
-          }
+    function renderChecklist(items) {
+      checklistDiv.innerHTML = '';
+      const sel = selecionados[abaAtual] || [];
+      items.forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = item.descricao || item.label || String(item.id);
+        btn.classList.add('check-btn');
+        btn.setAttribute('data-id', String(item.id));
+        if (sel.includes(Number(item.id))) btn.classList.add('active');
+        btn.addEventListener('click', () => {
+          const id = Number(btn.getAttribute('data-id'));
+          const arr = selecionados[abaAtual];
+          const idx = arr.indexOf(id);
+          if (idx >= 0) { arr.splice(idx, 1); btn.classList.remove('active'); }
+          else { arr.push(id); btn.classList.add('active'); }
           atualizarResumo();
+          salvarSelecoes();
         });
-
         checklistDiv.appendChild(btn);
       });
     }
 
     function atualizarResumo() {
-      resumoQtd.textContent = quantidadeInput.value || "-";
-      resumoFocos.textContent =
-        selecionados.length > 0 ? selecionados.join(", ") : "Nenhum selecionado";
+      resumoQtd.textContent = quantidadeInput.value || '-';
+      const nomes = [];
+      const pushFrom = (list, ids) => {
+        const map = new Map(list.map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
+        ids.forEach(id => { if (map.has(Number(id))) nomes.push(map.get(Number(id))); });
+      };
+      pushFrom(meta.dominios, selecionados.dominios);
+      pushFrom(meta.grupos, selecionados.grupos);
+      pushFrom(meta.areas, selecionados.areas);
+      resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
     }
 
-    // Tabs click
-    tabs.forEach(tab => {
-      tab.addEventListener("click", () => {
-        tabs.forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        abaAtual = tab.dataset.aba;
+    function salvarSelecoes() {
+      try {
+        const payload = { dominios: selecionados.dominios, grupos: selecionados.grupos, areas: selecionados.areas, activeTab: abaAtual };
+        localStorage.setItem('examFilters', JSON.stringify(payload));
+      } catch(e) {}
+    }
 
-        if (abaAtual === "dominios") renderChecklist(dominios);
-        if (abaAtual === "grupos") renderChecklist(gruposProcessos);
-        if (abaAtual === "areas") renderChecklist(areasConhecimento);
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        abaAtual = tab.dataset.aba;
+        salvarSelecoes();
+        if (abaAtual === 'dominios') renderChecklist(meta.dominios);
+        if (abaAtual === 'grupos') renderChecklist(meta.grupos);
+        if (abaAtual === 'areas') renderChecklist(meta.areas);
       });
     });
 
-    // Atualizar resumo da quantidade
-    quantidadeInput.addEventListener("input", e => {
-      const valor = parseInt(e.target.value);
-      if (isNaN(valor) || valor < 1 || valor > limiteQuestoes) {
-        e.target.value = "";
-      }
+    // Quantity input with clamping
+    quantidadeInput.addEventListener('input', e => {
+      let valor = parseInt(e.target.value, 10);
+      if (Number.isNaN(valor)) { resumoQtd.textContent = '-'; return; }
+      valor = Math.max(1, Math.min(limiteQuestoes, valor));
+      e.target.value = String(valor);
       atualizarResumo();
     });
 
-    // Inicialização
-    renderChecklist(dominios);
+    // Start button: validate, persist, and redirect
+    startBtn.addEventListener('click', () => {
+      startError.style.display = 'none';
+      const val = Number(quantidadeInput.value);
+      if (!val || Number.isNaN(val) || val < 1) {
+        startError.textContent = 'Informe a quantidade de questões.';
+        startError.style.display = 'inline';
+        return;
+      }
+      if (val > limiteQuestoes) {
+        startError.textContent = `Quantidade acima do limite (${limiteQuestoes}).`;
+        startError.style.display = 'inline';
+        return;
+      }
+      try { localStorage.setItem('examQuestionCount', String(val)); } catch(e) {}
+      salvarSelecoes();
+      try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
+      // redirect to exam page (same folder)
+      window.location.href = './exam.html';
+    });
+
+    async function fetchJson(url){
+      const resp = await fetch(url, { headers: { 'X-Session-Token': (localStorage.getItem('sessionToken') || '') } });
+      if (!resp.ok) throw new Error(`GET ${url} -> ${resp.status}`);
+      return await resp.json();
+    }
+
+    async function loadMeta(){
+      try {
+        const base = (BACKEND_BASE || '').replace(/\/$/, '');
+        const [doms, grps, ars] = await Promise.all([
+          fetchJson(base + '/api/meta/dominios'),
+          fetchJson(base + '/api/meta/grupos'),
+          fetchJson(base + '/api/meta/areas')
+        ]);
+        meta.dominios = Array.isArray(doms) ? doms : [];
+        meta.grupos = Array.isArray(grps) ? grps : [];
+        meta.areas = Array.isArray(ars) ? ars : [];
+      } catch (e) {
+        console.warn('Falha ao carregar metadados, usando listas vazias.', e);
+        meta.dominios = meta.dominios || [];
+        meta.grupos = meta.grupos || [];
+        meta.areas = meta.areas || [];
+      }
+      // set default quantity: use existing localStorage selection or 40/200 default
+      try {
+        const saved = localStorage.getItem('examQuestionCount');
+        if (saved) quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));
+      } catch(e) {}
+      // activate tab per saved state
+      tabs.forEach(t => t.classList.remove('active'));
+      const tabEl = document.querySelector(`.tab[data-aba="${abaAtual}"]`) || document.querySelector('.tab[data-aba="dominios"]');
+      if (tabEl) tabEl.classList.add('active');
+      // render current tab
+      if (abaAtual === 'dominios') renderChecklist(meta.dominios);
+      if (abaAtual === 'grupos') renderChecklist(meta.grupos);
+      if (abaAtual === 'areas') renderChecklist(meta.areas);
+      atualizarResumo();
+    }
+
+    // Kick off
+    loadMeta();
   </script>
   </body>
   </html>

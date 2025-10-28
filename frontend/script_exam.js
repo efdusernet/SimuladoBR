@@ -631,10 +631,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
       console.debug('[exam] using sessionToken=', token);
       const fetchUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/select';
       console.debug('[exam] fetching questions from', fetchUrl, 'count=', count);
+      // attach optional filters saved by examSetup
+      let areas = null, grupos = null, dominios = null;
+      try {
+        const raw = localStorage.getItem('examFilters');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            if (Array.isArray(parsed.areas)) areas = parsed.areas.map(Number).filter(n => !Number.isNaN(n));
+            if (Array.isArray(parsed.grupos)) grupos = parsed.grupos.map(Number).filter(n => !Number.isNaN(n));
+            if (Array.isArray(parsed.dominios)) dominios = parsed.dominios.map(Number).filter(n => !Number.isNaN(n));
+          }
+        }
+      } catch(e) { /* ignore parse errors */ }
+      const payload = { count };
+      if (areas && areas.length) payload.areas = areas;
+      if (grupos && grupos.length) payload.grupos = grupos;
+      if (dominios && dominios.length) payload.dominios = dominios;
       const resp = await fetch(fetchUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
-        body: JSON.stringify({ count })
+        body: JSON.stringify(payload)
       });
       if (!resp.ok) {
         console.warn('Failed to fetch questions', resp.status);

@@ -18,7 +18,7 @@ exports.listExams = async (req, res) => {
 };
 
 // POST /api/exams/select
-// Body: { count: number, dominios?: [ids] }
+// Body: { count: number, dominios?: [ids], areas?: [ids], grupos?: [ids] }
 exports.selectQuestions = async (req, res) => {
   try {
     const count = Number((req.body && req.body.count) || 0) || 0;
@@ -41,14 +41,21 @@ exports.selectQuestions = async (req, res) => {
 
     const bloqueio = Boolean(user.BloqueioAtivado);
 
-    // Optional domain filter
-    const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
+  // Optional filters
+  const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
+  const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
+  const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
 
-    // Build WHERE clause
-    const whereClauses = [`excluido = false`, `idstatus = 1`];
-    if (bloqueio) whereClauses.push(`seed = true`);
-    if (dominios) whereClauses.push(`iddominio IN (${dominios.map(d => Number(d)).join(',')})`);
-    const whereSql = whereClauses.join(' AND ');
+  // Build WHERE clause
+  const whereClauses = [`excluido = false`, `idstatus = 1`];
+  if (bloqueio) whereClauses.push(`seed = true`);
+  // OR semantics across tabs; OR within each list
+  const orBlocks = [];
+  if (dominios && dominios.length) orBlocks.push(`iddominio IN (${dominios.join(',')})`);
+  if (areas && areas.length) orBlocks.push(`codareaconhecimento IN (${areas.join(',')})`);
+  if (grupos && grupos.length) orBlocks.push(`codgrupoprocesso IN (${grupos.join(',')})`);
+  if (orBlocks.length) whereClauses.push(`(${orBlocks.join(' OR ')})`);
+  const whereSql = whereClauses.join(' AND ');
 
     // Count available
   const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;

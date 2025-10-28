@@ -669,10 +669,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
             const statusEl = document.getElementById('status');
             if (statusEl) {
               statusEl.style.display = '';
-              const suggested = Math.min(available, 25);
+              const blocked = (localStorage.getItem('BloqueioAtivado') === 'true');
+              const suggested = blocked ? Math.min(available, 25) : available;
               if (available > 0 && suggested > 0) {
                 const btnId = 'adjustQtyBtn';
-                statusEl.innerHTML = `Não há questões suficientes para sua seleção. Disponíveis: <strong>${suggested}</strong>. ` +
+                const msg = blocked
+                  ? `Não há questões suficientes para sua seleção. Disponíveis: <strong>${available}</strong>. Você pode iniciar com <strong>${suggested}</strong>. `
+                  : `Não há questões suficientes para sua seleção. Disponíveis: <strong>${available}</strong>. `;
+                statusEl.innerHTML = msg +
                   `<button id="${btnId}" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>`;
                 const btn = document.getElementById(btnId);
                 if (btn) btn.onclick = async () => {

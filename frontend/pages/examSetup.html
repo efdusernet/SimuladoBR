@@ -350,9 +350,12 @@
         // Show friendly message and offer an Adjust button
         const btnId = 'ajustarQtdBtn';
         if (errorBox) {
-          const suggested = Math.min(available, 25);
-          errorBox.innerHTML = `Só existem <strong>${suggested}</strong> questões com o filtro aplicado — ajuste a quantidade de questões ou remova filtros. ` +
-            (suggested > 0 ? `<button id="${btnId}" type="button" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>` : '');
+          const suggested = (bloqueado ? Math.min(available, 25) : available);
+          const msg = bloqueado
+            ? `Existem <strong>${available}</strong> questões que atendem aos filtros. No plano gratuito você pode iniciar com <strong>${Math.min(available,25)}</strong>.`
+            : `Só existem <strong>${available}</strong> questões com o filtro aplicado — ajuste a quantidade de questões ou remova filtros.`;
+          errorBox.innerHTML = msg +
+            (suggested > 0 ? ` <button id="${btnId}" type="button" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>` : '');
           errorBox.style.display = '';
           const btn = document.getElementById(btnId);
           if (btn) btn.onclick = () => {

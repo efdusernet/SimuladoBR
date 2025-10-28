@@ -145,12 +145,17 @@
 			<h3>Resumo da Personalização</h3>
 			<p>Quantidade de questões: <span id="resumo-qtd">-</span></p>
 			<p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
+			<div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
+				<button id="startExam" style="background:#2b6cb0;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;">Iniciar simulado</button>
+				<small id="erroMsg" style="color:crimson; display:none;">Informe uma quantidade válida (dentro do limite).</small>
+			</div>
 		</div>
 	</div>
 
 	<script>
-		// Tipo de usuário (pode ser alterado)
-		const usuarioPagante = true;
+		// Determina limite conforme estado de bloqueio (BloqueioAtivado === 'true' => bloqueado => 40)
+		const bloqueio = (function(){ try { return localStorage.getItem('BloqueioAtivado'); } catch(e){ return null; } })();
+		const usuarioPagante = (bloqueio === 'false'); // quando não está bloqueado
 		const limiteQuestoes = usuarioPagante ? 200 : 40;
 
 		document.getElementById("limite-texto").textContent = usuarioPagante
@@ -161,6 +166,12 @@
 		const quantidadeInput = document.getElementById("quantidade");
 		const resumoQtd = document.getElementById("resumo-qtd");
 		const resumoFocos = document.getElementById("resumo-focos");
+		const erroMsg = document.getElementById("erroMsg");
+
+		// defina max dinamicamente
+		try { quantidadeInput.setAttribute('max', String(limiteQuestoes)); } catch(e){}
+		// valor inicial sugerido (máximo permitido)
+		try { quantidadeInput.value = String(limiteQuestoes); } catch(e){}
 
 		const dominios = [
 			"Partes Interessadas",
@@ -243,15 +254,35 @@
 
 		// Atualizar resumo da quantidade
 		quantidadeInput.addEventListener("input", e => {
-			const valor = parseInt(e.target.value);
-			if (isNaN(valor) || valor < 1 || valor > limiteQuestoes) {
-				e.target.value = "";
-			}
+			let valor = parseInt(e.target.value, 10);
+			if (isNaN(valor)) { valor = 1; }
+			if (valor < 1) valor = 1;
+			if (valor > limiteQuestoes) valor = limiteQuestoes;
+			e.target.value = String(valor);
+			erroMsg.style.display = 'none';
 			atualizarResumo();
 		});
 
 		// Inicialização
 		renderChecklist(dominios);
+		atualizarResumo();
+
+		// Iniciar exame: valida, persiste escolhas e redireciona
+		document.getElementById('startExam').addEventListener('click', () => {
+			const qtd = parseInt(quantidadeInput.value, 10);
+			if (!qtd || qtd < 1 || qtd > limiteQuestoes) {
+				erroMsg.style.display = '';
+				return;
+			}
+			try { localStorage.setItem('examQuestionCount', String(qtd)); } catch(e){}
+			// guardar focos para possíveis futuros filtros (não usados pelo backend atual)
+			try { localStorage.setItem('examFocuses', JSON.stringify({ tipo: abaAtual, itens: selecionados })); } catch(e){}
+			// sinalizar ao exam.html para iniciar o cronômetro
+			try { sessionStorage.setItem('startExam', 'true'); } catch(e){}
+			// redirecionar para a página do exame
+			const target = './exam.html';
+			window.location.href = target;
+		});
 	</script>
 </body>
 </html>

@@ -21,7 +21,7 @@ exports.listExams = async (req, res) => {
 // Body: { count: number, dominios?: [ids], areas?: [ids], grupos?: [ids] }
 exports.selectQuestions = async (req, res) => {
   try {
-    const count = Number((req.body && req.body.count) || 0) || 0;
+  const count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
 
     // resolve user via X-Session-Token (same logic as /api/auth/me)
@@ -61,6 +61,11 @@ exports.selectQuestions = async (req, res) => {
   const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;
     const countRes = await sequelize.query(countQuery, { type: sequelize.QueryTypes.SELECT });
     const available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
+    // Support preflight count-only check
+    const onlyCount = Boolean(req.body && req.body.onlyCount) || String(req.query && req.query.onlyCount).toLowerCase() === 'true';
+    if (onlyCount) {
+      return res.json({ available });
+    }
     if (available < count) {
       return res.status(400).json({ error: 'Not enough questions available', available });
     }

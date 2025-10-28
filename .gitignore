@@ -1,0 +1,49 @@
+############################
+# OS / Editor
+############################
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.history/
+
+############################
+# Node / JS
+############################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+############################
+# Builds / Caches
+############################
+dist/
+build/
+out/
+coverage/
+.cache/
+.parcel-cache/
+.turbo/
+.next/
+
+############################
+# Env / Secrets
+############################
+.env
+.env.*
+!.env.example
+
+############################
+# Misc
+############################
+logs/
+*.log
+tmp/
+temp/
+*.local
+

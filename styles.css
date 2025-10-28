@@ -1,0 +1,238 @@
+:root{
+	--base-font-size: 16px;
+	--bg: #f5f7fb;
+	--card: #ffffff;
+	--primary: #0b5ed7;
+	--muted: #6c757d;
+	--gap: 12px;
+	--question-font-size: 16px; /* ajustável via JS */
+	--question-line-height: 1.45;
+}
+
+html,body{
+	height:100%;
+	margin:0;
+	font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+	font-size: var(--base-font-size);
+	background: var(--bg);
+	color: #111827;
+	-webkit-font-smoothing:antialiased;
+	-moz-osx-font-smoothing:grayscale;
+}
+
+/* container principal */
+.exam-container{
+	max-width: 900px;
+	margin: 28px auto;
+	padding: 18px;
+}
+
+/* Header usando Grid: esquerda | centro | direita */
+.exam-header{
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 12px;
+	padding: 8px 0;
+}
+
+/* área central (coluna do meio) */
+.header-center{
+	grid-column: 2;
+	display: flex;
+	align-items: center;
+	justify-content: center; /* mantém o conteúdo do centro exatamente no centro */
+	position: relative;
+	min-height: 44px;
+}
+
+/* texto central "Exemplo" */
+.knowledge-area{
+	font-weight:600;
+	font-size:1.05rem;
+	padding: 4px 8px;
+	white-space: nowrap;
+	text-align: center;
+}
+
+/* timer é colocado dentro da coluna central, mas alinhado à direita do elemento central. */
+.timer{
+	margin-left: 10px;
+	font-family: monospace;
+	background: #fff;
+	border-radius:6px;
+	padding:6px 10px;
+	box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+	border: 1px solid #e6e9ef;
+	display: inline-block;
+	vertical-align: middle;
+}
+
+/* coluna da direita (controles) */
+.header-right{
+	grid-column: 3;
+	display:flex;
+	justify-content: end;
+	align-items: center;
+}
+
+/* controles */
+.icon-btn{
+	background: #fff;
+	border: 1px solid #e3e6ee;
+	padding:6px 8px;
+	border-radius:6px;
+	cursor:pointer;
+	font-weight:600;
+	box-shadow: 0 1px 3px rgba(2,6,23,0.04);
+}
+
+.font-slider{
+	position:absolute;
+	right:0;
+	top:40px;
+	background:var(--card);
+	border-radius:8px;
+	padding:8px;
+	box-shadow:0 6px 18px rgba(2,6,23,0.08);
+	border:1px solid #eaeef6;
+	width:200px;
+	z-index:30;
+}
+.font-slider label{ display:block; font-size:0.85rem; color:var(--muted); margin-bottom:6px; }
+
+.question-panel{
+	background: var(--card);
+	border-radius:10px;
+	padding:18px;
+	box-shadow: 0 6px 18px rgba(2,6,23,0.04);
+	border: 1px solid #eef2f7;
+}
+
+/* Modal styles (registration) */
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:1000}
+.modal[aria-hidden="false"]{display:flex}
+.modal-content{background:#fff;padding:20px;border-radius:8px;width:92%;max-width:420px;box-shadow:0 6px 18px rgba(0,0,0,0.15)}
+.modal-content h2{margin-top:0}
+.modal-content p{margin:8px 0 12px}
+.modal-content input{display:block;width:100%;padding:10px 12px;margin:8px 0;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;font-size:14px}
+.modal-actions{display:flex;justify-content:flex-end;margin-top:12px;gap:8px}
+.modal-actions button{background:#0078d4;color:#fff;border:none;padding:10px 14px;border-radius:4px;cursor:pointer}
+.modal-actions .secondary-btn{background:transparent;color:var(--primary);border:1px solid rgba(11,94,215,0.12);padding:8px 12px;border-radius:4px}
+.modal-actions .secondary-btn:hover{background:rgba(11,94,215,0.04)}
+.modal-actions button:disabled{opacity:0.6;cursor:not-allowed}
+
+/* user header (shared) */
+#userHeader{display:none;background:#f7f7f7;border-bottom:1px solid #e6e6e6}
+#userHeader strong{color:#111}
+
+.meta-row{
+	display:flex;
+	justify-content:space-between;
+	align-items:center;
+	margin-bottom:12px;
+}
+
+.q-status{ color:var(--muted); font-size:0.95rem; }
+
+.feedback-buttons{ display:flex; gap:8px; }
+
+.icon-like, .icon-dislike{
+	background: transparent;
+	border: none;
+	cursor:pointer;
+	padding:6px;
+	border-radius:6px;
+	color:var(--muted);
+}
+.icon-like[aria-pressed="true"], .icon-dislike[aria-pressed="true"]{
+	color:var(--primary);
+	background: rgba(11,94,215,0.06);
+}
+
+/* pergunta: usa variáveis para permitir ajuste automático via JS */
+.question-content p.question-text{
+	font-size: var(--question-font-size);
+	line-height: var(--question-line-height);
+	margin:8px 0 16px;
+	white-space: normal;
+	overflow-wrap: break-word;
+	word-break: break-word;
+	hyphens: auto;
+	max-width: 100%;
+}
+
+/* respostas */
+.answers-form{ display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+
+.option{ background:#fbfdff; border:1px solid #eef4ff; padding:12px; border-radius:8px; }
+
+.option label{ display:flex; align-items:center; gap:12px; cursor:pointer; }
+
+.option input[type="radio"]{ width:18px; height:18px; }
+
+.actions-row{ display:flex; justify-content:flex-end; }
+
+.primary-btn{
+	background:var(--primary);
+	color:white;
+	border:none;
+	padding:10px 16px;
+	border-radius:8px;
+	cursor:pointer;
+	font-weight:600;
+}
+.primary-btn:active{ transform: translateY(1px); }
+
+/* visual cue for missing selection: red border + subtle shake */
+.input-error {
+	animation: shake 0.36s ease-in-out;
+	border-color: #e55353 !important;
+	box-shadow: 0 6px 18px rgba(229,83,83,0.08);
+}
+@keyframes shake {
+	0% { transform: translateX(0); }
+	20% { transform: translateX(-6px); }
+	40% { transform: translateX(6px); }
+	60% { transform: translateX(-4px); }
+	80% { transform: translateX(4px); }
+	100% { transform: translateX(0); }
+}
+
+/* autosave indicator */
+#autosaveIndicator{ color:var(--muted); font-size:0.92rem; }
+#autosaveIndicator.saving{ font-style:italic; color: #0b5ed7; }
+#autosaveIndicator.saved{ color: #0f5132; }
+
+/* toast */
+.toast {
+	position: fixed;
+	right: 18px;
+	bottom: 18px;
+	background: rgba(17,24,39,0.95);
+	color: #fff;
+	padding: 10px 14px;
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(2,6,23,0.4);
+	font-size: 0.95rem;
+	z-index: 2000;
+	opacity: 0;
+	transform: translateY(8px);
+	transition: opacity 220ms ease, transform 220ms ease;
+}
+.toast.show{ opacity: 1; transform: translateY(0); }
+
+/* Responsividade: em telas <=600px, adaptamos layout para evitar sobreposição */
+@media (max-width: 600px){
+	.exam-container{ padding:12px; }
+	.exam-header{ grid-template-columns: 1fr auto; } /* simplificar colunas */
+	.header-right{ display:flex; grid-column: 2; justify-content: flex-end; }
+	.header-center{ grid-column: 1 / -1; justify-content: center; }
+	.timer{ position: static; margin-left: 8px; order: 2; }
+	.knowledge-area{ font-size: 0.95rem; }
+	.font-slider{ left: 0; right: auto; width: 160px; }
+	/* para telas pequenas, reduzir o tamanho mínimo da fonte da pergunta */
+	:root{ --question-font-size: 14px; }
+}
+

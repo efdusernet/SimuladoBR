@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "SimuladosBR API",
+    "_postman_id": "simuladosbr-collection",
+    "description": "Coleção com requests para registro/login/verificação e teste de envio de email.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Send test email (debug)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\"\n}"
+        },
+        "url": { "raw": "{{BACKEND_BASE}}/api/debug/send-test-email", "host": ["{{BACKEND_BASE}}"], "path": ["api","debug","send-test-email"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.mailer && json.mailer.token) { pm.environment.set('lastVerifyToken', json.mailer.token); }",
+              "if (json && json.token) { pm.environment.set('lastVerifyToken', json.token); }",
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register user",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Nome\": \"{{userNome}}\",\n  \"Email\": \"{{userEmail}}\",\n  \"NomeUsuario\": \"{{userNomeUsuario}}\",\n  \"SenhaHash\": \"{{senhaHash}}\"\n}"
+        },
+        "url": { "raw": "{{BACKEND_BASE}}/api/users", "host": ["{{BACKEND_BASE}}"], "path": ["api","users"] }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Gera SHA-256 do campo userSenha e guarda em senhaHash (usa CryptoJS presente no Postman)\n",
+              "if (!pm.environment.get('userSenha')) { pm.environment.set('userSenha', 'senha123'); }",
+              "const pwd = pm.environment.get('userSenha');",
+              "if (typeof CryptoJS !== 'undefined') {",
+              "  const h = CryptoJS.SHA256(pwd).toString();",
+              "  pm.environment.set('senhaHash', h);",
+              "} else {",
+              "  console.log('CryptoJS não disponível no runtime; configure senhaHash manualmente.');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": { "exec": [ "const json = pm.response.json(); if (json && json.Id) pm.environment.set('lastCreatedUserId', json.Id); if (json && json.token) pm.environment.set('lastVerifyToken', json.token);" ] }
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"Email\": \"{{userEmail}}\",\n  \"SenhaHash\": \"{{senhaHash}}\"\n}" },
+        "url": { "raw": "{{BACKEND_BASE}}/api/auth/login", "host": ["{{BACKEND_BASE}}"], "path": ["api","auth","login"] }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": { "exec": [ "// garante senhaHash atualizada caso userSenha tenha mudado\nif (typeof CryptoJS !== 'undefined') { const h = CryptoJS.SHA256(pm.environment.get('userSenha')||''); pm.environment.set('senhaHash', h); }" ] }
+        },
+        { "listen": "test", "script": { "exec": [ "pm.test('status is 200 or 403', function () { pm.expect(pm.response.code).to.be.oneOf([200,403]); }); const json = pm.response.json(); if (json && json.token) pm.environment.set('lastVerifyToken', json.token); if (json && json.userId) pm.environment.set('lastCreatedUserId', json.userId);" ] } }
+      ]
+    },
+    {
+      "name": "Verify email",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{lastVerifyToken}}\"\n}" },
+        "url": { "raw": "{{BACKEND_BASE}}/api/auth/verify", "host": ["{{BACKEND_BASE}}"], "path": ["api","auth","verify"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200', function () { pm.response.to.have.status(200); });" ] } } ]
+    }
+  ]
+}

@@ -21,7 +21,7 @@ exports.listExams = async (req, res) => {
 // Body: { count: number, dominios?: [ids], areas?: [ids], grupos?: [ids] }
 exports.selectQuestions = async (req, res) => {
   try {
-  const count = Number((req.body && req.body.count) || 0) || 0;
+  let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
 
     // resolve user via X-Session-Token (same logic as /api/auth/me)
@@ -40,6 +40,10 @@ exports.selectQuestions = async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const bloqueio = Boolean(user.BloqueioAtivado);
+    // Enforce hard cap for blocked users
+    if (bloqueio && count > 25) {
+      count = 25;
+    }
 
   // Optional filters
   const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
@@ -49,12 +53,11 @@ exports.selectQuestions = async (req, res) => {
   // Build WHERE clause
   const whereClauses = [`excluido = false`, `idstatus = 1`];
   if (bloqueio) whereClauses.push(`seed = true`);
-  // OR semantics across tabs; OR within each list
-  const orBlocks = [];
-  if (dominios && dominios.length) orBlocks.push(`iddominio IN (${dominios.join(',')})`);
-  if (areas && areas.length) orBlocks.push(`codareaconhecimento IN (${areas.join(',')})`);
-  if (grupos && grupos.length) orBlocks.push(`codgrupoprocesso IN (${grupos.join(',')})`);
-  if (orBlocks.length) whereClauses.push(`(${orBlocks.join(' OR ')})`);
+  // AND semantics across tabs; OR within each list
+  // i.e., if user chose dominios AND grupos, a question must match both a selected domínio AND a selected grupo
+  if (dominios && dominios.length) whereClauses.push(`iddominio IN (${dominios.join(',')})`);
+  if (areas && areas.length) whereClauses.push(`codareaconhecimento IN (${areas.join(',')})`);
+  if (grupos && grupos.length) whereClauses.push(`codgrupoprocesso IN (${grupos.join(',')})`);
   const whereSql = whereClauses.join(' AND ');
 
     // Count available

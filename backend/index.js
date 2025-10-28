@@ -25,8 +25,8 @@ const path = require('path');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 app.use(express.static(FRONTEND_DIR));
 
-// Rota raiz: serve a página do exame (nova tela principal)
-app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'pages', 'exam.html')));
+// Rota raiz: sirva a home (index.html); o script.js redireciona usuários logados para /pages/examSetup.html
+app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
 
 // Monta rotas de API (colocar antes da rota catch-all)
 app.use('/api/users', require('./routes/users'));

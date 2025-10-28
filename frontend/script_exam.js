@@ -594,7 +594,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
         return;
       }
 
-      const token = localStorage.getItem('sessionToken') || '';
+      let token = localStorage.getItem('sessionToken') || '';
+      if (!token || token.endsWith('#')) {
+        const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
+        if (alt) { try { localStorage.setItem('sessionToken', alt); } catch(e){} token = alt; }
+      }
       // If we have cached questions for this session, use them and skip network fetch
       try {
         if (window.currentSessionId) {
@@ -654,14 +658,60 @@ document.addEventListener('DOMContentLoaded', ()=>{
         body: JSON.stringify(payload)
       });
       if (!resp.ok) {
+        let available = null;
+        try {
+          const t = await resp.text();
+          try { const j = t ? JSON.parse(t) : null; if (j && typeof j.available === 'number') available = j.available; } catch(_){}
+        } catch(_){}
+        // Friendly handling when backend indicates not enough available
+        if (resp.status === 400 && typeof available === 'number') {
+          try {
+            const statusEl = document.getElementById('status');
+            if (statusEl) {
+              statusEl.style.display = '';
+              const suggested = Math.min(available, 25);
+              if (available > 0 && suggested > 0) {
+                const btnId = 'adjustQtyBtn';
+                statusEl.innerHTML = `Não há questões suficientes para sua seleção. Disponíveis: <strong>${suggested}</strong>. ` +
+                  `<button id="${btnId}" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>`;
+                const btn = document.getElementById(btnId);
+                if (btn) btn.onclick = async () => {
+                  try { localStorage.setItem('examQuestionCount', String(suggested)); } catch(e){}
+                  // retry fetching with adjusted quantity
+                  statusEl.textContent = 'Ajustando e carregando questões...';
+                  await prepareAndInit();
+                };
+              } else {
+                // available === 0
+                const backId = 'backToSetupBtn';
+                statusEl.innerHTML = `Nenhuma questão encontrada para os filtros selecionados. ` +
+                  `<button id="${backId}" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Voltar à configuração</button>`;
+                const b = document.getElementById(backId);
+                if (b) b.onclick = () => { try { window.location.href = '/pages/examSetup.html'; } catch(_){} };
+              }
+            }
+          } catch(_){}
+          return; // stop here, do not initialize fallback questions
+        }
         console.warn('Failed to fetch questions', resp.status);
-        // fallback to sample questions so the UI remains usable
+        // fallback to sample questions so the UI remains usable in other error cases
         QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
         initExam();
         return;
       }
       const data = await resp.json();
       console.debug('[exam] fetched data', data && { total: data.total, questions: (data.questions||[]).length });
+      // if count came from default (user didn't inform), persist the effective quantity now
+      try {
+        const fromDefault = localStorage.getItem('examCountFromDefault');
+        if (fromDefault === 'true') {
+          const effective = (data && typeof data.total === 'number') ? data.total : ((data && Array.isArray(data.questions)) ? data.questions.length : null);
+          if (typeof effective === 'number' && effective > 0) {
+            localStorage.setItem('examQuestionCount', String(effective));
+          }
+          localStorage.removeItem('examCountFromDefault');
+        }
+      } catch(e) { /* ignore */ }
       if (data && Array.isArray(data.questions) && data.questions.length) {
         // persist / migrate session id: if server returned a real session id, migrate answers from temp
         try {

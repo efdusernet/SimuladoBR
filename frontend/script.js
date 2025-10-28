@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pills && pills.length) {
                     // If BloqueioAtivado is true, premium options must be disabled (blocking active).
                         const bloqueioActive = localStorage.getItem('BloqueioAtivado') === 'true';
-                        const premiumValues = ['100','150','200'];
+                        const premiumValues = ['100','150','180'];
 
                         pills.forEach(p => {
                             // disable premium options when bloqueio is active
@@ -192,6 +192,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return; // stop further initialization on index
         }
     } catch (e) { console.warn('redirect check failed', e); }
+
+    // Normalize: if token looks like a guest (ends with '#') but we have a real identity stored, switch to it
+    try {
+        if (sessionToken && sessionToken.endsWith('#') && (hasUserId || hasNomeUsuario || hasNome)) {
+            const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
+            if (alt) { sessionToken = alt; localStorage.setItem('sessionToken', alt); }
+        }
+    } catch(e) { /* ignore */ }
 
     if (!sessionToken) {
         // create guest token only if we don't already have registration info
@@ -392,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyBloqueioToModal() {
         try {
             const blocked = localStorage.getItem('BloqueioAtivado') === 'true';
-            const premiumValues = ['100','150','200'];
+            const premiumValues = ['100','150','180'];
             const pills = document.querySelectorAll('#questionCountPills .option-pill');
             if (pills && pills.length) {
                 pills.forEach(p => {
@@ -435,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (now === 'true') {
                             try { showTemporaryNotification('Opções premium bloqueadas.'); } catch(e){}
                         } else {
-                            try { showTemporaryNotification('Opções 100/150/200 liberadas.'); } catch(e){}
+                            try { showTemporaryNotification('Opções 100/150/180 liberadas.'); } catch(e){}
                         }
                     }
             })();
@@ -450,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (now === 'true') {
                         showTemporaryNotification('Opções premium bloqueadas.');
                     } else {
-                        showTemporaryNotification('Opções 100/150/200 liberadas.');
+                        showTemporaryNotification('Opções 100/150/180 liberadas.');
                     }
                 }
             }, intervalMs);
@@ -586,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const path = window.location.pathname || '';
                     const onSetupPage = path.includes('/pages/examSetup.html') || path.endsWith('/examSetup.html');
-                    if (!onSetupPage) window.location.href = './pages/examSetup.html';
+                    if (!onSetupPage) window.location.href = '/pages/examSetup.html';
                 } catch (e) { console.warn('Erro redirect login:', e); }
             }
             else if (mode === 'verify') {
@@ -647,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const path = window.location.pathname || '';
                         const onSetupPage = path.includes('/pages/examSetup.html') || path.endsWith('/examSetup.html');
-                        if (!onSetupPage) window.location.href = './pages/examSetup.html';
+                        if (!onSetupPage) window.location.href = '/pages/examSetup.html';
                     } catch (e) { console.warn('Erro redirect login:', e); }
                 } else {
                     // switch to login mode so user can enter password

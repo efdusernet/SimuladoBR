@@ -145,6 +145,7 @@
       <h3>Resumo da Personalização</h3>
       <p>Quantidade de questões: <span id="resumo-qtd">-</span></p>
       <p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
+      <p id="errorMsg" style="display:none;margin-top:8px;color:#a23a2a;background:#fff4f2;border:1px solid #ffd2cc;padding:8px 10px;border-radius:8px;"></p>
       <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
         <button id="startExamBtn" style="background:#007bff;color:#fff;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;">Iniciar simulado</button>
         <span id="startError" style="color:crimson; display:none;"></span>
@@ -155,6 +156,28 @@
   <script>
     // Resolve backend base if window.SIMULADOS_CONFIG is present (optional)
     const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+    // Normalize session token: if guest ('#') but we have nomeUsuario/nome, fix it here (setup page doesn't load script.js)
+    function getSessionToken(){
+      try {
+        let t = localStorage.getItem('sessionToken') || '';
+        if (!t || t.endsWith('#')) {
+          const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
+          if (alt) { localStorage.setItem('sessionToken', alt); return alt; }
+        }
+        return t;
+      } catch(e){ return localStorage.getItem('sessionToken') || ''; }
+    }
+    // Ensure session variables exist; otherwise redirect to registration entrypoint (backend root)
+    (function ensureSession(){
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+        const isGuest = token && token.endsWith('#');
+        if ((!token && !hasIdentity) || (isGuest && !hasIdentity)) {
+          window.location.replace('http://localhost:3000');
+        }
+      } catch(e) { /* ignore */ }
+    })();
 
     const quantidadeInput = document.getElementById('quantidade');
     const resumoQtd = document.getElementById('resumo-qtd');
@@ -164,12 +187,12 @@
     const startBtn = document.getElementById('startExamBtn');
     const startError = document.getElementById('startError');
 
-    // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 40), else premium (200)
+    // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 25), else premium (180)
     const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
-    const limiteQuestoes = bloqueado ? 40 : 200;
+    const limiteQuestoes = bloqueado ? 25 : 180;
     document.getElementById('limite-texto').textContent = bloqueado
-      ? 'Usuário gratuito: limite de 40 questões.'
-      : 'Usuário pagante: limite de 200 questões.';
+      ? 'Usuário gratuito: limite de 25 questões.'
+      : 'Usuário pagante: limite de 180 questões.';
     document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
     quantidadeInput.setAttribute('max', String(limiteQuestoes));
     quantidadeInput.setAttribute('min', '1');
@@ -258,21 +281,96 @@
       atualizarResumo();
     });
 
-    // Start button: validate, persist, and redirect
-    startBtn.addEventListener('click', () => {
+    function updateResumo(){ try { atualizarResumo(); } catch(e){} }
+
+    function validateForm(){
       startError.style.display = 'none';
-      const val = Number(quantidadeInput.value);
-      if (!val || Number.isNaN(val) || val < 1) {
-        startError.textContent = 'Informe a quantidade de questões.';
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length) > 0;
+      const raw = quantidadeInput.value;
+      const val = Number(raw);
+      // Permitir iniciar com apenas filtros se houver focos selecionados
+      if (!raw || Number.isNaN(val) || val < 1) {
+        if (hasFocos) return true; // permitido sem quantidade
+        startError.textContent = 'Informe a quantidade de questões ou selecione pelo menos um foco.';
         startError.style.display = 'inline';
-        return;
+        return false;
       }
       if (val > limiteQuestoes) {
         startError.textContent = `Quantidade acima do limite (${limiteQuestoes}).`;
         startError.style.display = 'inline';
+        return false;
+      }
+      return true;
+    }
+
+    async function checkAvailability(count) {
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const url = base + '/api/exams/select';
+  const token = getSessionToken();
+      const payload = { count: Number(count) || 0, onlyCount: true };
+      if (selecionados.areas.length) payload.areas = selecionados.areas;
+      if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
+      if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
+      try {
+        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+        const txt = await resp.text();
+        let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
+        if (data && typeof data.available === 'number') return data.available;
+        return null;
+      } catch (e) { return null; }
+    }
+
+    function resolveEffectiveCount(){
+      const raw = quantidadeInput.value;
+      const val = Number(raw);
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length) > 0;
+      if (raw && !Number.isNaN(val) && val >= 1) {
+        return Math.max(1, Math.min(limiteQuestoes, val));
+      }
+      if (hasFocos) {
+        // quando usuário não informou quantidade, usar padrão por perfil: 25 (bloqueado) ou 180 (premium)
+        return bloqueado ? 25 : 180;
+      }
+      return null; // sem quantidade e sem focos -> inválido
+    }
+
+    // Start button: validate, preflight, persist, and redirect
+    startBtn.addEventListener('click', async () => {
+      startError.style.display = 'none';
+      const errorBox = document.getElementById('errorMsg');
+      if (errorBox) errorBox.style.display = 'none';
+      if (!validateForm()) return;
+
+      const effCount = resolveEffectiveCount();
+      if (!effCount) return; // safety
+
+      // Preflight: ask backend how many are available for current filters
+      const available = await checkAvailability(effCount);
+      if (typeof available === 'number' && available < effCount) {
+        // Show friendly message and offer an Adjust button
+        const btnId = 'ajustarQtdBtn';
+        if (errorBox) {
+          const suggested = Math.min(available, 25);
+          errorBox.innerHTML = `Só existem <strong>${suggested}</strong> questões com o filtro aplicado — ajuste a quantidade de questões ou remova filtros. ` +
+            (suggested > 0 ? `<button id="${btnId}" type="button" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>` : '');
+          errorBox.style.display = '';
+          const btn = document.getElementById(btnId);
+          if (btn) btn.onclick = () => {
+            quantidadeInput.value = String(suggested);
+            updateResumo();
+            validateForm();
+            errorBox.style.display = 'none';
+          };
+        }
         return;
       }
-      try { localStorage.setItem('examQuestionCount', String(val)); } catch(e) {}
+      // Persistência: se usuário não informou quantidade, salvar o count efetivo depois na exam.html
+      // Entretanto, para a exam.html requisitar corretamente, salvamos agora o valor que será enviado
+      const userProvided = !!quantidadeInput.value;
+      try {
+        localStorage.setItem('examQuestionCount', String(effCount));
+        localStorage.setItem('examCountFromDefault', userProvided ? 'false' : 'true');
+      } catch(e) {}
       salvarSelecoes();
       try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
       // redirect to exam page (same folder)
@@ -280,7 +378,7 @@
     });
 
     async function fetchJson(url){
-      const resp = await fetch(url, { headers: { 'X-Session-Token': (localStorage.getItem('sessionToken') || '') } });
+      const resp = await fetch(url, { headers: { 'X-Session-Token': getSessionToken() } });
       if (!resp.ok) throw new Error(`GET ${url} -> ${resp.status}`);
       return await resp.json();
     }
@@ -302,10 +400,12 @@
         meta.grupos = meta.grupos || [];
         meta.areas = meta.areas || [];
       }
-      // set default quantity: use existing localStorage selection or 40/200 default
+      // restore quantity only if user saved previously; não definir valor automaticamente
       try {
         const saved = localStorage.getItem('examQuestionCount');
-        if (saved) quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));
+        if (saved) {
+          quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));
+        }
       } catch(e) {}
       // activate tab per saved state
       tabs.forEach(t => t.classList.remove('active'));

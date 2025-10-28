@@ -1,288 +1,66 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Personalização de Simulado</title>
-	<style>
-		body {
-			font-family: "Segoe UI", sans-serif;
-			background: #f7f9fc;
-			margin: 0;
-			padding: 0;
-		}
+<!-- examSetup.html - modal fragment for exam setup (select number of questions) -->
+<div id="examSetupModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="examSetupTitle" style="display:none;">
+  <div class="modal-content" role="document" style="max-width:520px;">
+    <h2 id="examSetupTitle">Configurar simulado</h2>
+    <p>Selecione a quantidade de questões abaixo:</p>
 
-		.container {
-			max-width: 800px;
-			margin: 40px auto;
-			background: #fff;
-			border-radius: 10px;
-			box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-			padding: 30px;
-		}
+    <fieldset id="questionCountField" style="border:none; padding:0; margin:8px 0;">
+      <legend class="sr-only">Quantidade de questões</legend>
+      <div id="questionCountPills" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+        <!-- styled pill buttons - single select -->
+        <button type="button" class="option-pill" data-value="10">10</button>
+        <button type="button" class="option-pill" data-value="20">20</button>
+        <button type="button" class="option-pill" data-value="30">30</button>
+        <button type="button" class="option-pill" data-value="40">40</button>
+        <button type="button" class="option-pill" data-value="50">50</button>
+        <button type="button" class="option-pill" data-value="100">100</button>
+        <button type="button" class="option-pill" data-value="150">150</button>
+        <button type="button" class="option-pill" data-value="200">200</button>
+      </div>
+      <!-- fallback select (hidden by default) -->
+      <select id="questionCountSelect" name="questionCount" aria-hidden="true" style="display:none;margin-top:8px;">
+        <option value="">Selecione...</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="150">150</option>
+        <option value="200">200</option>
+      </select>
+      <style>
+        /* simple pill styling inline to avoid touching global CSS */
+        #questionCountPills .option-pill {
+          background: #f4f4f4;
+          border: 1px solid #ddd;
+          padding: 8px 12px;
+          border-radius: 999px;
+          cursor: pointer;
+          font-weight:600;
+          color:#222;
+          min-width:48px;
+          text-align:center;
+        }
+        #questionCountPills .option-pill.selected {
+          background: #2b6cb0;
+          color: #fff;
+          border-color: #2b6cb0;
+        }
+        #questionCountPills .option-pill:focus { outline: 2px solid #90cdf4; }
+        #questionCountPills .option-pill.disabled {
+          background:#f0f0f0;
+          color:#9aa0a6;
+          border-color:#e0e0e0;
+          cursor: not-allowed;
+          opacity: 0.6;
+          pointer-events: none;
+        }
+      </style>
+    </fieldset>
 
-		header h1 {
-			font-size: 1.6rem;
-			margin-bottom: 10px;
-			color: #222;
-		}
-
-		header p {
-			color: #666;
-			font-size: 0.9rem;
-			margin-bottom: 15px;
-		}
-
-		.input-group {
-			display: flex;
-			align-items: center;
-			gap: 10px;
-			margin-bottom: 20px;
-		}
-
-		.input-group input {
-			width: 80px;
-			padding: 6px 8px;
-			border: 1px solid #ccc;
-			border-radius: 5px;
-			font-size: 1rem;
-		}
-
-		/* Tabs */
-		.tabs {
-			display: flex;
-			border-bottom: 2px solid #e0e0e0;
-			margin-bottom: 15px;
-		}
-
-		.tab {
-			padding: 10px 20px;
-			cursor: pointer;
-			border-bottom: 3px solid transparent;
-			color: #555;
-			transition: 0.3s;
-		}
-
-		.tab.active {
-			color: #007bff;
-			border-color: #007bff;
-			font-weight: bold;
-		}
-
-		/* Checklist */
-		.checklist {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-			gap: 10px;
-			margin-bottom: 25px;
-		}
-
-		.check-btn {
-			padding: 10px;
-			border: 1px solid #ccc;
-			border-radius: 8px;
-			background: #fff;
-			text-align: left;
-			cursor: pointer;
-			transition: all 0.2s;
-		}
-
-		.check-btn:hover {
-			background: #f0f8ff;
-		}
-
-		.check-btn.active {
-			background: #007bff;
-			color: #fff;
-			border-color: #007bff;
-		}
-
-		/* Resumo */
-		.resumo {
-			border-top: 1px solid #eee;
-			padding-top: 15px;
-		}
-
-		.resumo h3 {
-			margin-bottom: 8px;
-			font-size: 1.1rem;
-			color: #333;
-		}
-
-		.resumo p {
-			font-size: 0.9rem;
-			color: #555;
-		}
-	</style>
-</head>
-<body>
-
-	<div class="container">
-		<!-- HEADER -->
-		<header>
-			<h1>Como você deseja estruturar seu simulado?</h1>
-			<p id="limite-texto"></p>
-
-			<div class="input-group">
-				<label for="quantidade">Quantidade de questões:</label>
-				<input type="number" id="quantidade" min="1" />
-				<span id="limite-info"></span>
-			</div>
-		</header>
-
-		<!-- TABS -->
-		<div class="tabs">
-			<div class="tab active" data-aba="dominios">Domínios</div>
-			<div class="tab" data-aba="grupos">Grupo de Processos</div>
-			<div class="tab" data-aba="areas">Área de Conhecimento</div>
-		</div>
-
-		<!-- CHECKLIST -->
-		<div id="checklist" class="checklist"></div>
-
-		<!-- RESUMO -->
-		<div class="resumo">
-			<h3>Resumo da Personalização</h3>
-			<p>Quantidade de questões: <span id="resumo-qtd">-</span></p>
-			<p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
-			<div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
-				<button id="startExam" style="background:#2b6cb0;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;">Iniciar simulado</button>
-				<small id="erroMsg" style="color:crimson; display:none;">Informe uma quantidade válida (dentro do limite).</small>
-			</div>
-		</div>
-	</div>
-
-	<script>
-		// Determina limite conforme estado de bloqueio (BloqueioAtivado === 'true' => bloqueado => 40)
-		const bloqueio = (function(){ try { return localStorage.getItem('BloqueioAtivado'); } catch(e){ return null; } })();
-		const usuarioPagante = (bloqueio === 'false'); // quando não está bloqueado
-		const limiteQuestoes = usuarioPagante ? 200 : 40;
-
-		document.getElementById("limite-texto").textContent = usuarioPagante
-			? "Usuário pagante: limite de 200 questões."
-			: "Usuário gratuito: limite de 40 questões.";
-		document.getElementById("limite-info").textContent = `(máx. ${limiteQuestoes})`;
-
-		const quantidadeInput = document.getElementById("quantidade");
-		const resumoQtd = document.getElementById("resumo-qtd");
-		const resumoFocos = document.getElementById("resumo-focos");
-		const erroMsg = document.getElementById("erroMsg");
-
-		// defina max dinamicamente
-		try { quantidadeInput.setAttribute('max', String(limiteQuestoes)); } catch(e){}
-		// valor inicial sugerido (máximo permitido)
-		try { quantidadeInput.value = String(limiteQuestoes); } catch(e){}
-
-		const dominios = [
-			"Partes Interessadas",
-			"Equipe",
-			"Abordagem de Desenvolvimento e Ciclo de Vida",
-			"Planejamento",
-			"Trabalho do Projeto",
-			"Entrega",
-			"Medição",
-			"Incertezas"
-		];
-
-		const gruposProcessos = [
-			"Iniciação",
-			"Planejamento",
-			"Execução",
-			"Monitoramento e Controle",
-			"Encerramento"
-		];
-
-		const areasConhecimento = [
-			"Integração",
-			"Escopo",
-			"Cronograma",
-			"Custos",
-			"Qualidade",
-			"Recursos",
-			"Comunicações",
-			"Riscos",
-			"Aquisições",
-			"Partes Interessadas"
-		];
-
-		const checklistDiv = document.getElementById("checklist");
-		const tabs = document.querySelectorAll(".tab");
-		let abaAtual = "dominios";
-		let selecionados = [];
-
-		function renderChecklist(lista) {
-			checklistDiv.innerHTML = "";
-			lista.forEach(item => {
-				const btn = document.createElement("button");
-				btn.textContent = item;
-				btn.classList.add("check-btn");
-				if (selecionados.includes(item)) btn.classList.add("active");
-
-				btn.addEventListener("click", () => {
-					if (selecionados.includes(item)) {
-						selecionados = selecionados.filter(i => i !== item);
-						btn.classList.remove("active");
-					} else {
-						selecionados.push(item);
-						btn.classList.add("active");
-					}
-					atualizarResumo();
-				});
-
-				checklistDiv.appendChild(btn);
-			});
-		}
-
-		function atualizarResumo() {
-			resumoQtd.textContent = quantidadeInput.value || "-";
-			resumoFocos.textContent =
-				selecionados.length > 0 ? selecionados.join(", ") : "Nenhum selecionado";
-		}
-
-		// Tabs click
-		tabs.forEach(tab => {
-			tab.addEventListener("click", () => {
-				tabs.forEach(t => t.classList.remove("active"));
-				tab.classList.add("active");
-				abaAtual = tab.dataset.aba;
-
-				if (abaAtual === "dominios") renderChecklist(dominios);
-				if (abaAtual === "grupos") renderChecklist(gruposProcessos);
-				if (abaAtual === "areas") renderChecklist(areasConhecimento);
-			});
-		});
-
-		// Atualizar resumo da quantidade
-		quantidadeInput.addEventListener("input", e => {
-			let valor = parseInt(e.target.value, 10);
-			if (isNaN(valor)) { valor = 1; }
-			if (valor < 1) valor = 1;
-			if (valor > limiteQuestoes) valor = limiteQuestoes;
-			e.target.value = String(valor);
-			erroMsg.style.display = 'none';
-			atualizarResumo();
-		});
-
-		// Inicialização
-		renderChecklist(dominios);
-		atualizarResumo();
-
-		// Iniciar exame: valida, persiste escolhas e redireciona
-		document.getElementById('startExam').addEventListener('click', () => {
-			const qtd = parseInt(quantidadeInput.value, 10);
-			if (!qtd || qtd < 1 || qtd > limiteQuestoes) {
-				erroMsg.style.display = '';
-				return;
-			}
-			try { localStorage.setItem('examQuestionCount', String(qtd)); } catch(e){}
-			// guardar focos para possíveis futuros filtros (não usados pelo backend atual)
-			try { localStorage.setItem('examFocuses', JSON.stringify({ tipo: abaAtual, itens: selecionados })); } catch(e){}
-			// sinalizar ao exam.html para iniciar o cronômetro
-			try { sessionStorage.setItem('startExam', 'true'); } catch(e){}
-			// redirecionar para a página do exame
-			const target = './exam.html';
-			window.location.href = target;
-		});
-	</script>
-</body>
-</html>
+    <div class="modal-actions" style="margin-top:18px; display:flex; gap:8px; justify-content:flex-end;">
+      <button id="startExamBtn" class="primary-btn">Iniciar Exame</button>
+    </div>
+  </div>
+</div>

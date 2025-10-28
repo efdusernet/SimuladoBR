@@ -34,8 +34,6 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
 // Exams (select questions)
 app.use('/api/exams', require('./routes/exams'));
-// Meta endpoints for exam setup (areas, grupos, dominios)
-app.use('/api/meta', require('./routes/meta'));
 // Mount debug routes (development only)
 app.use('/api/debug', require('./routes/debug'));
 

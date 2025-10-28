@@ -1,49 +1,32 @@
-############################
-# OS / Editor
-############################
+###############################
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+**/.env
+
+# Editors/IDE
+.vscode/
+.vs/
+
+# OS junk
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
-.history/
+desktop.ini
 
-############################
-# Node / JS
-############################
-node_modules/
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
 
-############################
-# Builds / Caches
-############################
+# Build artifacts
 dist/
 build/
-out/
 coverage/
+
+# Misc caches
 .cache/
-.parcel-cache/
-.turbo/
-.next/
-
-############################
-# Env / Secrets
-############################
-.env
-.env.*
-!.env.example
-
-############################
-# Misc
-############################
-logs/
-*.log
-tmp/
-temp/
-*.local
-
+**/.cache/

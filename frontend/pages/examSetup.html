@@ -131,26 +131,20 @@
     </header>
 
     <!-- TABS -->
-    <div class="tabs" role="tablist" aria-label="Filtros do simulado">
-      <button class="tab active" role="tab" aria-selected="true" tabindex="0" data-aba="dominios" id="tab-dominios">Domínios <span class="badge" id="badge-dominios" aria-hidden="true"></span></button>
-      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-aba="grupos" id="tab-grupos">Grupo de Processos <span class="badge" id="badge-grupos" aria-hidden="true"></span></button>
-      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-aba="areas" id="tab-areas">Área de Conhecimento <span class="badge" id="badge-areas" aria-hidden="true"></span></button>
+    <div class="tabs">
+      <div class="tab active" data-aba="dominios">Domínios</div>
+      <div class="tab" data-aba="grupos">Grupo de Processos</div>
+      <div class="tab" data-aba="areas">Área de Conhecimento</div>
     </div>
 
-    <!-- CHECKLIST -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="color:#666;font-size:0.9rem">Selecione os itens da aba ativa</div>
-      <button id="clearTabBtn" type="button" style="background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:6px 10px;cursor:pointer">Limpar</button>
-    </div>
-    <div id="checklist" class="checklist" role="region" aria-live="polite" aria-label="Itens selecionáveis"></div>
+  <!-- CHECKLIST -->
+  <div id="checklist" class="checklist"></div>
 
     <!-- RESUMO -->
     <div class="resumo">
-  <h3>Resumo da Personalização</h3>
-  <p>Quantidade de questões: <span id="resumo-qtd">-</span></p>
-  <p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
-  <p id="resumo-detalhes" style="margin-top:4px;color:#444"></p>
-  <div id="availabilityWarning" style="display:none;margin-top:8px;padding:10px;border:1px solid #ffd2cc;background:#fff4f2;border-radius:8px;color:#a23a2a"></div>
+      <h3>Resumo da Personalização</h3>
+      <p>Quantidade de questões: <span id="resumo-qtd">-</span></p>
+      <p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
       <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
         <button id="startExamBtn" style="background:#007bff;color:#fff;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;">Iniciar simulado</button>
         <span id="startError" style="color:crimson; display:none;"></span>
@@ -160,32 +154,29 @@
 
   <script>
     // Resolve backend base if window.SIMULADOS_CONFIG is present (optional)
-  const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+    const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
 
     const quantidadeInput = document.getElementById('quantidade');
     const resumoQtd = document.getElementById('resumo-qtd');
     const resumoFocos = document.getElementById('resumo-focos');
     const checklistDiv = document.getElementById('checklist');
     const tabs = document.querySelectorAll('.tab');
-  const startBtn = document.getElementById('startExamBtn');
+    const startBtn = document.getElementById('startExamBtn');
     const startError = document.getElementById('startError');
 
     // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 40), else premium (200)
     const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
-    const limiteQuestoes = bloqueado ? 25 : 180;
+    const limiteQuestoes = bloqueado ? 40 : 200;
     document.getElementById('limite-texto').textContent = bloqueado
-      ? 'Usuário gratuito: limite de 25 questões.'
-      : 'Usuário pagante: limite de 180 questões.';
+      ? 'Usuário gratuito: limite de 40 questões.'
+      : 'Usuário pagante: limite de 200 questões.';
     document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
     quantidadeInput.setAttribute('max', String(limiteQuestoes));
     quantidadeInput.setAttribute('min', '1');
-    if (bloqueado) {
-      quantidadeInput.title = 'Limite de 25 questões para usuários gratuitos.';
-    }
 
     // State for meta lists and selections
     let abaAtual = 'dominios';
-  let meta = { dominios: [], grupos: [], areas: [] };
+    let meta = { dominios: [], grupos: [], areas: [] };
     let selecionados = { dominios: [], grupos: [], areas: [] }; // arrays of ids
 
     // Try to rehydrate saved filters
@@ -206,59 +197,36 @@
       checklistDiv.innerHTML = '';
       const sel = selecionados[abaAtual] || [];
       items.forEach(item => {
-        const idVal = Number(item.id);
-        const text = item.descricao || item.label || String(item.id);
-        const wrap = document.createElement('div');
-        wrap.classList.add('check-btn');
-        wrap.style.display = 'flex';
-        wrap.style.alignItems = 'center';
-        wrap.style.gap = '8px';
-
-        const input = document.createElement('input');
-        const inputId = `chk-${abaAtual}-${idVal}`;
-        input.type = 'checkbox';
-        input.id = inputId;
-        input.value = String(idVal);
-        input.checked = sel.includes(idVal);
-        input.addEventListener('change', () => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = item.descricao || item.label || String(item.id);
+        btn.classList.add('check-btn');
+        btn.setAttribute('data-id', String(item.id));
+        if (sel.includes(Number(item.id))) btn.classList.add('active');
+        btn.addEventListener('click', () => {
+          const id = Number(btn.getAttribute('data-id'));
           const arr = selecionados[abaAtual];
-          const v = Number(input.value);
-          const idx = arr.indexOf(v);
-          if (input.checked && idx === -1) arr.push(v);
-          if (!input.checked && idx >= 0) arr.splice(idx, 1);
+          const idx = arr.indexOf(id);
+          if (idx >= 0) { arr.splice(idx, 1); btn.classList.remove('active'); }
+          else { arr.push(id); btn.classList.add('active'); }
           atualizarResumo();
           salvarSelecoes();
-          updateBadges();
         });
-
-        const label = document.createElement('label');
-        label.setAttribute('for', inputId);
-        label.textContent = text;
-
-        wrap.appendChild(input);
-        wrap.appendChild(label);
-        checklistDiv.appendChild(wrap);
+        checklistDiv.appendChild(btn);
       });
-      updateBadges();
     }
 
     function atualizarResumo() {
       resumoQtd.textContent = quantidadeInput.value || '-';
-      const nomesDom = idsToNames(meta.dominios, selecionados.dominios);
-      const nomesGrp = idsToNames(meta.grupos, selecionados.grupos);
-      const nomesArs = idsToNames(meta.areas, selecionados.areas);
-      const nomes = [...nomesDom, ...nomesGrp, ...nomesArs];
+      const nomes = [];
+      const pushFrom = (list, ids) => {
+        const map = new Map(list.map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
+        ids.forEach(id => { if (map.has(Number(id))) nomes.push(map.get(Number(id))); });
+      };
+      pushFrom(meta.dominios, selecionados.dominios);
+      pushFrom(meta.grupos, selecionados.grupos);
+      pushFrom(meta.areas, selecionados.areas);
       resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
-      const detalhes = [];
-      if (nomesDom.length) detalhes.push(`Domínios: ${nomesDom.join(', ')}`);
-      if (nomesGrp.length) detalhes.push(`Grupos: ${nomesGrp.join(', ')}`);
-      if (nomesArs.length) detalhes.push(`Áreas: ${nomesArs.join(', ')}`);
-      document.getElementById('resumo-detalhes').textContent = detalhes.length ? `${quantidadeInput.value || '-'} questões — Filtros: ${detalhes.join(' | ')}` : `${quantidadeInput.value || '-'} questões`;
-    }
-
-    function idsToNames(list, ids) {
-      const map = new Map(list.map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
-      return (ids || []).map(Number).filter(v => map.has(v)).map(v => map.get(v));
     }
 
     function salvarSelecoes() {
@@ -269,25 +237,15 @@
     }
 
     // Tab switching
-    function activateTab(tabEl) {
-      tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); t.setAttribute('tabindex','-1'); });
-      tabEl.classList.add('active');
-      tabEl.setAttribute('aria-selected','true');
-      tabEl.setAttribute('tabindex','0');
-      tabEl.focus();
-      abaAtual = tabEl.dataset.aba;
-      salvarSelecoes();
-      if (abaAtual === 'dominios') renderChecklist(meta.dominios);
-      if (abaAtual === 'grupos') renderChecklist(meta.grupos);
-      if (abaAtual === 'areas') renderChecklist(meta.areas);
-    }
     tabs.forEach(tab => {
-      tab.addEventListener('click', () => activateTab(tab));
-      tab.addEventListener('keydown', (e) => {
-        const idx = Array.from(tabs).indexOf(tab);
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateTab(tab); }
-        if (e.key === 'ArrowRight') { e.preventDefault(); const next = tabs[(idx+1)%tabs.length]; activateTab(next); }
-        if (e.key === 'ArrowLeft') { e.preventDefault(); const prev = tabs[(idx-1+tabs.length)%tabs.length]; activateTab(prev); }
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        abaAtual = tab.dataset.aba;
+        salvarSelecoes();
+        if (abaAtual === 'dominios') renderChecklist(meta.dominios);
+        if (abaAtual === 'grupos') renderChecklist(meta.grupos);
+        if (abaAtual === 'areas') renderChecklist(meta.areas);
       });
     });
 
@@ -300,73 +258,8 @@
       atualizarResumo();
     });
 
-    // Clear current tab selections
-    document.getElementById('clearTabBtn').addEventListener('click', () => {
-      selecionados[abaAtual] = [];
-      salvarSelecoes();
-      if (abaAtual === 'dominios') renderChecklist(meta.dominios);
-      if (abaAtual === 'grupos') renderChecklist(meta.grupos);
-      if (abaAtual === 'areas') renderChecklist(meta.areas);
-      atualizarResumo();
-    });
-
     // Start button: validate, persist, and redirect
-    async function checkAvailability(count) {
-      const base = (BACKEND_BASE || '').replace(/\/$/, '');
-      const url = base + '/api/exams/select';
-      const token = localStorage.getItem('sessionToken') || '';
-      const payload = { count: Number(count) || 0, onlyCount: true };
-      if (selecionados.areas.length) payload.areas = selecionados.areas;
-      if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
-      if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
-      try {
-        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
-        const txt = await resp.text();
-        let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
-        if (resp.ok && data && typeof data.available === 'number') return { ok: true, available: data.available };
-        if (!resp.ok && data && typeof data.available === 'number') return { ok: false, available: data.available };
-        return { ok: resp.ok, available: null };
-      } catch (e) { return { ok: false, available: null }; }
-    }
-
-    function showAvailabilityWarning(available) {
-      const box = document.getElementById('availabilityWarning');
-      box.style.display = '';
-      const decId = 'decAvailBtn';
-      const clrId = 'clrFiltersBtn';
-      box.innerHTML = `Não há questões suficientes para sua seleção. Disponíveis: <strong>${available}</strong>.<br/>`+
-        `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">`+
-        `<button id="${decId}" type="button" style="background:#ffe3de;color:#a23a2a;border:1px solid #ffb5a7;border-radius:6px;padding:6px 10px;cursor:pointer">Diminuir para ${available}</button>`+
-        `<button id="${clrId}" type="button" style="background:#f0f4ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:6px 10px;cursor:pointer">Limpar filtros</button>`+
-        `</div>`;
-      document.getElementById(decId).onclick = () => {
-        quantidadeInput.value = String(available);
-        atualizarResumo();
-        box.style.display = 'none';
-      };
-      document.getElementById(clrId).onclick = () => {
-        selecionados.dominios = [];
-        selecionados.grupos = [];
-        selecionados.areas = [];
-        salvarSelecoes();
-        renderChecklist(meta[abaAtual]);
-        updateBadges();
-        atualizarResumo();
-        box.style.display = 'none';
-      };
-    }
-
-    function updateBadges() {
-      const bDom = document.getElementById('badge-dominios');
-      const bGrp = document.getElementById('badge-grupos');
-      const bArs = document.getElementById('badge-areas');
-      const setBadge = (el, n) => { if (!el) return; el.textContent = n ? `(${n})` : ''; };
-      setBadge(bDom, selecionados.dominios.length);
-      setBadge(bGrp, selecionados.grupos.length);
-      setBadge(bArs, selecionados.areas.length);
-    }
-
-    startBtn.addEventListener('click', async () => {
+    startBtn.addEventListener('click', () => {
       startError.style.display = 'none';
       const val = Number(quantidadeInput.value);
       if (!val || Number.isNaN(val) || val < 1) {
@@ -377,12 +270,6 @@
       if (val > limiteQuestoes) {
         startError.textContent = `Quantidade acima do limite (${limiteQuestoes}).`;
         startError.style.display = 'inline';
-        return;
-      }
-      // Preflight availability check
-      const avail = await checkAvailability(val);
-      if (avail && typeof avail.available === 'number' && avail.available < val) {
-        showAvailabilityWarning(avail.available);
         return;
       }
       try { localStorage.setItem('examQuestionCount', String(val)); } catch(e) {}
@@ -415,7 +302,7 @@
         meta.grupos = meta.grupos || [];
         meta.areas = meta.areas || [];
       }
-      // set default quantity: use existing localStorage selection or default caps (25/180)
+      // set default quantity: use existing localStorage selection or 40/200 default
       try {
         const saved = localStorage.getItem('examQuestionCount');
         if (saved) quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));

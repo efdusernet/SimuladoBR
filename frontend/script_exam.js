@@ -666,22 +666,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
         // Friendly handling when backend indicates not enough available
         if (resp.status === 400 && typeof available === 'number') {
           try {
+            const blocked = (localStorage.getItem('BloqueioAtivado') === 'true');
+            if (!blocked && available > 0) {
+              // Premium: autoajustar silenciosamente e tentar de novo
+              try { localStorage.setItem('examQuestionCount', String(available)); } catch(e){}
+              const statusEl = document.getElementById('status');
+              if (statusEl) { statusEl.style.display = ''; statusEl.textContent = 'Ajustando quantidade e carregando questões...'; }
+              await prepareAndInit();
+              return;
+            }
+
             const statusEl = document.getElementById('status');
             if (statusEl) {
               statusEl.style.display = '';
-              const blocked = (localStorage.getItem('BloqueioAtivado') === 'true');
-              const suggested = blocked ? Math.min(available, 25) : available;
+              const suggested = Math.min(available, 25);
               if (available > 0 && suggested > 0) {
                 const btnId = 'adjustQtyBtn';
-                const msg = blocked
-                  ? `Não há questões suficientes para sua seleção. Disponíveis: <strong>${available}</strong>. Você pode iniciar com <strong>${suggested}</strong>. `
-                  : `Não há questões suficientes para sua seleção. Disponíveis: <strong>${available}</strong>. `;
-                statusEl.innerHTML = msg +
+                statusEl.innerHTML = `Não há questões suficientes para sua seleção. Disponíveis: <strong>${available}</strong>. Você pode iniciar com <strong>${suggested}</strong>. ` +
                   `<button id="${btnId}" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>`;
                 const btn = document.getElementById(btnId);
                 if (btn) btn.onclick = async () => {
                   try { localStorage.setItem('examQuestionCount', String(suggested)); } catch(e){}
-                  // retry fetching with adjusted quantity
                   statusEl.textContent = 'Ajustando e carregando questões...';
                   await prepareAndInit();
                 };

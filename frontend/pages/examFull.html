@@ -1,43 +1,233 @@
 <!doctype html>
-<html lang="pt-BR" data-full-exam="1">
+<html lang="pt-BR">
 <head>
-	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<title>SimuladosBR — Exame Completo</title>
-	<link rel="stylesheet" href="../styles.css" />
-	<style>
-		body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f7f7f8; color: #111; }
-		header { background: #0b5ed7; color: #fff; padding: 12px 16px; display:flex; align-items:center; justify-content:space-between; }
-		main { max-width: 960px; margin: 16px auto; padding: 0 16px 24px; }
-		.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); padding: 16px; }
-		.muted { color: #6b7280; }
-		.actions { display:flex; gap: 10px; justify-content:flex-end; margin-top: 12px; }
-		.primary { background: #0b5ed7; color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
-		.secondary { background: #fff; color: #111; border: 1px solid #cbd5e1; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
-		#timeDisplay { font-variant-numeric: tabular-nums; background:#0a4db4; padding:4px 8px; border-radius:8px; }
-	</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simulado — Exame Completo</title>
+  <link rel="stylesheet" href="../styles.css" />
+  <meta name="description" content="Exame completo com 180 questões" />
 </head>
 <body>
-	<header>
-		<div>
-			<strong>Exame Completo</strong>
-			<div class="muted" style="font-size:12px;">180 questões</div>
-		</div>
-		<div>
-			Tempo restante: <span id="timeDisplay">--:--:--</span>
-		</div>
-	</header>
-	<main>
-		<div id="examApp" class="card">
-			<div id="examInfo" class="muted" style="margin-bottom:8px;"></div>
-			<div id="examBody">Carregando sessão...</div>
-			<div class="actions">
-				<button id="backToSetup" class="secondary" type="button">Voltar ao Setup</button>
-				<button id="finishExam" class="primary" type="button">Finalizar</button>
-			</div>
-		</div>
-	</main>
+  <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
+    <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
+  </header>
+  <p id="status" style="max-width:900px;margin:10px auto 0;display:none;padding:0 18px;color:#333"></p>
+  <div id="autosaveIndicator" style="max-width:900px;margin:4px auto 0;padding:0 18px;color:var(--muted);font-size:0.95rem;display:none;"></div>
+  <div id="toast" class="toast" aria-live="polite" style="display:none"></div>
 
-	<script src="../script_exam.js"></script>
+  <main class="exam-container" role="main">
+    <header class="exam-header">
+      <div class="header-left" aria-hidden="true"></div>
+
+      <div class="header-center" id="centerHeader">
+        <div class="knowledge-area" id="knowledgeArea" aria-live="polite">
+          <strong>Exame Completo</strong>
+          <div class="muted" style="font-size:12px;">180 questões</div>
+        </div>
+        <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
+          <span id="timerDisplay">00:00</span>
+        </div>
+      </div>
+
+      <div class="header-right controls">
+        <div class="font-control">
+          <button id="fontToggle" class="icon-btn" aria-expanded="false" aria-controls="fontSlider" title="Ajustar tamanho da fonte">Aa</button>
+          <div id="fontSlider" class="font-slider" hidden>
+            <label for="fontRange">Tamanho da fonte</label>
+            <input id="fontRange" type="range" min="12" max="24" value="16" />
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="question-panel" aria-labelledby="questionNumber">
+      <div class="meta-row">
+        <div id="qStatus" class="q-status">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
+        <!-- Exame completo não exibe like/dislike -->
+      </div>
+
+      <article class="question-content" id="questionContent">
+        <p id="questionText" class="question-text">Carregando pergunta...</p>
+
+        <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
+          <div class="option">
+            <label>
+              <input type="radio" name="answer" value="0" />
+              <span class="option-text" id="opt0">Opção A</span>
+            </label>
+          </div>
+          <div class="option">
+            <label>
+              <input type="radio" name="answer" value="1" />
+              <span class="option-text" id="opt1">Opção B</span>
+            </label>
+          </div>
+          <div class="option">
+            <label>
+              <input type="radio" name="answer" value="2" />
+              <span class="option-text" id="opt2">Opção C</span>
+            </label>
+          </div>
+          <div class="option">
+            <label>
+              <input type="radio" name="answer" value="3" />
+              <span class="option-text" id="opt3">Opção D</span>
+            </label>
+          </div>
+        </form>
+
+        <div class="actions-row">
+          <button id="backBtn" class="primary-btn" style="display:none;margin-right:8px;">Voltar</button>
+          <button id="continueBtn" class="primary-btn">Continuar</button>
+        </div>
+      </article>
+    </section>
+  </main>
+  <!-- define session vars required by exam pages -->
+  <script>
+    try {
+      // tempoExame (minutos totais para o exame completo): 180 questões = 230 minutos
+      const _tempoExame = 230; // minutos
+      // FullExam: número total de questões do exame completo
+      const _FullExam = 180;
+      sessionStorage.setItem('tempoExame', JSON.stringify(_tempoExame));
+      sessionStorage.setItem('FullExam', JSON.stringify(_FullExam));
+      // também expor como variáveis globais numéricas para uso imediato no script
+      window.tempoExame = _tempoExame;
+      window.FullExam = _FullExam;
+    } catch (e) {
+      console.warn('Falha ao definir variáveis de sessão:', e);
+    }
+  </script>
+
+  <!-- registration/session script must run before exam script -->
+  <script src="../script.js"></script>
+  <script src="../script_exam.js"></script>
+
+  <!-- initialize global QtdQuestoes and timer behavior -->
+  <script>
+    (function(){
+      try {
+        // Session guard: require non-guest identity; else send to registration entrypoint
+        try {
+          const token = localStorage.getItem('sessionToken') || '';
+          const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+          if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
+            window.location.replace('http://localhost:3000');
+            return;
+          }
+        } catch(e) {}
+
+        // Read chosen question count from localStorage (set by examSetup)
+        let q = null;
+        try { q = localStorage.getItem('examQuestionCount'); } catch(e) { q = null; }
+        const parsed = q ? Number(q) : null;
+        // fallback to FullExam if not set
+        const full = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
+        const qtd = (parsed && !isNaN(parsed)) ? parsed : 0;
+        // Guard: se não houver quantidade definida pelo setup e não vier com startExam, encaminhar para a configuração
+        const shouldStart = (sessionStorage.getItem('startExam') === 'true');
+        if (!qtd && !shouldStart) {
+          try { window.location.replace('/pages/examSetup.html'); } catch(e) { window.location.href = '/pages/examSetup.html'; }
+          return;
+        }
+        const finalQtd = qtd || (full || 0);
+        // expose as global numeric
+        window.QtdQuestoes = Number(finalQtd);
+        // update totalQuestions display on the exam page to reflect selection
+        try {
+          const totalEl = document.getElementById('totalQuestions');
+          if (totalEl) totalEl.textContent = String(window.QtdQuestoes);
+        } catch(e) { console.warn('update totalQuestions failed', e); }
+
+        function fmtSeconds(s){
+          s = Math.max(0, Math.floor(s));
+          if (s >= 3600) {
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60).toString().padStart(2,'0');
+            const sec = (s % 60).toString().padStart(2,'0');
+            return `${h}:${m}:${sec}`;
+          }
+          const m = Math.floor(s/60).toString().padStart(2,'0');
+          const sec = (s % 60).toString().padStart(2,'0');
+          return `${m}:${sec}`;
+        }
+
+        function computeSeconds() {
+          const tempo = (typeof window.tempoExame === 'number') ? window.tempoExame : (sessionStorage.getItem('tempoExame') ? JSON.parse(sessionStorage.getItem('tempoExame')) : null); // minutos do exame completo
+          const fullNum = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
+          const qtdNum = Number(window.QtdQuestoes) || 0;
+          if (!tempo || !fullNum || !qtdNum) return 0;
+          const totalMinutes = (qtdNum * tempo) / fullNum; // minutos proporcionais
+          const seconds = totalMinutes * 60;
+          return Math.max(0, Math.round(seconds));
+        }
+
+        let _timerInterval = null;
+        function startCountdown() {
+          try {
+            if (_timerInterval) return; // already running
+            let remaining = computeSeconds();
+            try {
+              const progRaw = (window.currentSessionId && localStorage.getItem(`progress_${window.currentSessionId}`)) || null;
+              if (progRaw) {
+                const prog = JSON.parse(progRaw);
+                if (prog && typeof prog === 'object' && prog.remainingSeconds !== undefined && prog.remainingSeconds !== null) {
+                  remaining = Number(prog.remainingSeconds) || remaining;
+                }
+              }
+            } catch(e) { /* ignore */ }
+            const display = document.getElementById('timerDisplay');
+            if (!display) return;
+            display.textContent = fmtSeconds(remaining);
+            _timerInterval = setInterval(() => {
+              remaining -= 1;
+              if (remaining <= 0) {
+                display.textContent = fmtSeconds(0);
+                clearInterval(_timerInterval);
+                _timerInterval = null;
+                try { alert('Tempo esgotado.'); } catch(e){}
+                return;
+              }
+              display.textContent = fmtSeconds(remaining);
+              try {
+                if (window.currentSessionId) {
+                  const key = `progress_${window.currentSessionId}`;
+                  const cur = JSON.parse(localStorage.getItem(key) || '{}') || {};
+                  cur.remainingSeconds = remaining;
+                  localStorage.setItem(key, JSON.stringify(cur));
+                  localStorage.setItem(`${key}_savedAt`, new Date().toISOString());
+                }
+              } catch(e) {}
+            }, 1000);
+          } catch (e) { console.warn('startCountdown error', e); }
+        }
+
+        if (shouldStart) {
+          try { sessionStorage.removeItem('startExam'); } catch(e){}
+          startCountdown();
+        }
+        window.startExamCountdown = startCountdown;
+
+      } catch (e) { console.warn('Init exam timer error', e); }
+    })();
+  </script>
+
+  <!-- Registration modal -->
+  <div id="emailModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content">
+      <h2>Registro obrigatório</h2>
+      <p>Por favor, informe seu nome e e-mail para registrar o aplicativo.</p>
+      <input id="nameInput" type="text" placeholder="Seu nome completo" />
+      <input id="emailInput" type="email" placeholder="seu@exemplo.com" />
+      <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" />
+      <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" style="display:none;" />
+      <div class="modal-actions">
+        <button id="submitEmail">Registrar</button>
+        <button id="toggleModeBtn" class="secondary-btn" type="button">Já tenho conta</button>
+      </div>
+      <p id="modalError" style="color:crimson;display:none;"></p>
+    </div>
+  </div>
 </body>
 </html>

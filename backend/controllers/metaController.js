@@ -1,60 +1,49 @@
 const sequelize = require('../config/database');
 
-// Helper: detect a column name from candidates that exists in a table
-async function detectColumn(table, candidates) {
+// Helper to run a robust select id, descricao from a table, adapting to column name casing
+async function listSimple(req, res, table) {
   try {
-    const q = `SELECT column_name FROM information_schema.columns WHERE table_name = :table AND column_name = ANY(:candidates)`;
-    const rows = await sequelize.query(q, { replacements: { table, candidates }, type: sequelize.QueryTypes.SELECT });
-    if (Array.isArray(rows) && rows.length) return rows[0].column_name;
-  } catch (e) {
-    // ignore
-  }
-  return null;
-}
+    // Discover available columns for the table to avoid referencing non-existing columns
+    const cols = await sequelize.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl`,
+      { replacements: { tbl: table }, type: sequelize.QueryTypes.SELECT }
+    );
+    const names = new Set((cols || []).map(c => c.column_name));
 
-async function listMeta(req, res, tableName) {
-  try {
-    // detect id-like and descricao-like columns
-    const idCandidates = ['id', 'Id', 'ID'];
-    const descCandidates = ['descricao', 'Descricao', 'nome', 'Nome', 'label', 'Label'];
-
-    const idCol = await detectColumn(tableName, idCandidates) || 'id';
-    const descCol = await detectColumn(tableName, descCandidates) || 'descricao';
-
-    // Build safe SQL with quoted identifiers when necessary
-    const safeId = (/^[a-z0-9_]+$/.test(idCol) ? idCol : `"${idCol}"`);
-    const safeDesc = (/^[a-z0-9_]+$/.test(descCol) ? descCol : `"${descCol}"`);
-
-    // try to include only non-excluded rows when possible
-    const exclCandidates = ['excluido', 'Excluido', 'is_excluded', 'IsExcluido'];
-    let exclCol = null;
-    for (const c of exclCandidates) {
-      // quick test using information_schema
-      // note: detectColumn already queries information_schema; reuse it
-      // but for simplicity, call detectColumn
-      // (this is a small extra query and acceptable here)
-      /* eslint-disable no-await-in-loop */
-      // reuse detectColumn
-      const found = await detectColumn(tableName, [c]);
-      if (found) { exclCol = found; break; }
+    // Determine id and descricao column identifiers (with proper quoting when needed)
+    let idCol = null;
+    if (names.has('id')) idCol = 'id'; else if (names.has('Id')) idCol = '"Id"';
+    let descCol = null;
+    if (names.has('descricao')) descCol = 'descricao'; else if (names.has('Descricao')) descCol = '"Descricao"';
+    if (!idCol || !descCol) {
+      console.warn(`[meta] ${table} missing expected id/descricao columns. columns=`, Array.from(names));
+      return res.status(500).json({ error: `table ${table} missing id/descricao` });
     }
 
-    const safeExcl = exclCol ? (/^[a-z0-9_]+$/.test(exclCol) ? exclCol : `"${exclCol}"`) : null;
+    // Optional soft-delete filter if present (excluido or "Excluido")
+    let where = '';
+    if (names.has('excluido')) where = 'WHERE (excluido = false OR excluido IS NULL)';
+    else if (names.has('Excluido')) where = 'WHERE ("Excluido" = false OR "Excluido" IS NULL)';
 
-    const where = safeExcl ? `WHERE (${safeExcl} = false OR ${safeExcl} IS NULL)` : '';
-
-    const sql = `SELECT ${safeId} AS id, ${safeDesc} AS descricao FROM ${tableName} ${where} ORDER BY descricao`;
+    const sql = `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${table} ${where}`;
     const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
-    return res.json(rows.map(r => ({ id: r.id, descricao: r.descricao })));
-  } catch (err) {
-    console.error('meta list error', tableName, err && err.message);
-    return res.status(500).json({ error: 'internal' });
+    return res.json(rows || []);
+  } catch (e) {
+    console.error(`[meta] list ${table} error`, e);
+    return res.status(500).json({ error: 'internal error' });
   }
 }
 
-exports.listAreas = async (req, res) => listMeta(req, res, 'areaconhecimento');
-exports.listGrupos = async (req, res) => listMeta(req, res, 'grupoprocesso');
-exports.listDominios = async (req, res) => listMeta(req, res, 'dominio');
-
-// keep module exports
-module.exports = exports;
+exports.listAreasConhecimento = (req, res) => listSimple(req, res, 'areaconhecimento');
+exports.listGruposProcesso = async (req, res) => {
+  // prefer 'grupoprocesso'; some DBs might use 'gruprocesso' — try fallback
+  try {
+    return await listSimple(req, res, 'grupoprocesso');
+  } catch (e) {
+    try { return await listSimple(req, res, 'gruprocesso'); } catch (e2) {
+      console.error('[meta] both grupoprocesso/gruprocesso failed');
+      return res.status(500).json({ error: 'internal error' });
+    }
+  }
+};
+exports.listDominios = (req, res) => listSimple(req, res, 'dominio');

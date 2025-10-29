@@ -25,8 +25,8 @@ const path = require('path');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 app.use(express.static(FRONTEND_DIR));
 
-// Rota raiz: serve a página do exame (nova tela principal)
-app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'pages', 'exam.html')));
+// Rota raiz: sirva a home (index.html); o script.js redireciona usuários logados para /pages/examSetup.html
+app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
 
 // Monta rotas de API (colocar antes da rota catch-all)
 app.use('/api/users', require('./routes/users'));
@@ -34,7 +34,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
 // Exams (select questions)
 app.use('/api/exams', require('./routes/exams'));
-// Meta endpoints for exam setup (areas, grupos, dominios)
+// Meta lists for exam setup
 app.use('/api/meta', require('./routes/meta'));
 // Mount debug routes (development only)
 app.use('/api/debug', require('./routes/debug'));

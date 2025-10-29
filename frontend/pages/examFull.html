@@ -30,16 +30,15 @@
           </div>
         </div>
       </div>
+      <!-- Timer deve ficar dentro do header, acima do painel de questões -->
+      <div class="header-bottom">
+        <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
+          <span id="timerDisplay">00:00</span>
+        </div>
+      </div>
     </header>
 
-    <!-- Barra meta acima do painel de questões, contendo apenas o timer -->
-    <div class="exam-top-meta">
-      <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
-        <span id="timerDisplay">00:00</span>
-      </div>
-    </div>
-
-    <section class="question-panel" aria-labelledby="questionNumber">
+  <section class="question-panel" aria-labelledby="questionNumber">
       <div class="meta-row">
         <div id="qStatus" class="q-status">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
         <!-- Exame completo não exibe like/dislike -->

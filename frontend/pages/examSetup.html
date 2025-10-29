@@ -153,6 +153,26 @@
     </div>
   </div>
 
+  <!-- Modal de confirmação para exame completo (180 questões) -->
+  <div id="fullExamConfirmModal" class="modal" aria-hidden="true" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
+    <div class="modal-content" style="background:#fff;border-radius:10px;max-width:620px;width:92%;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+      <h2 style="margin-top:0;margin-bottom:10px;">Você será direcionado para o exame completo. Deseja prosseguir?</h2>
+      <h3 style="margin:10px 0 6px 0; font-size:1.05rem; color:#222;">Exame completo:</h3>
+      <ul style="margin:8px 0 0 18px; padding:0; color:#333;">
+        <li>Tempo total 230 minutos ou 3 horas e 49 minutos</li>
+        <li>Você terá direito a 2 pausas de 10 minutos.</li>
+        <li>A primeira pausa acontece ao concluir as questões de 1-60.</li>
+        <li>A segunda pausa acontece ao concluir as questões de 61-120.</li>
+        <li>Você não poderá voltar às questões anteriores assim que a pausa iniciar.</li>
+        <li>5 questões do exame serão desconsideradas para efeitos de pré-teste</li>
+      </ul>
+      <div class="modal-actions" style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;">
+        <button id="fullExamCancel" type="button" class="secondary-btn" style="background:#eef1f6;color:#334; border:1px solid #cfd6e4;border-radius:8px;padding:8px 12px;cursor:pointer;">Cancelar</button>
+        <button id="fullExamProceed" type="button" class="primary-btn" style="background:#007bff;color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;">Prosseguir</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Resolve backend base if window.SIMULADOS_CONFIG is present (optional)
     const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
@@ -334,7 +354,20 @@
       return null; // sem quantidade e sem focos -> inválido
     }
 
-    // Start button: validate, preflight, persist, and redirect
+    function showFullExamConfirm(onProceed){
+      const modal = document.getElementById('fullExamConfirmModal');
+      const proceedBtn = document.getElementById('fullExamProceed');
+      const cancelBtn = document.getElementById('fullExamCancel');
+      if (!modal || !proceedBtn || !cancelBtn) return false;
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden','false');
+      const close = ()=>{ modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); };
+      cancelBtn.onclick = ()=>{ close(); };
+      proceedBtn.onclick = ()=>{ try{ close(); }catch(e){}; if (typeof onProceed==='function') onProceed(); };
+      return true;
+    }
+
+    // Start button: validate, preflight, persist, and redirect (com confirmação para 180)
     startBtn.addEventListener('click', async () => {
       startError.style.display = 'none';
       const errorBox = document.getElementById('errorMsg');
@@ -355,7 +388,20 @@
             const suggested = available;
             quantidadeInput.value = String(suggested);
             updateResumo();
-            // persist and redirect immediately
+            // Se ajustou para 180, exigir confirmação antes de redirecionar
+            if (suggested === 180) {
+              showFullExamConfirm(() => {
+                try {
+                  localStorage.setItem('examQuestionCount', String(180));
+                  localStorage.setItem('examCountFromDefault', quantidadeInput.value ? 'false' : 'true');
+                } catch(e) {}
+                salvarSelecoes();
+                try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
+                window.location.href = './examFull.html';
+              });
+              return;
+            }
+            // Caso contrário (premium com ajuste < 180), prosseguir normalmente
             try {
               localStorage.setItem('examQuestionCount', String(suggested));
               localStorage.setItem('examCountFromDefault', quantidadeInput.value ? 'false' : 'true');
@@ -389,15 +435,28 @@
         return;
       }
       // Persistência: se usuário não informou quantidade, salvar o count efetivo depois na exam.html
-      // Entretanto, para a exam.html requisitar corretamente, salvamos agora o valor que será enviado
+      // Entretanto, para a exam.html requisitar corretamente, salvamos agora o valor que será enviado —
+      // exceto quando effCount === 180, onde pediremos confirmação antes de redirecionar
       const userProvided = !!quantidadeInput.value;
+      if (effCount === 180) {
+        // pedir confirmação antes de seguir para a página dedicada
+        showFullExamConfirm(() => {
+          try {
+            localStorage.setItem('examQuestionCount', String(180));
+            localStorage.setItem('examCountFromDefault', userProvided ? 'false' : 'true');
+          } catch(e) {}
+          salvarSelecoes();
+          try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
+          window.location.href = './examFull.html';
+        });
+        return;
+      }
       try {
         localStorage.setItem('examQuestionCount', String(effCount));
         localStorage.setItem('examCountFromDefault', userProvided ? 'false' : 'true');
       } catch(e) {}
       salvarSelecoes();
       try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-      // redirect to exam page (same folder)
       window.location.href = './exam.html';
     });
 

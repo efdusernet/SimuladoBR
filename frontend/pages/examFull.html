@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Simulado — Questão</title>
+  <title>Simulado — Exame Completo</title>
   <link rel="stylesheet" href="../styles.css" />
+  <meta name="description" content="Exame completo com 180 questões" />
 </head>
 <body>
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
@@ -19,7 +20,10 @@
       <div class="header-left" aria-hidden="true"></div>
 
       <div class="header-center" id="centerHeader">
-        <div class="knowledge-area" id="knowledgeArea" aria-live="polite">Exemplo</div>
+        <div class="knowledge-area" id="knowledgeArea" aria-live="polite">
+          <strong>Exame Completo</strong>
+          <div class="muted" style="font-size:12px;">180 questões</div>
+        </div>
         <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
           <span id="timerDisplay">00:00</span>
         </div>
@@ -39,14 +43,7 @@
     <section class="question-panel" aria-labelledby="questionNumber">
       <div class="meta-row">
         <div id="qStatus" class="q-status">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
-        <div class="feedback-buttons">
-          <button id="likeBtn" class="icon-like" aria-pressed="false" title="Gostei" aria-label="Gostei">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s-6.716-4.35-9.062-7.018C-0.413 10.983 2.973 6 7.5 6c1.84 0 3.515.756 4.5 2.01C13.985 6.756 15.66 6 17.5 6 22.027 6 25.413 10.983 21.062 13.982 18.716 16.65 12 21 12 21z" stroke="currentColor" stroke-width="1.2" fill="currentColor"/></svg>
-          </button>
-          <button id="dislikeBtn" class="icon-dislike" aria-pressed="false" title="Não gostei" aria-label="Não gostei">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3s6.716 4.35 9.062 7.018C24.413 13.017 21.027 18 16.5 18c-1.84 0-3.515-.756-4.5-2.01C10.015 17.244 8.34 18 6.5 18 1.973 18 -1.413 13.017 2.938 10.018 5.284 7.35 12 3 12 3z" stroke="currentColor" stroke-width="1.2" fill="currentColor"/></svg>
-          </button>
-        </div>
+        <!-- Exame completo não exibe like/dislike -->
       </div>
 
       <article class="question-content" id="questionContent">
@@ -86,26 +83,13 @@
       </article>
     </section>
   </main>
-  <!-- Modal de confirmação para exame completo (180 questões) -->
-  <div id="fullExamConfirmModal" class="modal" aria-hidden="true" style="display:none;">
-    <div class="modal-content">
-      <h2>Exame completo (180 questões)</h2>
-      <p>
-        Você selecionou 180 questões. O exame completo será aberto em uma página dedicada e o tempo total é de 230 minutos.
-      </p>
-      <div class="modal-actions">
-        <button id="fullExamProceed" class="primary-btn">Prosseguir</button>
-        <button id="fullExamCancel" class="secondary-btn" type="button">Cancelar</button>
-      </div>
-    </div>
-  </div>
   <!-- define session vars required by exam pages -->
   <script>
     try {
-  // tempoExame (minutos totais para o exame completo): 180 questões = 230 minutos
-  const _tempoExame = 230; // minutos
-  // FullExam: número total de questões do exame completo
-  const _FullExam = 180;
+      // tempoExame (minutos totais para o exame completo): 180 questões = 230 minutos
+      const _tempoExame = 230; // minutos
+      // FullExam: número total de questões do exame completo
+      const _FullExam = 180;
       sessionStorage.setItem('tempoExame', JSON.stringify(_tempoExame));
       sessionStorage.setItem('FullExam', JSON.stringify(_FullExam));
       // também expor como variáveis globais numéricas para uso imediato no script
@@ -156,36 +140,6 @@
           if (totalEl) totalEl.textContent = String(window.QtdQuestoes);
         } catch(e) { console.warn('update totalQuestions failed', e); }
 
-        // Se for exame completo (180), exibir confirmação antes de redirecionar
-        const isFull = (finalQtd && full && Number(finalQtd) === Number(full));
-        if (isFull && shouldStart) {
-          const modal = document.getElementById('fullExamConfirmModal');
-          const proceedBtn = document.getElementById('fullExamProceed');
-          const cancelBtn = document.getElementById('fullExamCancel');
-          if (modal) {
-            modal.style.display = 'block';
-            modal.setAttribute('aria-hidden', 'false');
-          }
-          if (proceedBtn) {
-            proceedBtn.onclick = () => {
-              try { sessionStorage.setItem('startExam', 'true'); } catch(e){}
-              try { localStorage.setItem('examQuestionCount', String(full)); } catch(e){}
-              try { window.location.replace('/pages/examFull.html'); } catch(_) { window.location.href = '/pages/examFull.html'; }
-            };
-          }
-          if (cancelBtn) {
-            cancelBtn.onclick = () => {
-              if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); }
-              // Como shouldStart era true, iniciamos normalmente aqui
-              try { sessionStorage.removeItem('startExam'); } catch(e){}
-              startCountdown();
-            };
-          }
-          // Evitar auto-start aqui; será tratado pelo clique do usuário
-          return;
-        }
-
-        // helper to format seconds to MM:SS or H:MM:SS if large
         function fmtSeconds(s){
           s = Math.max(0, Math.floor(s));
           if (s >= 3600) {
@@ -199,8 +153,6 @@
           return `${m}:${sec}`;
         }
 
-        // compute total seconds proportional to quantidade selecionada:
-        // 180 questões equivalem a 230 minutos => segundos = (QtdQuestoes / 180) * 230(min) * 60
         function computeSeconds() {
           const tempo = (typeof window.tempoExame === 'number') ? window.tempoExame : (sessionStorage.getItem('tempoExame') ? JSON.parse(sessionStorage.getItem('tempoExame')) : null); // minutos do exame completo
           const fullNum = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
@@ -211,13 +163,10 @@
           return Math.max(0, Math.round(seconds));
         }
 
-        // countdown state
         let _timerInterval = null;
-
         function startCountdown() {
           try {
             if (_timerInterval) return; // already running
-            // allow resuming from persisted remaining seconds if available
             let remaining = computeSeconds();
             try {
               const progRaw = (window.currentSessionId && localStorage.getItem(`progress_${window.currentSessionId}`)) || null;
@@ -237,12 +186,10 @@
                 display.textContent = fmtSeconds(0);
                 clearInterval(_timerInterval);
                 _timerInterval = null;
-                // exam finished - you may want to auto-submit or notify
                 try { alert('Tempo esgotado.'); } catch(e){}
                 return;
               }
               display.textContent = fmtSeconds(remaining);
-              // persist remaining seconds for resume
               try {
                 if (window.currentSessionId) {
                   const key = `progress_${window.currentSessionId}`;
@@ -256,29 +203,25 @@
           } catch (e) { console.warn('startCountdown error', e); }
         }
 
-        // Auto-start if the user clicked "Iniciar Exame" (examSetup set sessionStorage.startExam = 'true')
         if (shouldStart) {
-          // clear flag and begin
           try { sessionStorage.removeItem('startExam'); } catch(e){}
           startCountdown();
         }
-
-        // Also expose start function globally so other UI can trigger it
         window.startExamCountdown = startCountdown;
 
       } catch (e) { console.warn('Init exam timer error', e); }
     })();
   </script>
 
-  <!-- Registration modal (copied from index.html/modal) -->
+  <!-- Registration modal -->
   <div id="emailModal" class="modal" aria-hidden="true" style="display:none;">
     <div class="modal-content">
       <h2>Registro obrigatório</h2>
       <p>Por favor, informe seu nome e e-mail para registrar o aplicativo.</p>
       <input id="nameInput" type="text" placeholder="Seu nome completo" />
       <input id="emailInput" type="email" placeholder="seu@exemplo.com" />
-  <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" />
-  <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" style="display:none;" />
+      <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" />
+      <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" style="display:none;" />
       <div class="modal-actions">
         <button id="submitEmail">Registrar</button>
         <button id="toggleModeBtn" class="secondary-btn" type="button">Já tenho conta</button>

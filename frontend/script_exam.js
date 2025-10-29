@@ -439,6 +439,9 @@
               const fontToggle = $('fontToggle');
               const fontSlider = $('fontSlider');
 
+              // Se não houver controle de fonte na página (examFull), saia silenciosamente
+              if (!fontRange || !fontSlider) return;
+
               fontRange.addEventListener('input', (e)=>{
                 const v = e.target.value + 'px';
                 document.documentElement.style.setProperty('--base-font-size', v);
@@ -446,23 +449,26 @@
                 requestAnimationFrame(()=>{ adaptQuestionTypography(); positionTimer(); });
               });
 
-              fontToggle.addEventListener('click', ()=>{
-                const isHidden = fontSlider.hasAttribute('hidden');
-                if (isHidden){
-                  fontSlider.removeAttribute('hidden');
-                  fontToggle.setAttribute('aria-expanded','true');
-                } else {
-                  fontSlider.setAttribute('hidden','');
-                  fontToggle.setAttribute('aria-expanded','false');
-                }
-              });
+              // Botão de toggle é opcional; só conecte se existir
+              if (fontToggle) {
+                fontToggle.addEventListener('click', ()=>{
+                  const isHidden = fontSlider.hasAttribute('hidden');
+                  if (isHidden){
+                    fontSlider.removeAttribute('hidden');
+                    fontToggle.setAttribute('aria-expanded','true');
+                  } else {
+                    fontSlider.setAttribute('hidden','');
+                    fontToggle.setAttribute('aria-expanded','false');
+                  }
+                });
 
-              document.addEventListener('click', (ev)=>{
-                if (!fontToggle.contains(ev.target) && !fontSlider.contains(ev.target)){
-                  fontSlider.setAttribute('hidden','');
-                  fontToggle.setAttribute('aria-expanded','false');
-                }
-              });
+                document.addEventListener('click', (ev)=>{
+                  if (!fontToggle.contains(ev.target) && !fontSlider.contains(ev.target)){
+                    fontSlider.setAttribute('hidden','');
+                    fontToggle.setAttribute('aria-expanded','false');
+                  }
+                });
+              }
             }
 
             /* Ajuste automático da tipografia do texto da pergunta.
@@ -514,7 +520,22 @@
               const knowledge = $('knowledgeArea');
               const timer = $('timerBox');
 
-              if (!center || !knowledge || !timer) return;
+              if (!timer) return;
+
+              // Caso especial (examFull): quando o timer estiver na coluna esquerda do header,
+              // não reposicionar via absoluto; manter fluxo normal evitando sobreposição.
+              try {
+                const inHeaderLeft = !!(timer.closest && timer.closest('.header-left'));
+                if (inHeaderLeft) {
+                  timer.style.position = '';
+                  timer.style.left = '';
+                  timer.style.top = '';
+                  timer.style.transform = '';
+                  return;
+                }
+              } catch(e) {}
+
+              if (!center || !knowledge) return;
 
               // Em telas pequenas confiamos no CSS
               if (window.innerWidth <= 600){
@@ -583,21 +604,8 @@
                   // attempt to fetch questions from backend
                   const count = Number(window.QtdQuestoes) || (localStorage.getItem('examQuestionCount') ? Number(localStorage.getItem('examQuestionCount')) : 0);
                   console.debug('[exam] QtdQuestoes=', window.QtdQuestoes, 'localStorage.examQuestionCount=', localStorage.getItem('examQuestionCount'));
-                  if (!count) {
-                    // fallback to sample questions
-                    QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
-                    // normalize and freeze option order once
-                    try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
-                    initExam();
-                    return;
-                  }
 
-                  let token = localStorage.getItem('sessionToken') || '';
-                  if (!token || token.endsWith('#')) {
-                    const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
-                    if (alt) { try { localStorage.setItem('sessionToken', alt); } catch(e){} token = alt; }
-                  }
-                  // If we have cached questions for this session, use them and skip network fetch
+                  // 1) Sempre tente usar o cache da sessão primeiro, independentemente de count
                   try {
                     if (window.currentSessionId) {
                       const qraw = localStorage.getItem(`questions_${window.currentSessionId}`);
@@ -630,6 +638,22 @@
                       }
                     }
                   } catch(e) {}
+
+                  // 2) Sem cache: se não houver count, caia para exemplo local
+                  if (!count) {
+                    // fallback to sample questions
+                    QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
+                    // normalize and freeze option order once
+                    try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
+                    initExam();
+                    return;
+                  }
+
+                  let token = localStorage.getItem('sessionToken') || '';
+                  if (!token || token.endsWith('#')) {
+                    const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
+                    if (alt) { try { localStorage.setItem('sessionToken', alt); } catch(e){} token = alt; }
+                  }
                   console.debug('[exam] using sessionToken=', token);
                   const fetchUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/select';
                   console.debug('[exam] fetching questions from', fetchUrl, 'count=', count);

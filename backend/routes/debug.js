@@ -21,57 +21,6 @@ router.get('/db-user', async (req, res) => {
   }
 });
 
-// Admin: fetch latest N rows from response_times for inspection
-router.get('/response-times', async (req, res) => {
-  try {
-    const rawLimit = parseInt(req.query.limit || req.body && req.body.limit || '100', 10) || 100;
-    const limit = Math.max(1, Math.min(1000, rawLimit));
-
-    // Basic protection: allow in non-production without auth; in production require an admin user
-    const sessionToken = (req.get('X-Session-Token') || req.query.token || '').trim();
-    let allow = false;
-    if (process.env.NODE_ENV !== 'production') allow = true;
-    let user = null;
-    if (sessionToken) {
-      if (/^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
-      if (!user) {
-        const Op = db.Sequelize && db.Sequelize.Op;
-        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-        user = await db.User.findOne({ where });
-      }
-      if (user) {
-        const adminName = (process.env.ADMIN_USER || 'admin').toLowerCase();
-        const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
-        const uname = (user.NomeUsuario || '').toLowerCase();
-        const uemail = (user.Email || '').toLowerCase();
-        if (uname === adminName || (adminEmail && uemail === adminEmail)) allow = true;
-      }
-    }
-    if (!allow) return res.status(403).json({ error: 'forbidden' });
-
-    // Use lowercase (unquoted) column names and alias to camelCase for JSON output so this works
-    // regardless of whether the DB was created with unquoted identifiers (which fold to lowercase).
-    const q = `SELECT id,
-      sessionid AS "sessionId",
-      userid AS "userId",
-      questionid AS "questionId",
-      startedat AS "startedAt",
-      answeredat AS "answeredAt",
-      totalms AS "totalMs",
-      activems AS "activeMs",
-      interruptions,
-      firstresponsems AS "firstResponseMs",
-      createdat AS "createdAt",
-      updatedat AS "updatedAt"
-      FROM response_times ORDER BY id DESC LIMIT :limit`;
-    const rows = await db.sequelize.query(q, { replacements: { limit }, type: db.sequelize.QueryTypes.SELECT });
-    return res.json({ ok: true, count: Array.isArray(rows) ? rows.length : 0, rows });
-  } catch (err) {
-    console.error('Erro debug response-times:', err);
-    return res.status(500).json({ error: 'internal' });
-  }
-});
-
 module.exports = router;
 
 // Dev-only: send a test verification email (POST) - body: { to }

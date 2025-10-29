@@ -89,10 +89,10 @@
   <!-- define session vars required by exam pages -->
   <script>
     try {
-      // tempoExame: tempo base do exame (fixo) - armazenado como JSON para preservar tipo numérico ao ler
-      const _tempoExame = 4;
-      // FullExam: número total de questões do exame completo
-      const _FullExam = 200;
+  // tempoExame (minutos totais para o exame completo): 180 questões = 230 minutos
+  const _tempoExame = 230; // minutos
+  // FullExam: número total de questões do exame completo
+  const _FullExam = 180;
       sessionStorage.setItem('tempoExame', JSON.stringify(_tempoExame));
       sessionStorage.setItem('FullExam', JSON.stringify(_FullExam));
       // também expor como variáveis globais numéricas para uso imediato no script
@@ -111,20 +111,39 @@
   <script>
     (function(){
       try {
+        // Session guard: require non-guest identity; else send to registration entrypoint
+        try {
+          const token = localStorage.getItem('sessionToken') || '';
+          const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+          if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
+            window.location.replace('http://localhost:3000');
+            return;
+          }
+        } catch(e) {}
+
         // Read chosen question count from localStorage (set by examSetup)
         let q = null;
         try { q = localStorage.getItem('examQuestionCount'); } catch(e) { q = null; }
         const parsed = q ? Number(q) : null;
         // fallback to FullExam if not set
         const full = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
-        const qtd = (parsed && !isNaN(parsed)) ? parsed : (full || 0);
+        const qtd = (parsed && !isNaN(parsed)) ? parsed : 0;
+        // Guard: se não houver quantidade definida pelo setup e não vier com startExam, encaminhar para a configuração
+        const shouldStart = (sessionStorage.getItem('startExam') === 'true');
+        if (!qtd && !shouldStart) {
+          try { window.location.replace('/pages/examSetup.html'); } catch(e) { window.location.href = '/pages/examSetup.html'; }
+          return;
+        }
+        const finalQtd = qtd || (full || 0);
         // expose as global numeric
-        window.QtdQuestoes = Number(qtd);
+        window.QtdQuestoes = Number(finalQtd);
         // update totalQuestions display on the exam page to reflect selection
         try {
           const totalEl = document.getElementById('totalQuestions');
           if (totalEl) totalEl.textContent = String(window.QtdQuestoes);
         } catch(e) { console.warn('update totalQuestions failed', e); }
+
+        // Confirmação de exame completo (180) é tratada apenas na examSetup. Aqui iniciamos normalmente.
 
         // helper to format seconds to MM:SS or H:MM:SS if large
         function fmtSeconds(s){
@@ -140,15 +159,15 @@
           return `${m}:${sec}`;
         }
 
-        // compute total seconds per formula: ((QtdQuestoes * tempoExame) / FullExam) * 60
-        // Note: the formula yields minutes, so convert minutes -> seconds by multiplying by 60.
+        // compute total seconds proportional to quantidade selecionada:
+        // 180 questões equivalem a 230 minutos => segundos = (QtdQuestoes / 180) * 230(min) * 60
         function computeSeconds() {
-          const tempo = (typeof window.tempoExame === 'number') ? window.tempoExame : (sessionStorage.getItem('tempoExame') ? JSON.parse(sessionStorage.getItem('tempoExame')) : null);
+          const tempo = (typeof window.tempoExame === 'number') ? window.tempoExame : (sessionStorage.getItem('tempoExame') ? JSON.parse(sessionStorage.getItem('tempoExame')) : null); // minutos do exame completo
           const fullNum = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
           const qtdNum = Number(window.QtdQuestoes) || 0;
           if (!tempo || !fullNum || !qtdNum) return 0;
-          const minutes = (qtdNum * tempo) / fullNum * 60; // minutes per formula
-          const seconds = minutes * 60; // convert minutes to seconds
+          const totalMinutes = (qtdNum * tempo) / fullNum; // minutos proporcionais
+          const seconds = totalMinutes * 60;
           return Math.max(0, Math.round(seconds));
         }
 
@@ -198,7 +217,6 @@
         }
 
         // Auto-start if the user clicked "Iniciar Exame" (examSetup set sessionStorage.startExam = 'true')
-        const shouldStart = (sessionStorage.getItem('startExam') === 'true');
         if (shouldStart) {
           // clear flag and begin
           try { sessionStorage.removeItem('startExam'); } catch(e){}

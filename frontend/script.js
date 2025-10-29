@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pills && pills.length) {
                     // If BloqueioAtivado is true, premium options must be disabled (blocking active).
                         const bloqueioActive = localStorage.getItem('BloqueioAtivado') === 'true';
-                        const premiumValues = ['100','150','200'];
+                        const premiumValues = ['100','150','180'];
 
                         pills.forEach(p => {
                             // disable premium options when bloqueio is active
@@ -179,37 +179,27 @@ document.addEventListener('DOMContentLoaded', () => {
         console.debug('[redirect-check] pathNow=', pathNow, 'isRoot=', isRoot, 'loggedIn=', loggedIn, 'isGuest=', isGuest, 'sessionToken=', sessionToken, 'hasUserId=', hasUserId, 'hasNomeUsuario=', hasNomeUsuario, 'hasNome=', hasNome);
 
         if (isRoot && loggedIn && !isGuest) {
-            const examFromConfig = SIMULADOS_CONFIG.EXAM_URL;
-            let examUrl = './pages/exam.html';
-            if (examFromConfig) {
-                examUrl = examFromConfig;
-            } else {
-                try {
-                    const backendOrigin = new URL(SIMULADOS_CONFIG.BACKEND_BASE).origin;
-                    if (backendOrigin === window.location.origin) {
-                        examUrl = './pages/exam.html';
-                    } else {
-                        examUrl = `${backendOrigin}${SIMULADOS_CONFIG.EXAM_PATH}`;
-                    }
-                } catch (e) {
-                    examUrl = './pages/exam.html';
-                }
-            }
-
-            // normalize to absolute URL (avoid issues with relative paths)
-            let absoluteExamUrl;
+            // Redirect to standalone setup page instead of going straight to the exam
+            const setupUrl = './pages/examSetup.html';
+            let absoluteUrl;
             try {
-                absoluteExamUrl = new URL(examUrl, window.location.href).href;
+                absoluteUrl = new URL(setupUrl, window.location.href).href;
             } catch (e) {
-                absoluteExamUrl = examUrl;
+                absoluteUrl = setupUrl;
             }
-
-            console.info('[redirect] user looks logged in — redirecting to', absoluteExamUrl);
-            // use replace so back button doesn't go back to root
-            window.location.replace(absoluteExamUrl);
+            console.info('[redirect] user looks logged in — redirecting to', absoluteUrl);
+            window.location.replace(absoluteUrl);
             return; // stop further initialization on index
         }
     } catch (e) { console.warn('redirect check failed', e); }
+
+    // Normalize: if token looks like a guest (ends with '#') but we have a real identity stored, switch to it
+    try {
+        if (sessionToken && sessionToken.endsWith('#') && (hasUserId || hasNomeUsuario || hasNome)) {
+            const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
+            if (alt) { sessionToken = alt; localStorage.setItem('sessionToken', alt); }
+        }
+    } catch(e) { /* ignore */ }
 
     if (!sessionToken) {
         // create guest token only if we don't already have registration info
@@ -410,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyBloqueioToModal() {
         try {
             const blocked = localStorage.getItem('BloqueioAtivado') === 'true';
-            const premiumValues = ['100','150','200'];
+            const premiumValues = ['100','150','180'];
             const pills = document.querySelectorAll('#questionCountPills .option-pill');
             if (pills && pills.length) {
                 pills.forEach(p => {
@@ -453,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (now === 'true') {
                             try { showTemporaryNotification('Opções premium bloqueadas.'); } catch(e){}
                         } else {
-                            try { showTemporaryNotification('Opções 100/150/200 liberadas.'); } catch(e){}
+                            try { showTemporaryNotification('Opções 100/150/180 liberadas.'); } catch(e){}
                         }
                     }
             })();
@@ -468,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (now === 'true') {
                         showTemporaryNotification('Opções premium bloqueadas.');
                     } else {
-                        showTemporaryNotification('Opções 100/150/200 liberadas.');
+                        showTemporaryNotification('Opções 100/150/180 liberadas.');
                     }
                 }
             }, intervalMs);
@@ -600,30 +590,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 showUserHeader(nomeReal);
                 hideEmailModal();
 
-                // redirect to exam
+                // redirect to standalone exam setup page
                 try {
                     const path = window.location.pathname || '';
-                    const onExamPage = path.includes('/pages/exam.html') || path.endsWith('/exam.html');
-                    if (!onExamPage) {
-                        const examFromConfig = SIMULADOS_CONFIG.EXAM_URL;
-                        let examUrl = './pages/exam.html';
-                        if (examFromConfig) {
-                            examUrl = examFromConfig;
-                        } else {
-                            try {
-                                const backendOrigin = new URL(SIMULADOS_CONFIG.BACKEND_BASE).origin;
-                                if (backendOrigin === window.location.origin) {
-                                    examUrl = './pages/exam.html';
-                                } else {
-                                    examUrl = `${backendOrigin}${SIMULADOS_CONFIG.EXAM_PATH}`;
-                                }
-                            } catch (e) {
-                                examUrl = './pages/exam.html';
-                            }
-                        }
-                        // show exam setup modal instead of immediate redirect
-                        await showExamSetupAndRedirect(examUrl);
-                    }
+                    const onSetupPage = path.includes('/pages/examSetup.html') || path.endsWith('/examSetup.html');
+                    if (!onSetupPage) window.location.href = '/pages/examSetup.html';
                 } catch (e) { console.warn('Erro redirect login:', e); }
             }
             else if (mode === 'verify') {
@@ -680,30 +651,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     showUserHeader(nomeReal);
                     hideEmailModal();
 
-                    // redirect to exam
+                    // redirect to standalone exam setup page
                     try {
                         const path = window.location.pathname || '';
-                        const onExamPage = path.includes('/pages/exam.html') || path.endsWith('/exam.html');
-                        if (!onExamPage) {
-                            const examFromConfig = SIMULADOS_CONFIG.EXAM_URL;
-                            let examUrl = './pages/exam.html';
-                            if (examFromConfig) {
-                                examUrl = examFromConfig;
-                            } else {
-                                try {
-                                    const backendOrigin = new URL(SIMULADOS_CONFIG.BACKEND_BASE).origin;
-                                    if (backendOrigin === window.location.origin) {
-                                        examUrl = './pages/exam.html';
-                                    } else {
-                                        examUrl = `${backendOrigin}${SIMULADOS_CONFIG.EXAM_PATH}`;
-                                    }
-                                } catch (e) {
-                                    examUrl = './pages/exam.html';
-                                }
-                            }
-                            // show exam setup modal instead of immediate redirect
-                            await showExamSetupAndRedirect(examUrl);
-                        }
+                        const onSetupPage = path.includes('/pages/examSetup.html') || path.endsWith('/examSetup.html');
+                        if (!onSetupPage) window.location.href = '/pages/examSetup.html';
                     } catch (e) { console.warn('Erro redirect login:', e); }
                 } else {
                     // switch to login mode so user can enter password

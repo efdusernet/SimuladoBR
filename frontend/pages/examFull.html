@@ -17,11 +17,7 @@
 
   <main class="exam-container" role="main">
     <header class="exam-header">
-      <div class="header-left">
-        <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
-          <span id="timerDisplay">00:00</span>
-        </div>
-      </div>
+      <div class="header-left" aria-hidden="true"></div>
 
       <div class="header-center" id="centerHeader">
         <div class="knowledge-area" id="knowledgeArea" aria-live="polite"></div>
@@ -35,6 +31,13 @@
         </div>
       </div>
     </header>
+
+    <!-- Barra meta acima do painel de questões, contendo apenas o timer -->
+    <div class="exam-top-meta">
+      <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
+        <span id="timerDisplay">00:00</span>
+      </div>
+    </div>
 
     <section class="question-panel" aria-labelledby="questionNumber">
       <div class="meta-row">

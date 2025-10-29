@@ -86,19 +86,6 @@
       </article>
     </section>
   </main>
-  <!-- Modal de confirmação para exame completo (180 questões) -->
-  <div id="fullExamConfirmModal" class="modal" aria-hidden="true" style="display:none;">
-    <div class="modal-content">
-      <h2>Exame completo (180 questões)</h2>
-      <p>
-        Você selecionou 180 questões. O exame completo será aberto em uma página dedicada e o tempo total é de 230 minutos.
-      </p>
-      <div class="modal-actions">
-        <button id="fullExamProceed" class="primary-btn">Prosseguir</button>
-        <button id="fullExamCancel" class="secondary-btn" type="button">Cancelar</button>
-      </div>
-    </div>
-  </div>
   <!-- define session vars required by exam pages -->
   <script>
     try {
@@ -156,34 +143,7 @@
           if (totalEl) totalEl.textContent = String(window.QtdQuestoes);
         } catch(e) { console.warn('update totalQuestions failed', e); }
 
-        // Se for exame completo (180), exibir confirmação antes de redirecionar
-        const isFull = (finalQtd && full && Number(finalQtd) === Number(full));
-        if (isFull && shouldStart) {
-          const modal = document.getElementById('fullExamConfirmModal');
-          const proceedBtn = document.getElementById('fullExamProceed');
-          const cancelBtn = document.getElementById('fullExamCancel');
-          if (modal) {
-            modal.style.display = 'block';
-            modal.setAttribute('aria-hidden', 'false');
-          }
-          if (proceedBtn) {
-            proceedBtn.onclick = () => {
-              try { sessionStorage.setItem('startExam', 'true'); } catch(e){}
-              try { localStorage.setItem('examQuestionCount', String(full)); } catch(e){}
-              try { window.location.replace('/pages/examFull.html'); } catch(_) { window.location.href = '/pages/examFull.html'; }
-            };
-          }
-          if (cancelBtn) {
-            cancelBtn.onclick = () => {
-              if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); }
-              // Como shouldStart era true, iniciamos normalmente aqui
-              try { sessionStorage.removeItem('startExam'); } catch(e){}
-              startCountdown();
-            };
-          }
-          // Evitar auto-start aqui; será tratado pelo clique do usuário
-          return;
-        }
+        // Confirmação de exame completo (180) é tratada apenas na examSetup. Aqui iniciamos normalmente.
 
         // helper to format seconds to MM:SS or H:MM:SS if large
         function fmtSeconds(s){

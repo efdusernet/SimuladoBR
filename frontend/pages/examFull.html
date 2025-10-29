@@ -17,7 +17,11 @@
 
   <main class="exam-container" role="main">
     <header class="exam-header">
-      <div class="header-left" aria-hidden="true"></div>
+      <div class="header-left">
+        <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
+          <span id="timerDisplay">00:00</span>
+        </div>
+      </div>
 
       <div class="header-center" id="centerHeader">
         <div class="knowledge-area" id="knowledgeArea" aria-live="polite"></div>
@@ -28,12 +32,6 @@
           <div id="fontSlider" class="font-slider" hidden>
             <input id="fontRange" type="range" min="12" max="24" value="16" />
           </div>
-        </div>
-      </div>
-      <!-- Timer deve ficar dentro do header, acima do painel de questões -->
-      <div class="header-bottom">
-        <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
-          <span id="timerDisplay">00:00</span>
         </div>
       </div>
     </header>

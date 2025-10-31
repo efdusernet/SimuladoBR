@@ -155,6 +155,16 @@
           modal.setAttribute('aria-hidden','false');
         } catch(e){}
       }
+      function closeGrid(){
+        try {
+          const modal = document.getElementById('gridModal');
+          const frame = document.getElementById('gridFrame');
+          if (!modal) return;
+          modal.style.display = 'none';
+          modal.setAttribute('aria-hidden','true');
+          if (frame) frame.src = '';
+        } catch(e){}
+      }
       function ensureTopPauseButtons(idx){
         try {
           const modal = document.getElementById('gridModal');
@@ -162,13 +172,14 @@
           if (!need){ removeTopPauseButtons(); return; }
           modal.style.display = 'none';
           modal.setAttribute('aria-hidden','true');
-          if (frame) frame.src = '';
+          try { const frame = document.getElementById('gridFrame'); if (frame) frame.src = ''; } catch(_){ }
         } catch(e){}
       }
       function attachGridHandlers(){
         const btn = document.getElementById('bgrid');
         if (btn) btn.addEventListener('click', openGrid);
         const close = document.getElementById('closeGridModal');
+        if (close) close.addEventListener('click', closeGrid);
                 // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
                 const bs = document.getElementById('bSkipPause');
                 if (bs) { bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }

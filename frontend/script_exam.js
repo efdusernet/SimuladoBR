@@ -186,9 +186,45 @@
             let timerSeconds = 0;
             let timerInterval = null;
 
+            // Back-navigation barrier helpers (persist per session)
+            function getBackBarrier(){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return 0;
+                const raw = localStorage.getItem(`backBarrier_${sid}`);
+                const n = raw ? Number(raw) : 0;
+                return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+              } catch(e){ return 0; }
+            }
+            function setBackBarrier(n){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return;
+                const current = getBackBarrier();
+                if (n !== current) localStorage.setItem(`backBarrier_${sid}`, String(n));
+              } catch(e){}
+            }
+
+            // Continue override at checkpoints (persist per session)
+            function isContinueOverrideEnabled(){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return false;
+                return localStorage.getItem(`allowContinueAfterCheckpoint_${sid}`) === 'true';
+              } catch(e){ return false; }
+            }
+            function setContinueOverrideEnabled(v){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return;
+                localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, v ? 'true' : 'false');
+              } catch(e){}
+            }
+
             function prevQuestion(){
-              if (currentIdx > 0){
-                currentIdx--;
+              const barrier = getBackBarrier();
+              if (currentIdx > barrier){
+                currentIdx = Math.max(barrier, currentIdx - 1);
                 renderQuestion(currentIdx);
                 try{ saveProgressForCurrentSession(); } catch(e){}
               }
@@ -242,6 +278,16 @@
               $('questionNumber').textContent = idx + 1;
               $('totalQuestions').textContent = QUESTIONS.length;
               $('questionText').textContent = q.text || q.descricao || '';
+
+              // Update back-navigation barrier when crossing checkpoints
+              try {
+                const existing = getBackBarrier();
+                if (idx >= 121) {
+                  if (existing < 121) setBackBarrier(121);
+                } else if (idx >= 61) {
+                  if (existing < 61) setBackBarrier(61);
+                }
+              } catch(e){}
 
               // use precomputed shuffledOptions (frozen order for the session)
               const optObjs = Array.isArray(q.shuffledOptions) ? q.shuffledOptions.slice() : (Array.isArray(q.options) ? q.options.slice() : []);
@@ -302,7 +348,8 @@
               try {
                 const back = $('backBtn');
                 if (back) {
-                  if (idx > 0) { back.style.display = ''; } else { back.style.display = 'none'; }
+                  const barrier = getBackBarrier();
+                  if (idx > barrier) { back.style.display = ''; } else { back.style.display = 'none'; }
                 }
               } catch(e) {}
 
@@ -310,34 +357,31 @@
               try {
                 const contBtn = $('continueBtn');
                 if (contBtn) {
-                  const has = ANSWERS[qKey] && ANSWERS[qKey].optionId;
-                  contBtn.disabled = !has;
+                  // Nova regra: permitir avançar mesmo sem resposta, exceto nos checkpoints 60 e 120
+                  // Mas se houver override (ex.: após iniciar/encerrar pausa), reabilitar
+                  const isCheckpoint = (idx === 60 || idx === 120);
+                  const allowOverride = isContinueOverrideEnabled();
+                  contBtn.disabled = isCheckpoint && !allowOverride;
                 }
               } catch(e) {}
 
               // ajustar tipografia automaticamente com base no comprimento do texto e largura disponível
               adaptQuestionTypography();
+
+              // Emit index change event for external UI (e.g., grid/break button)
+              try {
+                const barrier = getBackBarrier();
+                const ev = new CustomEvent('exam:question-index-changed', { detail: { index: idx, barrier } });
+                document.dispatchEvent(ev);
+                // Notificar checkpoints de pré-pausa (60 e 120)
+                if (idx === 60 || idx === 120){
+                  const ev2 = new CustomEvent('exam:pre-pause-reached', { detail: { index: idx, barrier } });
+                  document.dispatchEvent(ev2);
+                }
+              } catch(e){}
             }
 
             function nextQuestion(){
-              // require an option to be selected before proceeding
-              const q = QUESTIONS[currentIdx];
-              const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${currentIdx}`;
-              const selInfo = ANSWERS[qKey];
-              if (!selInfo || !selInfo.optionId) {
-                // visual cue: shake + red border
-                try {
-                  const qc = $('questionContent');
-                  if (qc) {
-                    qc.classList.remove('input-error');
-                    // trigger reflow to restart animation
-                    void qc.offsetWidth;
-                    qc.classList.add('input-error');
-                    setTimeout(()=>{ try{ qc.classList.remove('input-error'); }catch(e){} }, 700);
-                  }
-                } catch(e){}
-                return;
-              }
               if (currentIdx < QUESTIONS.length - 1){
                 currentIdx++;
                 renderQuestion(currentIdx);

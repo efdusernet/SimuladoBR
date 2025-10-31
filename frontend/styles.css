@@ -63,6 +63,25 @@ html,body{
 	align-items:center;
 }
 
+/* Spacing between resource buttons (~20px) */
+.resource-Buttons .inline-flex > * + * { margin-left: 20px !important; }
+
+/* Reduce vertical padding by ~8px total (4px top + 4px bottom) */
+.resource-Buttons .inline-flex > button{
+	padding-top: 0.25rem !important; /* ~4px */
+	padding-bottom: 0.25rem !important; /* ~4px */
+}
+
+/* Icon inside resource buttons */
+.resource-Buttons .btn-icon{
+	width: 16px;
+	height: 16px;
+	margin-right: 8px;
+	display: inline-block;
+	fill: currentColor;
+	flex: 0 0 auto;
+}
+
 /* Minimal utility classes to support the provided button group markup */
 .inline-flex{ display:inline-flex; }
 .-ml-px{ margin-left:-1px; }

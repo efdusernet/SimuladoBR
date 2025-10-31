@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Simulado — Exame Completo</title>
+  <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
+  <link rel="stylesheet" href="../dist/styles.css" />
   <link rel="stylesheet" href="../styles.css" />
   <meta name="description" content="Exame completo com 180 questões" />
 </head>
@@ -108,7 +110,8 @@
           </div>
         </form>
 
-        <div class="actions-row">
+        <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
+          <button id="finishExamBtn" type="button" class="primary-btn" style="background:#FA8072;color:#fff; margin-right:auto;">Finalizar exame</button>
           <button id="backBtn" class="primary-btn" style="display:none;margin-right:8px;">Voltar</button>
           <button id="continueBtn" class="primary-btn">Continuar</button>
         </div>
@@ -155,6 +158,16 @@
           modal.setAttribute('aria-hidden','false');
         } catch(e){}
       }
+      function closeGrid(){
+        try {
+          const modal = document.getElementById('gridModal');
+          const frame = document.getElementById('gridFrame');
+          if (!modal) return;
+          modal.style.display = 'none';
+          modal.setAttribute('aria-hidden','true');
+          if (frame) frame.src = '';
+        } catch(e){}
+      }
       function ensureTopPauseButtons(idx){
         try {
           const modal = document.getElementById('gridModal');
@@ -162,13 +175,14 @@
           if (!need){ removeTopPauseButtons(); return; }
           modal.style.display = 'none';
           modal.setAttribute('aria-hidden','true');
-          if (frame) frame.src = '';
+          try { const frame = document.getElementById('gridFrame'); if (frame) frame.src = ''; } catch(_){ }
         } catch(e){}
       }
       function attachGridHandlers(){
         const btn = document.getElementById('bgrid');
         if (btn) btn.addEventListener('click', openGrid);
         const close = document.getElementById('closeGridModal');
+        if (close) close.addEventListener('click', closeGrid);
                 // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
                 const bs = document.getElementById('bSkipPause');
                 if (bs) { bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }
@@ -184,8 +198,8 @@
   </script>
 
   <!-- registration/session script must run before exam script -->
-  <script src="../script.js"></script>
-  <script src="../script_exam.js"></script>
+  <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
+  <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
 
   <!-- initialize global QtdQuestoes and timer behavior -->
   <script>
@@ -196,7 +210,7 @@
           const token = localStorage.getItem('sessionToken') || '';
           const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
           if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
-            window.location.replace('http://localhost:3000');
+            window.location.assign('/login');
             return;
           }
         } catch(e) {}
@@ -209,7 +223,7 @@
         const qtd = (parsed && !isNaN(parsed)) ? parsed : 0;
         const shouldStart = (sessionStorage.getItem('startExam') === 'true');
         if (!qtd && !shouldStart) {
-          try { window.location.replace('/pages/examSetup.html'); } catch(e) { window.location.href = '/pages/examSetup.html'; }
+          window.location.assign('/pages/examSetup.html');
           return;
         }
         const finalQtd = qtd || (full || 0);
@@ -293,6 +307,67 @@
     })();
   </script>
   </script>
+
+  <!-- Finalizar exame: limpa variáveis de sessão/cache e deixa TODO para persistência futura -->
+  <script>
+    (function(){
+      function clearExamData(){
+        try {
+          const sid = (window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId') || '').trim();
+          if (sid) {
+            const keys = [
+              `progress_${sid}`,
+              `answers_${sid}`,
+              `questions_${sid}`,
+              `highlights_${sid}`,
+              `questoesMarcadas_${sid}`,
+              `backBarrier_${sid}`,
+              `allowContinueAfterCheckpoint_${sid}`,
+              `pauseUntil_${sid}`,
+              `pauseConsumed_${sid}_cp1`,
+              `pauseConsumed_${sid}_cp2`,
+              `FirstStop_${sid}`,
+              `SecondStop_${sid}`
+            ];
+            keys.forEach(k => { try { localStorage.removeItem(k); } catch(_){ } });
+          }
+          // Chaves gerais do exame
+          ['examQuestionCount','examCountFromDefault','examFilters'].forEach(k=>{ try{ localStorage.removeItem(k);}catch(_){}});
+        } catch(_){ }
+        // Limpa sessionStorage inteiro
+        try { sessionStorage.clear(); } catch(_){ }
+        // Limpa caches (Service Worker)
+        try { if (window.caches && caches.keys) { caches.keys().then(names => names.forEach(n => caches.delete(n))).catch(()=>{}); } } catch(_){ }
+
+        // TODO: Persistir dados do exame no banco (resultado, tempo, respostas etc.)
+        // Exemplo:
+        // fetch('/api/exams/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ /* payload */ }) });
+
+        try { if (typeof showToast === 'function') showToast('Exame finalizado. Dados locais limpos.'); } catch(_){ }
+      }
+      // Modal de confirmação de finalização
+      function openFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display=''; m.setAttribute('aria-hidden','false'); } }
+      function closeFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
+      function attach(){
+        const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
+  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', ()=>{ closeFinishConfirm(); clearExamData(); window.location.assign('/login'); });
+        const no = document.getElementById('finishConfirmNo'); if (no) no.addEventListener('click', closeFinishConfirm);
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeFinishConfirm(); });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach); else attach();
+    })();
+  </script>
+
+  <!-- Modal de confirmação para finalizar exame -->
+  <div id="finishConfirmModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:560px; padding:18px; text-align:center;">
+      <p style="margin:0;">Deseja encerrar o exame? Suas questões serão subetidas como estão, confirma?</p>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
+        <button id="finishConfirmYes" class="primary-btn" type="button">Sim</button>
+        <button id="finishConfirmNo" class="secondary-btn" type="button">Não</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Marca a questão atual: salva JSON com { currentIdx, questionNumber, letter } em localStorage por sessão -->
   <script>

@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SimuladosBR</title>
+    <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
+    <link rel="stylesheet" href="./dist/styles.css">
     <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -15,23 +17,8 @@
         <p id="status">Verificando sessão...</p>
     </main>
 
-    <!-- Modal for forcing email registration -->
-    <div id="emailModal" class="modal" aria-hidden="true" style="display:none;">
-        <div class="modal-content">
-            <h2>Registro obrigatório</h2>
-            <p>Por favor, informe seu e-mail para registrar o aplicativo.</p>
-                <input id="nameInput" type="text" placeholder="Seu nome completo" />
-                <input id="emailInput" type="email" placeholder="seu@exemplo.com" />
-                <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" />
-                <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" style="display:none;" />
-            <div class="modal-actions">
-                <button id="submitEmail">Registrar</button>
-                <button id="toggleModeBtn" class="secondary-btn" type="button">Já tenho conta</button>
-            </div>
-            <p id="modalError" style="color:crimson;display:none;"></p>
-        </div>
-    </div>
+    <!-- Página inicial não contém mais o modal de login; use /login -->
 
-    <script src="./script.js"></script>
+    <script src="./assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='./script.js';document.body.appendChild(s);}())"></script>
 </body>
 </html>

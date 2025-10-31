@@ -188,16 +188,24 @@
   <script src="../script_exam.js"></script>
 
   <!-- initialize global QtdQuestoes and timer behavior -->
-            const label = (idx === 120) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
-            bs.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
+  <script>
     (function(){
       try {
         // Session guard: require non-guest identity; else send to registration entrypoint
-                // se estiver em pausa, não faz nada (fica desabilitado)
+        try {
           const token = localStorage.getItem('sessionToken') || '';
           const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
           if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
-                  if (rawPU) { return; }
+            window.location.replace('http://localhost:3000');
+            return;
+          }
+        } catch(e) {}
+
+        // Read chosen question count from localStorage (set by examSetup)
+        let q = null;
+        try { q = localStorage.getItem('examQuestionCount'); } catch(e) { q = null; }
+        const parsed = q ? Number(q) : null;
+        const full = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
         const qtd = (parsed && !isNaN(parsed)) ? parsed : 0;
         const shouldStart = (sessionStorage.getItem('startExam') === 'true');
         if (!qtd && !shouldStart) {
@@ -205,25 +213,13 @@
           return;
         }
         const finalQtd = qtd || (full || 0);
-                if (typeof showToast==='function') showToast(label);
+        // expose as global numeric
+        window.QtdQuestoes = Number(finalQtd);
+        // update totalQuestions display
         try {
           const totalEl = document.getElementById('totalQuestions');
           if (totalEl) totalEl.textContent = String(window.QtdQuestoes);
         } catch(e) { }
-
-          // Ao renderizar, se já estiver em pausa ativa, refletir estado: skip desabilitado e Continuar desabilitado
-          try {
-            const sid = window.currentSessionId || null;
-            if (sid){
-              const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
-              const until = rawPU ? Number(rawPU) : 0;
-              if (Number.isFinite(until) && until > Date.now()){
-                const bs = document.getElementById('bSkipPause'); if (bs){ bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }
-                const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
-                startPauseCountdown();
-              }
-            }
-          } catch(_){ }
 
         function fmtSeconds(s){
           s = Math.max(0, Math.floor(s));
@@ -295,6 +291,7 @@
 
       } catch(e){ }
     })();
+  </script>
   </script>
 
   <!-- Marca a questão atual: salva JSON com { currentIdx, questionNumber, letter } em localStorage por sessão -->
@@ -407,10 +404,41 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
       function targetBarrierFor(idx){ if (idx === 60) return 61; if (idx === 120) return 121; return null; }
       function showPrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display=''; m.setAttribute('aria-hidden','false'); } }
       function hidePrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
+      // Track pause consumption per checkpoint to avoid re-rendering buttons after auto end
+      function checkpointKeyFor(idx){ return idx===60 ? 'cp1' : (idx===120 ? 'cp2' : null); }
+      function isPauseConsumedFor(idx){
+        try { const cp = checkpointKeyFor(idx); if (!cp) return false; const sid = window.currentSessionId || null; if (!sid) return false; return localStorage.getItem(`pauseConsumed_${sid}_${cp}`) === 'true'; } catch(_) { return false; }
+      }
+      function markPauseConsumedFor(idx){
+        try { const cp = checkpointKeyFor(idx); if (!cp) return; const sid = window.currentSessionId || null; if (!sid) return; localStorage.setItem(`pauseConsumed_${sid}_${cp}`, 'true'); } catch(_) { }
+      }
+      function setSkipButtonDisabled(disabled, label){
+        try {
+          const bs = document.getElementById('bSkipPause');
+          if (!bs) return;
+          if (label){
+            bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
+          }
+          bs.disabled = !!disabled;
+          bs.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+          bs.style.pointerEvents = disabled ? 'none' : '';
+          if (disabled) bs.classList.add('is-disabled'); else bs.classList.remove('is-disabled');
+        } catch(e){}
+      }
+      function setPauseButtonDisabled(disabled){
+        try {
+          const bp = document.getElementById('bPause');
+          if (!bp) return;
+          bp.disabled = !!disabled;
+          bp.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+          bp.style.pointerEvents = disabled ? 'none' : '';
+          if (disabled) bp.classList.add('is-disabled'); else bp.classList.remove('is-disabled');
+        } catch(e){}
+      }
       function ensureTopPauseButtons(idx){
         try {
           const container = document.querySelector('#resource-buttons .inline-flex'); if (!container) return;
-          const need = (idx === 60); // apenas no 60
+          const need = ((idx === 60 || idx === 120) && !isPauseConsumedFor(idx));
           if (!need){ removeTopPauseButtons(); return; }
           if (!document.getElementById('bPause')){
             const bp = document.createElement('button');
@@ -421,11 +449,17 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
               try {
                 const sid = window.currentSessionId || null; if (sid){ localStorage.setItem(`pauseUntil_${sid}`, String(Date.now() + 10*60*1000)); }
                 const i = getCurrentIdx(); const tb = targetBarrierFor(i); if (tb) setBarrierTo(tb);
-                // trocar rótulo do botão de skip para "Continuar exame"
-                const bs = document.getElementById('bSkipPause');
-                if (bs) { bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; }
+                // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
+                setSkipButtonDisabled(true, 'Continuar exame');
+                // desabilitar também o botão "Fazer pausa" durante a pausa
+                setPauseButtonDisabled(true);
                 // iniciar contador regressivo no botão de pausa
                 startPauseCountdown();
+                // manter o botão Continuar desabilitado durante a pausa
+                try {
+                  if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'false');
+                  const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                } catch(_){ }
                 if (typeof showToast === 'function') showToast('Pausa de 10 minutos iniciada.');
               } catch(e){}
             });
@@ -435,24 +469,16 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
             const bs = document.createElement('button');
             bs.id='bSkipPause'; bs.type='button';
             bs.className='-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50';
-            bs.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar sem 1ª pausa';
+            const label = (idx === 120) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
+            bs.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
             bs.addEventListener('click', ()=>{
               try {
                 const i=getCurrentIdx(); const tb=targetBarrierFor(i); if (tb) setBarrierTo(tb);
-                // caso já esteja em pausa, este botão serve para retomar o exame
+                // se estiver em pausa, não faz nada (fica desabilitado)
                 const sid = window.currentSessionId || null;
                 if (sid) {
                   const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
-                  if (rawPU) {
-                    // encerrar pausa antecipadamente
-                    try { localStorage.removeItem(`pauseUntil_${sid}`); } catch(_){ }
-                    stopPauseCountdown();
-                    // reabilitar botão Continuar neste checkpoint
-                    try { localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'true'); } catch(_){ }
-                    const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = false;
-                    if (typeof showToast==='function') showToast('Exame retomado.');
-                    return;
-                  }
+                  if (rawPU) { return; }
                 }
                 // se não estiver em pausa, é a ação antiga de continuar sem a 1ª pausa
                 try {
@@ -460,11 +486,25 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
                   if (sid2) localStorage.setItem(`allowContinueAfterCheckpoint_${sid2}`, 'true');
                 } catch(_){}
                 const contBtn2 = document.getElementById('continueBtn'); if (contBtn2) contBtn2.disabled = false;
-                if (typeof showToast==='function') showToast('Continuando sem a 1ª pausa.');
+                if (typeof showToast==='function') showToast(label);
               } catch(e){}
             });
             container.appendChild(bs);
           }
+          // Ao renderizar, se já estiver em pausa ativa, refletir estado: skip desabilitado e Continuar desabilitado
+          try {
+            const sid = window.currentSessionId || null;
+            if (sid){
+              const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
+              const until = rawPU ? Number(rawPU) : 0;
+              if (Number.isFinite(until) && until > Date.now()){
+                setSkipButtonDisabled(true, 'Continuar exame');
+                setPauseButtonDisabled(true);
+                const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                startPauseCountdown();
+              }
+            }
+          } catch(_){ }
         } catch(e){}
       }
       let PAUSE_TICKER_ID = null;
@@ -568,3 +608,34 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
   </div>
 </body>
 </html>
+<!-- Botão temporário de teste: subtrai 60s da pausa ativa -->
+<button id="testMinus60" type="button" aria-label="Subtrair 60 segundos da pausa (teste)"
+  style="position:fixed; right:12px; bottom:12px; z-index:9999; background:#ffecec; color:#b20000; border:1px solid #ffbdbd; border-radius:8px; padding:8px 10px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.12);">
+  −60s Pausa (teste)
+</button>
+<script>
+  (function(){
+    try {
+      const btn = document.getElementById('testMinus60');
+      if (!btn) return;
+      btn.addEventListener('click', ()=>{
+        try {
+          const sid = window.currentSessionId || null;
+          if (!sid) { try { if (typeof showToast==='function') showToast('Sessão indisponível.'); } catch(_){} return; }
+          const key = `pauseUntil_${sid}`;
+          const raw = localStorage.getItem(key);
+          const now = Date.now();
+          const until = raw ? Number(raw) : 0;
+          if (!Number.isFinite(until) || until <= now){
+            try { if (typeof showToast==='function') showToast('Sem pausa ativa.'); } catch(_){}
+            return;
+          }
+          const newUntil = Math.max(now, until - 60*1000);
+          localStorage.setItem(key, String(newUntil));
+          try { if (typeof showToast==='function') showToast('−60s na pausa (teste)'); } catch(_){}
+          // startPauseCountdown atualiza a cada segundo lendo localStorage; não é necessário chamar aqui
+        } catch(e){}
+      });
+    } catch(e){}
+  })();
+</script>

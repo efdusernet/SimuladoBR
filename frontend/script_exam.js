@@ -221,6 +221,16 @@
               } catch(e){}
             }
 
+            // Pause guard helpers
+            function isPauseActive(){
+              try {
+                const sid = window.currentSessionId || null; if (!sid) return false;
+                const raw = localStorage.getItem(`pauseUntil_${sid}`); if (!raw) return false;
+                const until = Number(raw); if (!Number.isFinite(until)) return false;
+                return until > Date.now();
+              } catch(e){ return false; }
+            }
+
             function prevQuestion(){
               const barrier = getBackBarrier();
               if (currentIdx > barrier){
@@ -322,7 +332,15 @@
                     try {
                       const chosenId = this.dataset && this.dataset.optionId ? this.dataset.optionId : '';
                       ANSWERS[qKey] = { index: i, optionId: chosenId };
-                      const contBtn = $('continueBtn'); if (contBtn) contBtn.disabled = false;
+                      const contBtn = $('continueBtn');
+                      if (contBtn) {
+                        // se estiver em pausa ativa, manter desabilitado apesar da seleção
+                        if (isPauseActive()) {
+                          contBtn.disabled = true;
+                        } else {
+                          contBtn.disabled = false;
+                        }
+                      }
                       // persist incremental answers for this session (auto-save helper)
                       try { saveAnswersForCurrentSession(); } catch(e){}
                       // remove any visual error indicator
@@ -357,11 +375,11 @@
               try {
                 const contBtn = $('continueBtn');
                 if (contBtn) {
-                  // Nova regra: permitir avançar mesmo sem resposta, exceto nos checkpoints 60 e 120
-                  // Mas se houver override (ex.: após iniciar/encerrar pausa), reabilitar
                   const isCheckpoint = (idx === 60 || idx === 120);
                   const allowOverride = isContinueOverrideEnabled();
-                  contBtn.disabled = isCheckpoint && !allowOverride;
+                  const inPause = isPauseActive();
+                  // Bloquear durante a pausa; senão, seguir regra de checkpoint
+                  contBtn.disabled = inPause || (isCheckpoint && !allowOverride);
                 }
               } catch(e) {}
 
@@ -382,6 +400,11 @@
             }
 
             function nextQuestion(){
+              // Guardar contra avanço durante pausa ativa, independente do estado visual do botão
+              if (isPauseActive()){
+                try { showToast('Pausa em andamento. Aguarde o término.'); } catch(e){}
+                return;
+              }
               if (currentIdx < QUESTIONS.length - 1){
                 currentIdx++;
                 renderQuestion(currentIdx);

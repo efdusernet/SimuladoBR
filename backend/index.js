@@ -28,11 +28,16 @@ if (process.env.DB_SYNC === 'true') {
 const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/', apiLimiter);
 
-// Serve frontend estático (prioriza dist se existir)
+// Serve frontend estático: sirva dist (se existir) primeiro para assets otimizados,
+// mas mantenha a pasta frontend como fallback para HTML e demais arquivos.
 const path = require('path');
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
-app.use(express.static(require('fs').existsSync(FRONTEND_DIST) ? FRONTEND_DIST : FRONTEND_DIR));
+const fs = require('fs');
+if (fs.existsSync(FRONTEND_DIST)) {
+	app.use(express.static(FRONTEND_DIST));
+}
+app.use(express.static(FRONTEND_DIR));
 
 // Rota raiz: sirva a home (index.html); o script.js redireciona usuários logados para /pages/examSetup.html
 app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
@@ -56,8 +61,8 @@ app.use((req, res, next) => {
 		if (req.path.startsWith('/api/')) return next();
 	// Only serve index.html for GET navigation requests
 	if (req.method !== 'GET') return next();
-		const baseDir = require('fs').existsSync(FRONTEND_DIST) ? FRONTEND_DIST : FRONTEND_DIR;
-		res.sendFile(path.join(baseDir, 'index.html'));
+			// Use o index.html da pasta frontend (não copiamos HTMLs para dist)
+			res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;

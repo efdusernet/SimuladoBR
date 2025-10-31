@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SimuladosBR — Login</title>
+  <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
+  <link rel="stylesheet" href="./dist/styles.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
+    <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
+  </header>
+  <main>
+    <h1>Entrar no SimuladosBR</h1>
+    <p id="status">Verificando sessão...</p>
+  </main>
+
+  <!-- Modal de Login / Registro -->
+  <div id="emailModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content">
+      <h2>Registro obrigatório</h2>
+      <p>Por favor, informe seu e-mail para registrar o aplicativo.</p>
+      <input id="nameInput" type="text" placeholder="Seu nome completo" />
+      <input id="emailInput" type="email" placeholder="seu@exemplo.com" />
+      <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" />
+      <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" style="display:none;" />
+      <div class="modal-actions">
+        <button id="submitEmail">Registrar</button>
+        <button id="toggleModeBtn" class="secondary-btn" type="button">Já tenho conta</button>
+      </div>
+      <p id="modalError" style="color:crimson;display:none;"></p>
+    </div>
+  </div>
+
+  <script src="./assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='./script.js';document.body.appendChild(s);}())"></script>
+</body>
+</html>

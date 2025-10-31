@@ -82,6 +82,16 @@ html,body{
 	flex: 0 0 auto;
 }
 
+/* Generic icon size for buttons (used outside resource-Buttons as well) */
+.btn-icon{
+	width: 16px;
+	height: 16px;
+	margin-right: 8px;
+	display: inline-block;
+	fill: currentColor;
+	flex: 0 0 auto;
+}
+
 /* Minimal utility classes to support the provided button group markup */
 .inline-flex{ display:inline-flex; }
 .-ml-px{ margin-left:-1px; }
@@ -212,6 +222,11 @@ html,body{
 	word-break: break-word;
 	hyphens: auto;
 	max-width: 100%;
+}
+
+/* Destaque de questão (texto em vermelho) */
+.question-content p.question-text.highlighted{
+	color: #d32f2f; /* vermelho para destaque */
 }
 
 /* respostas */

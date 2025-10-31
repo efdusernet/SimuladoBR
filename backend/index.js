@@ -41,6 +41,8 @@ app.use(express.static(FRONTEND_DIR));
 
 // Rota raiz: sirva a home (index.html); o script.js redireciona usuários logados para /pages/examSetup.html
 app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
+// Rota de login: serve a página dedicada de login
+app.get('/login', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'login.html')));
 
 // Monta rotas de API (colocar antes da rota catch-all)
 app.use('/api/users', require('./routes/users'));

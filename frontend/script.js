@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitBtn = document.getElementById('submitEmail');
     const modalError = document.getElementById('modalError');
     const toggleModeBtn = document.getElementById('toggleModeBtn');
+    const pathNow = window.location.pathname || '';
+    const onLoginPage = pathNow.replace(/\/+$/, '') === '/login';
 
     // Configuration: allow overriding from the page by setting window.SIMULADOS_CONFIG
     // Example (optional): window.SIMULADOS_CONFIG = { BACKEND_BASE: 'http://localhost:3000', EXAM_PATH: '/pages/exam.html' };
@@ -168,17 +170,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // If user appears logged-in and is visiting the site root, redirect to the exam page.
     try {
-        const pathNow = window.location.pathname || '';
-        // consider root when pathname is exactly '/', '' or '/index.html' or ends without a folder (no /pages/)
-        const isRoot = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html') || (!pathNow.includes('/pages/') && pathNow.indexOf('.') === -1);
+    // Consider only true landing as root: '/', '' or '/index.html' (avoid matching '/login')
+    const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
         const loggedIn = Boolean(hasUserId || hasNomeUsuario || hasNome);
         // treat guest tokens (ending with '#') as not-logged-in
         const isGuest = !!(sessionToken && sessionToken.endsWith('#'));
 
         // Diagnostics to help debugging when redirect does not occur
-        console.debug('[redirect-check] pathNow=', pathNow, 'isRoot=', isRoot, 'loggedIn=', loggedIn, 'isGuest=', isGuest, 'sessionToken=', sessionToken, 'hasUserId=', hasUserId, 'hasNomeUsuario=', hasNomeUsuario, 'hasNome=', hasNome);
+    console.debug('[redirect-check] pathNow=', pathNow, 'isLanding=', isLanding, 'loggedIn=', loggedIn, 'isGuest=', isGuest, 'sessionToken=', sessionToken, 'hasUserId=', hasUserId, 'hasNomeUsuario=', hasNomeUsuario, 'hasNome=', hasNome);
 
-        if (isRoot && loggedIn && !isGuest) {
+    if (isLanding && loggedIn && !isGuest) {
             // Redirect to standalone setup page instead of going straight to the exam
             const setupUrl = './pages/examSetup.html';
             let absoluteUrl;
@@ -188,8 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 absoluteUrl = setupUrl;
             }
             console.info('[redirect] user looks logged in — redirecting to', absoluteUrl);
-            window.location.replace(absoluteUrl);
+            window.location.assign(absoluteUrl);
             return; // stop further initialization on index
+        } else if (isLanding && (!loggedIn || isGuest)) {
+            // On the home page, if not logged in (or guest), go straight to /login
+            window.location.assign('/login');
+            return;
         }
     } catch (e) { console.warn('redirect check failed', e); }
 
@@ -227,7 +232,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if ((sessionToken && sessionToken.endsWith('#')) && !hasUserId && !hasNomeUsuario && !hasNome) {
         status.style.display = '';
         status.textContent = 'Usuário não registrado — registro obrigatório.';
-        showEmailModal();
+        if (modal) {
+            showEmailModal();
+        } else {
+            // Se não houver modal na página atual (ex.: index), redirecionar para /login
+            window.location.assign('/login');
+            return;
+        }
     } else {
         status.style.display = '';
         const displayedName = localStorage.getItem('nome') || localStorage.getItem('nomeUsuario') || sessionToken || '';
@@ -236,6 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showEmailModal() {
+        if (!modal) return;
         // default to register mode when opening modal
         if (!modal.getAttribute('data-mode')) modal.setAttribute('data-mode', 'register');
         modal.style.display = 'flex';
@@ -302,9 +314,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function hideEmailModal() {
+        if (!modal) return;
         modal.style.display = 'none';
         modal.setAttribute('aria-hidden', 'true');
-        modalError.style.display = 'none';
+        if (modalError) modalError.style.display = 'none';
     }
 
     function validateEmail(email) {
@@ -494,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.warn('showTemporaryNotification error', e); }
     }
 
-    submitBtn.addEventListener('click', async () => {
+    if (modal && submitBtn && emailInput) submitBtn.addEventListener('click', async () => {
         const email = emailInput.value && emailInput.value.trim();
         const nome = nameInput.value && nameInput.value.trim();
         const password = passwordInput ? (passwordInput.value || '') : '';
@@ -674,12 +687,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Optionally allow Enter key inside input
-    emailInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
-    if (passwordInput) passwordInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
-    if (nameInput) nameInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
+    if (emailInput && submitBtn) emailInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
+    if (passwordInput && submitBtn) passwordInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
+    if (nameInput && submitBtn) nameInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
 
     // toggle mode button (register <-> login)
-    if (toggleModeBtn){
+    if (modal && toggleModeBtn){
         toggleModeBtn.addEventListener('click', (ev) => {
             ev.preventDefault();
             const current = modal.getAttribute('data-mode') || 'register';

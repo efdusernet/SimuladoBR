@@ -495,7 +495,10 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
                   const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
                   if (rawPU) { return; }
                 }
-                // se não estiver em pausa, é a ação antiga de continuar sem a 1ª pausa
+                // marcar este checkpoint como consumido e remover imediatamente os botões do header
+                try { markPauseConsumedFor(idx); } catch(_){ }
+                try { removeTopPauseButtons(); } catch(_){ }
+                // se não estiver em pausa, é a ação de continuar sem a pausa deste checkpoint
                 try {
                   const sid2 = window.currentSessionId || null;
                   if (sid2) localStorage.setItem(`allowContinueAfterCheckpoint_${sid2}`, 'true');
@@ -607,6 +610,11 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
         try {
           const idx = ev && ev.detail && ev.detail.index;
           if ((idx === 60 || idx === 120) && shouldShowPrePauseFor(idx)){
+            // Atualiza o rótulo do botão do modal conforme o checkpoint (1ª ou 2ª pausa)
+            try {
+              const skip = document.getElementById('btnSkipPause');
+              if (skip) skip.textContent = (idx === 120) ? 'Continuar sem a 2ª pausa' : 'Continuar sem a 1ª pausa';
+            } catch(e){}
             showPrePauseModal();
             ensureTopPauseButtons(idx);
           }
@@ -615,7 +623,29 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
       });
       document.getElementById('btnReviewQuestions')?.addEventListener('click', ()=>{ hidePrePauseModal(); });
       document.getElementById('btnSkipPause')?.addEventListener('click', ()=>{
-        try { const i=getCurrentIdx(); const tb=targetBarrierFor(i); if (tb) setBarrierTo(tb); if (typeof showToast==='function') showToast('Continuando sem a 1ª pausa.'); } catch(e){}
+        try {
+          const i = getCurrentIdx();
+          const tb = targetBarrierFor(i);
+          if (tb) setBarrierTo(tb);
+          // Marcar este checkpoint como consumido para não reexibir os botões no header
+          try {
+            const cpIdx = (typeof i === 'number' && i >= 120) ? 120 : 60;
+            markPauseConsumedFor(cpIdx);
+          } catch(_){ }
+          // Remover imediatamente os botões do header (Fazer pausa / Continuar sem pausa)
+          try { removeTopPauseButtons(); } catch(_){ }
+          // Liberar a continuação após o checkpoint
+          try {
+            const sid = window.currentSessionId || null;
+            if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'true');
+            const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = false;
+          } catch(_){ }
+          // Informar via toast qual opção foi escolhida (1ª ou 2ª pausa)
+          try {
+            const msg = (typeof i === 'number' && i >= 120) ? 'Continuando sem a 2ª pausa.' : 'Continuando sem a 1ª pausa.';
+            if (typeof showToast==='function') showToast(msg);
+          } catch(_){ }
+        } catch(e){}
         hidePrePauseModal();
       });
     })();

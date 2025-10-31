@@ -261,6 +261,31 @@
 
             function $(id){ return document.getElementById(id); }
 
+            // --- Destaque de questão (persistido por sessão) ---
+            function highlightStoreKey(){ try { return window.currentSessionId ? `highlights_${window.currentSessionId}` : null; } catch(e){ return null; } }
+            function readHighlights(){
+              try { const k = highlightStoreKey(); if (!k) return {}; const raw = localStorage.getItem(k); if (!raw) return {}; const obj = JSON.parse(raw); return (obj && typeof obj === 'object') ? obj : {}; } catch(e){ return {}; }
+            }
+            function writeHighlights(map){ try { const k = highlightStoreKey(); if (!k) return; localStorage.setItem(k, JSON.stringify(map || {})); } catch(e){} }
+            function isHighlighted(qKey){ try { const map = readHighlights(); return !!map[qKey]; } catch(e){ return false; } }
+            function setHighlighted(qKey, val){ try { const map = readHighlights(); if (val) { map[qKey] = true; } else { delete map[qKey]; } writeHighlights(map); } catch(e){} }
+            function questionKeyFor(idx){
+              try { const q = QUESTIONS[idx]; if (!q) return `idx_${idx}`; return (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`; } catch(e){ return `idx_${idx}`; }
+            }
+            function applyHighlightUI(qKey){
+              try {
+                const p = $('questionText');
+                const btn = $('bhighlight');
+                const on = isHighlighted(qKey);
+                if (p) {
+                  if (on) p.classList.add('highlighted'); else p.classList.remove('highlighted');
+                }
+                if (btn) {
+                  btn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 3.2L3.2 14 2 22l8-1.2L22.8 10 14 3.2z"></path><path d="M2 22h10v2H2z"></path></svg> ' + (on ? 'Remover destaque' : 'Destacar questão');
+                }
+              } catch(e){}
+            }
+
             /* Gera um texto legível repetindo uma frase até atingir o comprimento desejado e então cortando. */
             function generateFixedLengthText(len){
               const base = "Este é um enunciado de exemplo criado para testar a responsividade e o ajuste automático do texto na interface. ";
@@ -307,6 +332,9 @@
               $('questionNumber').textContent = idx + 1;
               $('totalQuestions').textContent = QUESTIONS.length;
               $('questionText').textContent = q.text || q.descricao || '';
+
+              // Restaurar estado de destaque (vermelho) e rótulo do botão
+              try { const qKeyHL = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`; applyHighlightUI(qKeyHL); } catch(e){}
 
               // Update back-navigation barrier when crossing checkpoints
               try {
@@ -670,6 +698,21 @@
               const back = $('backBtn');
               if (back) back.addEventListener('click', prevQuestion);
               const form = document.querySelector('#answersForm'); if (form) form.addEventListener('submit', (e)=> e.preventDefault());
+
+              // Toggle de destaque (vermelho) da questão atual, persistido em localStorage por sessão
+              const btnHL = $('bhighlight');
+              if (btnHL) {
+                btnHL.addEventListener('click', ()=>{
+                  try {
+                    const key = questionKeyFor(currentIdx);
+                    const nowOn = !isHighlighted(key);
+                    setHighlighted(key, nowOn);
+                    applyHighlightUI(key);
+                  } catch(e){}
+                });
+                // Garantir rótulo inicial consistente
+                try { applyHighlightUI(questionKeyFor(currentIdx)); } catch(e){}
+              }
 
               // posicionar o timer inicialmente e ao redimensionar (debounced)
               positionTimer();

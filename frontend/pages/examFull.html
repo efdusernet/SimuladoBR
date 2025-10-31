@@ -155,11 +155,11 @@
           modal.setAttribute('aria-hidden','false');
         } catch(e){}
       }
-      function closeGrid(){
+      function ensureTopPauseButtons(idx){
         try {
           const modal = document.getElementById('gridModal');
-          const frame = document.getElementById('gridFrame');
-          if (!modal) return;
+          const need = (idx === 60 || idx === 120);
+          if (!need){ removeTopPauseButtons(); return; }
           modal.style.display = 'none';
           modal.setAttribute('aria-hidden','true');
           if (frame) frame.src = '';
@@ -169,11 +169,16 @@
         const btn = document.getElementById('bgrid');
         if (btn) btn.addEventListener('click', openGrid);
         const close = document.getElementById('closeGridModal');
-        if (close) close.addEventListener('click', closeGrid);
-        const modal = document.getElementById('gridModal');
-        if (modal) modal.addEventListener('click', (ev)=>{ if (ev.target === modal) closeGrid(); });
+                // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
+                const bs = document.getElementById('bSkipPause');
+                if (bs) { bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }
         window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGrid(); });
       }
+                // manter o botão Continuar desabilitado durante a pausa
+                try {
+                  if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'false');
+                  const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                } catch(_){ }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachGridHandlers); else attachGridHandlers();
     })();
   </script>
@@ -183,24 +188,16 @@
   <script src="../script_exam.js"></script>
 
   <!-- initialize global QtdQuestoes and timer behavior -->
-  <script>
+            const label = (idx === 120) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
+            bs.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
     (function(){
       try {
         // Session guard: require non-guest identity; else send to registration entrypoint
-        try {
+                // se estiver em pausa, não faz nada (fica desabilitado)
           const token = localStorage.getItem('sessionToken') || '';
           const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
           if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
-            window.location.replace('http://localhost:3000');
-            return;
-          }
-        } catch(e) {}
-
-        // Read chosen question count from localStorage (set by examSetup)
-        let q = null;
-        try { q = localStorage.getItem('examQuestionCount'); } catch(e) { q = null; }
-        const parsed = q ? Number(q) : null;
-        const full = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
+                  if (rawPU) { return; }
         const qtd = (parsed && !isNaN(parsed)) ? parsed : 0;
         const shouldStart = (sessionStorage.getItem('startExam') === 'true');
         if (!qtd && !shouldStart) {
@@ -208,11 +205,25 @@
           return;
         }
         const finalQtd = qtd || (full || 0);
-        window.QtdQuestoes = Number(finalQtd);
+                if (typeof showToast==='function') showToast(label);
         try {
           const totalEl = document.getElementById('totalQuestions');
           if (totalEl) totalEl.textContent = String(window.QtdQuestoes);
         } catch(e) { }
+
+          // Ao renderizar, se já estiver em pausa ativa, refletir estado: skip desabilitado e Continuar desabilitado
+          try {
+            const sid = window.currentSessionId || null;
+            if (sid){
+              const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
+              const until = rawPU ? Number(rawPU) : 0;
+              if (Number.isFinite(until) && until > Date.now()){
+                const bs = document.getElementById('bSkipPause'); if (bs){ bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }
+                const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                startPauseCountdown();
+              }
+            }
+          } catch(_){ }
 
         function fmtSeconds(s){
           s = Math.max(0, Math.floor(s));

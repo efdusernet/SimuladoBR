@@ -401,7 +401,12 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
       function getCurrentIdx(){
         try { const el = document.getElementById('questionNumber'); if (!el) return null; const n = Number((el.textContent||'').trim()); return (Number.isFinite(n) && n>=1)? n-1 : null; } catch(e){ return null; }
       }
-      function targetBarrierFor(idx){ if (idx === 60) return 61; if (idx === 120) return 121; return null; }
+  // Define back-navigation barrier based on 0-based idx at the checkpoint question.
+  // Checkpoints occur at questions 60 and 120 (1-based), which are idx 59 and 119 (0-based).
+  // We set barrier to the first question AFTER the checkpoint (idx 60 and 120),
+  // so the Back button appears starting at questions 62 and 122 (idx 61 and 121),
+  // and allows returning only up to questions 61 and 121 respectively.
+  function targetBarrierFor(idx){ if (idx === 59) return 60; if (idx === 119) return 120; return null; }
       function showPrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display=''; m.setAttribute('aria-hidden','false'); } }
       function hidePrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
       // Track pause consumption per checkpoint to avoid re-rendering buttons after auto end
@@ -449,6 +454,16 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
               try {
                 const sid = window.currentSessionId || null; if (sid){ localStorage.setItem(`pauseUntil_${sid}`, String(Date.now() + 10*60*1000)); }
                 const i = getCurrentIdx(); const tb = targetBarrierFor(i); if (tb) setBarrierTo(tb);
+                // Marcar flags por sessão: FirstStop_<sid>/SecondStop_<sid> indicando se usuário fez 1ª ou 2ª pausa
+                try {
+                  const cur = typeof i === 'number' ? i : getCurrentIdx();
+                  if (typeof cur === 'number') {
+                    if (sid) {
+                      if (cur < 120) { localStorage.setItem(`FirstStop_${sid}`, 'true'); }
+                      else { localStorage.setItem(`SecondStop_${sid}`, 'true'); }
+                    }
+                  }
+                } catch(_){ }
                 // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
                 setSkipButtonDisabled(true, 'Continuar exame');
                 // desabilitar também o botão "Fazer pausa" durante a pausa
@@ -554,7 +569,7 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
             // Retomar cronômetro e reabilitar botão Continuar
             try { if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'true'); } catch(_){ }
             const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = false;
-            if (typeof showToast==='function') showToast('Pausa encerrada. Você pode continuar.');
+            if (typeof showToast==='function') { showToast('Fim do intervalo. Exame retomado.', 2000, { center: true }); }
           } else {
             // Retorno manual (não utilizado pois o botão fica desabilitado durante a pausa)
             if (bp){ bp.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Fazer pausa'; }
@@ -573,10 +588,28 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
         }catch(e){}
       }
 
+      // Show pre-pause modal with per-checkpoint gating:
+      // - At question 60: consider only FirstStop_<sid>
+      // - At question 120: consider only SecondStop_<sid>
+      function shouldShowPrePauseFor(idx){
+        try {
+          const sid = window.currentSessionId || null;
+          if (!sid) return true; // sem sessão, mantenha comportamento padrão
+          const first = localStorage.getItem(`FirstStop_${sid}`) === 'true';
+          const second = localStorage.getItem(`SecondStop_${sid}`) === 'true';
+          if (idx === 60) return !first;
+          if (idx === 120) return !second;
+          return true;
+        } catch(e){ return true; }
+      }
+
       document.addEventListener('exam:question-index-changed', (ev)=>{
         try {
           const idx = ev && ev.detail && ev.detail.index;
-          if (idx === 60 || idx === 120){ showPrePauseModal(); ensureTopPauseButtons(idx); }
+          if ((idx === 60 || idx === 120) && shouldShowPrePauseFor(idx)){
+            showPrePauseModal();
+            ensureTopPauseButtons(idx);
+          }
           else { hidePrePauseModal(); removeTopPauseButtons(); }
         } catch(e){}
       });

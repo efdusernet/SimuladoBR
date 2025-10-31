@@ -94,14 +94,33 @@
               } catch(e) { console.warn('saveAnswersForCurrentSession failed', e); }
             }
 
-            // toast helper
-            function showToast(text, ms = 1600){
+            // toast helper (now supports centered positioning)
+            // Usage:
+            //  - showToast('Mensagem')
+            //  - showToast('Mensagem', 2000)
+            //  - showToast('Mensagem', 2000, true) // center
+            //  - showToast('Mensagem', 2000, { center: true })
+            //  - showToast('Mensagem', 2000, { position: 'center' })
+            function showToast(text, ms = 1600, opts){
               try {
                 const t = $('toast'); if (!t) return;
+                const center = (typeof opts === 'boolean') ? opts : !!(opts && (opts.center || opts.position === 'center'));
+                if (center) t.classList.add('toast-center');
                 t.textContent = text || '';
                 t.style.display = '';
                 requestAnimationFrame(()=> t.classList.add('show'));
-                setTimeout(()=>{ try{ t.classList.remove('show'); setTimeout(()=>{ t.style.display = 'none'; }, 220); }catch(e){} }, ms);
+                setTimeout(()=>{
+                  try{
+                    t.classList.remove('show');
+                    setTimeout(()=>{
+                      try {
+                        t.style.display = 'none';
+                        // remove centering class after hide to restore default position for future toasts
+                        if (center) t.classList.remove('toast-center');
+                      } catch(e){}
+                    }, 220);
+                  }catch(e){}
+                }, ms);
               } catch(e) {}
             }
 
@@ -292,10 +311,13 @@
               // Update back-navigation barrier when crossing checkpoints
               try {
                 const existing = getBackBarrier();
-                if (idx >= 121) {
-                  if (existing < 121) setBackBarrier(121);
-                } else if (idx >= 61) {
-                  if (existing < 61) setBackBarrier(61);
+                // Checkpoints are at questions 60 and 120 (1-based) => idx 59 and 119 (0-based).
+                // The barrier should be the first question AFTER each checkpoint (idx 60 and 120),
+                // so the Back button only appears from questions 62 and 122 onward.
+                if (idx >= 120) {
+                  if (existing < 120) setBackBarrier(120);
+                } else if (idx >= 60) {
+                  if (existing < 60) setBackBarrier(60);
                 }
               } catch(e){}
 
@@ -467,6 +489,8 @@
                   try { if (old) localStorage.removeItem(`progress_${old}`); if (old) localStorage.removeItem(`progress_${old}_savedAt`); } catch(e){}
                   // remove cached questions for this session
                   try { if (old) localStorage.removeItem(`questions_${old}`); if (old) localStorage.removeItem(`questions_${old}_savedAt`); } catch(e){}
+                  // remove FirstStop/SecondStop flags for this session
+                  try { if (old) { localStorage.removeItem(`FirstStop_${old}`); localStorage.removeItem(`SecondStop_${old}`); } } catch(e){}
                   window.currentSessionId = null;
                   // hide autosave indicator
                   try { updateAutosaveIndicatorHidden(); } catch(e){}
@@ -668,6 +692,19 @@
               async function prepareAndInit(){
                 try {
                   console.debug('[exam] prepareAndInit start');
+                  // Initialize session-scoped pause flags at the start of a fresh exam (no prior progress/questions)
+                  try {
+                    const sid = window.currentSessionId || null;
+                    if (sid) {
+                      const hasProg = !!localStorage.getItem(`progress_${sid}`);
+                      const hasQs = !!localStorage.getItem(`questions_${sid}`);
+                      if (!hasProg && !hasQs) {
+                        // Fresh exam start: initialize flags as false for this session
+                        localStorage.setItem(`FirstStop_${sid}`, 'false');
+                        localStorage.setItem(`SecondStop_${sid}`, 'false');
+                      }
+                    }
+                  } catch(e){}
                   // attempt to fetch questions from backend
                   const count = Number(window.QtdQuestoes) || (localStorage.getItem('examQuestionCount') ? Number(localStorage.getItem('examQuestionCount')) : 0);
                   console.debug('[exam] QtdQuestoes=', window.QtdQuestoes, 'localStorage.examQuestionCount=', localStorage.getItem('examQuestionCount'));

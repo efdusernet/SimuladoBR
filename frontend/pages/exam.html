@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Simulado — Questão</title>
+  <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
+  <link rel="stylesheet" href="../dist/styles.css" />
   <link rel="stylesheet" href="../styles.css" />
 </head>
 <body>
@@ -86,7 +88,8 @@
           </div>
         </form>
 
-        <div class="actions-row">
+        <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
+          <button id="finishExamBtn" type="button" class="primary-btn" style="background:#FA8072;color:#fff; margin-right:auto;">Finalizar exame</button>
           <button id="backBtn" class="primary-btn" style="display:none;margin-right:8px;">Voltar</button>
           <button id="continueBtn" class="primary-btn">Continuar</button>
         </div>
@@ -111,8 +114,8 @@
   </script>
 
   <!-- registration/session script must run before exam script -->
-  <script src="../script.js"></script>
-  <script src="../script_exam.js"></script>
+  <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
+  <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
 
   <!-- initialize global QtdQuestoes and timer behavior -->
   <script>
@@ -123,7 +126,7 @@
           const token = localStorage.getItem('sessionToken') || '';
           const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
           if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
-            window.location.replace('http://localhost:3000');
+            window.location.assign('/login');
             return;
           }
         } catch(e) {}
@@ -138,7 +141,7 @@
         // Guard: se não houver quantidade definida pelo setup e não vier com startExam, encaminhar para a configuração
         const shouldStart = (sessionStorage.getItem('startExam') === 'true');
         if (!qtd && !shouldStart) {
-          try { window.location.replace('/pages/examSetup.html'); } catch(e) { window.location.href = '/pages/examSetup.html'; }
+          window.location.assign('/pages/examSetup.html');
           return;
         }
         const finalQtd = qtd || (full || 0);
@@ -238,6 +241,59 @@
   </script>
 
   <!-- Registration modal (copied from index.html/modal) -->
+  <!-- Modal de confirmação para finalizar exame -->
+  <div id="finishConfirmModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:560px; padding:18px; text-align:center;">
+      <p style="margin:0;">Deseja encerrar o exame? Suas questões serão subetidas como estão, confirma?</p>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
+        <button id="finishConfirmYes" class="primary-btn" type="button">Sim</button>
+        <button id="finishConfirmNo" class="secondary-btn" type="button">Não</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finalizar exame: confirmação + limpeza local -->
+  <script>
+    (function(){
+      function clearExamData(){
+        try {
+          const sid = (window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId') || '').trim();
+          if (sid) {
+            const keys = [
+              `progress_${sid}`,
+              `answers_${sid}`,
+              `questions_${sid}`,
+              `highlights_${sid}`,
+              `questoesMarcadas_${sid}`,
+              `backBarrier_${sid}`,
+              `allowContinueAfterCheckpoint_${sid}`,
+              `pauseUntil_${sid}`,
+              `pauseConsumed_${sid}_cp1`,
+              `pauseConsumed_${sid}_cp2`,
+              `FirstStop_${sid}`,
+              `SecondStop_${sid}`
+            ];
+            keys.forEach(k => { try { localStorage.removeItem(k); } catch(_){ } });
+          }
+          ['examQuestionCount','examCountFromDefault','examFilters'].forEach(k=>{ try{ localStorage.removeItem(k);}catch(_){}});
+        } catch(_){ }
+        try { sessionStorage.clear(); } catch(_){ }
+        try { if (window.caches && caches.keys) { caches.keys().then(names => names.forEach(n => caches.delete(n))).catch(()=>{}); } } catch(_){ }
+        // TODO: Persistir no servidor
+        try { if (typeof showToast === 'function') showToast('Exame finalizado. Dados locais limpos.'); } catch(_){ }
+      }
+      function openFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display=''; m.setAttribute('aria-hidden','false'); } }
+      function closeFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
+      function attach(){
+        const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
+  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', ()=>{ closeFinishConfirm(); clearExamData(); window.location.assign('/login'); });
+        const no = document.getElementById('finishConfirmNo'); if (no) no.addEventListener('click', closeFinishConfirm);
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeFinishConfirm(); });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach); else attach();
+    })();
+  </script>
+
   <div id="emailModal" class="modal" aria-hidden="true" style="display:none;">
     <div class="modal-content">
       <h2>Registro obrigatório</h2>

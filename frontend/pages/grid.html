@@ -20,6 +20,36 @@
       font-weight: 600;
     }
 
+    /* Toolbar (pesquisa + filtros) */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 0 auto 0.8rem auto;
+      max-width: 1400px;
+    }
+    .segmented {
+      display: inline-flex;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .segmented .seg-btn {
+      border: 0;
+      background: transparent;
+      color: #334155;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .segmented .seg-btn:hover { background: #e2e8f0; }
+    .segmented .seg-btn.active { background: #ffffff; color: #111827; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
     /* GRID MAIS COMPACTO */
     .grid {
       display: grid;
@@ -139,11 +169,26 @@
       border: 1px solid #22C55E; /* green-500 */
     }
     .tag svg { width: 14px; height: 14px; }
+    .tag-highlight {
+      background: #F3E8FF; /* purple-100 */
+      color: #6B21A8;      /* purple-800 */
+      border: 1px solid #A855F7; /* purple-500 */
+    }
   </style>
 </head>
 <body>
 
   <h1>Exibindo <span id="titulo"></span> questões</h1>
+
+  <div class="toolbar" role="region" aria-label="Filtros">
+    <div class="segmented" role="tablist" aria-label="Filtros">
+      <button type="button" class="seg-btn active" data-filter="todas" role="tab" aria-selected="true">Todas</button>
+      <button type="button" class="seg-btn" data-filter="marcadas" role="tab" aria-selected="false">Marcadas</button>
+      <button type="button" class="seg-btn" data-filter="nao-respondidas" role="tab" aria-selected="false">Não responsidas</button>
+      <button type="button" class="seg-btn" data-filter="respondidas" role="tab" aria-selected="false">Respondidas</button>
+      <button type="button" class="seg-btn" data-filter="destacadas" role="tab" aria-selected="false">Destacadas</button>
+    </div>
+  </div>
 
   <div id="grid" class="grid">
     <!-- Cards gerados via JS -->
@@ -168,6 +213,8 @@
         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
       </svg>
     `;
+
+  let currentFilter = 'todas';
 
     function gerarCards() {
       const grid = document.getElementById('grid');
@@ -203,33 +250,47 @@
         }
       } catch (e) { markedSet = new Set(); }
       let questions = [];
+      let highlights = {};
       try {
         if (sid) {
           const rawQ = localStorage.getItem(`questions_${sid}`);
           questions = rawQ ? JSON.parse(rawQ) : [];
+          const rawH = localStorage.getItem(`highlights_${sid}`);
+          highlights = rawH ? JSON.parse(rawH) : {};
         }
-      } catch (e) { questions = []; }
+      } catch (e) { questions = []; highlights = {}; }
 
       for (let i = 1; i <= total; i++) {
-        const card = document.createElement('div');
-        card.className = 'card';
-
-        // Determinar se esta posição está respondida ("Marcado")
+        // Determinar status desta posição
         let isMarked = false; // respondida
+        let isFlagged = false; // marcada (flag)
+        let isHighlighted = false; // destacada
         try {
           const qObj = Array.isArray(questions) ? questions[i - 1] : null;
           const hasId = qObj && qObj.id !== undefined && qObj.id !== null;
           const key = hasId ? `q_${qObj.id}` : `idx_${i - 1}`; // idx é 0-based
           const a = answers && answers[key];
           isMarked = !!(a && a.optionId);
+          isFlagged = markedSet.has(i - 1);
+          isHighlighted = !!(highlights && highlights[key] === true);
         } catch (e) { isMarked = false; }
-        const isFlagged = markedSet.has(i - 1);
+
+        // Filtro por tipo
+        const f = currentFilter;
+        if (f === 'marcadas' && !isFlagged) continue;
+        if (f === 'respondidas' && !isMarked) continue;
+        if (f === 'nao-respondidas' && isMarked) continue;
+        if (f === 'destacadas' && !isHighlighted) continue;
+
+        const card = document.createElement('div');
+        card.className = 'card';
 
   // Mantém a cor original do .status; apenas o card ficará #FA8072 quando não marcado
   const statusBgAttr = '';
   const tagged = [];
   if (isFlagged) tagged.push(`<span class="tag tag-flag" title="Marcada">🔖 Marcada</span>`);
   if (isMarked) tagged.push(`<span class="tag tag-answered" title="Respondida">${checkIcon} Respondida</span>`);
+  if (isHighlighted) tagged.push(`<span class="tag tag-highlight" title="Destacada">★ Destacada</span>`);
   const statusInner = tagged.join('\n');
 
         card.innerHTML = `
@@ -256,13 +317,28 @@
       }
     }
 
+    function attachToolbar() {
+      const buttons = document.querySelectorAll('.segmented .seg-btn');
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          buttons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+          btn.classList.add('active');
+          btn.setAttribute('aria-selected','true');
+          currentFilter = String(btn.getAttribute('data-filter') || 'todas');
+          gerarCards();
+        });
+      });
+    }
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         setTituloQuantidade();
+        attachToolbar();
         gerarCards();
       });
     } else {
       setTituloQuantidade();
+      attachToolbar();
       gerarCards();
     }
   </script>

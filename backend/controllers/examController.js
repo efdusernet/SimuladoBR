@@ -72,8 +72,6 @@ exports.selectQuestions = async (req, res) => {
     if (available < count) {
       return res.status(400).json({ error: 'Not enough questions available', available });
     }
-
-
     // Select random questions and join explicacaoguia to get the explanation text
     // explicacaoguia.Descricao contains the explicacao and links by idquestao -> questao.id
     const selectQ = `SELECT q.id, q.descricao, eg."Descricao" AS explicacao

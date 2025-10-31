@@ -17,32 +17,64 @@
 
   <main class="exam-container" role="main">
     <header class="exam-header">
-      <div class="header-left" aria-hidden="true"></div>
-
-      <div class="header-center" id="centerHeader">
-        <div class="knowledge-area" id="knowledgeArea" aria-live="polite">
-          <strong>Exame Completo</strong>
-          <div class="muted" style="font-size:12px;">180 questões</div>
-        </div>
+      <div class="header-left">
         <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
           <span id="timerDisplay">00:00</span>
+          <span id="pauseBadge" class="pause-badge" style="display:none; margin-left:8px; background:#fff3cd; color:#8a6d3b; border:1px solid #ffeeba; border-radius:999px; padding:2px 8px; font-size:12px; line-height:1.2;">Em pausa 10:00</span>
+        </div>
+      </div>
+
+      <div class="header-center" id="centerHeader">
+        <div class="resource-Buttons" id="resource-buttons" aria-live="polite">
+          <div class="inline-flex">
+            <button class="rounded-l-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bmark">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M6 2h12c.55 0 1 .45 1 1v17l-7-3-7 3V3c0-.55.45-1 1-1z"></path>
+              </svg>
+              Marcar questão
+            </button>
+
+            <button class="-ml-px border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bhighlight">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <!-- Highlighter marker icon -->
+                <path d="M14 3.2L3.2 14 2 22l8-1.2L22.8 10 14 3.2z"></path>
+                <path d="M2 22h10v2H2z"></path>
+              </svg>
+              Destacar questão
+            </button>
+
+            <button class="-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bgrid">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <!-- Grid icon (3x3 squares) -->
+                <rect x="3" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="3" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="3" y="17" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="17" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="17" width="4" height="4" rx="0.8"></rect>
+              </svg>
+              Grid de questões
+            </button>
+          </div>
         </div>
       </div>
 
       <div class="header-right controls">
         <div class="font-control">
-          <button id="fontToggle" class="icon-btn" aria-expanded="false" aria-controls="fontSlider" title="Ajustar tamanho da fonte">Aa</button>
           <div id="fontSlider" class="font-slider" hidden>
-            <label for="fontRange">Tamanho da fonte</label>
             <input id="fontRange" type="range" min="12" max="24" value="16" />
           </div>
         </div>
       </div>
+      <!-- Timer posicionado na coluna esquerda do header -->
     </header>
 
-    <section class="question-panel" aria-labelledby="questionNumber">
+  <section class="question-panel" aria-labelledby="questionNumber">
       <div class="meta-row">
-        <div id="qStatus" class="q-status">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
+        <div id="qStatus" class="q-status" style="font-size:17px; font-family: Arial, Helvetica, sans-serif;">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
         <!-- Exame completo não exibe like/dislike -->
       </div>
 
@@ -100,6 +132,57 @@
     }
   </script>
 
+  <!-- Modal de Grid de Questões -->
+  <div id="gridModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="width: min(100%, 96vw); max-width: 1200px; height: min(88vh, 900px); display:flex; flex-direction:column; padding: 0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #ddd; background:#f7f7f7;">
+        <h2 style="margin:0; font-size:1rem;">Grid de Questões</h2>
+        <button id="closeGridModal" class="secondary-btn" type="button" style="margin-left:auto;">Fechar</button>
+      </div>
+      <iframe id="gridFrame" title="Grid de Questões" src="" style="flex:1; width:100%; height:100%; border:0; background:white;"></iframe>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      function openGrid(){
+        try {
+          const modal = document.getElementById('gridModal');
+          const frame = document.getElementById('gridFrame');
+          if (!modal || !frame) return;
+          frame.src = '/pages/grid.html?t=' + Date.now();
+          modal.style.display = '';
+          modal.setAttribute('aria-hidden','false');
+        } catch(e){}
+      }
+      function ensureTopPauseButtons(idx){
+        try {
+          const modal = document.getElementById('gridModal');
+          const need = (idx === 60 || idx === 120);
+          if (!need){ removeTopPauseButtons(); return; }
+          modal.style.display = 'none';
+          modal.setAttribute('aria-hidden','true');
+          if (frame) frame.src = '';
+        } catch(e){}
+      }
+      function attachGridHandlers(){
+        const btn = document.getElementById('bgrid');
+        if (btn) btn.addEventListener('click', openGrid);
+        const close = document.getElementById('closeGridModal');
+                // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
+                const bs = document.getElementById('bSkipPause');
+                if (bs) { bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGrid(); });
+      }
+                // manter o botão Continuar desabilitado durante a pausa
+                try {
+                  if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'false');
+                  const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                } catch(_){ }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachGridHandlers); else attachGridHandlers();
+    })();
+  </script>
+
   <!-- registration/session script must run before exam script -->
   <script src="../script.js"></script>
   <script src="../script_exam.js"></script>
@@ -122,10 +205,8 @@
         let q = null;
         try { q = localStorage.getItem('examQuestionCount'); } catch(e) { q = null; }
         const parsed = q ? Number(q) : null;
-        // fallback to FullExam if not set
         const full = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
         const qtd = (parsed && !isNaN(parsed)) ? parsed : 0;
-        // Guard: se não houver quantidade definida pelo setup e não vier com startExam, encaminhar para a configuração
         const shouldStart = (sessionStorage.getItem('startExam') === 'true');
         if (!qtd && !shouldStart) {
           try { window.location.replace('/pages/examSetup.html'); } catch(e) { window.location.href = '/pages/examSetup.html'; }
@@ -134,11 +215,11 @@
         const finalQtd = qtd || (full || 0);
         // expose as global numeric
         window.QtdQuestoes = Number(finalQtd);
-        // update totalQuestions display on the exam page to reflect selection
+        // update totalQuestions display
         try {
           const totalEl = document.getElementById('totalQuestions');
           if (totalEl) totalEl.textContent = String(window.QtdQuestoes);
-        } catch(e) { console.warn('update totalQuestions failed', e); }
+        } catch(e) { }
 
         function fmtSeconds(s){
           s = Math.max(0, Math.floor(s));
@@ -153,65 +234,424 @@
           return `${m}:${sec}`;
         }
 
-        function computeSeconds() {
-          const tempo = (typeof window.tempoExame === 'number') ? window.tempoExame : (sessionStorage.getItem('tempoExame') ? JSON.parse(sessionStorage.getItem('tempoExame')) : null); // minutos do exame completo
+        function computeSeconds(){
+          const tempo = (typeof window.tempoExame === 'number') ? window.tempoExame : (sessionStorage.getItem('tempoExame') ? JSON.parse(sessionStorage.getItem('tempoExame')) : null);
           const fullNum = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
-          const qtdNum = Number(window.QtdQuestoes) || 0;
+          const qtdNum = (typeof window.QtdQuestoes === 'number') ? window.QtdQuestoes : 0;
           if (!tempo || !fullNum || !qtdNum) return 0;
-          const totalMinutes = (qtdNum * tempo) / fullNum; // minutos proporcionais
-          const seconds = totalMinutes * 60;
-          return Math.max(0, Math.round(seconds));
+          const totalMinutes = (qtdNum * tempo) / fullNum;
+          return Math.max(0, Math.round(totalMinutes * 60));
         }
 
         let _timerInterval = null;
-        function startCountdown() {
+        function startCountdown(){
           try {
-            if (_timerInterval) return; // already running
+            if (_timerInterval) return;
+            const display = document.getElementById('timerDisplay'); if (!display) return;
+            const sid = window.currentSessionId || null;
             let remaining = computeSeconds();
             try {
-              const progRaw = (window.currentSessionId && localStorage.getItem(`progress_${window.currentSessionId}`)) || null;
-              if (progRaw) {
-                const prog = JSON.parse(progRaw);
-                if (prog && typeof prog === 'object' && prog.remainingSeconds !== undefined && prog.remainingSeconds !== null) {
-                  remaining = Number(prog.remainingSeconds) || remaining;
+              if (sid){
+                const key = `progress_${sid}`;
+                const progRaw = localStorage.getItem(key);
+                if (progRaw){
+                  const prog = JSON.parse(progRaw);
+                  if (prog && typeof prog.remainingSeconds === 'number') remaining = prog.remainingSeconds;
                 }
               }
-            } catch(e) { /* ignore */ }
-            const display = document.getElementById('timerDisplay');
-            if (!display) return;
+            } catch(_){ }
             display.textContent = fmtSeconds(remaining);
-            _timerInterval = setInterval(() => {
-              remaining -= 1;
-              if (remaining <= 0) {
-                display.textContent = fmtSeconds(0);
-                clearInterval(_timerInterval);
-                _timerInterval = null;
-                try { alert('Tempo esgotado.'); } catch(e){}
-                return;
-              }
-              display.textContent = fmtSeconds(remaining);
+            _timerInterval = setInterval(()=>{
               try {
-                if (window.currentSessionId) {
-                  const key = `progress_${window.currentSessionId}`;
+                const sidLoc = window.currentSessionId || null;
+                let inPause = false;
+                if (sidLoc){
+                  const rawPU = localStorage.getItem(`pauseUntil_${sidLoc}`);
+                  if (rawPU){ const until = Number(rawPU); if (Number.isFinite(until) && until > Date.now()) inPause = true; }
+                }
+                if (!inPause) remaining = Math.max(0, remaining - 1);
+                if (display) display.textContent = fmtSeconds(remaining);
+                if (sidLoc){
+                  const key = `progress_${sidLoc}`;
                   const cur = JSON.parse(localStorage.getItem(key) || '{}') || {};
                   cur.remainingSeconds = remaining;
                   localStorage.setItem(key, JSON.stringify(cur));
-                  localStorage.setItem(`${key}_savedAt`, new Date().toISOString());
                 }
-              } catch(e) {}
+                if (remaining <= 0){
+                  clearInterval(_timerInterval); _timerInterval = null;
+                  try { alert('Tempo esgotado.'); } catch(e){}
+                }
+              } catch(e){ }
             }, 1000);
-          } catch (e) { console.warn('startCountdown error', e); }
+          } catch(e){ }
         }
 
-        if (shouldStart) {
-          try { sessionStorage.removeItem('startExam'); } catch(e){}
-          startCountdown();
-        }
+        if (shouldStart){ try { sessionStorage.removeItem('startExam'); } catch(e){} startCountdown(); }
         window.startExamCountdown = startCountdown;
 
-      } catch (e) { console.warn('Init exam timer error', e); }
+      } catch(e){ }
     })();
   </script>
+  </script>
+
+  <!-- Marca a questão atual: salva JSON com { currentIdx, questionNumber, letter } em localStorage por sessão -->
+  <script>
+    (function(){
+      function mapSpanIdToLetter(id){
+        if(!id) return null;
+        const m = id.match(/^opt(\d+)$/);
+        if(!m) return null;
+        const n = parseInt(m[1], 10);
+        const zeroBased = !!document.getElementById('opt0');
+        if (zeroBased) { if (n >= 0 && n <= 3) return ['A','B','C','D'][n]; }
+        else { if (n >= 1 && n <= 4) return String.fromCharCode(64 + n); }
+        return null;
+      }
+      function getSelectedLetter(){
+        const checked = document.querySelector('input[name="answer"]:checked');
+        if(!checked) return null;
+        let span = checked.nextElementSibling;
+        if (!span || !(span.classList && span.classList.contains('option-text'))){
+          const label = checked.closest && checked.closest('label');
+          if (label) span = label.querySelector('.option-text');
+        }
+        const sid = span && span.id || null;
+        let letter = mapSpanIdToLetter(sid);
+        if (!letter){
+          const idx = Number(checked.value);
+          if (Number.isInteger(idx) && idx >= 0 && idx <= 3) letter = ['A','B','C','D'][idx];
+        }
+        return letter;
+      }
+      function getCurrentIdxViaDom(){
+        try { const el = document.getElementById('questionNumber'); if (!el) return null; const n = Number((el.textContent||'').trim()); return (Number.isFinite(n) && n >= 1) ? n - 1 : null; } catch(e){ return null; }
+      }
+      function getCurrentIdxFromProgress(){
+        try{
+          const sid = window.currentSessionId || null;
+          const key = sid ? `progress_${sid}` : null;
+          if(key){ const raw = localStorage.getItem(key); if(raw){ const obj = JSON.parse(raw); if (obj && typeof obj.currentIdx === 'number') return obj.currentIdx; } }
+        }catch(e){}
+        return getCurrentIdxViaDom();
+      }
+      function readMarkedList(){
+        const sid = window.currentSessionId || '';
+        const key = sid ? `questoesMarcadas_${sid}` : 'questoesMarcadas';
+        try{ const raw = localStorage.getItem(key); if(!raw) return { key, list: [] }; const arr = JSON.parse(raw); return { key, list: Array.isArray(arr) ? arr : [] }; }catch(e){ return { key, list: [] }; }
+      }
+      function writeMarkedList(key, list){ try{ localStorage.setItem(key, JSON.stringify(list)); }catch(e){} }
+      function onMarkClick(){
+        try{
+          const letter = getSelectedLetter();
+          let curIdx = getCurrentIdxFromProgress(); if (curIdx === null || curIdx === undefined) curIdx = getCurrentIdxViaDom();
+          const questionNumber = (typeof curIdx === 'number') ? (curIdx + 1) : null;
+          const { key, list } = readMarkedList();
+          if (typeof curIdx === 'number'){
+            const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
+            const entry = { currentIdx: curIdx, questionNumber, letter: letter || null, savedAt: new Date().toISOString() };
+            if (i >= 0) list[i] = entry; else list.push(entry);
+            writeMarkedList(key, list);
+            try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
+          } else {
+            const entry = { currentIdx: null, questionNumber: null, letter: letter || null, savedAt: new Date().toISOString() };
+            list.push(entry);
+            writeMarkedList(key, list);
+            try { if (typeof showToast === 'function') showToast(`Questão marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
+          }
+        } catch(err){ console.warn('Falha ao salvar letra da opção marcada:', err); }
+      }
+      function onAnswerChanged(){
+        try {
+          const letter = getSelectedLetter();
+          let curIdx = getCurrentIdxFromProgress(); if (curIdx === null || curIdx === undefined) curIdx = getCurrentIdxViaDom();
+          const { key, list } = readMarkedList();
+          if (typeof curIdx === 'number' && Array.isArray(list)){
+            const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
+            if (i >= 0){ list[i].letter = letter || null; list[i].savedAt = new Date().toISOString(); writeMarkedList(key, list); }
+          }
+        } catch(e) { /* noop */ }
+      }
+      function attach(){
+        const btn = document.getElementById('bmark'); if (btn) btn.addEventListener('click', onMarkClick);
+        try { const radios = document.querySelectorAll('input[name="answer"]'); radios.forEach(r => r.addEventListener('change', onAnswerChanged)); } catch(_) {}
+      }
+      if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', attach); } else { attach(); }
+    })();
+  </script>
+
+  <!-- Modal de Pré-Pausa (revisão) + botões de pausa no topo -->
+  <div id="prePauseModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:880px; padding:18px;">
+      <h2 style="margin-top:0;">Atenção</h2>
+      <p style="white-space:pre-wrap; line-height:1.45;">
+Revise suas questões. Durante o exame, será oferecido para que você decida fazer a primeira pausa de 10 minutos ou que continue sem ela. Ao escolher continuar sem fazer a pausa ou ainda optaando por ela, suas questões serão congeladas até este ponto, e qualquer que tenha sido sua resposta ou a asusência dela, será submetida, sem opção de reversão. Seu tempo contiua contando normalmente. Um botão "Fazer Pausa" e "Continuar exame" irá aparecer na tela do exame. Ao terminar sua revisão, clique em "Fazer pausa", caso queira. Todas as questões serão submetidas como estão e o cronômetro ficará pausado por 10 minutos. Caso não queira a pausa, clique em "Continuar sem 1ª pausa", igualmente, as questoes não respondidas serão subetidas como estão.
+      </p>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+        <button id="btnReviewQuestions" class="secondary-btn" type="button">Revisar questões</button>
+        <button id="btnSkipPause" class="primary-btn" type="button">Continuar sem a 1ª pausa</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      function setBarrierTo(val){
+        try { const sid = window.currentSessionId || null; if (!sid) return; localStorage.setItem(`backBarrier_${sid}`, String(val)); } catch(e){}
+      }
+      function getCurrentIdx(){
+        try { const el = document.getElementById('questionNumber'); if (!el) return null; const n = Number((el.textContent||'').trim()); return (Number.isFinite(n) && n>=1)? n-1 : null; } catch(e){ return null; }
+      }
+  // Define back-navigation barrier based on 0-based idx at the checkpoint question.
+  // Checkpoints occur at questions 60 and 120 (1-based), which are idx 59 and 119 (0-based).
+  // We set barrier to the first question AFTER the checkpoint (idx 60 and 120),
+  // so the Back button appears starting at questions 62 and 122 (idx 61 and 121),
+  // and allows returning only up to questions 61 and 121 respectively.
+  function targetBarrierFor(idx){ if (idx === 59) return 60; if (idx === 119) return 120; return null; }
+      function showPrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display=''; m.setAttribute('aria-hidden','false'); } }
+      function hidePrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
+      // Track pause consumption per checkpoint to avoid re-rendering buttons after auto end
+      function checkpointKeyFor(idx){ return idx===60 ? 'cp1' : (idx===120 ? 'cp2' : null); }
+      function isPauseConsumedFor(idx){
+        try { const cp = checkpointKeyFor(idx); if (!cp) return false; const sid = window.currentSessionId || null; if (!sid) return false; return localStorage.getItem(`pauseConsumed_${sid}_${cp}`) === 'true'; } catch(_) { return false; }
+      }
+      function markPauseConsumedFor(idx){
+        try { const cp = checkpointKeyFor(idx); if (!cp) return; const sid = window.currentSessionId || null; if (!sid) return; localStorage.setItem(`pauseConsumed_${sid}_${cp}`, 'true'); } catch(_) { }
+      }
+      function setSkipButtonDisabled(disabled, label){
+        try {
+          const bs = document.getElementById('bSkipPause');
+          if (!bs) return;
+          if (label){
+            bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
+          }
+          bs.disabled = !!disabled;
+          bs.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+          bs.style.pointerEvents = disabled ? 'none' : '';
+          if (disabled) bs.classList.add('is-disabled'); else bs.classList.remove('is-disabled');
+        } catch(e){}
+      }
+      function setPauseButtonDisabled(disabled){
+        try {
+          const bp = document.getElementById('bPause');
+          if (!bp) return;
+          bp.disabled = !!disabled;
+          bp.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+          bp.style.pointerEvents = disabled ? 'none' : '';
+          if (disabled) bp.classList.add('is-disabled'); else bp.classList.remove('is-disabled');
+        } catch(e){}
+      }
+      function ensureTopPauseButtons(idx){
+        try {
+          const container = document.querySelector('#resource-buttons .inline-flex'); if (!container) return;
+          const need = ((idx === 60 || idx === 120) && !isPauseConsumedFor(idx));
+          if (!need){ removeTopPauseButtons(); return; }
+          if (!document.getElementById('bPause')){
+            const bp = document.createElement('button');
+            bp.id='bPause'; bp.type='button';
+            bp.className='-ml-px border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50';
+            bp.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Fazer pausa';
+            bp.addEventListener('click', ()=>{
+              try {
+                const sid = window.currentSessionId || null; if (sid){ localStorage.setItem(`pauseUntil_${sid}`, String(Date.now() + 10*60*1000)); }
+                const i = getCurrentIdx(); const tb = targetBarrierFor(i); if (tb) setBarrierTo(tb);
+                // Marcar flags por sessão: FirstStop_<sid>/SecondStop_<sid> indicando se usuário fez 1ª ou 2ª pausa
+                try {
+                  const cur = typeof i === 'number' ? i : getCurrentIdx();
+                  if (typeof cur === 'number') {
+                    if (sid) {
+                      if (cur < 120) { localStorage.setItem(`FirstStop_${sid}`, 'true'); }
+                      else { localStorage.setItem(`SecondStop_${sid}`, 'true'); }
+                    }
+                  }
+                } catch(_){ }
+                // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
+                setSkipButtonDisabled(true, 'Continuar exame');
+                // desabilitar também o botão "Fazer pausa" durante a pausa
+                setPauseButtonDisabled(true);
+                // iniciar contador regressivo no botão de pausa
+                startPauseCountdown();
+                // manter o botão Continuar desabilitado durante a pausa
+                try {
+                  if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'false');
+                  const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                } catch(_){ }
+                if (typeof showToast === 'function') showToast('Pausa de 10 minutos iniciada.');
+              } catch(e){}
+            });
+            container.appendChild(bp);
+          }
+          if (!document.getElementById('bSkipPause')){
+            const bs = document.createElement('button');
+            bs.id='bSkipPause'; bs.type='button';
+            bs.className='-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50';
+            const label = (idx === 120) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
+            bs.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
+            bs.addEventListener('click', ()=>{
+              try {
+                const i=getCurrentIdx(); const tb=targetBarrierFor(i); if (tb) setBarrierTo(tb);
+                // se estiver em pausa, não faz nada (fica desabilitado)
+                const sid = window.currentSessionId || null;
+                if (sid) {
+                  const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
+                  if (rawPU) { return; }
+                }
+                // marcar este checkpoint como consumido e remover imediatamente os botões do header
+                try { markPauseConsumedFor(idx); } catch(_){ }
+                try { removeTopPauseButtons(); } catch(_){ }
+                // se não estiver em pausa, é a ação de continuar sem a pausa deste checkpoint
+                try {
+                  const sid2 = window.currentSessionId || null;
+                  if (sid2) localStorage.setItem(`allowContinueAfterCheckpoint_${sid2}`, 'true');
+                } catch(_){}
+                const contBtn2 = document.getElementById('continueBtn'); if (contBtn2) contBtn2.disabled = false;
+                if (typeof showToast==='function') showToast(label);
+              } catch(e){}
+            });
+            container.appendChild(bs);
+          }
+          // Ao renderizar, se já estiver em pausa ativa, refletir estado: skip desabilitado e Continuar desabilitado
+          try {
+            const sid = window.currentSessionId || null;
+            if (sid){
+              const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
+              const until = rawPU ? Number(rawPU) : 0;
+              if (Number.isFinite(until) && until > Date.now()){
+                setSkipButtonDisabled(true, 'Continuar exame');
+                setPauseButtonDisabled(true);
+                const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                startPauseCountdown();
+              }
+            }
+          } catch(_){ }
+        } catch(e){}
+      }
+      let PAUSE_TICKER_ID = null;
+      function formatMMSS(ms){
+        const s = Math.max(0, Math.floor(ms/1000));
+        const mm = String(Math.floor(s/60)).padStart(2,'0');
+        const ss = String(s%60).padStart(2,'0');
+        return `${mm}:${ss}`;
+      }
+      function startPauseCountdown(){
+        try {
+          const bp = document.getElementById('bPause'); if (!bp) return;
+          if (PAUSE_TICKER_ID) { clearInterval(PAUSE_TICKER_ID); PAUSE_TICKER_ID = null; }
+          const sid = window.currentSessionId || null; if (!sid) return;
+          const badge = document.getElementById('pauseBadge');
+          const update = ()=>{
+            const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
+            const until = rawPU ? Number(rawPU) : 0;
+            const now = Date.now();
+            const remain = Math.max(0, until - now);
+            bp.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Fazer pausa (' + formatMMSS(remain) + ')';
+            if (badge){
+              if (remain > 0){ badge.textContent = 'Em pausa ' + formatMMSS(remain); badge.style.display = ''; }
+              else { badge.style.display = 'none'; }
+            }
+            if (remain <= 0){ stopPauseCountdown(true); }
+          };
+          update();
+          PAUSE_TICKER_ID = setInterval(update, 1000);
+        } catch(e){}
+      }
+      function stopPauseCountdown(autoEnd){
+        try {
+          if (PAUSE_TICKER_ID) { clearInterval(PAUSE_TICKER_ID); PAUSE_TICKER_ID = null; }
+          const bp = document.getElementById('bPause');
+          const bs = document.getElementById('bSkipPause');
+          const badge = document.getElementById('pauseBadge');
+          if (badge){ badge.style.display = 'none'; }
+          const sid = window.currentSessionId || null;
+          if (autoEnd){
+            // Remover chave de pausa e esconder botões ao final automático
+            try { if (sid) localStorage.removeItem(`pauseUntil_${sid}`); } catch(_){ }
+            if (bp){ bp.style.display = 'none'; }
+            if (bs){ bs.style.display = 'none'; bs.disabled = false; }
+            // Marcar pausa consumida neste checkpoint para não reexibir
+            const idx = getCurrentIdx(); markPauseConsumedFor(idx);
+            // Retomar cronômetro e reabilitar botão Continuar
+            try { if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'true'); } catch(_){ }
+            const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = false;
+            if (typeof showToast==='function') { showToast('Fim do intervalo. Exame retomado.', 2000, { center: true }); }
+          } else {
+            // Retorno manual (não utilizado pois o botão fica desabilitado durante a pausa)
+            if (bp){ bp.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Fazer pausa'; }
+            if (bs){
+              const i = (function(){ const q = document.getElementById('questionNumber'); if (!q) return null; const n = Number((q.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; })();
+              const label = (i === 120) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
+              bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label; bs.disabled = false;
+            }
+          }
+        } catch(e){}
+      }
+      function removeTopPauseButtons(){
+        try{
+          stopPauseCountdown();
+          ['bPause','bSkipPause'].forEach(id=>{ const el=document.getElementById(id); if (el && el.parentElement) el.parentElement.removeChild(el); });
+        }catch(e){}
+      }
+
+      // Show pre-pause modal with per-checkpoint gating:
+      // - At question 60: consider only FirstStop_<sid>
+      // - At question 120: consider only SecondStop_<sid>
+      function shouldShowPrePauseFor(idx){
+        try {
+          const sid = window.currentSessionId || null;
+          if (!sid) return true; // sem sessão, mantenha comportamento padrão
+          const first = localStorage.getItem(`FirstStop_${sid}`) === 'true';
+          const second = localStorage.getItem(`SecondStop_${sid}`) === 'true';
+          if (idx === 60) return !first;
+          if (idx === 120) return !second;
+          return true;
+        } catch(e){ return true; }
+      }
+
+      document.addEventListener('exam:question-index-changed', (ev)=>{
+        try {
+          const idx = ev && ev.detail && ev.detail.index;
+          if ((idx === 60 || idx === 120) && shouldShowPrePauseFor(idx)){
+            // Atualiza o rótulo do botão do modal conforme o checkpoint (1ª ou 2ª pausa)
+            try {
+              const skip = document.getElementById('btnSkipPause');
+              if (skip) skip.textContent = (idx === 120) ? 'Continuar sem a 2ª pausa' : 'Continuar sem a 1ª pausa';
+            } catch(e){}
+            showPrePauseModal();
+            ensureTopPauseButtons(idx);
+          }
+          else { hidePrePauseModal(); removeTopPauseButtons(); }
+        } catch(e){}
+      });
+      document.getElementById('btnReviewQuestions')?.addEventListener('click', ()=>{ hidePrePauseModal(); });
+      document.getElementById('btnSkipPause')?.addEventListener('click', ()=>{
+        try {
+          const i = getCurrentIdx();
+          const tb = targetBarrierFor(i);
+          if (tb) setBarrierTo(tb);
+          // Marcar este checkpoint como consumido para não reexibir os botões no header
+          try {
+            const cpIdx = (typeof i === 'number' && i >= 120) ? 120 : 60;
+            markPauseConsumedFor(cpIdx);
+          } catch(_){ }
+          // Remover imediatamente os botões do header (Fazer pausa / Continuar sem pausa)
+          try { removeTopPauseButtons(); } catch(_){ }
+          // Liberar a continuação após o checkpoint
+          try {
+            const sid = window.currentSessionId || null;
+            if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'true');
+            const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = false;
+          } catch(_){ }
+          // Informar via toast qual opção foi escolhida (1ª ou 2ª pausa)
+          try {
+            const msg = (typeof i === 'number' && i >= 120) ? 'Continuando sem a 2ª pausa.' : 'Continuando sem a 1ª pausa.';
+            if (typeof showToast==='function') showToast(msg);
+          } catch(_){ }
+        } catch(e){}
+        hidePrePauseModal();
+      });
+    })();
+  </script>
+
+  
 
   <!-- Registration modal -->
   <div id="emailModal" class="modal" aria-hidden="true" style="display:none;">
@@ -231,3 +671,34 @@
   </div>
 </body>
 </html>
+<!-- Botão temporário de teste: subtrai 60s da pausa ativa -->
+<button id="testMinus60" type="button" aria-label="Subtrair 60 segundos da pausa (teste)"
+  style="position:fixed; right:12px; bottom:12px; z-index:9999; background:#ffecec; color:#b20000; border:1px solid #ffbdbd; border-radius:8px; padding:8px 10px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.12);">
+  −60s Pausa (teste)
+</button>
+<script>
+  (function(){
+    try {
+      const btn = document.getElementById('testMinus60');
+      if (!btn) return;
+      btn.addEventListener('click', ()=>{
+        try {
+          const sid = window.currentSessionId || null;
+          if (!sid) { try { if (typeof showToast==='function') showToast('Sessão indisponível.'); } catch(_){} return; }
+          const key = `pauseUntil_${sid}`;
+          const raw = localStorage.getItem(key);
+          const now = Date.now();
+          const until = raw ? Number(raw) : 0;
+          if (!Number.isFinite(until) || until <= now){
+            try { if (typeof showToast==='function') showToast('Sem pausa ativa.'); } catch(_){}
+            return;
+          }
+          const newUntil = Math.max(now, until - 60*1000);
+          localStorage.setItem(key, String(newUntil));
+          try { if (typeof showToast==='function') showToast('−60s na pausa (teste)'); } catch(_){}
+          // startPauseCountdown atualiza a cada segundo lendo localStorage; não é necessário chamar aqui
+        } catch(e){}
+      });
+    } catch(e){}
+  })();
+</script>

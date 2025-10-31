@@ -94,14 +94,33 @@
               } catch(e) { console.warn('saveAnswersForCurrentSession failed', e); }
             }
 
-            // toast helper
-            function showToast(text, ms = 1600){
+            // toast helper (now supports centered positioning)
+            // Usage:
+            //  - showToast('Mensagem')
+            //  - showToast('Mensagem', 2000)
+            //  - showToast('Mensagem', 2000, true) // center
+            //  - showToast('Mensagem', 2000, { center: true })
+            //  - showToast('Mensagem', 2000, { position: 'center' })
+            function showToast(text, ms = 1600, opts){
               try {
                 const t = $('toast'); if (!t) return;
+                const center = (typeof opts === 'boolean') ? opts : !!(opts && (opts.center || opts.position === 'center'));
+                if (center) t.classList.add('toast-center');
                 t.textContent = text || '';
                 t.style.display = '';
                 requestAnimationFrame(()=> t.classList.add('show'));
-                setTimeout(()=>{ try{ t.classList.remove('show'); setTimeout(()=>{ t.style.display = 'none'; }, 220); }catch(e){} }, ms);
+                setTimeout(()=>{
+                  try{
+                    t.classList.remove('show');
+                    setTimeout(()=>{
+                      try {
+                        t.style.display = 'none';
+                        // remove centering class after hide to restore default position for future toasts
+                        if (center) t.classList.remove('toast-center');
+                      } catch(e){}
+                    }, 220);
+                  }catch(e){}
+                }, ms);
               } catch(e) {}
             }
 
@@ -186,15 +205,86 @@
             let timerSeconds = 0;
             let timerInterval = null;
 
+            // Back-navigation barrier helpers (persist per session)
+            function getBackBarrier(){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return 0;
+                const raw = localStorage.getItem(`backBarrier_${sid}`);
+                const n = raw ? Number(raw) : 0;
+                return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+              } catch(e){ return 0; }
+            }
+            function setBackBarrier(n){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return;
+                const current = getBackBarrier();
+                if (n !== current) localStorage.setItem(`backBarrier_${sid}`, String(n));
+              } catch(e){}
+            }
+
+            // Continue override at checkpoints (persist per session)
+            function isContinueOverrideEnabled(){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return false;
+                return localStorage.getItem(`allowContinueAfterCheckpoint_${sid}`) === 'true';
+              } catch(e){ return false; }
+            }
+            function setContinueOverrideEnabled(v){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return;
+                localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, v ? 'true' : 'false');
+              } catch(e){}
+            }
+
+            // Pause guard helpers
+            function isPauseActive(){
+              try {
+                const sid = window.currentSessionId || null; if (!sid) return false;
+                const raw = localStorage.getItem(`pauseUntil_${sid}`); if (!raw) return false;
+                const until = Number(raw); if (!Number.isFinite(until)) return false;
+                return until > Date.now();
+              } catch(e){ return false; }
+            }
+
             function prevQuestion(){
-              if (currentIdx > 0){
-                currentIdx--;
+              const barrier = getBackBarrier();
+              if (currentIdx > barrier){
+                currentIdx = Math.max(barrier, currentIdx - 1);
                 renderQuestion(currentIdx);
                 try{ saveProgressForCurrentSession(); } catch(e){}
               }
             }
 
             function $(id){ return document.getElementById(id); }
+
+            // --- Destaque de questão (persistido por sessão) ---
+            function highlightStoreKey(){ try { return window.currentSessionId ? `highlights_${window.currentSessionId}` : null; } catch(e){ return null; } }
+            function readHighlights(){
+              try { const k = highlightStoreKey(); if (!k) return {}; const raw = localStorage.getItem(k); if (!raw) return {}; const obj = JSON.parse(raw); return (obj && typeof obj === 'object') ? obj : {}; } catch(e){ return {}; }
+            }
+            function writeHighlights(map){ try { const k = highlightStoreKey(); if (!k) return; localStorage.setItem(k, JSON.stringify(map || {})); } catch(e){} }
+            function isHighlighted(qKey){ try { const map = readHighlights(); return !!map[qKey]; } catch(e){ return false; } }
+            function setHighlighted(qKey, val){ try { const map = readHighlights(); if (val) { map[qKey] = true; } else { delete map[qKey]; } writeHighlights(map); } catch(e){} }
+            function questionKeyFor(idx){
+              try { const q = QUESTIONS[idx]; if (!q) return `idx_${idx}`; return (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`; } catch(e){ return `idx_${idx}`; }
+            }
+            function applyHighlightUI(qKey){
+              try {
+                const p = $('questionText');
+                const btn = $('bhighlight');
+                const on = isHighlighted(qKey);
+                if (p) {
+                  if (on) p.classList.add('highlighted'); else p.classList.remove('highlighted');
+                }
+                if (btn) {
+                  btn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 3.2L3.2 14 2 22l8-1.2L22.8 10 14 3.2z"></path><path d="M2 22h10v2H2z"></path></svg> ' + (on ? 'Remover destaque' : 'Destacar questão');
+                }
+              } catch(e){}
+            }
 
             /* Gera um texto legível repetindo uma frase até atingir o comprimento desejado e então cortando. */
             function generateFixedLengthText(len){
@@ -243,6 +333,22 @@
               $('totalQuestions').textContent = QUESTIONS.length;
               $('questionText').textContent = q.text || q.descricao || '';
 
+              // Restaurar estado de destaque (vermelho) e rótulo do botão
+              try { const qKeyHL = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`; applyHighlightUI(qKeyHL); } catch(e){}
+
+              // Update back-navigation barrier when crossing checkpoints
+              try {
+                const existing = getBackBarrier();
+                // Checkpoints are at questions 60 and 120 (1-based) => idx 59 and 119 (0-based).
+                // The barrier should be the first question AFTER each checkpoint (idx 60 and 120),
+                // so the Back button only appears from questions 62 and 122 onward.
+                if (idx >= 120) {
+                  if (existing < 120) setBackBarrier(120);
+                } else if (idx >= 60) {
+                  if (existing < 60) setBackBarrier(60);
+                }
+              } catch(e){}
+
               // use precomputed shuffledOptions (frozen order for the session)
               const optObjs = Array.isArray(q.shuffledOptions) ? q.shuffledOptions.slice() : (Array.isArray(q.options) ? q.options.slice() : []);
               // determine storage key for this question
@@ -276,7 +382,15 @@
                     try {
                       const chosenId = this.dataset && this.dataset.optionId ? this.dataset.optionId : '';
                       ANSWERS[qKey] = { index: i, optionId: chosenId };
-                      const contBtn = $('continueBtn'); if (contBtn) contBtn.disabled = false;
+                      const contBtn = $('continueBtn');
+                      if (contBtn) {
+                        // se estiver em pausa ativa, manter desabilitado apesar da seleção
+                        if (isPauseActive()) {
+                          contBtn.disabled = true;
+                        } else {
+                          contBtn.disabled = false;
+                        }
+                      }
                       // persist incremental answers for this session (auto-save helper)
                       try { saveAnswersForCurrentSession(); } catch(e){}
                       // remove any visual error indicator
@@ -302,7 +416,8 @@
               try {
                 const back = $('backBtn');
                 if (back) {
-                  if (idx > 0) { back.style.display = ''; } else { back.style.display = 'none'; }
+                  const barrier = getBackBarrier();
+                  if (idx > barrier) { back.style.display = ''; } else { back.style.display = 'none'; }
                 }
               } catch(e) {}
 
@@ -310,32 +425,34 @@
               try {
                 const contBtn = $('continueBtn');
                 if (contBtn) {
-                  const has = ANSWERS[qKey] && ANSWERS[qKey].optionId;
-                  contBtn.disabled = !has;
+                  const isCheckpoint = (idx === 60 || idx === 120);
+                  const allowOverride = isContinueOverrideEnabled();
+                  const inPause = isPauseActive();
+                  // Bloquear durante a pausa; senão, seguir regra de checkpoint
+                  contBtn.disabled = inPause || (isCheckpoint && !allowOverride);
                 }
               } catch(e) {}
 
               // ajustar tipografia automaticamente com base no comprimento do texto e largura disponível
               adaptQuestionTypography();
+
+              // Emit index change event for external UI (e.g., grid/break button)
+              try {
+                const barrier = getBackBarrier();
+                const ev = new CustomEvent('exam:question-index-changed', { detail: { index: idx, barrier } });
+                document.dispatchEvent(ev);
+                // Notificar checkpoints de pré-pausa (60 e 120)
+                if (idx === 60 || idx === 120){
+                  const ev2 = new CustomEvent('exam:pre-pause-reached', { detail: { index: idx, barrier } });
+                  document.dispatchEvent(ev2);
+                }
+              } catch(e){}
             }
 
             function nextQuestion(){
-              // require an option to be selected before proceeding
-              const q = QUESTIONS[currentIdx];
-              const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${currentIdx}`;
-              const selInfo = ANSWERS[qKey];
-              if (!selInfo || !selInfo.optionId) {
-                // visual cue: shake + red border
-                try {
-                  const qc = $('questionContent');
-                  if (qc) {
-                    qc.classList.remove('input-error');
-                    // trigger reflow to restart animation
-                    void qc.offsetWidth;
-                    qc.classList.add('input-error');
-                    setTimeout(()=>{ try{ qc.classList.remove('input-error'); }catch(e){} }, 700);
-                  }
-                } catch(e){}
+              // Guardar contra avanço durante pausa ativa, independente do estado visual do botão
+              if (isPauseActive()){
+                try { showToast('Pausa em andamento. Aguarde o término.'); } catch(e){}
                 return;
               }
               if (currentIdx < QUESTIONS.length - 1){
@@ -400,6 +517,8 @@
                   try { if (old) localStorage.removeItem(`progress_${old}`); if (old) localStorage.removeItem(`progress_${old}_savedAt`); } catch(e){}
                   // remove cached questions for this session
                   try { if (old) localStorage.removeItem(`questions_${old}`); if (old) localStorage.removeItem(`questions_${old}_savedAt`); } catch(e){}
+                  // remove FirstStop/SecondStop flags for this session
+                  try { if (old) { localStorage.removeItem(`FirstStop_${old}`); localStorage.removeItem(`SecondStop_${old}`); } } catch(e){}
                   window.currentSessionId = null;
                   // hide autosave indicator
                   try { updateAutosaveIndicatorHidden(); } catch(e){}
@@ -439,6 +558,9 @@
               const fontToggle = $('fontToggle');
               const fontSlider = $('fontSlider');
 
+              // Se não houver controle de fonte na página (examFull), saia silenciosamente
+              if (!fontRange || !fontSlider) return;
+
               fontRange.addEventListener('input', (e)=>{
                 const v = e.target.value + 'px';
                 document.documentElement.style.setProperty('--base-font-size', v);
@@ -446,23 +568,26 @@
                 requestAnimationFrame(()=>{ adaptQuestionTypography(); positionTimer(); });
               });
 
-              fontToggle.addEventListener('click', ()=>{
-                const isHidden = fontSlider.hasAttribute('hidden');
-                if (isHidden){
-                  fontSlider.removeAttribute('hidden');
-                  fontToggle.setAttribute('aria-expanded','true');
-                } else {
-                  fontSlider.setAttribute('hidden','');
-                  fontToggle.setAttribute('aria-expanded','false');
-                }
-              });
+              // Botão de toggle é opcional; só conecte se existir
+              if (fontToggle) {
+                fontToggle.addEventListener('click', ()=>{
+                  const isHidden = fontSlider.hasAttribute('hidden');
+                  if (isHidden){
+                    fontSlider.removeAttribute('hidden');
+                    fontToggle.setAttribute('aria-expanded','true');
+                  } else {
+                    fontSlider.setAttribute('hidden','');
+                    fontToggle.setAttribute('aria-expanded','false');
+                  }
+                });
 
-              document.addEventListener('click', (ev)=>{
-                if (!fontToggle.contains(ev.target) && !fontSlider.contains(ev.target)){
-                  fontSlider.setAttribute('hidden','');
-                  fontToggle.setAttribute('aria-expanded','false');
-                }
-              });
+                document.addEventListener('click', (ev)=>{
+                  if (!fontToggle.contains(ev.target) && !fontSlider.contains(ev.target)){
+                    fontSlider.setAttribute('hidden','');
+                    fontToggle.setAttribute('aria-expanded','false');
+                  }
+                });
+              }
             }
 
             /* Ajuste automático da tipografia do texto da pergunta.
@@ -514,7 +639,22 @@
               const knowledge = $('knowledgeArea');
               const timer = $('timerBox');
 
-              if (!center || !knowledge || !timer) return;
+              if (!timer) return;
+
+              // Caso especial (examFull): quando o timer estiver na coluna esquerda do header,
+              // não reposicionar via absoluto; manter fluxo normal evitando sobreposição.
+              try {
+                const inHeaderLeft = !!(timer.closest && timer.closest('.header-left'));
+                if (inHeaderLeft) {
+                  timer.style.position = '';
+                  timer.style.left = '';
+                  timer.style.top = '';
+                  timer.style.transform = '';
+                  return;
+                }
+              } catch(e) {}
+
+              if (!center || !knowledge) return;
 
               // Em telas pequenas confiamos no CSS
               if (window.innerWidth <= 600){
@@ -559,6 +699,21 @@
               if (back) back.addEventListener('click', prevQuestion);
               const form = document.querySelector('#answersForm'); if (form) form.addEventListener('submit', (e)=> e.preventDefault());
 
+              // Toggle de destaque (vermelho) da questão atual, persistido em localStorage por sessão
+              const btnHL = $('bhighlight');
+              if (btnHL) {
+                btnHL.addEventListener('click', ()=>{
+                  try {
+                    const key = questionKeyFor(currentIdx);
+                    const nowOn = !isHighlighted(key);
+                    setHighlighted(key, nowOn);
+                    applyHighlightUI(key);
+                  } catch(e){}
+                });
+                // Garantir rótulo inicial consistente
+                try { applyHighlightUI(questionKeyFor(currentIdx)); } catch(e){}
+              }
+
               // posicionar o timer inicialmente e ao redimensionar (debounced)
               positionTimer();
               adaptQuestionTypography();
@@ -580,24 +735,24 @@
               async function prepareAndInit(){
                 try {
                   console.debug('[exam] prepareAndInit start');
+                  // Initialize session-scoped pause flags at the start of a fresh exam (no prior progress/questions)
+                  try {
+                    const sid = window.currentSessionId || null;
+                    if (sid) {
+                      const hasProg = !!localStorage.getItem(`progress_${sid}`);
+                      const hasQs = !!localStorage.getItem(`questions_${sid}`);
+                      if (!hasProg && !hasQs) {
+                        // Fresh exam start: initialize flags as false for this session
+                        localStorage.setItem(`FirstStop_${sid}`, 'false');
+                        localStorage.setItem(`SecondStop_${sid}`, 'false');
+                      }
+                    }
+                  } catch(e){}
                   // attempt to fetch questions from backend
                   const count = Number(window.QtdQuestoes) || (localStorage.getItem('examQuestionCount') ? Number(localStorage.getItem('examQuestionCount')) : 0);
                   console.debug('[exam] QtdQuestoes=', window.QtdQuestoes, 'localStorage.examQuestionCount=', localStorage.getItem('examQuestionCount'));
-                  if (!count) {
-                    // fallback to sample questions
-                    QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
-                    // normalize and freeze option order once
-                    try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
-                    initExam();
-                    return;
-                  }
 
-                  let token = localStorage.getItem('sessionToken') || '';
-                  if (!token || token.endsWith('#')) {
-                    const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
-                    if (alt) { try { localStorage.setItem('sessionToken', alt); } catch(e){} token = alt; }
-                  }
-                  // If we have cached questions for this session, use them and skip network fetch
+                  // 1) Sempre tente usar o cache da sessão primeiro, independentemente de count
                   try {
                     if (window.currentSessionId) {
                       const qraw = localStorage.getItem(`questions_${window.currentSessionId}`);
@@ -630,6 +785,22 @@
                       }
                     }
                   } catch(e) {}
+
+                  // 2) Sem cache: se não houver count, caia para exemplo local
+                  if (!count) {
+                    // fallback to sample questions
+                    QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
+                    // normalize and freeze option order once
+                    try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
+                    initExam();
+                    return;
+                  }
+
+                  let token = localStorage.getItem('sessionToken') || '';
+                  if (!token || token.endsWith('#')) {
+                    const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
+                    if (alt) { try { localStorage.setItem('sessionToken', alt); } catch(e){} token = alt; }
+                  }
                   console.debug('[exam] using sessionToken=', token);
                   const fetchUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/select';
                   console.debug('[exam] fetching questions from', fetchUrl, 'count=', count);

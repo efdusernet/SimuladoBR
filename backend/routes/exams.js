@@ -3,6 +3,8 @@ const router = express.Router();
 const examController = require('../controllers/examController');
 
 router.get('/', examController.listExams);
+// Types registry for UI
+router.get('/types', examController.listExamTypes);
 router.post('/:id/start', examController.startExam);
 // Select questions for an exam session (temporary, returns sessionId and questions)
 router.post('/select', examController.selectQuestions);

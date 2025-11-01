@@ -30,3 +30,6 @@ coverage/
 # Misc caches
 .cache/
 **/.cache/
+
+# Local helper files
+frontend/commitmsg.txt

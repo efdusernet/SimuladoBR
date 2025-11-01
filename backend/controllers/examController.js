@@ -26,12 +26,46 @@ function updateSession(sessionId, patch) {
   return ns;
 }
 
-// TEMP: Legacy endpoint; map to registry until DB model is ready
+// DB-backed exam types cache (5 min TTL)
+let _examTypesCache = { data: null, expiresAt: 0 };
+async function loadExamTypesFromDb() {
+  try {
+    if (Date.now() < _examTypesCache.expiresAt && Array.isArray(_examTypesCache.data)) return _examTypesCache.data;
+    if (!db.ExamType) return null;
+    const rows = await db.ExamType.findAll({ where: { Ativo: true }, order: [['Nome', 'ASC']] });
+    const types = rows.map(r => ({
+      id: r.Slug,
+      nome: r.Nome,
+      numeroQuestoes: r.NumeroQuestoes,
+      duracaoMinutos: r.DuracaoMinutos,
+      opcoesPorQuestao: r.OpcoesPorQuestao,
+      multiplaSelecao: !!r.MultiplaSelecao,
+      pontuacaoMinima: r.PontuacaoMinimaPercent == null ? null : Number(r.PontuacaoMinimaPercent),
+      pausas: {
+        permitido: !!r.PausaPermitida,
+        checkpoints: Array.isArray(r.PausaCheckpoints) ? r.PausaCheckpoints : [],
+        duracaoMinutosPorPausa: r.PausaDuracaoMinutos || 0,
+      },
+      _dbId: r.Id,
+    }));
+    _examTypesCache = { data: types, expiresAt: Date.now() + 5 * 60 * 1000 };
+    return types;
+  } catch (_) { return null; }
+}
+async function getExamTypeBySlugOrDefault(slug) {
+  const registry = require('../services/exams/ExamRegistry');
+  const types = await loadExamTypesFromDb();
+  if (types && types.length) return types.find(t => t.id === slug) || types[0];
+  const reg = registry.getTypeById(slug);
+  return reg ? { ...reg, _dbId: null } : null;
+}
+
 exports.listExams = async (req, res) => {
   try {
+    const types = await loadExamTypesFromDb();
+    if (types && types.length) return res.json(types);
     const registry = require('../services/exams/ExamRegistry');
-    const exams = registry.getTypes();
-    return res.json(exams);
+    return res.json(registry.getTypes());
   } catch (err) {
     console.error('Erro listExams:', err);
     return res.status(500).json({ message: 'Erro interno' });
@@ -41,6 +75,8 @@ exports.listExams = async (req, res) => {
 // GET /api/exams/types -> returns configured exam types (for UI)
 exports.listExamTypes = async (_req, res) => {
   try {
+    const types = await loadExamTypesFromDb();
+    if (types && types.length) return res.json(types);
     const registry = require('../services/exams/ExamRegistry');
     return res.json(registry.getTypes());
   } catch (err) {
@@ -53,9 +89,8 @@ exports.listExamTypes = async (_req, res) => {
 // Body: { count: number, dominios?: [ids], areas?: [ids], grupos?: [ids] }
 exports.selectQuestions = async (req, res) => {
   try {
-  const registry = require('../services/exams/ExamRegistry');
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
-  const examCfg = registry.getTypeById(examType);
+  const examCfg = await getExamTypeBySlugOrDefault(examType);
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
 
@@ -181,7 +216,7 @@ exports.startExam = async (req, res) => {
 };
 
 // POST /api/exams/submit
-// Body: { sessionId: string, answers: [{ questionId: number, optionId: number }] }
+// Body: { sessionId: string, answers: [{ questionId: number, optionId?: number, optionIds?: number[] }] }
 exports.submitAnswers = async (req, res) => {
   try {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -199,9 +234,11 @@ exports.submitAnswers = async (req, res) => {
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const { sessionId, answers } = req.body || {};
+  const { sessionId, answers } = req.body || {};
     if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
     if (!Array.isArray(answers) || !answers.length) return res.status(400).json({ error: 'answers required' });
+  const s = getSession(sessionId);
+  const attemptId = s && s.attemptId ? Number(s.attemptId) : null;
 
     // collect question ids
     const qids = Array.from(new Set(answers.map(a => Number(a.questionId)).filter(n => !Number.isNaN(n))));
@@ -220,20 +257,64 @@ exports.submitAnswers = async (req, res) => {
       }
     });
 
-    // grade
+    // grade (single or multi)
     let totalCorrect = 0;
     const details = answers.map(a => {
       const qid = Number(a.questionId);
-      const chosen = Number(a.optionId);
-      const correctOpt = correctByQ[qid] || null;
-      const ok = !!(correctOpt && chosen === correctOpt);
+      let ok = false;
+      if (Array.isArray(a.optionIds)) {
+        const chosenSet = new Set((a.optionIds || []).map(Number));
+        const correctSet = new Set([correctByQ[qid]].filter(Boolean));
+        ok = chosenSet.size === correctSet.size && [...chosenSet].every(x => correctSet.has(x));
+      } else {
+        const chosen = Number(a.optionId);
+        const correctOpt = correctByQ[qid] || null;
+        ok = !!(correctOpt && chosen === correctOpt);
+      }
       if (ok) totalCorrect += 1;
-      return { questionId: qid, chosenOptionId: chosen, correct: ok };
+      return { questionId: qid, chosenOptionId: Number(a.optionId) || null, correct: ok };
     });
 
     const result = { sessionId, totalQuestions: qids.length, totalCorrect, details };
 
-    // Note: persistence to Simulation not implemented here (per request)
+    // Persist answers if we have an attempt
+    try {
+      if (attemptId) {
+        const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId, QuestionId: qids } });
+        const aqMap = new Map(aqRows.map(r => [Number(r.QuestionId), Number(r.Id)]));
+        const toInsert = [];
+        for (const a of answers) {
+          const qid = Number(a.questionId);
+          const aqid = aqMap.get(qid);
+          if (!aqid) continue;
+          if (Array.isArray(a.optionIds)) {
+            for (const oid of a.optionIds) {
+              const optId = Number(oid);
+              if (!Number.isNaN(optId)) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId });
+            }
+          } else {
+            const optId = Number(a.optionId);
+            if (!Number.isNaN(optId)) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId });
+          }
+        }
+        if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert, { ignoreDuplicates: true });
+
+        // Score and finish attempt
+        const examSlug = (s && s.examType) || 'pmp';
+        const examCfg = await getExamTypeBySlugOrDefault(examSlug);
+        const percent = qids.length ? (totalCorrect * 100.0) / qids.length : 0;
+        const aprovado = (examCfg && examCfg.pontuacaoMinima != null) ? (percent >= Number(examCfg.pontuacaoMinima)) : null;
+        await db.ExamAttempt.update({
+          Corretas: totalCorrect,
+          Total: qids.length,
+          ScorePercent: percent,
+          Aprovado: aprovado,
+          Status: 'finished',
+          FinishedAt: new Date(),
+        }, { where: { Id: attemptId } });
+      }
+    } catch (e) { console.warn('submitAnswers persistence warning:', e); }
+
     return res.json(result);
   } catch (err) {
     console.error('Erro submitAnswers:', err);
@@ -246,9 +327,8 @@ exports.submitAnswers = async (req, res) => {
 // Returns { sessionId, total }
 exports.startOnDemand = async (req, res) => {
   try {
-    const registry = require('../services/exams/ExamRegistry');
     const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
-    const examCfg = registry.getTypeById(examType);
+    const examCfg = await getExamTypeBySlugOrDefault(examType);
     let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -289,8 +369,48 @@ exports.startOnDemand = async (req, res) => {
     const policy = examCfg.pausas || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
     const pauseState = { pauseUntil: 0, consumed: {} };
     (policy.checkpoints || []).forEach((cp) => { pauseState.consumed[cp] = false; });
-    putSession(sessionId, { userId: user.Id || user.id, examType: examCfg.id, questionIds, pausePolicy: policy, pauses: pauseState });
-    return res.json({ sessionId, total: questionIds.length, examType: examCfg.id, exam: {
+
+    // Persist attempt and ordered questions
+    const orm = db.sequelize;
+    let attempt = null;
+    await orm.transaction(async (t) => {
+      attempt = await db.ExamAttempt.create({
+        UserId: user.Id || user.id,
+        ExamTypeId: examCfg._dbId || null,
+        Modo: 'on-demand',
+        QuantidadeQuestoes: questionIds.length,
+        StartedAt: new Date(),
+        Status: 'in_progress',
+        PauseState: pauseState,
+        BlueprintSnapshot: {
+          id: examCfg.id,
+          nome: examCfg.nome,
+          numeroQuestoes: examCfg.numeroQuestoes,
+          duracaoMinutos: examCfg.duracaoMinutos,
+          pausas: policy,
+          opcoesPorQuestao: examCfg.opcoesPorQuestao,
+          multiplaSelecao: examCfg.multiplaSelecao,
+          pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
+        },
+        FiltrosUsados: { dominios, areas, grupos },
+      }, { transaction: t });
+      if (attempt && questionIds.length) {
+        const rows = questionIds.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));
+        await db.ExamAttemptQuestion.bulkCreate(rows, { transaction: t });
+      }
+    });
+
+    putSession(sessionId, {
+      userId: user.Id || user.id,
+      examType: examCfg.id,
+      examTypeId: examCfg._dbId || null,
+      attemptId: attempt ? attempt.Id : null,
+      questionIds,
+      pausePolicy: policy,
+      pauses: pauseState,
+    });
+
+    return res.json({ sessionId, total: questionIds.length, examType: examCfg.id, attemptId: attempt ? attempt.Id : null, exam: {
       id: examCfg.id,
       nome: examCfg.nome,
       numeroQuestoes: examCfg.numeroQuestoes,

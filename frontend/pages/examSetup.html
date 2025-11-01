@@ -124,6 +124,11 @@
       <p id="limite-texto"></p>
 
       <div class="input-group">
+        <label for="examType" style="min-width:180px;">Tipo de exame:</label>
+        <select id="examType" style="flex:1;max-width:260px;padding:6px 8px;border:1px solid #ccc;border-radius:5px;font-size:1rem;"></select>
+      </div>
+
+      <div class="input-group">
         <label for="quantidade">Quantidade de questões:</label>
         <input type="number" id="quantidade" min="1" />
         <span id="limite-info"></span>
@@ -199,7 +204,8 @@
       } catch(e) { /* ignore */ }
     })();
 
-    const quantidadeInput = document.getElementById('quantidade');
+  const examTypeSelect = document.getElementById('examType');
+  const quantidadeInput = document.getElementById('quantidade');
     const resumoQtd = document.getElementById('resumo-qtd');
     const resumoFocos = document.getElementById('resumo-focos');
     const checklistDiv = document.getElementById('checklist');
@@ -207,14 +213,16 @@
     const startBtn = document.getElementById('startExamBtn');
     const startError = document.getElementById('startError');
 
-    // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 25), else premium (180)
+  // Defaults; will be adjusted per exam type when loaded
+  let currentExamType = (localStorage.getItem('examType') || 'pmp');
+  // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 25), else premium (180)
     const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
-    const limiteQuestoes = bloqueado ? 25 : 180;
+  let limiteQuestoes = bloqueado ? 25 : 180;
     document.getElementById('limite-texto').textContent = bloqueado
       ? 'Usuário gratuito: limite de 25 questões.'
       : 'Usuário pagante: limite de 180 questões.';
     document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
-    quantidadeInput.setAttribute('max', String(limiteQuestoes));
+  quantidadeInput.setAttribute('max', String(limiteQuestoes));
     quantidadeInput.setAttribute('min', '1');
 
     // State for meta lists and selections
@@ -327,12 +335,12 @@
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
       const url = base + '/api/exams/select';
   const token = getSessionToken();
-      const payload = { count: Number(count) || 0, onlyCount: true };
+      const payload = { count: Number(count) || 0, onlyCount: true, examType: currentExamType };
       if (selecionados.areas.length) payload.areas = selecionados.areas;
       if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
       if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       try {
-        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
         if (data && typeof data.available === 'number') return data.available;
@@ -501,7 +509,52 @@
       atualizarResumo();
     }
 
+    async function loadExamTypes(){
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      try {
+        const resp = await fetch(base + '/api/exams/types');
+        const types = await resp.json();
+        examTypeSelect.innerHTML = '';
+        (types || []).forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = `${t.nome || t.id} (${t.numeroQuestoes} questões)`;
+          examTypeSelect.appendChild(opt);
+        });
+        // restore selection
+        if (currentExamType) examTypeSelect.value = currentExamType;
+        // update constraints based on type
+        const sel = (types || []).find(x => x.id === currentExamType) || (types || [])[0];
+        if (sel) {
+          // Ajuste limite máximo proporcional ao tipo; manter cap de 25 para bloqueado
+          const maxByType = Number(sel.numeroQuestoes) || 180;
+          limiteQuestoes = bloqueado ? Math.min(25, maxByType) : maxByType;
+          document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
+          quantidadeInput.setAttribute('max', String(limiteQuestoes));
+          try { localStorage.setItem('examBlueprint', JSON.stringify(sel)); } catch(e){}
+        }
+      } catch (e) {
+        // fallback: ensure selection exists
+        const opt = document.createElement('option');
+        opt.value = currentExamType || 'pmp';
+        opt.textContent = 'PMP (180 questões)';
+        examTypeSelect.appendChild(opt);
+      }
+    }
+
+    examTypeSelect.addEventListener('change', () => {
+      currentExamType = examTypeSelect.value || 'pmp';
+      try { localStorage.setItem('examType', currentExamType); } catch(e){}
+      // Reset quantity clamp on change
+      const maxByType = (()=>{ try { const bp = JSON.parse(localStorage.getItem('examBlueprint')||'null'); return (bp && bp.numeroQuestoes) || 180; } catch(e){ return 180; } })();
+      limiteQuestoes = bloqueado ? Math.min(25, maxByType) : maxByType;
+      document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
+      quantidadeInput.setAttribute('max', String(limiteQuestoes));
+      atualizarResumo();
+    });
+
     // Kick off
+    loadExamTypes();
     loadMeta();
   </script>
   </body>

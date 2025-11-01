@@ -26,13 +26,25 @@ function updateSession(sessionId, patch) {
   return ns;
 }
 
+// TEMP: Legacy endpoint; map to registry until DB model is ready
 exports.listExams = async (req, res) => {
   try {
-    const Exam = require('../models/Exam');
-    const exams = await Exam.findAll();
+    const registry = require('../services/exams/ExamRegistry');
+    const exams = registry.getTypes();
     return res.json(exams);
   } catch (err) {
     console.error('Erro listExams:', err);
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+};
+
+// GET /api/exams/types -> returns configured exam types (for UI)
+exports.listExamTypes = async (_req, res) => {
+  try {
+    const registry = require('../services/exams/ExamRegistry');
+    return res.json(registry.getTypes());
+  } catch (err) {
+    console.error('Erro listExamTypes:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 };
@@ -41,6 +53,9 @@ exports.listExams = async (req, res) => {
 // Body: { count: number, dominios?: [ids], areas?: [ids], grupos?: [ids] }
 exports.selectQuestions = async (req, res) => {
   try {
+  const registry = require('../services/exams/ExamRegistry');
+  const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
+  const examCfg = registry.getTypeById(examType);
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
 
@@ -133,11 +148,22 @@ exports.selectQuestions = async (req, res) => {
     }));
 
     // generate temporary session id (not persisted yet)
-  const sessionId = genSessionId();
+    const sessionId = genSessionId();
 
     // Note: persistence to Simulation and simulation_questions is intentionally left commented for later activation.
 
-    return res.json({ sessionId, total: payloadQuestions.length, questions: payloadQuestions });
+    // Include minimal exam blueprint for the client when selecting inline
+    const blueprint = {
+      id: examCfg.id,
+      nome: examCfg.nome,
+      numeroQuestoes: examCfg.numeroQuestoes,
+      duracaoMinutos: examCfg.duracaoMinutos,
+      pausas: examCfg.pausas,
+      opcoesPorQuestao: examCfg.opcoesPorQuestao,
+      multiplaSelecao: examCfg.multiplaSelecao,
+    };
+
+    return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, exam: blueprint, questions: payloadQuestions });
   } catch (err) {
     console.error('Erro selectQuestions:', err);
     return res.status(500).json({ error: 'Internal error' });
@@ -220,6 +246,9 @@ exports.submitAnswers = async (req, res) => {
 // Returns { sessionId, total }
 exports.startOnDemand = async (req, res) => {
   try {
+    const registry = require('../services/exams/ExamRegistry');
+    const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
+    const examCfg = registry.getTypeById(examType);
     let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -256,8 +285,20 @@ exports.startOnDemand = async (req, res) => {
     const rows = await sequelize.query(selectIdsQ, { replacements: { limit: count }, type: sequelize.QueryTypes.SELECT });
     const questionIds = rows.map(r => r.id || r.Id);
     const sessionId = genSessionId();
-    putSession(sessionId, { userId: user.Id || user.id, questionIds, pauses: { cp1: { consumed: false }, cp2: { consumed: false }, pauseUntil: 0 } });
-    return res.json({ sessionId, total: questionIds.length });
+    // initialize pause state based on policy
+    const policy = examCfg.pausas || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+    const pauseState = { pauseUntil: 0, consumed: {} };
+    (policy.checkpoints || []).forEach((cp) => { pauseState.consumed[cp] = false; });
+    putSession(sessionId, { userId: user.Id || user.id, examType: examCfg.id, questionIds, pausePolicy: policy, pauses: pauseState });
+    return res.json({ sessionId, total: questionIds.length, examType: examCfg.id, exam: {
+      id: examCfg.id,
+      nome: examCfg.nome,
+      numeroQuestoes: examCfg.numeroQuestoes,
+      duracaoMinutos: examCfg.duracaoMinutos,
+      pausas: policy,
+      opcoesPorQuestao: examCfg.opcoesPorQuestao,
+      multiplaSelecao: examCfg.multiplaSelecao,
+    }});
   } catch (err) {
     console.error('Erro startOnDemand:', err);
     return res.status(500).json({ error: 'Internal error' });
@@ -278,7 +319,7 @@ exports.getQuestion = async (req, res) => {
     const q = qRows[0];
     const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao FROM respostaopcao WHERE ("Excluido" = false OR "Excluido" IS NULL) AND "IdQuestao" = :qid ORDER BY random()`;
     const opts = await sequelize.query(optsQ, { replacements: { qid }, type: sequelize.QueryTypes.SELECT });
-    return res.json({ index, total: s.questionIds.length, question: { id: q.id, descricao: q.descricao || q.Descricao, explicacao: q.explicacao || q.Explicacao, options: opts } });
+    return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: { id: q.id, descricao: q.descricao || q.Descricao, explicacao: q.explicacao || q.Explicacao, options: opts } });
   } catch (err) {
     console.error('Erro getQuestion:', err);
     return res.status(500).json({ error: 'Internal error' });
@@ -293,12 +334,16 @@ exports.pauseStart = async (req, res) => {
     const s = getSession(sessionId);
     if (!s) return res.status(404).json({ error: 'session not found' });
     if (!Number.isInteger(index)) return res.status(400).json({ error: 'index required' });
-    // allowed checkpoints at 60 and 120 (1-based indices)
-    if (index !== 60 && index !== 120) return res.status(400).json({ error: 'pause not allowed at this index' });
-    const cpKey = index === 60 ? 'cp1' : 'cp2';
-    if (s.pauses[cpKey].consumed) return res.status(400).json({ error: 'pause already consumed' });
-    const until = Date.now() + 10 * 60 * 1000;
-    updateSession(sessionId, { pauses: { ...s.pauses, [cpKey]: { consumed: true }, pauseUntil: until } });
+    const policy = s.pausePolicy || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+    if (!policy.permitido) return res.status(400).json({ error: 'pause not permitted for this exam' });
+    const cps = Array.isArray(policy.checkpoints) ? policy.checkpoints : [];
+    if (!cps.includes(index)) return res.status(400).json({ error: 'pause not allowed at this index' });
+    const consumed = s.pauses && s.pauses.consumed ? s.pauses.consumed : {};
+    if (consumed[index]) return res.status(400).json({ error: 'pause already consumed' });
+    const ms = (Number(policy.duracaoMinutosPorPausa) || 0) * 60 * 1000;
+    const until = Date.now() + ms;
+    consumed[index] = true;
+    updateSession(sessionId, { pauses: { ...s.pauses, pauseUntil: until, consumed }, pausePolicy: policy });
     return res.json({ ok: true, pauseUntil: until });
   } catch (err) {
     console.error('Erro pauseStart:', err);
@@ -314,10 +359,13 @@ exports.pauseSkip = async (req, res) => {
     const s = getSession(sessionId);
     if (!s) return res.status(404).json({ error: 'session not found' });
     if (!Number.isInteger(index)) return res.status(400).json({ error: 'index required' });
-    if (index !== 60 && index !== 120) return res.status(400).json({ error: 'skip not allowed at this index' });
-    const cpKey = index === 60 ? 'cp1' : 'cp2';
-    if (s.pauses[cpKey].consumed) return res.status(200).json({ ok: true, already: true });
-    updateSession(sessionId, { pauses: { ...s.pauses, [cpKey]: { consumed: true } } });
+    const policy = s.pausePolicy || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+    const cps = Array.isArray(policy.checkpoints) ? policy.checkpoints : [];
+    if (!cps.includes(index)) return res.status(400).json({ error: 'skip not allowed at this index' });
+    const consumed = s.pauses && s.pauses.consumed ? s.pauses.consumed : {};
+    if (consumed[index]) return res.status(200).json({ ok: true, already: true });
+    consumed[index] = true;
+    updateSession(sessionId, { pauses: { ...s.pauses, consumed } });
     return res.json({ ok: true });
   } catch (err) {
     console.error('Erro pauseSkip:', err);
@@ -331,7 +379,7 @@ exports.pauseStatus = async (req, res) => {
     const { sessionId } = req.params;
     const s = getSession(sessionId);
     if (!s) return res.status(404).json({ error: 'session not found' });
-    return res.json({ pauses: s.pauses || {} });
+    return res.json({ pauses: s.pauses || {}, policy: s.pausePolicy || null, examType: s.examType || 'pmp' });
   } catch (err) {
     console.error('Erro pauseStatus:', err);
     return res.status(500).json({ error: 'Internal error' });

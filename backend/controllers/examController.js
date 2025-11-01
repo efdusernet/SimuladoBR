@@ -64,6 +64,10 @@ exports.listExams = async (req, res) => {
   try {
     const types = await loadExamTypesFromDb();
     if (types && types.length) return res.json(types);
+    const disableFallback = String(process.env.EXAM_TYPES_DISABLE_FALLBACK || '').toLowerCase() === 'true';
+    if (disableFallback) {
+      return res.status(404).json({ error: 'No exam types configured in DB' });
+    }
     const registry = require('../services/exams/ExamRegistry');
     return res.json(registry.getTypes());
   } catch (err) {

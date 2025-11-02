@@ -205,6 +205,7 @@
               return resp;
             } else if (url && /\/api\/exams\/.+\/question\//.test(url)) {
               // Auto-resume lost session (e.g., server restart) transparently once on 404
+              // Auto-resume lost session (e.g., server restart) transparently once on 404
               const resp = await origFetch(input, init);
               if (resp && resp.status === 404) {
                 try {

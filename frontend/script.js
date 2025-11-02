@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isLanding) {
                 // Na index, não força modal e não redireciona mais
                 setStatus('Visitante');
-                try { showUserHeader('Visitante'); } catch(_){}
+                try { showUserHeader('Visitante'); } catch(_){ }
                 return;
             }
             // Fora da index, manter comportamento anterior (mostrar modal ou redirecionar)

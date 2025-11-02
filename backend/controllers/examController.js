@@ -99,6 +99,7 @@ exports.selectQuestions = async (req, res) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   const examCfg = await getExamTypeBySlugOrDefault(examType);
+  const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
 
@@ -131,7 +132,7 @@ exports.selectQuestions = async (req, res) => {
   // Build WHERE clause
   const whereClauses = [`excluido = false`, `idstatus = 1`];
   // Filter by exam type linkage if available in DB (1:N)
-  if (examCfg && examCfg._dbId) {
+  if (!ignoreExamType && examCfg && examCfg._dbId) {
     whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
   }
   if (bloqueio) whereClauses.push(`seed = true`);
@@ -476,8 +477,9 @@ exports.submitAnswers = async (req, res) => {
 // Returns { sessionId, total }
 exports.startOnDemand = async (req, res) => {
   try {
-    const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
-    const examCfg = await getExamTypeBySlugOrDefault(examType);
+  const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
+  const examCfg = await getExamTypeBySlugOrDefault(examType);
+  const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
     let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -499,7 +501,7 @@ exports.startOnDemand = async (req, res) => {
     const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
     const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
     const whereClauses = [`excluido = false`, `idstatus = 1`];
-    if (examCfg && examCfg._dbId) {
+    if (!ignoreExamType && examCfg && examCfg._dbId) {
       whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
     }
     if (bloqueio) whereClauses.push(`seed = true`);

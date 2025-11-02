@@ -23,12 +23,13 @@ exports.createQuestion = async (req, res) => {
 		const examTypeSlug = (b.examTypeSlug || b.examType || '').trim().toLowerCase() || null;
 		let resolvedExamTypeId = examTypeId || null;
 
-		if (!resolvedExamTypeId && examTypeSlug) {
+			if (!resolvedExamTypeId && examTypeSlug) {
 			try {
 				const row = await sequelize.query('SELECT id FROM public.exam_type WHERE slug = :slug AND (ativo = TRUE OR ativo IS NULL) LIMIT 1', { replacements: { slug: examTypeSlug }, type: sequelize.QueryTypes.SELECT });
 				if (row && row[0] && row[0].id != null) resolvedExamTypeId = Number(row[0].id);
 			} catch(_) { /* ignore */ }
 		}
+			if (!resolvedExamTypeId) return res.status(400).json({ error: 'examType required' });
 
 		let createdId = null;
 		await sequelize.transaction(async (t) => {

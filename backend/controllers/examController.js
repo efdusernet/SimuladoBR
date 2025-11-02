@@ -152,7 +152,7 @@ exports.selectQuestions = async (req, res) => {
     }
     // Select random questions and join explicacaoguia to get the explanation text
     // explicacaoguia.Descricao contains the explicacao and links by idquestao -> questao.id
-    const selectQ = `SELECT q.id, q.descricao, eg."Descricao" AS explicacao
+    const selectQ = `SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, eg."Descricao" AS explicacao
       FROM questao q
       LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
       WHERE ${whereSql}
@@ -183,17 +183,78 @@ exports.selectQuestions = async (req, res) => {
     });
 
     // assemble payload
-    const payloadQuestions = questions.map(q => ({
-      id: q.id || q.Id,
-      descricao: q.descricao || q.Descricao,
-      explicacao: q.explicacao || q.Explicacao,
-      options: optsByQ[q.id] || []
-    }));
+    const payloadQuestions = questions.map(q => {
+      const slug = (q.tiposlug || '').toString().toLowerCase();
+      let type = null;
+      if (slug) {
+        if (slug === 'multi' || slug === 'multiple' || slug === 'checkbox') type = 'checkbox';
+        else if (slug === 'single' || slug === 'radio') type = 'radio';
+        else type = slug; // forward unknown slugs; front will fall back if not recognized
+      } else {
+        type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
+      }
+      return {
+        id: q.id || q.Id,
+        descricao: q.descricao || q.Descricao,
+        explicacao: q.explicacao || q.Explicacao,
+        type,
+        options: optsByQ[q.id] || []
+      };
+    });
 
-    // generate temporary session id (not persisted yet)
+    // generate session id and persist attempt with ordered questions
     const sessionId = genSessionId();
 
-    // Note: persistence to Simulation and simulation_questions is intentionally left commented for later activation.
+    // initialize pause state based on policy
+    const policy = examCfg.pausas || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+    const pauseState = { pauseUntil: 0, consumed: {} };
+    (policy.checkpoints || []).forEach((cp) => { pauseState.consumed[cp] = false; });
+
+    // Persist attempt and ordered questions mirroring start-on-demand
+    let attempt = null;
+    try {
+      await db.sequelize.transaction(async (t) => {
+        attempt = await db.ExamAttempt.create({
+          UserId: user.Id || user.id,
+          ExamTypeId: examCfg._dbId || null,
+          Modo: 'select',
+          QuantidadeQuestoes: payloadQuestions.length,
+          StartedAt: new Date(),
+          Status: 'in_progress',
+          PauseState: pauseState,
+          BlueprintSnapshot: {
+            id: examCfg.id,
+            nome: examCfg.nome,
+            numeroQuestoes: examCfg.numeroQuestoes,
+            duracaoMinutos: examCfg.duracaoMinutos,
+            pausas: policy,
+            opcoesPorQuestao: examCfg.opcoesPorQuestao,
+            multiplaSelecao: examCfg.multiplaSelecao,
+            pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
+          },
+          FiltrosUsados: { dominios, areas, grupos },
+        }, { transaction: t });
+        if (attempt && ids.length) {
+          const rows = ids.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));
+          await db.ExamAttemptQuestion.bulkCreate(rows, { transaction: t });
+        }
+      });
+    } catch (e) {
+      console.warn('selectQuestions: could not persist attempt', e);
+    }
+
+    // Keep session state in memory to support later submit and pause
+    try {
+      putSession(sessionId, {
+        userId: user.Id || user.id,
+        examType: examCfg.id,
+        examTypeId: examCfg._dbId || null,
+        attemptId: attempt ? attempt.Id : null,
+        questionIds: ids,
+        pausePolicy: policy,
+        pauses: pauseState,
+      });
+    } catch(_){ }
 
     // Include minimal exam blueprint for the client when selecting inline
     const blueprint = {
@@ -206,7 +267,7 @@ exports.selectQuestions = async (req, res) => {
       multiplaSelecao: examCfg.multiplaSelecao,
     };
 
-    return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, exam: blueprint, questions: payloadQuestions });
+    return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, attemptId: attempt ? attempt.Id : null, exam: blueprint, questions: payloadQuestions });
   } catch (err) {
     console.error('Erro selectQuestions:', err);
     return res.status(500).json({ error: 'Internal error' });
@@ -224,7 +285,7 @@ exports.startExam = async (req, res) => {
 };
 
 // POST /api/exams/submit
-// Body: { sessionId: string, answers: [{ questionId: number, optionId?: number, optionIds?: number[] }] }
+// Body: { sessionId: string, answers: [{ questionId: number, optionId?: number, optionIds?: number[], response?: any }] }
 exports.submitAnswers = async (req, res) => {
   try {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -243,13 +304,17 @@ exports.submitAnswers = async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
   const { sessionId, answers } = req.body || {};
+    const partial = Boolean(req.body && req.body.partial);
     if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
-    if (!Array.isArray(answers) || !answers.length) return res.status(400).json({ error: 'answers required' });
+    if (!Array.isArray(answers)) return res.status(400).json({ error: 'answers required' });
   const s = getSession(sessionId);
   const attemptId = s && s.attemptId ? Number(s.attemptId) : null;
 
-    // collect question ids
-    const qids = Array.from(new Set(answers.map(a => Number(a.questionId)).filter(n => !Number.isNaN(n))));
+    // collect question ids: prefer session questionIds to ensure unanswered are included
+    let qids = (s && Array.isArray(s.questionIds) && s.questionIds.length) ? s.questionIds.map(Number) : [];
+    if (!qids.length) {
+      qids = Array.from(new Set(answers.map(a => Number(a.questionId)).filter(n => !Number.isNaN(n))));
+    }
     if (!qids.length) return res.status(400).json({ error: 'no valid questionIds' });
 
     // fetch correct option ids from respostaopcao
@@ -267,20 +332,38 @@ exports.submitAnswers = async (req, res) => {
 
     // grade (single or multi)
     let totalCorrect = 0;
-    const details = answers.map(a => {
-      const qid = Number(a.questionId);
+  // build answers map and compute grading across all qids (unanswered => not correct)
+    const byQ = new Map();
+    (answers || []).forEach(a => {
+      const qid = Number(a && a.questionId);
+      if (!Number.isFinite(qid)) return;
+      if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
+        byQ.set(qid, { typed: true, response: a.response });
+      } else if (Array.isArray(a.optionIds)) {
+        const ids = a.optionIds.map(Number).filter(n => Number.isFinite(n));
+        byQ.set(qid, { multi: true, optionIds: ids });
+      } else {
+        const id = (a && a.optionId != null) ? Number(a.optionId) : null;
+        byQ.set(qid, { multi: false, optionId: Number.isFinite(id) ? id : null });
+      }
+    });
+
+    const details = qids.map(qid => {
+      const rec = byQ.get(Number(qid));
       let ok = false;
-      if (Array.isArray(a.optionIds)) {
-        const chosenSet = new Set((a.optionIds || []).map(Number));
+      if (rec && rec.typed) {
+        ok = false; // typed grading engine TBD
+      } else if (rec && rec.multi) {
+        const chosenSet = new Set((rec.optionIds || []).map(Number));
         const correctSet = new Set([correctByQ[qid]].filter(Boolean));
         ok = chosenSet.size === correctSet.size && [...chosenSet].every(x => correctSet.has(x));
       } else {
-        const chosen = Number(a.optionId);
+        const chosen = rec ? rec.optionId : null;
         const correctOpt = correctByQ[qid] || null;
-        ok = !!(correctOpt && chosen === correctOpt);
+        ok = !!(correctOpt && chosen != null && Number(chosen) === Number(correctOpt));
       }
       if (ok) totalCorrect += 1;
-      return { questionId: qid, chosenOptionId: Number(a.optionId) || null, correct: ok };
+      return { questionId: Number(qid), chosenOptionId: (rec && rec.multi === false) ? (rec.optionId ?? null) : null, correct: ok };
     });
 
     const result = { sessionId, totalQuestions: qids.length, totalCorrect, details };
@@ -288,41 +371,95 @@ exports.submitAnswers = async (req, res) => {
     // Persist answers if we have an attempt
     try {
       if (attemptId) {
-        const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId, QuestionId: qids } });
+        // if partial, only consider questions present in payload; else consider all qids (for final)
+        const persistQids = partial ? Array.from(byQ.keys()) : qids;
+        const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId, QuestionId: persistQids } });
         const aqMap = new Map(aqRows.map(r => [Number(r.QuestionId), Number(r.Id)]));
+        // Build toInsert with selected answers only (for partial), or include null markers (for final)
         const toInsert = [];
-        for (const a of answers) {
-          const qid = Number(a.questionId);
-          const aqid = aqMap.get(qid);
-          if (!aqid) continue;
-          if (Array.isArray(a.optionIds)) {
-            for (const oid of a.optionIds) {
-              const optId = Number(oid);
-              if (!Number.isNaN(optId)) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId });
-            }
-          } else {
-            const optId = Number(a.optionId);
-            if (!Number.isNaN(optId)) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId });
-          }
-        }
-        if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert, { ignoreDuplicates: true });
 
-        // Score and finish attempt
-        const examSlug = (s && s.examType) || 'pmp';
-        const examCfg = await getExamTypeBySlugOrDefault(examSlug);
-        const percent = qids.length ? (totalCorrect * 100.0) / qids.length : 0;
-        const aprovado = (examCfg && examCfg.pontuacaoMinima != null) ? (percent >= Number(examCfg.pontuacaoMinima)) : null;
-        await db.ExamAttempt.update({
-          Corretas: totalCorrect,
-          Total: qids.length,
-          ScorePercent: percent,
-          Aprovado: aprovado,
-          Status: 'finished',
-          FinishedAt: new Date(),
-        }, { where: { Id: attemptId } });
+        if (partial) {
+          // Replace answers for provided questions with current snapshot
+          const aqIdsToReplace = [];
+          for (const a of (answers || [])) {
+            const qid = Number(a.questionId);
+            const aqid = aqMap.get(qid);
+            if (!aqid) continue;
+            aqIdsToReplace.push(aqid);
+          }
+          if (aqIdsToReplace.length) {
+            await db.ExamAttemptAnswer.destroy({ where: { AttemptQuestionId: aqIdsToReplace } });
+          }
+          for (const a of (answers || [])) {
+            const qid = Number(a.questionId);
+            const aqid = aqMap.get(qid);
+            if (!aqid) continue;
+            if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
+              const payload = a.response == null ? null : a.response;
+              toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: payload, Selecionada: payload != null });
+            } else if (Array.isArray(a.optionIds)) {
+              const arr = a.optionIds.map(Number).filter(n => Number.isFinite(n));
+              for (const optId of arr) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId, Selecionada: true });
+            } else {
+              const optId = (a && a.optionId != null) ? Number(a.optionId) : null;
+              if (Number.isFinite(optId)) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId, Selecionada: true });
+            }
+          }
+          if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert);
+        } else {
+          // Final submission: include null markers for unanswered
+          for (const a of (answers || [])) {
+            const qid = Number(a.questionId);
+            const aqid = aqMap.get(qid);
+            if (!aqid) continue;
+            if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
+              const payload = a.response == null ? null : a.response;
+              toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: payload, Selecionada: payload != null });
+            } else if (Array.isArray(a.optionIds)) {
+              const arr = a.optionIds.map(Number).filter(n => Number.isFinite(n));
+              if (!arr.length) {
+                toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Selecionada: false });
+              } else {
+                for (const optId of arr) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId, Selecionada: true });
+              }
+            } else {
+              const optId = (a && a.optionId != null) ? Number(a.optionId) : null;
+              if (Number.isFinite(optId)) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId, Selecionada: true });
+              else toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Selecionada: false });
+            }
+          }
+          // insert null for any missing
+          const answeredSet = new Set((answers || []).map(x => Number(x.questionId)).filter(n => Number.isFinite(n)));
+          for (const qid of qids) {
+            const nq = Number(qid);
+            if (!answeredSet.has(nq)) {
+              const aqid = aqMap.get(nq);
+              if (aqid) toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: null, Selecionada: false });
+            }
+          }
+          if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert, { ignoreDuplicates: true });
+        }
+
+        // Score and finish attempt only if not partial
+        if (!partial) {
+          const examSlug = (s && s.examType) || 'pmp';
+          const examCfg = await getExamTypeBySlugOrDefault(examSlug);
+          const percent = qids.length ? (totalCorrect * 100.0) / qids.length : 0;
+          const aprovado = (examCfg && examCfg.pontuacaoMinima != null) ? (percent >= Number(examCfg.pontuacaoMinima)) : null;
+          await db.ExamAttempt.update({
+            Corretas: totalCorrect,
+            Total: qids.length,
+            ScorePercent: percent,
+            Aprovado: aprovado,
+            Status: 'finished',
+            FinishedAt: new Date(),
+          }, { where: { Id: attemptId } });
+        }
       }
     } catch (e) { console.warn('submitAnswers persistence warning:', e); }
 
+    // For partial submissions, just acknowledge ok and include counts that were computed
+    if (partial) return res.json({ ok: true, sessionId, saved: (answers || []).length, totalKnown: qids.length, totalCorrect });
     return res.json(result);
   } catch (err) {
     console.error('Erro submitAnswers:', err);
@@ -441,13 +578,47 @@ exports.getQuestion = async (req, res) => {
     if (!s) return res.status(404).json({ error: 'session not found' });
     if (!Number.isInteger(index) || index < 0 || index >= s.questionIds.length) return res.status(400).json({ error: 'invalid index' });
     const qid = s.questionIds[index];
-    const qQ = `SELECT q.id, q.descricao, eg."Descricao" AS explicacao FROM questao q LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL) WHERE q.id = :id LIMIT 1`;
+    const qQ = `
+      SELECT q.id, q.descricao, q.tiposlug, q.interacaospec, q.multiplaescolha AS multiplaescolha,
+             eg."Descricao" AS explicacao,
+             qt.ui_schema AS ui_schema
+        FROM questao q
+        LEFT JOIN explicacaoguia eg
+               ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
+        LEFT JOIN question_type qt
+               ON qt.slug = q.tiposlug AND (qt.ativo = TRUE OR qt.ativo IS NULL)
+       WHERE q.id = :id
+       LIMIT 1`;
     const qRows = await sequelize.query(qQ, { replacements: { id: qid }, type: sequelize.QueryTypes.SELECT });
     if (!qRows || !qRows.length) return res.status(404).json({ error: 'question not found' });
     const q = qRows[0];
+    // If tiposlug is present but refers to advanced type, return interaction payload.
+    // For basic types ('single'/'multi' or synonyms), keep legacy options path below.
+    if (q.tiposlug) {
+      const basic = (()=>{ try { const t = String(q.tiposlug).toLowerCase(); return (t === 'single' || t === 'radio' || t === 'multi' || t === 'multiple' || t === 'checkbox'); } catch(_) { return false; } })();
+      if (!basic) {
+        const interacao = q.interacaospec || null;
+        return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: {
+          id: q.id,
+          type: q.tiposlug,
+          descricao: q.descricao || q.Descricao,
+          explicacao: q.explicacao || q.Explicacao,
+          interacao,
+          ui: q.ui_schema || null,
+        }});
+      }
+    }
+    // Legacy options-based question: include per-question type using questao.multiplaescolha
     const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao FROM respostaopcao WHERE ("Excluido" = false OR "Excluido" IS NULL) AND "IdQuestao" = :qid ORDER BY random()`;
     const opts = await sequelize.query(optsQ, { replacements: { qid }, type: sequelize.QueryTypes.SELECT });
-    return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: { id: q.id, descricao: q.descricao || q.Descricao, explicacao: q.explicacao || q.Explicacao, options: opts } });
+    // derive type: when multiplaescolha true -> checkbox, else radio
+    let type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
+    if (q.tiposlug) {
+      const t = String(q.tiposlug).toLowerCase();
+      if (t === 'multi' || t === 'multiple' || t === 'checkbox') type = 'checkbox';
+      else if (t === 'single' || t === 'radio') type = 'radio';
+    }
+    return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: { id: q.id, type, descricao: q.descricao || q.Descricao, explicacao: q.explicacao || q.Explicacao, options: opts } });
   } catch (err) {
     console.error('Erro getQuestion:', err);
     return res.status(500).json({ error: 'Internal error' });

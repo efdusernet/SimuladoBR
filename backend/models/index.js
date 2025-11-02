@@ -18,6 +18,7 @@ db.ExamType = require('./ExamType')(sequelize, DataTypes);
 db.ExamAttempt = require('./ExamAttempt')(sequelize, DataTypes);
 db.ExamAttemptQuestion = require('./ExamAttemptQuestion')(sequelize, DataTypes);
 db.ExamAttemptAnswer = require('./ExamAttemptAnswer')(sequelize, DataTypes);
+db.QuestionType = require('./QuestionType')(sequelize, DataTypes);
 
 // Associations
 if (db.User && db.EmailVerification) {

@@ -2,7 +2,8 @@ module.exports = (sequelize, DataTypes) => {
   const ExamAttemptAnswer = sequelize.define('ExamAttemptAnswer', {
     Id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true, field: 'id' },
     AttemptQuestionId: { type: DataTypes.BIGINT, allowNull: false, field: 'attempt_question_id' },
-    OptionId: { type: DataTypes.INTEGER, allowNull: false, field: 'option_id' },
+  OptionId: { type: DataTypes.INTEGER, allowNull: true, field: 'option_id' },
+    Resposta: { type: DataTypes.JSONB, allowNull: true, field: 'resposta' },
     Selecionada: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true, field: 'selecionada' },
     CreatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW, field: 'created_at' },
     UpdatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW, field: 'updated_at' },

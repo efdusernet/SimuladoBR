@@ -518,7 +518,8 @@
         (types || []).forEach(t => {
           const opt = document.createElement('option');
           opt.value = t.id;
-          opt.textContent = `${t.nome || t.id} (${t.numeroQuestoes} questões)`;
+          // Exibir apenas o nome do exame (sem "X questões")
+          opt.textContent = `${t.nome || t.id}`;
           examTypeSelect.appendChild(opt);
         });
         // restore selection
@@ -537,7 +538,8 @@
         // fallback: ensure selection exists
         const opt = document.createElement('option');
         opt.value = currentExamType || 'pmp';
-        opt.textContent = 'PMP (180 questões)';
+        // Fallback simples: mostrar apenas o nome
+        opt.textContent = 'PMP';
         examTypeSelect.appendChild(opt);
       }
     }

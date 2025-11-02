@@ -84,30 +84,7 @@
         <p id="questionText" class="question-text">Carregando pergunta...</p>
 
         <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="0" />
-              <span class="option-text" id="opt0">Opção A</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="1" />
-              <span class="option-text" id="opt1">Opção B</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="2" />
-              <span class="option-text" id="opt2">Opção C</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="3" />
-              <span class="option-text" id="opt3">Opção D</span>
-            </label>
-          </div>
+          <div id="answersContainer"></div>
         </form>
 
         <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
@@ -121,15 +98,16 @@
   <!-- define session vars required by exam pages -->
   <script>
     try {
-      // tempoExame (minutos totais para o exame completo): 180 questões = 230 minutos
-      const _tempoExame = 230; // minutos
-      // FullExam: número total de questões do exame completo
-      const _FullExam = 180;
+      let bp = null;
+      try { const raw = localStorage.getItem('examBlueprint'); bp = raw ? JSON.parse(raw) : null; } catch(_) { bp = null; }
+      const _tempoExame = (bp && Number(bp.duracaoMinutos)) ? Number(bp.duracaoMinutos) : 230;
+      const _FullExam = (bp && Number(bp.numeroQuestoes)) ? Number(bp.numeroQuestoes) : 180;
       sessionStorage.setItem('tempoExame', JSON.stringify(_tempoExame));
       sessionStorage.setItem('FullExam', JSON.stringify(_FullExam));
-      // também expor como variáveis globais numéricas para uso imediato no script
       window.tempoExame = _tempoExame;
       window.FullExam = _FullExam;
+      window.ExamMultiplaSelecao = !!(bp && bp.multiplaSelecao);
+      window.ExamCheckpoints = (bp && bp.pausas && Array.isArray(bp.pausas.checkpoints)) ? bp.pausas.checkpoints.slice() : [60,120];
     } catch (e) {
       console.warn('Falha ao definir variáveis de sessão:', e);
     }
@@ -171,7 +149,8 @@
       function ensureTopPauseButtons(idx){
         try {
           const modal = document.getElementById('gridModal');
-          const need = (idx === 60 || idx === 120);
+          const cps = (function(){ try { const raw = localStorage.getItem('examBlueprint'); const bp = raw ? JSON.parse(raw) : null; return (bp && bp.pausas && Array.isArray(bp.pausas.checkpoints)) ? bp.pausas.checkpoints : [60,120]; } catch(_) { return [60,120]; } })();
+          const need = cps.includes(idx);
           if (!need){ removeTopPauseButtons(); return; }
           modal.style.display = 'none';
           modal.setAttribute('aria-hidden','true');
@@ -350,7 +329,24 @@
       function closeFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
       function attach(){
         const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
-  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', ()=>{ closeFinishConfirm(); clearExamData(); window.location.assign('/login'); });
+  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', async ()=>{
+    try { closeFinishConfirm(); } catch(_){ }
+    // submit to backend before clearing
+    try { if (window.submitExam) { await window.submitExam(); } } catch(e){ console.warn('submit on finalize failed', e); }
+    try { clearExamData(); } catch(_){ }
+    // Decide redirect based on session state
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+      const isGuest = token && token.endsWith('#');
+      const isLogged = !!(token || hasIdentity) && !(isGuest && !hasIdentity);
+      if (isLogged) {
+        window.location.assign('/pages/examSetup.html');
+      } else {
+        window.location.assign('/login');
+      }
+    } catch(e){ window.location.assign('/login'); }
+  });
         const no = document.getElementById('finishConfirmNo'); if (no) no.addEventListener('click', closeFinishConfirm);
         window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeFinishConfirm(); });
       }

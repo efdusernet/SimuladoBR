@@ -3,8 +3,18 @@
             // QUESTIONS will be populated from the backend via /api/exams/select
             let QUESTIONS = [];
 
-            // store user selections: key by question id (or index) -> { index, optionId }
+            // store user selections: key by question id (or index) -> { index, optionId } or { indices:[], optionIds:[] }
             const ANSWERS = {};
+
+            // Current exam blueprint (durations, checkpoints, multi-select, etc.)
+            let EXAM_BP = (function(){
+              try {
+                const raw = localStorage.getItem('examBlueprint');
+                if (!raw) return null;
+                const bp = JSON.parse(raw);
+                return (bp && typeof bp === 'object') ? bp : null;
+              } catch(e){ return null; }
+            })();
 
             // Utility: stable shuffle (Fisher-Yates) that returns a new array
             function shuffleArray(arr){
@@ -321,11 +331,7 @@
                 $('questionNumber').textContent = 0;
                 $('totalQuestions').textContent = 0;
                 $('questionText').textContent = 'Nenhuma pergunta disponível.';
-                for(let i=0;i<4;i++){
-                  $(`opt${i}`).textContent = '';
-                  const radio = document.querySelector(`#answersForm input[name="answer"][value="${i}"]`);
-                  if (radio) radio.checked = false;
-                }
+                  try { const ac = document.getElementById('answersContainer'); if (ac) ac.innerHTML = ''; } catch(e){}
                 return;
               }
               // manter "Exemplo" fixo no header conforme solicitado; apenas atualizamos número e texto
@@ -336,17 +342,13 @@
               // Restaurar estado de destaque (vermelho) e rótulo do botão
               try { const qKeyHL = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`; applyHighlightUI(qKeyHL); } catch(e){}
 
-              // Update back-navigation barrier when crossing checkpoints
+              // Update back-navigation barrier when crossing checkpoints (from blueprint checkpoints)
               try {
                 const existing = getBackBarrier();
-                // Checkpoints are at questions 60 and 120 (1-based) => idx 59 and 119 (0-based).
-                // The barrier should be the first question AFTER each checkpoint (idx 60 and 120),
-                // so the Back button only appears from questions 62 and 122 onward.
-                if (idx >= 120) {
-                  if (existing < 120) setBackBarrier(120);
-                } else if (idx >= 60) {
-                  if (existing < 60) setBackBarrier(60);
-                }
+                const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                let newBarrier = existing;
+                cps.forEach(cp => { if (idx >= cp && cp > newBarrier) newBarrier = cp; });
+                if (newBarrier !== existing) setBackBarrier(newBarrier);
               } catch(e){}
 
               // use precomputed shuffledOptions (frozen order for the session)
@@ -354,61 +356,116 @@
               // determine storage key for this question
               const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`;
 
-              // try to restore by optionId (robust against option shuffling); fall back to saved index
-              const prev = ANSWERS[qKey];
-              let restoredIndex = null;
-              try {
-                if (prev && prev.optionId !== undefined && prev.optionId !== null && String(prev.optionId) !== '') {
-                  const found = optObjs.findIndex(o => String(o.id) === String(prev.optionId));
-                  if (found >= 0) restoredIndex = found;
-                }
-              } catch(e) {}
-              // fallback to numeric index if we didn't find by optionId
-              if (restoredIndex === null && prev && typeof prev.index === 'number') restoredIndex = prev.index;
-
-              for(let i=0;i<4;i++){
-                const opt = optObjs[i] || { id: null, text: `Opção ${i+1}` };
-                $(`opt${i}`).textContent = opt.text;
-                const radio = document.querySelector(`#answersForm input[name="answer"][value="${i}"]`);
-                if (radio) {
-                  // attach option id to radio for submission
-                  try { radio.dataset.optionId = opt.id === undefined || opt.id === null ? '' : String(opt.id); } catch(e){}
-
-                  // restore previous checked state: prefer restoredIndex (from optionId), else false
-                  radio.checked = (restoredIndex === i);
-
-                  // save selection on change and enable Continue button (also persist to localStorage)
-                  radio.onchange = function(){
+                // Render dynamic options
+                const ac = document.getElementById('answersContainer');
+                if (ac) {
+                  ac.innerHTML = '';
+                  // Decide multi-select per question: prefer question.type, then fallback to exam blueprint
+                  const isMulti = (function(){
                     try {
-                      const chosenId = this.dataset && this.dataset.optionId ? this.dataset.optionId : '';
-                      ANSWERS[qKey] = { index: i, optionId: chosenId };
-                      const contBtn = $('continueBtn');
-                      if (contBtn) {
-                        // se estiver em pausa ativa, manter desabilitado apesar da seleção
-                        if (isPauseActive()) {
-                          contBtn.disabled = true;
-                        } else {
-                          contBtn.disabled = false;
-                        }
+                      if (q && typeof q.type === 'string') {
+                        const t = q.type.toLowerCase();
+                        if (t === 'checkbox' || t === 'multi' || t === 'multiple') return true;
+                        if (t === 'radio' || t === 'single') return false;
                       }
-                      // persist incremental answers for this session (auto-save helper)
-                      try { saveAnswersForCurrentSession(); } catch(e){}
-                      // remove any visual error indicator
-                      try { const qc = $('questionContent'); if (qc) qc.classList.remove('input-error'); } catch(e){}
-                    } catch(e) { /* ignore */ }
-                  };
-                }
-              }
+                    } catch(e){}
+                    return !!(EXAM_BP && EXAM_BP.multiplaSelecao);
+                  })();
+                  const inputType = isMulti ? 'checkbox' : 'radio';
+                  const name = isMulti ? `answers_${qKey}` : 'answer';
 
-              // if we restored by optionId, ensure in-memory ANSWERS reflects the (possibly new) index
-              try {
-                if (restoredIndex !== null) {
-                  const chosen = optObjs[restoredIndex] || { id: null };
-                  ANSWERS[qKey] = { index: restoredIndex, optionId: chosen.id === undefined || chosen.id === null ? '' : String(chosen.id) };
-                  // ensure Continue button enabled when an answer exists
-                  const contBtn = $('continueBtn'); if (contBtn) contBtn.disabled = false;
+                  // UI hint for multi-select exams
+                  if (isMulti) {
+                    try {
+                      const hint = document.createElement('div');
+                      hint.className = 'multi-select-hint';
+                      hint.setAttribute('role', 'note');
+                      hint.style.cssText = 'margin-bottom:8px;color:#555;font-size:0.95rem;';
+                      hint.textContent = 'Selecione todas as alternativas corretas.';
+                      ac.appendChild(hint);
+                    } catch(e){}
+                  }
+
+                  // try to restore previous selection(s)
+                  const prev = ANSWERS[qKey];
+                  let restoredIndex = null;
+                  let restoredIndices = [];
+                    if (isMulti) {
+                    try {
+                      if (prev && Array.isArray(prev.optionIds)) {
+                        const set = new Set(prev.optionIds.map(v => String(v)));
+                        restoredIndices = optObjs.reduce((arr, o, i) => { if (set.has(String(o.id))) arr.push(i); return arr; }, []);
+                      }
+                    } catch(e){}
+                  } else {
+                    try {
+                      if (prev && prev.optionId !== undefined && prev.optionId !== null && String(prev.optionId) !== '') {
+                        const found = optObjs.findIndex(o => String(o.id) === String(prev.optionId));
+                        if (found >= 0) restoredIndex = found;
+                      }
+                    } catch(e){}
+                    if (restoredIndex === null && prev && typeof prev.index === 'number') restoredIndex = prev.index;
+                  }
+
+                  optObjs.forEach((opt, i) => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'option';
+                    const label = document.createElement('label');
+                    const input = document.createElement('input');
+                    input.type = inputType;
+                    input.name = name;
+                    input.value = String(i);
+                    input.dataset.optionId = (opt.id === undefined || opt.id === null) ? '' : String(opt.id);
+                    if (isMulti) input.checked = restoredIndices.includes(i); else input.checked = (restoredIndex === i);
+                    const span = document.createElement('span');
+                    span.className = 'option-text';
+                    span.textContent = opt.text || `Opção ${i+1}`;
+                    label.appendChild(input);
+                    label.appendChild(span);
+                    wrap.appendChild(label);
+                    ac.appendChild(wrap);
+
+                    input.addEventListener('change', function(){
+                      try {
+                        const contBtn = $('continueBtn');
+                        if (isMulti) {
+                          const checks = Array.from(ac.querySelectorAll('input[type="checkbox"]'));
+                          const selIdx = [];
+                          const selIds = [];
+                          checks.forEach((cb, idx) => {
+                            if (cb.checked) {
+                              selIdx.push(idx);
+                              const oid = cb.dataset && cb.dataset.optionId ? cb.dataset.optionId : '';
+                              if (oid !== '') selIds.push(oid);
+                            }
+                          });
+                          ANSWERS[qKey] = { indices: selIdx, optionIds: selIds };
+                          if (contBtn) contBtn.disabled = isPauseActive() || selIdx.length === 0;
+                        } else {
+                          const chosenId = this.dataset && this.dataset.optionId ? this.dataset.optionId : '';
+                          ANSWERS[qKey] = { index: i, optionId: chosenId };
+                          if (contBtn) contBtn.disabled = isPauseActive() ? true : false;
+                        }
+                        try { saveAnswersForCurrentSession(); } catch(e){}
+                        try { const qc = $('questionContent'); if (qc) qc.classList.remove('input-error'); } catch(e){}
+                      } catch(e){}
+                    });
+                  });
+
+                  // set initial state of Continue button based on restored selection
+                  try {
+                    const contBtn = $('continueBtn');
+                    if (contBtn) {
+                      if (isMulti) {
+                        contBtn.disabled = isPauseActive() || !(Array.isArray(restoredIndices) && restoredIndices.length > 0);
+                      } else {
+                        contBtn.disabled = isPauseActive() || !(restoredIndex !== null);
+                      }
+                    }
+                  } catch(e){}
                 }
-              } catch(e) {}
+
+              
               try { const lb = $('likeBtn'); if (lb) lb.setAttribute('aria-pressed','false'); } catch(e){}
               try { const db = $('dislikeBtn'); if (db) db.setAttribute('aria-pressed','false'); } catch(e){}
 
@@ -421,11 +478,12 @@
                 }
               } catch(e) {}
 
-              // enable/disable Continue button depending on whether an answer exists
+              // enable/disable Continue button depending on checkpoint/pause
               try {
                 const contBtn = $('continueBtn');
                 if (contBtn) {
-                  const isCheckpoint = (idx === 60 || idx === 120);
+                  const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                  const isCheckpoint = cps.includes(idx);
                   const allowOverride = isContinueOverrideEnabled();
                   const inPause = isPauseActive();
                   // Bloquear durante a pausa; senão, seguir regra de checkpoint
@@ -441,11 +499,14 @@
                 const barrier = getBackBarrier();
                 const ev = new CustomEvent('exam:question-index-changed', { detail: { index: idx, barrier } });
                 document.dispatchEvent(ev);
-                // Notificar checkpoints de pré-pausa (60 e 120)
-                if (idx === 60 || idx === 120){
-                  const ev2 = new CustomEvent('exam:pre-pause-reached', { detail: { index: idx, barrier } });
-                  document.dispatchEvent(ev2);
-                }
+                // Notificar checkpoints de pré-pausa
+                try {
+                  const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                  if (cps.includes(idx)){
+                    const ev2 = new CustomEvent('exam:pre-pause-reached', { detail: { index: idx, barrier } });
+                    document.dispatchEvent(ev2);
+                  }
+                } catch(e){}
               } catch(e){}
             }
 
@@ -476,8 +537,17 @@
                   const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${i}`;
                   const a = ANSWERS[qKey];
                   const questionId = q && q.id ? Number(q.id) : null;
-                  const optionId = a && a.optionId ? Number(a.optionId) : null;
-                  answers.push({ questionId, optionId });
+                  const isMulti = (function(){
+                    try { if (q && typeof q.type === 'string') { const t = q.type.toLowerCase(); return (t === 'checkbox' || t === 'multi' || t === 'multiple'); } } catch(e){}
+                    return !!(EXAM_BP && EXAM_BP.multiplaSelecao);
+                  })();
+                  if (isMulti) {
+                    const optionIds = Array.isArray(a && a.optionIds) ? a.optionIds.map(Number).filter(n => Number.isFinite(n)) : [];
+                    answers.push({ questionId, optionIds });
+                  } else {
+                    const optionId = a && a.optionId ? Number(a.optionId) : null;
+                    answers.push({ questionId, optionId });
+                  }
                 }
 
                 const payload = { sessionId: window.currentSessionId || null, answers };
@@ -531,6 +601,45 @@
               }
             }
 
+            async function submitPartial(){
+              try {
+                const answers = [];
+                for (let i = 0; i < QUESTIONS.length; i++){
+                  const q = QUESTIONS[i];
+                  const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${i}`;
+                  const a = ANSWERS[qKey];
+                  const questionId = q && q.id ? Number(q.id) : null;
+                  const isMulti = (function(){
+                    try { if (q && typeof q.type === 'string') { const t = q.type.toLowerCase(); return (t === 'checkbox' || t === 'multi' || t === 'multiple'); } } catch(e){}
+                    return !!(EXAM_BP && EXAM_BP.multiplaSelecao);
+                  })();
+                  if (isMulti) {
+                    const optionIds = Array.isArray(a && a.optionIds) ? a.optionIds.map(Number).filter(n => Number.isFinite(n)) : [];
+                    if (questionId && optionIds.length) answers.push({ questionId, optionIds });
+                  } else {
+                    const optionId = (a && a.optionId != null && a.optionId !== '') ? Number(a.optionId) : null;
+                    if (questionId && Number.isFinite(optionId)) answers.push({ questionId, optionId });
+                  }
+                }
+                if (!answers.length) return { ok: true, saved: 0 };
+                const payload = { sessionId: window.currentSessionId || null, answers, partial: true };
+                const token = localStorage.getItem('sessionToken') || '';
+                const submitUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/submit';
+                const resp = await fetch(submitUrl, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload)
+                });
+                if (!resp.ok) throw new Error('partial submit failed: ' + resp.status);
+                const data = await resp.json();
+                return data;
+              } catch (e) {
+                console.warn('submitPartial error', e);
+                return { ok: false, error: String(e && e.message || e) };
+              }
+            }
+
+            // expose submitExam globally so pages can trigger submission on finalize
+            try { window.submitExam = submitExam; } catch(e) {}
+
             /* Feedback like/dislike toggles */
             function initFeedback(){
               try {
@@ -551,6 +660,21 @@
                 });
               } catch(e){}
             }
+
+            // Auto-submit partial answers at checkpoints (e.g., indices 60 and 120)
+            try {
+              document.addEventListener('exam:pre-pause-reached', async (ev) => {
+                try {
+                  const idx = ev && ev.detail && typeof ev.detail.index === 'number' ? ev.detail.index : null;
+                  const sid = window.currentSessionId || null;
+                  if (sid == null || idx == null) return;
+                  const key = `partialSubmitted_${sid}_${idx}`;
+                  if (localStorage.getItem(key) === 'true') return; // avoid duplicate submissions for same checkpoint
+                  const res = await submitPartial();
+                  if (res && res.ok) { try { localStorage.setItem(key, 'true'); } catch(_){} }
+                } catch(e){ console.warn('auto partial submit failed', e); }
+              });
+            } catch(e){}
 
             /* Controle de fonte (slider) */
             function initFontControl(){
@@ -817,13 +941,14 @@
                       }
                     }
                   } catch(e) { /* ignore parse errors */ }
-                  const payload = { count };
+                  const examType = (function(){ try { return localStorage.getItem('examType') || 'pmp'; } catch(e){ return 'pmp'; } })();
+                  const payload = { count, examType };
                   if (areas && areas.length) payload.areas = areas;
                   if (grupos && grupos.length) payload.grupos = grupos;
                   if (dominios && dominios.length) payload.dominios = dominios;
                   const resp = await fetch(fetchUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                    headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': examType },
                     body: JSON.stringify(payload)
                   });
                   if (!resp.ok) {
@@ -891,6 +1016,21 @@
                     }
                   } catch(e) { /* ignore */ }
                   if (data && Array.isArray(data.questions) && data.questions.length) {
+                    // Update blueprint from response if provided
+                    try {
+                      if (data.exam && typeof data.exam === 'object') {
+                        EXAM_BP = data.exam;
+                        localStorage.setItem('examBlueprint', JSON.stringify(EXAM_BP));
+                        if (typeof EXAM_BP.duracaoMinutos === 'number') {
+                          window.tempoExame = Number(EXAM_BP.duracaoMinutos);
+                          sessionStorage.setItem('tempoExame', JSON.stringify(Number(EXAM_BP.duracaoMinutos)));
+                        }
+                        if (typeof EXAM_BP.numeroQuestoes === 'number') {
+                          window.FullExam = Number(EXAM_BP.numeroQuestoes);
+                          sessionStorage.setItem('FullExam', JSON.stringify(Number(EXAM_BP.numeroQuestoes)));
+                        }
+                      }
+                    } catch(e) { console.warn('failed to persist blueprint', e); }
                     // persist / migrate session id: if server returned a real session id, migrate answers from temp
                     try {
                       if (data.sessionId) {
@@ -918,6 +1058,7 @@
                     } catch(e) { /* ignore */ }
                     QUESTIONS = data.questions.map(q => ({
                       id: q.id,
+                      type: q.type || null,
                       descricao: q.descricao,
                       explicacao: q.explicacao,
                       idprocesso: q.idprocesso,

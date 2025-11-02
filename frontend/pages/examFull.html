@@ -92,6 +92,7 @@
           <button id="backBtn" class="primary-btn" style="display:none;margin-right:8px;">Voltar</button>
           <button id="continueBtn" class="primary-btn">Continuar</button>
         </div>
+        <div id="continueStatusLabel" style="margin-top:6px;color:#666;font-size:12px;">Status do botão: —</div>
       </article>
     </section>
   </main>
@@ -326,12 +327,24 @@
       function isGateIndex(idx){ return idx === 60 || idx === 120; }
       function getCurrentIdxFromLabel(){ try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; } catch(_) { return null; } }
 
+      function writeStatus(){
+        try {
+          const lab = document.getElementById('continueStatusLabel');
+          const btn = document.getElementById('continueBtn');
+          if (!lab || !btn) return;
+          const on = !btn.disabled;
+          lab.textContent = 'Status do botão: ' + (on ? 'Habilitado' : 'Desabilitado');
+          lab.style.color = on ? '#1b5e20' : '#b00020';
+        } catch(_){ }
+      }
+
       function enforceGate(idx){
         try {
           const btn = document.getElementById('continueBtn'); if (!btn) return;
           const inPause = isPauseActive();
           const gated = isGateIndex(idx) && !allowOverride();
           btn.disabled = inPause || gated;
+          writeStatus();
         } catch(_){}
       }
 
@@ -355,9 +368,24 @@
               ev.preventDefault(); ev.stopImmediatePropagation();
               try { btn.disabled = true; } catch(_){ }
               try { if (typeof showToast === 'function') showToast('Revise neste ponto. Use os botões no topo para continuar ou fazer a pausa.'); } catch(_){ }
+              try { writeStatus(); } catch(_){ }
             }
           } catch(_){ }
         }, true);
+      } catch(_){ }
+
+      // Observe disabled attribute to keep label in sync even if other scripts toggle it
+      try {
+        const btn = document.getElementById('continueBtn');
+        if (btn && window.MutationObserver){
+          const mo = new MutationObserver(()=>{ try { writeStatus(); } catch(_){} });
+          mo.observe(btn, { attributes: true, attributeFilter: ['disabled'] });
+          // initial paint
+          writeStatus();
+        } else {
+          // fallback initial paint
+          writeStatus();
+        }
       } catch(_){ }
     })();
   </script>

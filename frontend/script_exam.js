@@ -504,6 +504,7 @@
                   const inPause = isPauseActive();
                   // Bloquear durante a pausa; senão, seguir regra de checkpoint
 <<<<<<< HEAD
+<<<<<<< HEAD
                   // Requisito adicional: ao chegar nos índices 59 e 119 (0-based; rótulo 60 e 120),
                   // desabilitar também como se fossem checkpoints, a menos que haja override.
                   const isExtraGate = (idx === 59 || idx === 119);
@@ -512,6 +513,11 @@
                   // desabilitar também como se fossem checkpoints, a menos que haja override.
                   const isExtraGate = (idx === 60 || idx === 120);
 >>>>>>> ebdb467 (exam: desabilitar 'Continuar' também em currentIdx 60 e 120 (além de checkpoints/pausa))
+=======
+                  // Requisito adicional: ao chegar nos índices 59 e 119 (questões 60 e 120, 1-based),
+                  // desabilitar também como se fossem checkpoints, a menos que haja override.
+                  const isExtraGate = (idx === 59 || idx === 119);
+>>>>>>> 3d8e508 (examFull: desabilitar 'Continuar' em currentIdx === 60 ou 120 (overlay pós-bundle + bloqueio de clique em captura))
                   contBtn.disabled = inPause || ((isCheckpoint || isExtraGate) && !allowOverride);
                 }
               } catch(e) {}

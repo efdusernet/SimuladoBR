@@ -347,7 +347,19 @@
           lab.style.color = on ? '#1b5e20' : '#b00020';
         } catch(_){ }
       }
+  function isGateIndex(idx){ return idx === 59 || idx === 119; }
+      function getCurrentIdxFromLabel(){ try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; } catch(_) { return null; } }
 
+      function writeStatus(){
+        try {
+          const lab = document.getElementById('continueStatusLabel');
+          const btn = document.getElementById('continueBtn');
+          if (!lab || !btn) return;
+          const on = !btn.disabled;
+          lab.textContent = 'Status do botão: ' + (on ? 'Habilitado' : 'Desabilitado');
+          lab.style.color = on ? '#1b5e20' : '#b00020';
+        } catch(_){ }
+      }
       function enforceGate(idx){
         try {
           const btn = document.getElementById('continueBtn'); if (!btn) return;

@@ -4,6 +4,7 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const questionController = require('../controllers/questionController');
+const requireAdmin = require('../middleware/requireAdmin');
 
 // Create a new question (with optional options)
 // Body: {
@@ -16,7 +17,7 @@ const questionController = require('../controllers/questionController');
 //   dica?: string,
 //   options?: [{ descricao: string, correta?: boolean }]
 // }
-router.post('/', questionController.createQuestion);
+router.post('/', requireAdmin, questionController.createQuestion);
 
 // Bulk upload: accepts JSON body or multipart/form-data with a file field named "file"
 // JSON format:
@@ -34,6 +35,6 @@ router.post('/', questionController.createQuestion);
 //      <explicacao>Opcional</explicacao>
 //    </question>
 //  </questions>
-router.post('/bulk', upload.single('file'), questionController.bulkCreateQuestions);
+router.post('/bulk', upload.single('file'), requireAdmin, questionController.bulkCreateQuestions);
 
 module.exports = router;

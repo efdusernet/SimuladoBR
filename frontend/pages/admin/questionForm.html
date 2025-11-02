@@ -172,6 +172,8 @@
           o.textContent = t.nome || t.id;
           sel.appendChild(o);
         });
+        // auto-select first concrete type if available
+        try { if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1; } catch(e){}
       } catch(e) {
         const sel = $('examType');
         sel.innerHTML = '<option value="pmp">PMP</option>';
@@ -187,6 +189,7 @@
       const grupo = $('grupo').value.trim();
       const dica = $('dica').value.trim();
       if (!descricao){ alert('Informe o enunciado'); return; }
+  if (!examTypeSlug){ alert('Selecione o tipo de exame'); return; }
       const options = readOptions();
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }

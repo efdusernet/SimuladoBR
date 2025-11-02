@@ -168,19 +168,14 @@
                 if (bs) { bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }
         window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGrid(); });
       }
-                // manter o botão Continuar desabilitado durante a pausa
-                try {
-                  if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'false');
-                  const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
-                } catch(_){ }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachGridHandlers); else attachGridHandlers();
     })();
   </script>
 
   <!-- registration/session script must run before exam script -->
-  <!-- Prefer non-minified script on examFull to honor latest safety fixes for missing #status/#autosaveIndicator -->
-  <script src="../script.js"></script>
-  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed; also auto-resume session on 404 -->
+  <!-- Use built script with fallback to non-minified for safety fixes (#status/#autosaveIndicator) -->
+  <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
+  <!-- Intercept selection to bypass filters when count=180; fallback ignoring exam_type if needed; auto-resume session on 404 question fetch -->
   <script>
     (function(){
       try {
@@ -209,14 +204,13 @@
               }
               return resp;
             } else if (url && /\/api\/exams\/.+\/question\//.test(url)) {
-              // If session was lost (server restart), try to resume transparently once
+              // Auto-resume lost session (e.g., server restart) transparently once on 404
               const resp = await origFetch(input, init);
               if (resp && resp.status === 404) {
                 try {
                   const txt = await resp.clone().text();
                   const isSessionMissing = /session not found/i.test(txt || '');
                   if (isSessionMissing) {
-                    // Extract sessionId from URL and attempt resume with X-Session-Token
                     const m = url.match(/\/api\/exams\/([^/]+)\/question\//);
                     const sid = m && m[1] ? m[1] : null;
                     const token = (localStorage.getItem('sessionToken') || '').trim();
@@ -226,10 +220,7 @@
                         headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
                         body: JSON.stringify({ sessionId: sid })
                       });
-                      if (r && r.ok) {
-                        // Retry original question fetch once
-                        return await origFetch(input, init);
-                      }
+                      if (r && r.ok) return await origFetch(input, init); // retry once
                     }
                   }
                 } catch(_){ }
@@ -242,7 +233,7 @@
       } catch(_){ }
     })();
   </script>
-  <!-- Make progress.currentIdx and backBarrier 1-based in storage, but expose 0-based to runtime reads -->
+  <!-- Make progress.currentIdx and backBarrier 1-based in storage; expose 0-based to runtime reads -->
   <script>
     (function(){
       try {
@@ -263,22 +254,16 @@
             if (isProgressKey(key) && val){
               const obj = JSON.parse(val);
               if (obj && typeof obj.currentIdx === 'number'){
-                // Convert 1-based (stored) -> 0-based (runtime)
                 const zero = Math.max(0, Math.floor(obj.currentIdx) - 1);
                 const clone = { ...obj, currentIdx: zero };
                 return JSON.stringify(clone);
               }
-              return val;
             }
             if (isBarrierKey(key) && val){
               const n = Number(val);
-              if (Number.isFinite(n)){
-                const zero = Math.max(0, Math.floor(n) - 1);
-                return String(zero);
-              }
-              return val;
+              if (Number.isFinite(n)) return String(Math.max(0, Math.floor(n) - 1));
             }
-          } catch(_){}
+          } catch(_){ }
           return val;
         };
 
@@ -297,10 +282,7 @@
             }
             if (isBarrierKey(key) && typeof value === 'string' && value.length){
               const n = Number(value);
-              if (Number.isFinite(n)){
-                const one = Math.max(1, Math.floor(n) + 1);
-                return __origSetItem(key, String(one));
-              }
+              if (Number.isFinite(n)) return __origSetItem(key, String(Math.max(1, Math.floor(n) + 1)));
             }
           } catch(_){}
           return __origSetItem(key, value);
@@ -522,7 +504,6 @@
 
       } catch(e){ }
     })();
-  </script>
   </script>
 
   <!-- Finalizar exame: limpa variáveis de sessão/cache e deixa TODO para persistência futura -->

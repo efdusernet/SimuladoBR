@@ -310,7 +310,7 @@
   </script>
   <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
 
-  <!-- Hard-gate Continue at currentIdx 60 and 120 (0-based), regardless of build version -->
+  <!-- Hard-gate Continue at currentIdx 59 and 119 (0-based) => label 60 and 120, regardless of build version -->
   <script>
     (function(){
       function isPauseActive(){
@@ -324,7 +324,7 @@
       function allowOverride(){
         try { const sid = window.currentSessionId || null; if (!sid) return false; return localStorage.getItem(`allowContinueAfterCheckpoint_${sid}`) === 'true'; } catch(e){ return false; }
       }
-      function isGateIndex(idx){ return idx === 60 || idx === 120; }
+  function isGateIndex(idx){ return idx === 59 || idx === 119; }
       function getCurrentIdxFromLabel(){ try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; } catch(_) { return null; } }
 
       function writeStatus(){

@@ -18,6 +18,17 @@ exports.createQuestion = async (req, res) => {
 		const codgrupoprocesso = (b.codgrupoprocesso != null && b.codgrupoprocesso !== '') ? Number(b.codgrupoprocesso) : null;
 		const dica = (b.dica || null);
 		const options = Array.isArray(b.options) ? b.options : [];
+		// exam type: accept id or slug
+		const examTypeId = Number.isFinite(Number(b.examTypeId)) ? Number(b.examTypeId) : null;
+		const examTypeSlug = (b.examTypeSlug || b.examType || '').trim().toLowerCase() || null;
+		let resolvedExamTypeId = examTypeId || null;
+
+		if (!resolvedExamTypeId && examTypeSlug) {
+			try {
+				const row = await sequelize.query('SELECT id FROM public.exam_type WHERE slug = :slug AND (ativo = TRUE OR ativo IS NULL) LIMIT 1', { replacements: { slug: examTypeSlug }, type: sequelize.QueryTypes.SELECT });
+				if (row && row[0] && row[0].id != null) resolvedExamTypeId = Number(row[0].id);
+			} catch(_) { /* ignore */ }
+		}
 
 		let createdId = null;
 		await sequelize.transaction(async (t) => {
@@ -25,13 +36,13 @@ exports.createQuestion = async (req, res) => {
 			const insertQ = `INSERT INTO public.questao (
 					iddominio, idstatus, descricao, datacadastro, dataalteracao,
 					criadousuario, alteradousuario, excluido, seed, nivel,
-					idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug
+					idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id
 				) VALUES (
 					:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 					1, 1, false, false, 1,
-					NULL, :dica, :multipla, NULL, :codareaconhecimento, :codgrupoprocesso, :tiposlug
+					NULL, :dica, :multipla, NULL, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id
 				) RETURNING id`;
-			const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, tiposlug: tiposlug || (multipla ? 'multi' : 'single') }, type: sequelize.QueryTypes.INSERT, transaction: t });
+			const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
 			// Safer: fetch with SELECT currval... but RETURNING should give us id in r[0][0].id depending on dialect
 			const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;

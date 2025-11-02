@@ -10,8 +10,11 @@
     .row{ margin-bottom: 12px; }
     label{ display:block; font-weight:600; margin-bottom:6px; }
     input[type="text"], textarea, select{ width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; }
-    .inline{ display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+    .inline{ display:flex; gap:12px; align-items:flex-start; flex-wrap: wrap; }
     .inline > *{ flex: 1 1 200px; }
+    /* Stack the optional taxonomy fields on the left, one below another */
+    .left-stack{ display:flex; flex-direction:column; gap:12px; align-items:stretch; flex: 0 0 320px; }
+    @media (max-width: 720px){ .left-stack{ flex-basis:100%; } }
     .opts{ margin-top:8px; }
     .opt{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
     .opt input[type="text"]{ flex: 1; }
@@ -19,6 +22,9 @@
     .btn{ background:#2b6cb0; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
     .btn.secondary{ background:#edf2f7; color:#2b6cb0; border:1px solid #c6d3ff; }
     .hint{ font-size:.9rem; color:#555; }
+    /* Reduce specific field widths by 1% as requested */
+    .left-stack input[type="text"]{ width:97%; }
+    #descricao{ width:97%; }
   </style>
 </head>
 <body>
@@ -31,24 +37,30 @@
     </div>
 
     <div class="row inline">
+      <div class="left-stack">
+        <div>
+          <label for="iddominio">Domínio (opcional)</label>
+          <input type="text" id="iddominio" placeholder="ex.: 1" />
+        </div>
+        <div>
+          <label for="area">Área do conhecimento (opcional)</label>
+          <input type="text" id="area" placeholder="ex.: 1" />
+        </div>
+        <div>
+          <label for="grupo">Grupo de processo (opcional)</label>
+          <input type="text" id="grupo" placeholder="ex.: 1" />
+        </div>
+      </div>
+      <div>
+        <label for="examType">Tipo de exame</label>
+        <select id="examType"></select>
+      </div>
       <div>
         <label for="tipo">Tipo</label>
         <select id="tipo">
           <option value="single">Opção única (rádio)</option>
           <option value="multi">Múltipla escolha (checkbox)</option>
         </select>
-      </div>
-      <div>
-        <label for="iddominio">Domínio (opcional)</label>
-        <input type="text" id="iddominio" placeholder="ex.: 1" />
-      </div>
-      <div>
-        <label for="area">Área do conhecimento (opcional)</label>
-        <input type="text" id="area" placeholder="ex.: 1" />
-      </div>
-      <div>
-        <label for="grupo">Grupo de processo (opcional)</label>
-        <input type="text" id="grupo" placeholder="ex.: 1" />
       </div>
     </div>
 
@@ -77,6 +89,7 @@
 
   <script>
     const $ = (id)=> document.getElementById(id);
+    const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
 
     function makeOptRow(text = '', correta = false){
       const wrap = document.createElement('div');
@@ -142,9 +155,33 @@
       return out;
     }
 
+    async function loadExamTypes(){
+      try {
+        const sel = $('examType');
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/exams/types');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(t => {
+          const o = document.createElement('option');
+          o.value = t.id; // slug
+          o.textContent = t.nome || t.id;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        const sel = $('examType');
+        sel.innerHTML = '<option value="pmp">PMP</option>';
+      }
+    }
+
     $('save').onclick = async function(){
       const descricao = $('descricao').value.trim();
       const tiposlug = $('tipo').value;
+      const examTypeSlug = ($('examType').value || '').trim();
       const iddominio = $('iddominio').value.trim();
       const area = $('area').value.trim();
       const grupo = $('grupo').value.trim();
@@ -157,6 +194,7 @@
       const payload = {
         descricao,
         tiposlug,
+        examTypeSlug: examTypeSlug || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
         codareaconhecimento: area ? Number(area) : undefined,
         codgrupoprocesso: grupo ? Number(grupo) : undefined,
@@ -164,8 +202,7 @@
         options
       };
       const token = localStorage.getItem('sessionToken') || '';
-      const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
-      const url = base + '/api/questions';
+      const url = (BACKEND_BASE || '') + '/api/questions';
       $('status').textContent = 'Salvando...';
       const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
       if (!resp.ok){ const t = await resp.text(); $('status').textContent = 'Erro ao salvar: ' + t; return; }
@@ -178,6 +215,8 @@
       ensureAtLeastTwo();
     };
 
+    // init
+    loadExamTypes();
     ensureAtLeastTwo();
   </script>
 </body>

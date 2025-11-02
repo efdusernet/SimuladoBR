@@ -130,6 +130,10 @@ exports.selectQuestions = async (req, res) => {
 
   // Build WHERE clause
   const whereClauses = [`excluido = false`, `idstatus = 1`];
+  // Filter by exam type linkage if available in DB (1:N)
+  if (examCfg && examCfg._dbId) {
+    whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
+  }
   if (bloqueio) whereClauses.push(`seed = true`);
   // AND semantics across tabs; OR within each list
   // i.e., if user chose dominios AND grupos, a question must match both a selected domínio AND a selected grupo
@@ -495,6 +499,9 @@ exports.startOnDemand = async (req, res) => {
     const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
     const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
     const whereClauses = [`excluido = false`, `idstatus = 1`];
+    if (examCfg && examCfg._dbId) {
+      whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
+    }
     if (bloqueio) whereClauses.push(`seed = true`);
     if (dominios && dominios.length) whereClauses.push(`iddominio IN (${dominios.join(',')})`);
     if (areas && areas.length) whereClauses.push(`codareaconhecimento IN (${areas.join(',')})`);

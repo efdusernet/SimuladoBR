@@ -50,6 +50,8 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
 // Exams (select questions)
 app.use('/api/exams', require('./routes/exams'));
+// Questions (admin)
+app.use('/api/questions', require('./routes/questions'));
 // Meta lists for exam setup
 app.use('/api/meta', require('./routes/meta'));
 // Play Integrity

@@ -928,7 +928,7 @@
                   console.debug('[exam] using sessionToken=', token);
                   const fetchUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/select';
                   console.debug('[exam] fetching questions from', fetchUrl, 'count=', count);
-                  // attach optional filters saved by examSetup
+                  // attach optional filters saved by examSetup (bypass when full exam)
                   let areas = null, grupos = null, dominios = null;
                   try {
                     const raw = localStorage.getItem('examFilters');
@@ -943,9 +943,12 @@
                   } catch(e) { /* ignore parse errors */ }
                   const examType = (function(){ try { return localStorage.getItem('examType') || 'pmp'; } catch(e){ return 'pmp'; } })();
                   const payload = { count, examType };
-                  if (areas && areas.length) payload.areas = areas;
-                  if (grupos && grupos.length) payload.grupos = grupos;
-                  if (dominios && dominios.length) payload.dominios = dominios;
+                  const bypassFilters = (Number(count) === 180);
+                  if (!bypassFilters) {
+                    if (areas && areas.length) payload.areas = areas;
+                    if (grupos && grupos.length) payload.grupos = grupos;
+                    if (dominios && dominios.length) payload.dominios = dominios;
+                  }
                   const resp = await fetch(fetchUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': examType },
@@ -959,6 +962,83 @@
                     } catch(_){}
                     // Friendly handling when backend indicates not enough available
                     if (resp.status === 400 && typeof available === 'number') {
+                      // Special fallback: if full exam requested (180) and available=0, retry ignoring exam_type constraint
+                      if (bypassFilters && available === 0) {
+                        try {
+                          const resp2 = await fetch(fetchUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                            body: JSON.stringify({ count, ignoreExamType: true })
+                          });
+                          if (resp2.ok) {
+                            const data2 = await resp2.json();
+                            // mimic normal success path by setting data and proceeding
+                            const data = data2;
+                            console.debug('[exam] fetched data (fallback ignoreExamType)', data && { total: data.total, questions: (data.questions||[]).length });
+                            try {
+                              if (data.exam && typeof data.exam === 'object') {
+                                EXAM_BP = data.exam;
+                                localStorage.setItem('examBlueprint', JSON.stringify(EXAM_BP));
+                                if (typeof EXAM_BP.duracaoMinutos === 'number') {
+                                  window.tempoExame = Number(EXAM_BP.duracaoMinutos);
+                                  sessionStorage.setItem('tempoExame', JSON.stringify(Number(EXAM_BP.duracaoMinutos)));
+                                }
+                                if (typeof EXAM_BP.numeroQuestoes === 'number') {
+                                  window.FullExam = Number(EXAM_BP.numeroQuestoes);
+                                  sessionStorage.setItem('FullExam', JSON.stringify(Number(EXAM_BP.numeroQuestoes)));
+                                }
+                              }
+                            } catch(e) { console.warn('failed to persist blueprint', e); }
+                            try {
+                              if (data.sessionId) {
+                                const prev = window.currentSessionId;
+                                migrateToServerSession(data.sessionId);
+                                try {
+                                  const sa = localStorage.getItem(`answers_${data.sessionId}_savedAt`);
+                                  if (sa) updateAutosaveIndicatorSaved(sa);
+                                  else updateAutosaveIndicatorHidden();
+                                } catch(e) { updateAutosaveIndicatorHidden(); }
+                              }
+                            } catch(e){}
+                            try {
+                              if (window.currentSessionId) {
+                                const raw = localStorage.getItem(`answers_${window.currentSessionId}`);
+                                if (raw) {
+                                  const parsed = JSON.parse(raw);
+                                  if (parsed && typeof parsed === 'object') {
+                                    Object.keys(parsed).forEach(k => { ANSWERS[k] = parsed[k]; });
+                                  }
+                                }
+                              }
+                            } catch(e){}
+                            if (data && Array.isArray(data.questions) && data.questions.length) {
+                              QUESTIONS = data.questions.map(q => ({
+                                id: q.id,
+                                type: q.type || null,
+                                descricao: q.descricao,
+                                explicacao: q.explicacao,
+                                idprocesso: q.idprocesso,
+                                text: q.descricao,
+                                options: (q.options || []).map(o => ({ id: o.id || o.Id || null, text: (o.text || o.descricao || o.Descricao || '') }))
+                              }));
+                              try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
+                              try {
+                                if (window.currentSessionId) {
+                                  const qkey = `questions_${window.currentSessionId}`;
+                                  if (!localStorage.getItem(qkey)) {
+                                    localStorage.setItem(qkey, JSON.stringify(QUESTIONS));
+                                    localStorage.setItem(`${qkey}_savedAt`, new Date().toISOString());
+                                  }
+                                }
+                              } catch(e){}
+                            } else {
+                              QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
+                            }
+                            initExam();
+                            return;
+                          }
+                        } catch(_) { /* ignore */ }
+                      }
                       try {
                         const blocked = (localStorage.getItem('BloqueioAtivado') === 'true');
                         if (!blocked && available > 0) {

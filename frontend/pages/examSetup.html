@@ -335,15 +335,31 @@
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
       const url = base + '/api/exams/select';
   const token = getSessionToken();
-      const payload = { count: Number(count) || 0, onlyCount: true, examType: currentExamType };
-      if (selecionados.areas.length) payload.areas = selecionados.areas;
-      if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
-      if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
+      const cnum = Number(count) || 0;
+      const payload = { count: cnum, onlyCount: true, examType: currentExamType };
+      // Regra: se quantidade for 180, não aplicar filtros de Domínio/Grupo/Área
+      const bypassFilters = (cnum === 180);
+      if (!bypassFilters) {
+        if (selecionados.areas.length) payload.areas = selecionados.areas;
+        if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
+        if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
+      }
       try {
         const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
-        if (data && typeof data.available === 'number') return data.available;
+        if (data && typeof data.available === 'number') {
+          // Fallback: se count=180 e available=0, tentar novamente ignorando exam_type (base inteira)
+          if (bypassFilters && data.available === 0) {
+            try {
+              const resp2 = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify({ count: cnum, onlyCount: true, ignoreExamType: true }) });
+              const txt2 = await resp2.text();
+              let data2; try { data2 = txt2 ? JSON.parse(txt2) : null; } catch { data2 = null; }
+              if (data2 && typeof data2.available === 'number') return data2.available;
+            } catch(_) { /* ignore */ }
+          }
+          return data.available;
+        }
         return null;
       } catch (e) { return null; }
     }

@@ -178,6 +178,117 @@
 
   <!-- registration/session script must run before exam script -->
   <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
+  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed -->
+  <script>
+    (function(){
+      try {
+        const origFetch = window.fetch.bind(window);
+        window.fetch = async function(input, init){
+          try {
+            const url = (typeof input === 'string') ? input : (input && input.url) || '';
+            if (url && url.endsWith('/api/exams/select') && init && typeof init === 'object' && String(init.method||'').toUpperCase() === 'POST' && init.body) {
+              let body = null; try { body = JSON.parse(init.body); } catch(_){ body = null; }
+              const cnt = body && Number(body.count);
+              const onlyCount = !!(body && body.onlyCount === true);
+              if (cnt === 180 && body) {
+                delete body.areas; delete body.grupos; delete body.dominios;
+                init.body = JSON.stringify(body);
+              }
+              const resp = await origFetch(input, init);
+              // Fallback: if 180 and server says available=0, retry without exam type constraint
+              if (resp && resp.status === 400 && cnt === 180) {
+                let available = null;
+                try { const t = await resp.clone().text(); const j = t ? JSON.parse(t) : null; if (j && typeof j.available === 'number') available = j.available; } catch(_){}
+                if (available === 0) {
+                  const headers = new Headers(init.headers || {});
+                  headers.delete('X-Exam-Type');
+                  return await origFetch(input, { method: 'POST', headers, body: JSON.stringify({ count: cnt, ignoreExamType: true, onlyCount }) });
+                }
+              }
+              return resp;
+            }
+          } catch(_){ }
+          return origFetch(input, init);
+        };
+      } catch(_){ }
+    })();
+  </script>
+  <!-- Make progress.currentIdx 1-based in storage, but expose 0-based to runtime reads -->
+  <script>
+    (function(){
+      try {
+        const LS = window.localStorage;
+        if (!LS) return;
+        const __origGetItem = LS.getItem.bind(LS);
+        const __origSetItem = LS.setItem.bind(LS);
+        // expose originals in case we need to bypass the shim
+        window.__lsOrigGetItem = __origGetItem;
+        window.__lsOrigSetItem = __origSetItem;
+
+        function isProgressKey(key){ return typeof key === 'string' && /^progress_/i.test(key); }
+
+        LS.getItem = function(key){
+          const val = __origGetItem(key);
+          if (!isProgressKey(key) || !val) return val;
+          try {
+            const obj = JSON.parse(val);
+            if (obj && typeof obj.currentIdx === 'number'){
+              // Convert 1-based (stored) -> 0-based (runtime)
+              const zero = Math.max(0, Math.floor(obj.currentIdx) - 1);
+              const clone = { ...obj, currentIdx: zero };
+              return JSON.stringify(clone);
+            }
+          } catch(_){}
+          return val;
+        };
+
+        LS.setItem = function(key, value){
+          try {
+            if (isProgressKey(key) && typeof value === 'string' && value.length){
+              try {
+                const obj = JSON.parse(value);
+                if (obj && typeof obj.currentIdx === 'number'){
+                  // Convert 0-based (runtime) -> 1-based (stored)
+                  const one = Math.max(1, Math.floor(obj.currentIdx) + 1);
+                  const clone = { ...obj, currentIdx: one };
+                  return __origSetItem(key, JSON.stringify(clone));
+                }
+              } catch(_){}
+            }
+          } catch(_){}
+          return __origSetItem(key, value);
+        };
+
+        // Optional: keep storage immediately in sync with the visible label
+        function syncProgressIdxToLabel(){
+          try {
+            const sid = window.currentSessionId || null; if (!sid) return;
+            const key = `progress_${sid}`;
+            const el = document.getElementById('questionNumber'); if (!el) return;
+            const n = Number((el.textContent||'').trim()); if (!Number.isFinite(n) || n < 1) return;
+            let obj = {};
+            try { const raw = window.__lsOrigGetItem(key); obj = raw ? JSON.parse(raw) : {}; } catch(_) { obj = {}; }
+            obj.currentIdx = n; // store 1-based directly using original setter
+            window.__lsOrigSetItem(key, JSON.stringify(obj));
+          } catch(_){}
+        }
+
+        // Observe label changes to ensure storage reflects what user sees
+        function installObserver(){
+          try {
+            const el = document.getElementById('questionNumber'); if (!el) return;
+            const mo = new MutationObserver(()=>{ try { syncProgressIdxToLabel(); } catch(_){} });
+            mo.observe(el, { characterData: true, childList: true, subtree: true });
+            // Initial sync after first render
+            setTimeout(syncProgressIdxToLabel, 0);
+          } catch(_){}
+        }
+        // expose for other inline handlers
+        window.__syncProgressIdxToLabel = syncProgressIdxToLabel;
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installObserver); else installObserver();
+      } catch(_){ }
+    })();
+  </script>
   <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
 
   <!-- initialize global QtdQuestoes and timer behavior -->
@@ -440,6 +551,7 @@
             const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
             if (i >= 0){ list[i].letter = letter || null; list[i].savedAt = new Date().toISOString(); writeMarkedList(key, list); }
           }
+          try { if (typeof window.__syncProgressIdxToLabel === 'function') window.__syncProgressIdxToLabel(); } catch(_){ }
         } catch(e) { /* noop */ }
       }
       function attach(){

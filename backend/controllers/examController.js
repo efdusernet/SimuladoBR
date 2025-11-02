@@ -227,6 +227,7 @@ exports.selectQuestions = async (req, res) => {
           StartedAt: new Date(),
           Status: 'in_progress',
           PauseState: pauseState,
+          Meta: { sessionId, source: 'select', examType: examCfg.id },
           BlueprintSnapshot: {
             id: examCfg.id,
             nome: examCfg.nome,
@@ -313,7 +314,31 @@ exports.submitAnswers = async (req, res) => {
     if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
     if (!Array.isArray(answers)) return res.status(400).json({ error: 'answers required' });
   const s = getSession(sessionId);
-  const attemptId = s && s.attemptId ? Number(s.attemptId) : null;
+  let attemptId = s && s.attemptId ? Number(s.attemptId) : null;
+  // Fallback: recover attemptId from DB when memory session is missing (e.g., server restart)
+  if (!attemptId) {
+    try {
+      const Op = db.Sequelize && db.Sequelize.Op;
+      // First, try by Meta.sessionId match for this user and in-progress status
+      let attempt = null;
+      try {
+        // Prefer JSON lookup if supported
+        attempt = await db.ExamAttempt.findOne({
+          where: {
+            UserId: user.Id || user.id,
+            Status: 'in_progress',
+            ...(Op ? { [Op.and]: [ db.sequelize.where(db.sequelize.json('meta.sessionId'), sessionId) ] } : {}),
+          },
+          order: [['StartedAt', 'DESC']],
+        });
+      } catch(_) { attempt = null; }
+      // If not found (e.g., older attempts without Meta), fallback to latest in_progress for user
+      if (!attempt) {
+        attempt = await db.ExamAttempt.findOne({ where: { UserId: user.Id || user.id, Status: 'in_progress' }, order: [['StartedAt', 'DESC']] });
+      }
+      if (attempt && attempt.Id) attemptId = Number(attempt.Id);
+    } catch(_){ /* keep attemptId as null if lookup fails */ }
+  }
 
     // collect question ids: prefer session questionIds to ensure unanswered are included
     let qids = (s && Array.isArray(s.questionIds) && s.questionIds.length) ? s.questionIds.map(Number) : [];
@@ -536,6 +561,7 @@ exports.startOnDemand = async (req, res) => {
         StartedAt: new Date(),
         Status: 'in_progress',
         PauseState: pauseState,
+        Meta: { sessionId, source: 'on-demand', examType: examCfg.id },
         BlueprintSnapshot: {
           id: examCfg.id,
           nome: examCfg.nome,

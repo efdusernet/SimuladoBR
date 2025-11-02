@@ -487,7 +487,10 @@
                   const allowOverride = isContinueOverrideEnabled();
                   const inPause = isPauseActive();
                   // Bloquear durante a pausa; senão, seguir regra de checkpoint
-                  contBtn.disabled = inPause || (isCheckpoint && !allowOverride);
+                  // Requisito adicional: ao chegar nos índices 60 e 120 (currentIdx === 60 || 120),
+                  // desabilitar também como se fossem checkpoints, a menos que haja override.
+                  const isExtraGate = (idx === 60 || idx === 120);
+                  contBtn.disabled = inPause || ((isCheckpoint || isExtraGate) && !allowOverride);
                 }
               } catch(e) {}
 

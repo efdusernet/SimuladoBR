@@ -13,12 +13,12 @@
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
     <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
   </header>
-  <p id="status" style="max-width:900px;margin:10px auto 0;display:none;padding:0 18px;color:#333"></p>
-  <div id="autosaveIndicator" style="max-width:900px;margin:4px auto 0;padding:0 18px;color:var(--muted);font-size:0.95rem;display:none;"></div>
+  
   <div id="toast" class="toast" aria-live="polite" style="display:none"></div>
+  
 
-  <main class="exam-container" role="main">
-    <header class="exam-header">
+  <main class="exam-container" role="main" style="margin-top:8px;">
+    <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
       <div class="header-left">
         <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
           <span id="timerDisplay">00:00</span>
@@ -178,8 +178,9 @@
   </script>
 
   <!-- registration/session script must run before exam script -->
-  <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
-  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed -->
+  <!-- Prefer non-minified script on examFull to honor latest safety fixes for missing #status/#autosaveIndicator -->
+  <script src="../script.js"></script>
+  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed; also auto-resume session on 404 -->
   <script>
     (function(){
       try {
@@ -205,6 +206,33 @@
                   headers.delete('X-Exam-Type');
                   return await origFetch(input, { method: 'POST', headers, body: JSON.stringify({ count: cnt, ignoreExamType: true, onlyCount }) });
                 }
+              }
+              return resp;
+            } else if (url && /\/api\/exams\/.+\/question\//.test(url)) {
+              // If session was lost (server restart), try to resume transparently once
+              const resp = await origFetch(input, init);
+              if (resp && resp.status === 404) {
+                try {
+                  const txt = await resp.clone().text();
+                  const isSessionMissing = /session not found/i.test(txt || '');
+                  if (isSessionMissing) {
+                    // Extract sessionId from URL and attempt resume with X-Session-Token
+                    const m = url.match(/\/api\/exams\/([^/]+)\/question\//);
+                    const sid = m && m[1] ? m[1] : null;
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    if (sid && token) {
+                      const r = await origFetch('/api/exams/resume', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                        body: JSON.stringify({ sessionId: sid })
+                      });
+                      if (r && r.ok) {
+                        // Retry original question fetch once
+                        return await origFetch(input, init);
+                      }
+                    }
+                  }
+                } catch(_){ }
               }
               return resp;
             }

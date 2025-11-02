@@ -309,6 +309,59 @@
   </script>
   <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
 
+  <!-- Hard-gate Continue at currentIdx 60 and 120 (0-based), regardless of build version -->
+  <script>
+    (function(){
+      function isPauseActive(){
+        try {
+          const sid = window.currentSessionId || null; if (!sid) return false;
+          const raw = localStorage.getItem(`pauseUntil_${sid}`); if (!raw) return false;
+          const until = Number(raw); if (!Number.isFinite(until)) return false;
+          return until > Date.now();
+        } catch(e){ return false; }
+      }
+      function allowOverride(){
+        try { const sid = window.currentSessionId || null; if (!sid) return false; return localStorage.getItem(`allowContinueAfterCheckpoint_${sid}`) === 'true'; } catch(e){ return false; }
+      }
+      function isGateIndex(idx){ return idx === 60 || idx === 120; }
+      function getCurrentIdxFromLabel(){ try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; } catch(_) { return null; } }
+
+      function enforceGate(idx){
+        try {
+          const btn = document.getElementById('continueBtn'); if (!btn) return;
+          const inPause = isPauseActive();
+          const gated = isGateIndex(idx) && !allowOverride();
+          btn.disabled = inPause || gated;
+        } catch(_){}
+      }
+
+      // Keep disabled state in sync on index change
+      try {
+        document.addEventListener('exam:question-index-changed', function(ev){
+          try { const idx = ev && ev.detail && typeof ev.detail.index === 'number' ? ev.detail.index : null; if (idx == null) return; enforceGate(idx); } catch(_){}
+        });
+      } catch(_){ }
+
+      // Prevent advancing via click even if other scripts re-enable the button
+      try {
+        document.addEventListener('click', function(ev){
+          try {
+            const btn = ev.target && (ev.target.id === 'continueBtn' ? ev.target : (ev.target.closest && ev.target.closest('#continueBtn')));
+            if (!btn) return;
+            const idx = getCurrentIdxFromLabel(); if (idx == null) return;
+            const inPause = isPauseActive();
+            const gated = isGateIndex(idx) && !allowOverride();
+            if (inPause || gated){
+              ev.preventDefault(); ev.stopImmediatePropagation();
+              try { btn.disabled = true; } catch(_){ }
+              try { if (typeof showToast === 'function') showToast('Revise neste ponto. Use os botões no topo para continuar ou fazer a pausa.'); } catch(_){ }
+            }
+          } catch(_){ }
+        }, true);
+      } catch(_){ }
+    })();
+  </script>
+
   <!-- initialize global QtdQuestoes and timer behavior -->
   <script>
     (function(){

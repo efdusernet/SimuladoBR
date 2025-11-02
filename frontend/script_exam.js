@@ -440,11 +440,27 @@
                             }
                           });
                           ANSWERS[qKey] = { indices: selIdx, optionIds: selIds };
-                          if (contBtn) contBtn.disabled = isPauseActive() || selIdx.length === 0;
+                          if (contBtn) {
+                            const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                            const atExtraGate = (typeof currentIdx === 'number' && (currentIdx === 59 || currentIdx === 119));
+                            const isCheckpoint = cps.includes(currentIdx);
+                            const allowOverride = isContinueOverrideEnabled();
+                            const inPause = isPauseActive();
+                            const gate = (isCheckpoint || atExtraGate) && !allowOverride;
+                            contBtn.disabled = inPause || gate || selIdx.length === 0;
+                          }
                         } else {
                           const chosenId = this.dataset && this.dataset.optionId ? this.dataset.optionId : '';
                           ANSWERS[qKey] = { index: i, optionId: chosenId };
-                          if (contBtn) contBtn.disabled = isPauseActive() ? true : false;
+                          if (contBtn) {
+                            const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                            const atExtraGate = (typeof currentIdx === 'number' && (currentIdx === 59 || currentIdx === 119));
+                            const isCheckpoint = cps.includes(currentIdx);
+                            const allowOverride = isContinueOverrideEnabled();
+                            const inPause = isPauseActive();
+                            const gate = (isCheckpoint || atExtraGate) && !allowOverride;
+                            contBtn.disabled = inPause || gate;
+                          }
                         }
                         try { saveAnswersForCurrentSession(); } catch(e){}
                         try { const qc = $('questionContent'); if (qc) qc.classList.remove('input-error'); } catch(e){}
@@ -487,9 +503,9 @@
                   const allowOverride = isContinueOverrideEnabled();
                   const inPause = isPauseActive();
                   // Bloquear durante a pausa; senão, seguir regra de checkpoint
-                  // Requisito adicional: ao chegar nos índices 60 e 120 (currentIdx === 60 || 120),
+                  // Requisito adicional: ao chegar nos índices 59 e 119 (questões 60 e 120, 1-based),
                   // desabilitar também como se fossem checkpoints, a menos que haja override.
-                  const isExtraGate = (idx === 60 || idx === 120);
+                  const isExtraGate = (idx === 59 || idx === 119);
                   contBtn.disabled = inPause || ((isCheckpoint || isExtraGate) && !allowOverride);
                 }
               } catch(e) {}
@@ -519,6 +535,17 @@
                 try { showToast('Pausa em andamento. Aguarde o término.'); } catch(e){}
                 return;
               }
+              // Guardar contra avanço em checkpoints (e nos índices 59/119 que representam as questões 60/120 1-based)
+              try {
+                const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                const isCheckpoint = cps.includes(currentIdx);
+                const atExtraGate = (currentIdx === 59 || currentIdx === 119);
+                const allowOverride = isContinueOverrideEnabled();
+                if ((isCheckpoint || atExtraGate) && !allowOverride){
+                  try { showToast('Revise neste ponto. Use os botões no topo para continuar ou fazer a pausa.'); } catch(_){}
+                  return;
+                }
+              } catch(_){}
               if (currentIdx < QUESTIONS.length - 1){
                 currentIdx++;
                 renderQuestion(currentIdx);

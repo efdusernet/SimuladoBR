@@ -16,6 +16,16 @@ Como usar:
    - Caso receba token no corpo (ou no debug), ele será salvo em `lastVerifyToken` automaticamente. Use `Verify email` para confirmar.
    - Finalmente use `Login` para testar login.
 
+7. Fluxo de Exames (multi-exames):
+   - Em `Environment`, ajuste `sessionToken` (pode ser o e-mail do usuário logado) e `examType` (ex.: `pmp`).
+   - Use `Exams / List Types (DB)` para ver os tipos disponíveis no banco. Dica: defina `EXAM_TYPES_DISABLE_FALLBACK=true` no backend para forçar leitura do DB.
+   - Para uma seleção simples (retorna perguntas e um `sessionId` temporário): `Exams / Select (count=1)`. O teste já salva `lastSessionId`, `lastQuestionId` e `lastOptionId`.
+   - Para sessão on-demand com persistência (cria `exam_attempt`): `Exams / Start On Demand (count=3)`. O teste salva `lastOnDemandSessionId` e `lastAttemptId`.
+   - Para buscar pergunta da sessão on-demand: `Exams / Get Question (index 0)` — o teste salva `lastQuestionId` e `lastOptionId`.
+   - Para submeter respostas:
+     - Seleção: `Exams / Submit (from select)` usa `lastSessionId`.
+     - On-demand: `Exams / Submit (from on-demand)` usa `lastOnDemandSessionId` e persiste respostas/nota (`exam_attempt_answer`/`exam_attempt`).
+
    Notas importantes:
 
    - O código de verificação agora tem 6 caracteres alfanuméricos (A-Z, a-z, 0-9). Procure por esse código no corpo da resposta do endpoint de debug (`mailer.token`) ou no e-mail recebido.

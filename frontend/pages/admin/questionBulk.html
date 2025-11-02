@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carga de Questões (JSON/XML)</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .container{ max-width: 900px; margin: 24px auto; padding: 16px; background:#fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06);} 
+    .row{ margin-bottom: 12px; }
+    label{ display:block; font-weight:600; margin-bottom:6px; }
+    textarea, select, input[type="file"]{ width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; }
+    .actions{ display:flex; gap:12px; margin-top: 16px; }
+    .btn{ background:#2b6cb0; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
+    .btn.secondary{ background:#edf2f7; color:#2b6cb0; border:1px solid #c6d3ff; }
+    .hint{ font-size:.9rem; color:#555; }
+    .inline{ display:flex; gap:12px; align-items:flex-start; flex-wrap: wrap; }
+    .inline > *{ flex: 1 1 240px; }
+    code{ background:#f6f8fa; padding:2px 4px; border-radius:4px; }
+    pre{ background:#f6f8fa; padding:10px; border-radius:8px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Carga de Questões (JSON/XML)</h1>
+
+    <div class="row inline">
+      <div>
+        <label for="mode">Modo</label>
+        <select id="mode">
+          <option value="json">JSON (colar no campo abaixo)</option>
+          <option value="file-json">Arquivo JSON (.json)</option>
+          <option value="file-xml">Arquivo XML (.xml)</option>
+        </select>
+      </div>
+      <div>
+        <label for="examType">Tipo de exame (padrão do lote)</label>
+        <select id="examType"></select>
+        <div class="hint">Cada questão também pode especificar seu <code>examTypeSlug</code> próprio no JSON/XML. Se ausente, usa o do lote.</div>
+      </div>
+    </div>
+
+    <div class="row" id="fileRow" style="display:none;">
+      <label for="file">Arquivo</label>
+      <input type="file" id="file" accept=".json,.xml" />
+    </div>
+
+    <div class="row" id="jsonRow">
+      <label for="json">Conteúdo JSON</label>
+      <textarea id="json" rows="14" placeholder='{"examType":"pmp","questions":[{"descricao":"Texto...","tiposlug":"single","options":[{"descricao":"A","correta":true},{"descricao":"B"}]}]}'></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="send">Enviar</button>
+      <a class="btn secondary" href="/">Voltar</a>
+    </div>
+
+    <div id="status" class="row"></div>
+
+    <div class="row">
+      <h3>Formatos aceitos</h3>
+      <p><strong>JSON (objeto com lote):</strong></p>
+      <pre>{
+  "examType": "pmp",
+  "iddominio": 1,                    // opcional padrão do lote
+  "codareaconhecimento": 1,          // opcional padrão do lote
+  "codgrupoprocesso": 1,             // opcional padrão do lote
+  "dica": "opcional",
+  "questions": [
+    {
+      "descricao": "Enunciado...",
+      "tiposlug": "single",        // ou "multi"
+      "options": [
+        { "descricao": "A", "correta": true },
+        { "descricao": "B" }
+      ],
+      "examTypeSlug": "pmp",       // pode vir aqui também; se ausente, usa o do lote
+      "iddominio": 1,               // overrides do lote
+      "codareaconhecimento": 2,
+      "codgrupoprocesso": 3,
+      "dica": "opcional",
+      "explicacao": "opcional"
+    }
+  ]
+}</pre>
+      <p><strong>JSON (array):</strong> [ { question }, { question } ] — cada item deve ter <code>examTypeSlug</code> ou <code>examTypeId</code>.</p>
+      <p><strong>XML:</strong></p>
+      <pre>&lt;questions examType="pmp"&gt;
+  &lt;question&gt;
+    &lt;descricao&gt;Enunciado...&lt;/descricao&gt;
+    &lt;tipo&gt;single&lt;/tipo&gt;
+    &lt;alternativas&gt;
+      &lt;alternativa correta="true"&gt;Texto A&lt;/alternativa&gt;
+      &lt;alternativa&gt;Texto B&lt;/alternativa&gt;
+    &lt;/alternativas&gt;
+    &lt;explicacao&gt;Opcional&lt;/explicacao&gt;
+  &lt;/question&gt;
+&lt;/questions&gt;</pre>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id)=> document.getElementById(id);
+    const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+
+    function toggleMode(){
+      const mode = $('mode').value;
+      $('fileRow').style.display = (mode === 'file-json' || mode === 'file-xml') ? '' : 'none';
+      $('jsonRow').style.display = (mode === 'json') ? '' : 'none';
+    }
+    $('mode').addEventListener('change', toggleMode);
+
+    async function loadExamTypes(){
+      try {
+        const sel = $('examType');
+        const resp = await fetch((BACKEND_BASE||'').replace(/\/$/,'') + '/api/exams/types');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const none = document.createElement('option'); none.value = ''; none.textContent = '— Selecione —'; sel.appendChild(none);
+        (list||[]).forEach(t=>{ const o = document.createElement('option'); o.value = t.id; o.textContent = t.nome||t.id; sel.appendChild(o); });
+        try { if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1; } catch(e){}
+      } catch(e) {
+        const sel = $('examType'); sel.innerHTML = '<option value="pmp">PMP</option>';
+      }
+    }
+
+    $('send').onclick = async function(){
+      const token = localStorage.getItem('sessionToken') || '';
+      const base = (BACKEND_BASE||'');
+      const mode = $('mode').value;
+      const examTypeSlug = ($('examType').value||'').trim();
+      const url = base + '/api/questions/bulk';
+      $('status').textContent = 'Enviando...';
+      try {
+        let resp;
+        if (mode === 'json') {
+          let data;
+          try { data = JSON.parse($('json').value || ''); } catch(e){ $('status').textContent = 'JSON inválido'; return; }
+          // If batch-level not present, apply from selector
+          if (data && !Array.isArray(data)) {
+            if (!data.examType && examTypeSlug) data.examType = examTypeSlug;
+          }
+          resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(data) });
+        } else {
+          const f = $('file').files[0];
+          if (!f){ $('status').textContent = 'Selecione um arquivo'; return; }
+          const fd = new FormData();
+          fd.append('file', f, f.name);
+          // We can optionally include top-level examType when using file
+          if (examTypeSlug) fd.append('examType', examTypeSlug);
+          resp = await fetch(url, { method: 'POST', headers: { 'X-Session-Token': token }, body: fd });
+        }
+        const txt = await resp.text(); let data = null; try { data = txt ? JSON.parse(txt) : null; } catch{ data = null; }
+        if (!resp.ok) { $('status').textContent = 'Erro: ' + (data && data.error || txt || resp.status); return; }
+        $('status').textContent = `Concluído: inseridos ${data.inserted}/${data.total}`;
+      } catch (e) {
+        $('status').textContent = 'Falha no envio: ' + (e && e.message || e);
+      }
+    };
+
+    loadExamTypes();
+    toggleMode();
+  </script>
+</body>
+</html>

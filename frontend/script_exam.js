@@ -442,7 +442,7 @@
                           ANSWERS[qKey] = { indices: selIdx, optionIds: selIds };
                           if (contBtn) {
                             const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
-                            const atExtraGate = (typeof currentIdx === 'number' && (currentIdx === 59 || currentIdx === 119));
+                            const atExtraGate = (typeof currentIdx === 'number' && (currentIdx === 60 || currentIdx === 120));
                             const isCheckpoint = cps.includes(currentIdx);
                             const allowOverride = isContinueOverrideEnabled();
                             const inPause = isPauseActive();
@@ -454,7 +454,7 @@
                           ANSWERS[qKey] = { index: i, optionId: chosenId };
                           if (contBtn) {
                             const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
-                            const atExtraGate = (typeof currentIdx === 'number' && (currentIdx === 59 || currentIdx === 119));
+                            const atExtraGate = (typeof currentIdx === 'number' && (currentIdx === 60 || currentIdx === 120));
                             const isCheckpoint = cps.includes(currentIdx);
                             const allowOverride = isContinueOverrideEnabled();
                             const inPause = isPauseActive();
@@ -505,6 +505,7 @@
                   // Bloquear durante a pausa; senão, seguir regra de checkpoint
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                   // Requisito adicional: ao chegar nos índices 59 e 119 (0-based; rótulo 60 e 120),
                   // desabilitar também como se fossem checkpoints, a menos que haja override.
                   const isExtraGate = (idx === 59 || idx === 119);
@@ -518,6 +519,11 @@
                   // desabilitar também como se fossem checkpoints, a menos que haja override.
                   const isExtraGate = (idx === 59 || idx === 119);
 >>>>>>> 3d8e508 (examFull: desabilitar 'Continuar' em currentIdx === 60 ou 120 (overlay pós-bundle + bloqueio de clique em captura))
+=======
+                  // Requisito adicional: ao chegar nos índices 60 e 120 (0-based),
+                  // desabilitar também como se fossem checkpoints, a menos que haja override.
+                  const isExtraGate = (idx === 60 || idx === 120);
+>>>>>>> 5368c69 (exam: bloquear rigidamente 'Continuar' em currentIdx === 60 e === 120 (ignorar override para esses índices))
                   contBtn.disabled = inPause || ((isCheckpoint || isExtraGate) && !allowOverride);
                 }
               } catch(e) {}
@@ -551,7 +557,7 @@
               try {
                 const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
                 const isCheckpoint = cps.includes(currentIdx);
-                const atExtraGate = (currentIdx === 59 || currentIdx === 119);
+                const atExtraGate = (currentIdx === 60 || currentIdx === 120);
                 const allowOverride = isContinueOverrideEnabled();
                 if ((isCheckpoint || atExtraGate) && !allowOverride){
                   try { showToast('Revise neste ponto. Use os botões no topo para continuar ou fazer a pausa.'); } catch(_){}

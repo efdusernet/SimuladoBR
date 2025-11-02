@@ -213,7 +213,7 @@
       } catch(_){ }
     })();
   </script>
-  <!-- Make progress.currentIdx 1-based in storage, but expose 0-based to runtime reads -->
+  <!-- Make progress.currentIdx and backBarrier 1-based in storage, but expose 0-based to runtime reads -->
   <script>
     (function(){
       try {
@@ -226,17 +226,28 @@
         window.__lsOrigSetItem = __origSetItem;
 
         function isProgressKey(key){ return typeof key === 'string' && /^progress_/i.test(key); }
+        function isBarrierKey(key){ return typeof key === 'string' && /^backBarrier_/i.test(key); }
 
         LS.getItem = function(key){
           const val = __origGetItem(key);
-          if (!isProgressKey(key) || !val) return val;
           try {
-            const obj = JSON.parse(val);
-            if (obj && typeof obj.currentIdx === 'number'){
-              // Convert 1-based (stored) -> 0-based (runtime)
-              const zero = Math.max(0, Math.floor(obj.currentIdx) - 1);
-              const clone = { ...obj, currentIdx: zero };
-              return JSON.stringify(clone);
+            if (isProgressKey(key) && val){
+              const obj = JSON.parse(val);
+              if (obj && typeof obj.currentIdx === 'number'){
+                // Convert 1-based (stored) -> 0-based (runtime)
+                const zero = Math.max(0, Math.floor(obj.currentIdx) - 1);
+                const clone = { ...obj, currentIdx: zero };
+                return JSON.stringify(clone);
+              }
+              return val;
+            }
+            if (isBarrierKey(key) && val){
+              const n = Number(val);
+              if (Number.isFinite(n)){
+                const zero = Math.max(0, Math.floor(n) - 1);
+                return String(zero);
+              }
+              return val;
             }
           } catch(_){}
           return val;
@@ -254,6 +265,13 @@
                   return __origSetItem(key, JSON.stringify(clone));
                 }
               } catch(_){}
+            }
+            if (isBarrierKey(key) && typeof value === 'string' && value.length){
+              const n = Number(value);
+              if (Number.isFinite(n)){
+                const one = Math.max(1, Math.floor(n) + 1);
+                return __origSetItem(key, String(one));
+              }
             }
           } catch(_){}
           return __origSetItem(key, value);
@@ -579,7 +597,12 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
   <script>
     (function(){
       function setBarrierTo(val){
-        try { const sid = window.currentSessionId || null; if (!sid) return; localStorage.setItem(`backBarrier_${sid}`, String(val)); } catch(e){}
+        try {
+          const sid = window.currentSessionId || null; if (!sid) return;
+          // Store 1-based barrier directly using original setter to avoid double conversion
+          if (window.__lsOrigSetItem) window.__lsOrigSetItem(`backBarrier_${sid}`, String(val));
+          else localStorage.setItem(`backBarrier_${sid}`, String(val));
+        } catch(e){}
       }
       function getCurrentIdx(){
         try { const el = document.getElementById('questionNumber'); if (!el) return null; const n = Number((el.textContent||'').trim()); return (Number.isFinite(n) && n>=1)? n-1 : null; } catch(e){ return null; }
@@ -589,11 +612,14 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
   // We set barrier to the first question AFTER the checkpoint (idx 60 and 120),
   // so the Back button appears starting at questions 62 and 122 (idx 61 and 121),
   // and allows returning only up to questions 61 and 121 respectively.
-  function targetBarrierFor(idx){ if (idx === 59) return 60; if (idx === 119) return 120; return null; }
+  function targetBarrierFor(idx){
+    // Pause now occurs at questions 60 and 120 (1-based) => idx 59 and 119 (0-based)
+    if (idx === 59) return 60; if (idx === 119) return 120; return null;
+  }
       function showPrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display=''; m.setAttribute('aria-hidden','false'); } }
       function hidePrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
       // Track pause consumption per checkpoint to avoid re-rendering buttons after auto end
-      function checkpointKeyFor(idx){ return idx===60 ? 'cp1' : (idx===120 ? 'cp2' : null); }
+  function checkpointKeyFor(idx){ return idx===59 ? 'cp1' : (idx===119 ? 'cp2' : null); }
       function isPauseConsumedFor(idx){
         try { const cp = checkpointKeyFor(idx); if (!cp) return false; const sid = window.currentSessionId || null; if (!sid) return false; return localStorage.getItem(`pauseConsumed_${sid}_${cp}`) === 'true'; } catch(_) { return false; }
       }
@@ -626,7 +652,7 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
       function ensureTopPauseButtons(idx){
         try {
           const container = document.querySelector('#resource-buttons .inline-flex'); if (!container) return;
-          const need = ((idx === 60 || idx === 120) && !isPauseConsumedFor(idx));
+          const need = ((idx === 59 || idx === 119) && !isPauseConsumedFor(idx));
           if (!need){ removeTopPauseButtons(); return; }
           if (!document.getElementById('bPause')){
             const bp = document.createElement('button');
@@ -642,7 +668,7 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
                   const cur = typeof i === 'number' ? i : getCurrentIdx();
                   if (typeof cur === 'number') {
                     if (sid) {
-                      if (cur < 120) { localStorage.setItem(`FirstStop_${sid}`, 'true'); }
+                      if (cur < 119) { localStorage.setItem(`FirstStop_${sid}`, 'true'); }
                       else { localStorage.setItem(`SecondStop_${sid}`, 'true'); }
                     }
                   }
@@ -667,7 +693,7 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
             const bs = document.createElement('button');
             bs.id='bSkipPause'; bs.type='button';
             bs.className='-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50';
-            const label = (idx === 120) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
+            const label = (idx >= 119) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
             bs.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
             bs.addEventListener('click', ()=>{
               try {
@@ -761,7 +787,7 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
             if (bp){ bp.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Fazer pausa'; }
             if (bs){
               const i = (function(){ const q = document.getElementById('questionNumber'); if (!q) return null; const n = Number((q.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; })();
-              const label = (i === 120) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
+              const label = (i >= 119) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
               bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label; bs.disabled = false;
             }
           }
@@ -775,16 +801,16 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
       }
 
       // Show pre-pause modal with per-checkpoint gating:
-      // - At question 60: consider only FirstStop_<sid>
-      // - At question 120: consider only SecondStop_<sid>
+      // - At question 60 (1-based, idx 59): consider only FirstStop_<sid>
+      // - At question 120 (1-based, idx 119): consider only SecondStop_<sid>
       function shouldShowPrePauseFor(idx){
         try {
           const sid = window.currentSessionId || null;
           if (!sid) return true; // sem sessão, mantenha comportamento padrão
           const first = localStorage.getItem(`FirstStop_${sid}`) === 'true';
           const second = localStorage.getItem(`SecondStop_${sid}`) === 'true';
-          if (idx === 60) return !first;
-          if (idx === 120) return !second;
+          if (idx === 59) return !first;
+          if (idx === 119) return !second;
           return true;
         } catch(e){ return true; }
       }
@@ -792,11 +818,11 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
       document.addEventListener('exam:question-index-changed', (ev)=>{
         try {
           const idx = ev && ev.detail && ev.detail.index;
-          if ((idx === 60 || idx === 120) && shouldShowPrePauseFor(idx)){
+          if ((idx === 59 || idx === 119) && shouldShowPrePauseFor(idx)){
             // Atualiza o rótulo do botão do modal conforme o checkpoint (1ª ou 2ª pausa)
             try {
               const skip = document.getElementById('btnSkipPause');
-              if (skip) skip.textContent = (idx === 120) ? 'Continuar sem a 2ª pausa' : 'Continuar sem a 1ª pausa';
+              if (skip) skip.textContent = (idx >= 119) ? 'Continuar sem a 2ª pausa' : 'Continuar sem a 1ª pausa';
             } catch(e){}
             showPrePauseModal();
             ensureTopPauseButtons(idx);
@@ -812,7 +838,7 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
           if (tb) setBarrierTo(tb);
           // Marcar este checkpoint como consumido para não reexibir os botões no header
           try {
-            const cpIdx = (typeof i === 'number' && i >= 120) ? 120 : 60;
+            const cpIdx = (typeof i === 'number' && i >= 119) ? 119 : 59;
             markPauseConsumedFor(cpIdx);
           } catch(_){ }
           // Remover imediatamente os botões do header (Fazer pausa / Continuar sem pausa)
@@ -825,7 +851,7 @@ Revise suas questões. Durante o exame, será oferecido para que você decida fa
           } catch(_){ }
           // Informar via toast qual opção foi escolhida (1ª ou 2ª pausa)
           try {
-            const msg = (typeof i === 'number' && i >= 120) ? 'Continuando sem a 2ª pausa.' : 'Continuando sem a 1ª pausa.';
+            const msg = (typeof i === 'number' && i >= 119) ? 'Continuando sem a 2ª pausa.' : 'Continuando sem a 1ª pausa.';
             if (typeof showToast==='function') showToast(msg);
           } catch(_){ }
         } catch(e){}

@@ -12,12 +12,11 @@
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
     <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
   </header>
-  <p id="status" style="max-width:900px;margin:10px auto 0;display:none;padding:0 18px;color:#333"></p>
-  <div id="autosaveIndicator" style="max-width:900px;margin:4px auto 0;padding:0 18px;color:var(--muted);font-size:0.95rem;display:none;"></div>
+  
   <div id="toast" class="toast" aria-live="polite" style="display:none"></div>
 
-  <main class="exam-container" role="main">
-    <header class="exam-header">
+  <main class="exam-container" role="main" style="margin-top:8px;">
+    <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
       <div class="header-left" aria-hidden="true"></div>
 
       <div class="header-center" id="centerHeader">
@@ -97,8 +96,8 @@
     }
   </script>
 
-  <!-- registration/session script must run before exam script -->
-  <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
+  <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->
+  <script src="../script.js"></script>
   <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed -->
   <script>
     (function(){

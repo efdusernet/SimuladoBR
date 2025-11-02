@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     const status = document.getElementById('status');
+    // Safe helpers so code doesn't error if #status is not present on the page
+    const setStatus = (txt) => { try { if (status) { status.style.display = ''; status.textContent = txt || ''; } } catch(_){} };
+    const clearStatus = () => { try { if (status) { status.textContent = ''; status.style.display = 'none'; } } catch(_){} };
     const modal = document.getElementById('emailModal');
     const emailInput = document.getElementById('emailInput');
     const nameInput = document.getElementById('nameInput');
@@ -230,8 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Old behavior: show modal when token endsWith('#').
     // New: only show modal when token endsWith('#') AND we have no other registration hints (userId/nomeUsuario/nome).
     if ((sessionToken && sessionToken.endsWith('#')) && !hasUserId && !hasNomeUsuario && !hasNome) {
-        status.style.display = '';
-        status.textContent = 'Usuário não registrado — registro obrigatório.';
+        setStatus('Usuário não registrado — registro obrigatório.');
         if (modal) {
             showEmailModal();
         } else {
@@ -240,9 +242,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
     } else {
-        status.style.display = '';
         const displayedName = localStorage.getItem('nome') || localStorage.getItem('nomeUsuario') || sessionToken || '';
-        status.textContent = displayedName ? `Usuário: ${displayedName}` : '';
+        setStatus(displayedName ? `Usuário: ${displayedName}` : '');
         try { showUserHeader(displayedName); } catch(e) { /* showUserHeader may be defined later */ }
     }
 
@@ -599,7 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // synchronize BloqueioAtivado from server and store in localStorage
                 try { await syncBloqueioFromServer(nomeUsuarioStored); } catch(e) { console.warn('syncBloqueio error', e); }
 
-                status.textContent = `Logado como ${nomeReal}`;
+                setStatus(`Logado como ${nomeReal}`);
                 showUserHeader(nomeReal);
                 hideEmailModal();
 
@@ -660,7 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // synchronize BloqueioAtivado from server and store in localStorage
                     try { await syncBloqueioFromServer(nomeUsuarioStored); } catch(e) { console.warn('syncBloqueio error', e); }
 
-                    status.textContent = `Logado como ${nomeReal}`;
+                    setStatus(`Logado como ${nomeReal}`);
                     showUserHeader(nomeReal);
                     hideEmailModal();
 

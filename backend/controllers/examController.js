@@ -719,3 +719,89 @@ exports.pauseStatus = async (req, res) => {
     return res.status(500).json({ error: 'Internal error' });
   }
 };
+
+// POST /api/exams/resume
+// Body: { sessionId?: string, attemptId?: number }
+// Rebuilds in-memory session state after server restart, using DB as source of truth
+exports.resumeSession = async (req, res) => {
+  try {
+    // Resolve user (same policy as other endpoints)
+    const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
+    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+
+    let user = null;
+    if (/^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+    if (!user) {
+      const Op = db.Sequelize && db.Sequelize.Op;
+      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+      user = await db.User.findOne({ where });
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const reqSessionId = (req.body && req.body.sessionId) ? String(req.body.sessionId) : null;
+    const reqAttemptId = (req.body && req.body.attemptId) ? Number(req.body.attemptId) : null;
+
+    // Locate attempt
+    let attempt = null;
+    if (Number.isFinite(reqAttemptId) && reqAttemptId > 0) {
+      attempt = await db.ExamAttempt.findOne({ where: { Id: reqAttemptId, UserId: user.Id || user.id, Status: 'in_progress' } });
+    }
+    if (!attempt && reqSessionId) {
+      try {
+        // Prefer JSON meta.sessionId match
+        const Op = db.Sequelize && db.Sequelize.Op;
+        attempt = await db.ExamAttempt.findOne({
+          where: {
+            UserId: user.Id || user.id,
+            Status: 'in_progress',
+            ...(Op ? { [Op.and]: [ db.sequelize.where(db.sequelize.json('meta.sessionId'), reqSessionId) ] } : {}),
+          },
+          order: [['StartedAt', 'DESC']],
+        });
+      } catch(_) { attempt = null; }
+    }
+    if (!attempt) return res.status(404).json({ error: 'attempt not found' });
+
+    // Load ordered question ids
+    const rows = await db.ExamAttemptQuestion.findAll({
+      where: { AttemptId: attempt.Id },
+      order: [['Ordem', 'ASC']],
+      attributes: ['QuestionId']
+    });
+    const questionIds = (rows || []).map(r => Number(r.QuestionId)).filter(n => Number.isFinite(n));
+
+    // Rebuild pause policy/state from snapshot when available, else from exam type config
+    let policy = null;
+    try {
+      const snap = attempt.BlueprintSnapshot || null;
+      if (snap && typeof snap === 'object' && snap.pausas) policy = snap.pausas;
+    } catch(_) { policy = null; }
+    if (!policy) {
+      try {
+        const exType = await getExamTypeBySlugOrDefault((attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp');
+        policy = exType && exType.pausas ? exType.pausas : { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+      } catch(_) { policy = { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 }; }
+    }
+
+    const pauseState = attempt.PauseState || { pauseUntil: 0, consumed: {} };
+
+    // Decide which sessionId to use: keep client-provided sessionId if available; otherwise mint a new one
+    const newSessionId = reqSessionId || genSessionId();
+
+    // Put in-memory session
+    putSession(newSessionId, {
+      userId: user.Id || user.id,
+      examType: (attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp',
+      examTypeId: attempt.ExamTypeId || null,
+      attemptId: attempt.Id,
+      questionIds,
+      pausePolicy: policy,
+      pauses: pauseState,
+    });
+
+    return res.json({ ok: true, sessionId: newSessionId, attemptId: attempt.Id, total: questionIds.length, examType: (attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp' });
+  } catch (err) {
+    console.error('Erro resumeSession:', err);
+    return res.status(500).json({ error: 'Internal error' });
+  }
+};

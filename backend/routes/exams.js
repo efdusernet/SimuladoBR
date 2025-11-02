@@ -18,4 +18,6 @@ router.post('/:sessionId/pause/skip', examController.pauseSkip);
 router.get('/:sessionId/pause/status', examController.pauseStatus);
 // Submit answers for grading
 router.post('/submit', examController.submitAnswers);
+// Rebuild a session in memory from DB after a restart
+router.post('/resume', examController.resumeSession);
 module.exports = router;

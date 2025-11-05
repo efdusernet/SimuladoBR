@@ -1,7 +1,7 @@
 SimuladosBR - Postman collection
 
 Arquivos:
-- `SimuladosBR.postman_collection.json` - Coleção com requests: send-test-email, register, login, verify.
+- `SimuladosBR.postman_collection.json` - Coleção com requests: send-test-email, register, login, verify, fluxos de Exames e grupo Admin — Roles.
 - `SimuladosBR.postman_environment.json` - Environment com variáveis pré-populadas (BACKEND_BASE, testEmail, userEmail, userSenha, etc.).
 
 Como usar:
@@ -33,3 +33,9 @@ Como usar:
    - O endpoint de debug (`Send test email`) retorna um objeto `mailer` que pode incluir `verifyError` quando a verificação TLS falha mas o envio foi tentado; verifique esse campo para diagnóstico.
 
 Observação: a coleção pressupõe que a API está disponível em `{{BACKEND_BASE}}` (ex: `http://localhost:3000`).
+
+Admin — Roles:
+- As requisições no grupo "Admin — Roles" exigem o cabeçalho `X-Session-Token` de um usuário que possua o papel `admin`.
+- Use o script CLI para conceder admin a um usuário (por id/e‑mail/nome de usuário):
+   - `cd backend`
+   - `npm run role:grant-admin -- --email "email@exemplo.com"`

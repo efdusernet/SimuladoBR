@@ -7,56 +7,67 @@
   <style>
     body {
       font-family: "Segoe UI", sans-serif;
+      font-size: 13px;
       background: #f7f9fc;
       margin: 0;
       padding: 0;
     }
 
     .container {
-      max-width: 800px;
-      margin: 40px auto;
+      max-width: 760px;
+      margin: 16px auto;
       background: #fff;
-      border-radius: 10px;
+      border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      padding: 30px;
+      padding: 16px;
     }
 
     header h1 {
-      font-size: 1.6rem;
-      margin-bottom: 10px;
+      font-size: 1.12rem;
+      margin-bottom: 6px;
       color: #222;
     }
 
     header p {
       color: #666;
-      font-size: 0.9rem;
-      margin-bottom: 15px;
+      font-size: 0.8rem;
+      margin-bottom: 10px;
     }
 
     .input-group {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 6px;
+      margin-bottom: 10px;
     }
 
     .input-group input {
-      width: 80px;
-      padding: 6px 8px;
+      width: 64px;
+      padding: 4px 6px;
       border: 1px solid #ccc;
       border-radius: 5px;
-      font-size: 1rem;
+      font-size: 0.9rem;
+      min-height: 30px;
     }
+
+    /* Ensure select follows compact sizing even if inline styles exist */
+    #examType {
+      font-size: 0.9rem !important;
+      padding: 4px 6px !important;
+      min-height: 32px;
+    }
+    /* Reduce inline-labeled min-width of the examType label */
+    label[for="examType"] { min-width: 140px !important; font-size: 0.9rem; }
 
     /* Tabs */
     .tabs {
       display: flex;
       border-bottom: 2px solid #e0e0e0;
-      margin-bottom: 15px;
+      margin-bottom: 8px;
     }
 
     .tab {
-      padding: 10px 20px;
+      padding: 6px 10px;
       cursor: pointer;
       border-bottom: 3px solid transparent;
       color: #555;
@@ -72,19 +83,20 @@
     /* Checklist */
     .checklist {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-      margin-bottom: 25px;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 6px;
+      margin-bottom: 12px;
     }
 
     .check-btn {
-      padding: 10px;
+      padding: 6px;
       border: 1px solid #ccc;
-      border-radius: 8px;
+      border-radius: 6px;
       background: #fff;
       text-align: left;
       cursor: pointer;
       transition: all 0.2s;
+      font-size: 0.95em;
     }
 
     .check-btn:hover {
@@ -100,22 +112,139 @@
     /* Resumo */
     .resumo {
       border-top: 1px solid #eee;
-      padding-top: 15px;
+      padding-top: 10px;
     }
 
     .resumo h3 {
-      margin-bottom: 8px;
-      font-size: 1.1rem;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
       color: #333;
     }
 
     .resumo p {
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       color: #555;
     }
+
+    /* Top-left menu button */
+    .menu-toggle {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1100;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #d6d9e0;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover { background: #f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile {
+      display:inline-block;
+      width: 18px;
+      height: 2px;
+      background: #333;
+      border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    /* Simple dropdown panel */
+    .menu-panel {
+      position: fixed;
+      top: 44px;
+      left: 8px;
+      z-index: 1099;
+      background: #fff;
+      border: 1px solid #d6d9e0;
+      border-radius: 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px;
+      padding: 6px;
+      display: none;
+    }
+    .menu-panel.open { display: block; }
+    .menu-panel a {
+      display: block;
+      padding: 6px 8px;
+      color: #222;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .menu-panel a:hover { background: #f4f7fb; }
+
+    /* Primary actions compact but tappable */
+    #startExamBtn,
+    .modal .primary-btn,
+    .modal .secondary-btn,
+    .menu-panel a,
+    .check-btn {
+      min-height: 32px;
+    }
+
+    /* Ultra-compact mode on larger screens, and optional body.compact to force it anywhere */
+    @media (min-width: 640px){
+      body { font-size: 12px; }
+      .container { max-width: 720px; padding: 14px; margin: 12px auto; }
+      header h1 { font-size: 1.02rem; margin-bottom: 4px; }
+      header p { font-size: 0.78rem; margin-bottom: 8px; }
+      .input-group { gap: 6px; margin-bottom: 8px; }
+      .input-group input { width: 60px; min-height: 28px; padding: 3px 6px; font-size: 0.88rem; }
+      #examType { min-height: 30px; padding: 4px 6px !important; font-size: 0.88rem !important; }
+      .tabs { margin-bottom: 8px; }
+      .tab { padding: 4px 8px; }
+      .checklist { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px; margin-bottom: 10px; }
+      .check-btn { padding: 5px; font-size: 0.92em; border-radius: 5px; }
+      .resumo { padding-top: 8px; }
+      .resumo h3 { font-size: 0.92rem; }
+      .resumo p { font-size: 0.78rem; }
+      #startExamBtn { padding: 5px 8px; min-height: 28px; }
+      .menu-toggle { width: 28px; height: 28px; top: 6px; left: 6px; }
+      .ui-menu-icon-set-hamburger-mobile { width: 16px; }
+      .menu-panel { top: 40px; min-width: 160px; }
+      .menu-panel a { padding: 5px 8px; }
+      .modal .primary-btn, .modal .secondary-btn { min-height: 28px; padding: 5px 8px; }
+      .modal .modal-content { max-width: 520px; padding: 14px !important; }
+    }
+
+    body.compact .container { max-width: 720px; padding: 14px; margin: 12px auto; }
+    body.compact header h1 { font-size: 1.02rem; margin-bottom: 4px; }
+    body.compact header p { font-size: 0.78rem; margin-bottom: 8px; }
+    body.compact .input-group { gap: 6px; margin-bottom: 8px; }
+    body.compact .input-group input { width: 60px; min-height: 28px; padding: 3px 6px; font-size: 0.88rem; }
+    body.compact #examType { min-height: 30px; padding: 4px 6px !important; font-size: 0.88rem !important; }
+    body.compact .tabs { margin-bottom: 8px; }
+    body.compact .tab { padding: 4px 8px; }
+    body.compact .checklist { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px; margin-bottom: 10px; }
+    body.compact .check-btn { padding: 5px; font-size: 0.92em; border-radius: 5px; }
+    body.compact .resumo { padding-top: 8px; }
+    body.compact .resumo h3 { font-size: 0.92rem; }
+    body.compact .resumo p { font-size: 0.78rem; }
+    body.compact #startExamBtn { padding: 5px 8px; min-height: 28px; }
+    body.compact .menu-toggle { width: 28px; height: 28px; top: 6px; left: 6px; }
+    body.compact .ui-menu-icon-set-hamburger-mobile { width: 16px; }
+    body.compact .menu-panel { top: 40px; min-width: 160px; }
+    body.compact .menu-panel a { padding: 5px 8px; }
+    body.compact .modal .primary-btn, body.compact .modal .secondary-btn { min-height: 28px; padding: 5px 8px; }
+    body.compact .modal .modal-content { max-width: 520px; padding: 14px !important; }
   </style>
   </head>
   <body>
+
+  <!-- Top-left menu button and dropdown -->
+  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+  </button>
+  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/pages/examSetup.html?examType=pmp" rel="noopener">Simulador PMP</a>
+    <a href="/pages/examSetup.html?examType=cpm" rel="noopener">Simulador CPM</a>
+    <a href="/pages/results.html" rel="noopener">Resultados</a>
+    <a href="#" class="page-logout">Sair</a>
+  </nav>
 
   <div class="container">
     <!-- HEADER -->
@@ -152,7 +281,7 @@
       <p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
       <p id="errorMsg" style="display:none;margin-top:8px;color:#a23a2a;background:#fff4f2;border:1px solid #ffd2cc;padding:8px 10px;border-radius:8px;"></p>
       <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
-        <button id="startExamBtn" style="background:#007bff;color:#fff;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;">Iniciar simulado</button>
+  <button id="startExamBtn" style="background:#007bff;color:#fff;border:0;border-radius:6px;padding:6px 10px;min-height:32px;cursor:pointer;">Iniciar simulado</button>
         <span id="startError" style="color:crimson; display:none;"></span>
       </div>
     </div>
@@ -160,10 +289,10 @@
 
   <!-- Modal de confirmação para exame completo (180 questões) -->
   <div id="fullExamConfirmModal" class="modal" aria-hidden="true" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
-    <div class="modal-content" style="background:#fff;border-radius:10px;max-width:620px;width:92%;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.2);">
-      <h2 style="margin-top:0;margin-bottom:10px;">Você será direcionado para o exame completo. Deseja prosseguir?</h2>
-      <h3 style="margin:10px 0 6px 0; font-size:1.05rem; color:#222;">Exame completo:</h3>
-      <ul style="margin:8px 0 0 18px; padding:0; color:#333;">
+    <div class="modal-content" style="background:#fff;border-radius:10px;max-width:560px;width:92%;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+      <h2 style="margin-top:0;margin-bottom:8px; font-size:1.02rem;">Você será direcionado para o exame completo. Deseja prosseguir?</h2>
+      <h3 style="margin:8px 0 6px 0; font-size:0.98rem; color:#222;">Exame completo:</h3>
+      <ul style="margin:6px 0 0 16px; padding:0; color:#333; font-size:0.92em;">
         <li>Tempo total 230 minutos ou 3 horas e 49 minutos</li>
         <li>Você terá direito a 2 pausas de 10 minutos.</li>
         <li>A primeira pausa acontece ao concluir as questões de 1-60.</li>
@@ -171,9 +300,9 @@
         <li>Você não poderá voltar às questões anteriores assim que a pausa iniciar.</li>
         <li>5 questões do exame serão desconsideradas para efeitos de pré-teste</li>
       </ul>
-      <div class="modal-actions" style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;">
-        <button id="fullExamCancel" type="button" class="secondary-btn" style="background:#eef1f6;color:#334; border:1px solid #cfd6e4;border-radius:8px;padding:8px 12px;cursor:pointer;">Cancelar</button>
-        <button id="fullExamProceed" type="button" class="primary-btn" style="background:#007bff;color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;">Prosseguir</button>
+      <div class="modal-actions" style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">
+        <button id="fullExamCancel" type="button" class="secondary-btn" style="background:#eef1f6;color:#334; border:1px solid #cfd6e4;border-radius:6px;padding:6px 10px;min-height:36px;cursor:pointer;">Cancelar</button>
+        <button id="fullExamProceed" type="button" class="primary-btn" style="background:#007bff;color:#fff;border:0;border-radius:6px;padding:6px 10px;min-height:36px;cursor:pointer;">Prosseguir</button>
       </div>
     </div>
   </div>
@@ -203,6 +332,32 @@
         }
       } catch(e) { /* ignore */ }
     })();
+
+  // Lightweight menu toggle and logout for this page
+  (function initTopMenu(){
+    const btn = document.getElementById('menuToggle');
+    const panel = document.getElementById('pageMenu');
+    if (!btn || !panel) return;
+    const close = ()=>{ panel.classList.remove('open'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); };
+    const open = ()=>{ panel.classList.add('open'); panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); };
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if (panel.classList.contains('open')) close(); else open();
+    });
+    document.addEventListener('click', (e)=>{
+      if (!panel.contains(e.target) && e.target !== btn) close();
+    });
+    const logout = panel.querySelector('.page-logout');
+    if (logout) logout.addEventListener('click', (e)=>{
+      e.preventDefault();
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.cookie = 'sessionToken=; Max-Age=0; Path=/';
+      } catch(_){}
+      window.location.assign('/login');
+    });
+  })();
 
   const examTypeSelect = document.getElementById('examType');
   const quantidadeInput = document.getElementById('quantidade');

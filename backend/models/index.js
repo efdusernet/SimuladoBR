@@ -19,6 +19,8 @@ db.ExamAttempt = require('./ExamAttempt')(sequelize, DataTypes);
 db.ExamAttemptQuestion = require('./ExamAttemptQuestion')(sequelize, DataTypes);
 db.ExamAttemptAnswer = require('./ExamAttemptAnswer')(sequelize, DataTypes);
 db.QuestionType = require('./QuestionType')(sequelize, DataTypes);
+db.Role = require('./Role')(sequelize, DataTypes);
+db.UserRole = require('./UserRole')(sequelize, DataTypes);
 
 // Associations
 if (db.User && db.EmailVerification) {
@@ -42,6 +44,12 @@ if (db.ExamAttempt && db.ExamAttemptQuestion) {
 if (db.ExamAttemptQuestion && db.ExamAttemptAnswer) {
   db.ExamAttemptQuestion.hasMany(db.ExamAttemptAnswer, { foreignKey: 'AttemptQuestionId' });
   db.ExamAttemptAnswer.belongsTo(db.ExamAttemptQuestion, { foreignKey: 'AttemptQuestionId' });
+}
+
+// RBAC associations: Usuario <-> Role via user_role (N:N)
+if (db.User && db.Role && db.UserRole) {
+  db.User.belongsToMany(db.Role, { through: db.UserRole, foreignKey: 'user_id', otherKey: 'role_id' });
+  db.Role.belongsToMany(db.User, { through: db.UserRole, foreignKey: 'role_id', otherKey: 'user_id' });
 }
 
 db.sequelize = sequelize;

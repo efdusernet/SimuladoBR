@@ -319,3 +319,59 @@ html,body{
 	:root{ --question-font-size: 14px; }
 }
 
+/* ===== Sidebar (cores: #1E90FF, #191970, #1C1C1C, #F8F8FF) ===== */
+.sidebar{
+	position: fixed;
+	inset: 0 auto 0 0;
+	width: 260px;
+	background: #191970; /* MidnightBlue */
+	color: #F8F8FF; /* Ghost White */
+	z-index: 1200;
+	box-shadow: 2px 0 12px rgba(0,0,0,0.25);
+	border-right: 1px solid #1C1C1C;
+	display: flex;
+	flex-direction: column;
+}
+.sidebar .brand{
+	padding: 18px 16px;
+	font-weight: 700;
+	letter-spacing: 0.3px;
+	border-bottom: 1px solid #1C1C1C;
+}
+.sidebar .menu{ list-style: none; margin: 0; padding: 10px 0; overflow-y: auto; }
+.sidebar a{ color: #F8F8FF; text-decoration: none; display: block; }
+.menu-link{
+	padding: 10px 16px;
+	display: flex; align-items: center; justify-content: space-between;
+	gap: 10px;
+	cursor: pointer;
+	transition: background .15s ease;
+}
+.menu-link:hover{ background: rgba(30,144,255,0.15); }
+.menu-link .label{ font-weight: 600; }
+.menu-link .caret{ font-size: 12px; opacity: 0.8; }
+.submenu{ display:none; padding: 6px 0 8px; }
+.submenu.open{ display:block; }
+.submenu a{
+	padding: 8px 16px 8px 28px;
+	font-size: 0.95rem;
+	opacity: 0.95;
+}
+.submenu a:hover{ background: rgba(30,144,255,0.2); }
+.sidebar .footer{
+	margin-top: auto;
+	padding: 10px 16px; font-size: 0.85rem; opacity: 0.8; border-top: 1px solid #1C1C1C;
+}
+
+/* Layout helper when sidebar exists */
+.with-sidebar{ margin-left: 260px; }
+/* Also support body-level padding so pages without a wrapper still align */
+body.has-sidebar{ padding-left: 260px; }
+
+@media (max-width: 900px){
+	.sidebar{ transform: translateX(-100%); transition: transform .2s ease; }
+	.sidebar.open{ transform: translateX(0); }
+		.with-sidebar{ margin-left: 0; }
+		body.has-sidebar{ padding-left: 0; }
+}
+

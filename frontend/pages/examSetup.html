@@ -307,6 +307,8 @@
     </div>
   </div>
 
+  
+
   <script>
     // Resolve backend base if window.SIMULADOS_CONFIG is present (optional)
     const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
@@ -384,6 +386,45 @@
     let abaAtual = 'dominios';
     let meta = { dominios: [], grupos: [], areas: [] };
     let selecionados = { dominios: [], grupos: [], areas: [] }; // arrays of ids
+  // Placeholder para função de atualização de contagem (será definida mais abaixo)
+  // Isso evita ReferenceError em chamadas iniciais durante o carregamento.
+  let scheduleAtualizarDisponiveis = function(){};
+
+    // Debounce utilitário (escopo global do script)
+    function debounce(fn, delay){
+      let t = null;
+      return function(...args){ clearTimeout(t); t = setTimeout(() => fn.apply(this, args), delay); };
+    }
+
+    // Contagem sempre respeitando filtros (sem bypass por 180) e com retorno de SQL de depuração
+    async function countForCurrentFilters() {
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const url = base + '/api/exams/select';
+      const token = getSessionToken();
+      // Usar count=1 para não acionar bypassFilters de 180 no checkAvailability
+      const payload = { count: 1, onlyCount: true, examType: currentExamType };
+      if (selecionados.areas.length) payload.areas = selecionados.areas;
+      if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
+      if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
+      try {
+        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
+        const txt = await resp.text();
+        let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
+        if (data && typeof data.available === 'number') return data.available;
+        return null;
+      } catch (_) { return null; }
+    }
+
+    // Debounced updater disponível globalmente para ser chamado ao clicar nos filtros
+    scheduleAtualizarDisponiveis = debounce(async () => {
+      const temFiltros = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length) > 0;
+      if (!temFiltros) { return; }
+      try { resumoQtd.textContent = '...'; } catch(_){ }
+      const disponiveis = await countForCurrentFilters();
+      if (typeof disponiveis === 'number') {
+        resumoQtd.textContent = String(disponiveis);
+      }
+    }, 300);
 
     // Try to rehydrate saved filters
     try {
@@ -415,6 +456,13 @@
           const idx = arr.indexOf(id);
           if (idx >= 0) { arr.splice(idx, 1); btn.classList.remove('active'); }
           else { arr.push(id); btn.classList.add('active'); }
+          // Ao selecionar qualquer filtro, limpar o campo de quantidade
+          try {
+            const totalSel = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length);
+            if (totalSel > 0) {
+              quantidadeInput.value = '';
+            }
+          } catch(_){ }
           atualizarResumo();
           salvarSelecoes();
         });
@@ -424,6 +472,11 @@
 
     function atualizarResumo() {
       resumoQtd.textContent = quantidadeInput.value || '-';
+        // Se não houver filtros selecionados, manter o comportamento anterior (mostrar quantidade digitada)
+        const filtrosSelecionados = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length) > 0;
+        if (!filtrosSelecionados) {
+          resumoQtd.textContent = quantidadeInput.value || '-';
+        }
       const nomes = [];
       const pushFrom = (list, ids) => {
         const map = new Map(list.map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
@@ -433,6 +486,8 @@
       pushFrom(meta.grupos, selecionados.grupos);
       pushFrom(meta.areas, selecionados.areas);
       resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
+        // Atualiza a contagem disponível para os filtros (se houver)
+        scheduleAtualizarDisponiveis();
     }
 
     function salvarSelecoes() {
@@ -452,6 +507,8 @@
         if (abaAtual === 'dominios') renderChecklist(meta.dominios);
         if (abaAtual === 'grupos') renderChecklist(meta.grupos);
         if (abaAtual === 'areas') renderChecklist(meta.areas);
+        // Ao trocar de aba, reprocessar o resumo e contagem
+        atualizarResumo();
       });
     });
 
@@ -553,8 +610,44 @@
       if (errorBox) errorBox.style.display = 'none';
       if (!validateForm()) return;
 
-      const effCount = resolveEffectiveCount();
-      if (!effCount) return; // safety
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length) > 0;
+      const userProvided = !!quantidadeInput.value;
+      let effCount = resolveEffectiveCount();
+
+      // Novo comportamento: se houver filtros e o usuário NÃO informou quantidade,
+      // iniciar com a quantidade disponível pelos filtros (respeitando limite do plano)
+      if (!userProvided && hasFocos) {
+        const disponiveis = await countForCurrentFilters();
+        if (typeof disponiveis !== 'number' || disponiveis < 1) {
+          if (errorBox) {
+            errorBox.innerHTML = `Nenhuma questão encontrada para os filtros selecionados.`;
+            errorBox.style.display = '';
+          }
+          return;
+        }
+        const finalCount = bloqueado ? Math.min(disponiveis, 25) : disponiveis;
+        // Confirmar se exatamente 180 (exame completo)
+        if (finalCount === 180) {
+          showFullExamConfirm(() => {
+            try {
+              localStorage.setItem('examQuestionCount', String(180));
+              localStorage.setItem('examCountFromDefault', 'true');
+            } catch(e) {}
+            salvarSelecoes();
+            try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
+            window.location.href = './examFull.html';
+          });
+          return;
+        }
+        try {
+          localStorage.setItem('examQuestionCount', String(finalCount));
+          localStorage.setItem('examCountFromDefault', 'true');
+        } catch(e) {}
+        salvarSelecoes();
+        try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
+        window.location.href = './exam.html';
+        return;
+      }
 
       // Preflight: ask backend how many are available for current filters
       const available = await checkAvailability(effCount);
@@ -616,7 +709,7 @@
       // Persistência: se usuário não informou quantidade, salvar o count efetivo depois na exam.html
       // Entretanto, para a exam.html requisitar corretamente, salvamos agora o valor que será enviado —
       // exceto quando effCount === 180, onde pediremos confirmação antes de redirecionar
-      const userProvided = !!quantidadeInput.value;
+      // userProvided já calculado acima
       if (effCount === 180) {
         // pedir confirmação antes de seguir para a página dedicada
         showFullExamConfirm(() => {
@@ -724,11 +817,17 @@
       document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
       quantidadeInput.setAttribute('max', String(limiteQuestoes));
       atualizarResumo();
+      // examType muda o escopo da contagem
+      scheduleAtualizarDisponiveis();
     });
 
     // Kick off
     loadExamTypes();
-    loadMeta();
+    loadExamTypes();
+    loadMeta().then(() => {
+      // Faça uma contagem inicial se já houver filtros salvos
+      scheduleAtualizarDisponiveis();
+    });
   </script>
   </body>
   </html>

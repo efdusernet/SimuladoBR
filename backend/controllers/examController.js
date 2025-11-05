@@ -99,7 +99,6 @@ exports.selectQuestions = async (req, res) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   const examCfg = await getExamTypeBySlugOrDefault(examType);
-  const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
 
@@ -128,11 +127,12 @@ exports.selectQuestions = async (req, res) => {
   const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
   const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
+  const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
 
   // Build WHERE clause
   const whereClauses = [`excluido = false`, `idstatus = 1`];
   // Filter by exam type linkage if available in DB (1:N)
-  if (!ignoreExamType && examCfg && examCfg._dbId) {
+  if (examCfg && examCfg._dbId) {
     whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
   }
   if (bloqueio) whereClauses.push(`seed = true`);
@@ -143,27 +143,40 @@ exports.selectQuestions = async (req, res) => {
   if (grupos && grupos.length) whereClauses.push(`codgrupoprocesso IN (${grupos.join(',')})`);
   const whereSql = whereClauses.join(' AND ');
 
-    // Count available
+    // Count available (with exam_type when applicable)
   const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;
     const countRes = await sequelize.query(countQuery, { type: sequelize.QueryTypes.SELECT });
-    const available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
+    let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
+
+    // Always respect exam type; no fallback that drops exam_type
+    const whereSqlUsed = whereSql;
+
     // Support preflight count-only check
     const onlyCount = Boolean(req.body && req.body.onlyCount) || String(req.query && req.query.onlyCount).toLowerCase() === 'true';
     if (onlyCount) {
-      return res.json({ available });
+      const wantDebugSql = String(req.get('X-Debug-SQL') || '').toLowerCase() === 'true';
+      const out = { available };
+      if (wantDebugSql) {
+        out.where = whereSqlUsed;
+        out.query = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSqlUsed}`;
+        out.filters = { dominios, areas, grupos, bloqueio, examType };
+      }
+      return res.json(out);
     }
-    if (available < count) {
+
+    if (available < 1) {
       return res.status(400).json({ error: 'Not enough questions available', available });
     }
+    const limitUsed = Math.min(count, available);
     // Select random questions and join explicacaoguia to get the explanation text
     // explicacaoguia.Descricao contains the explicacao and links by idquestao -> questao.id
     const selectQ = `SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, eg."Descricao" AS explicacao
       FROM questao q
       LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
-      WHERE ${whereSql}
+      WHERE ${whereSqlUsed}
       ORDER BY random()
       LIMIT :limit`;
-    const questions = await sequelize.query(selectQ, { replacements: { limit: count }, type: sequelize.QueryTypes.SELECT });
+    const questions = await sequelize.query(selectQ, { replacements: { limit: limitUsed }, type: sequelize.QueryTypes.SELECT });
 
     const ids = questions.map(q => q.id);
 
@@ -208,7 +221,7 @@ exports.selectQuestions = async (req, res) => {
     });
 
     // generate session id and persist attempt with ordered questions
-    const sessionId = genSessionId();
+  const sessionId = genSessionId();
 
     // initialize pause state based on policy
     const policy = examCfg.pausas || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
@@ -238,7 +251,7 @@ exports.selectQuestions = async (req, res) => {
             multiplaSelecao: examCfg.multiplaSelecao,
             pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
           },
-          FiltrosUsados: { dominios, areas, grupos },
+          FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
         }, { transaction: t });
         if (attempt && ids.length) {
           const rows = ids.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));
@@ -504,7 +517,6 @@ exports.startOnDemand = async (req, res) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   const examCfg = await getExamTypeBySlugOrDefault(examType);
-  const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
     let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -522,11 +534,12 @@ exports.startOnDemand = async (req, res) => {
     const bloqueio = Boolean(user.BloqueioAtivado);
     if (bloqueio && count > 25) count = 25;
 
-    const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
-    const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
-    const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
+  const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
+  const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
+  const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
+  const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
     const whereClauses = [`excluido = false`, `idstatus = 1`];
-    if (!ignoreExamType && examCfg && examCfg._dbId) {
+    if (examCfg && examCfg._dbId) {
       whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
     }
     if (bloqueio) whereClauses.push(`seed = true`);
@@ -537,11 +550,15 @@ exports.startOnDemand = async (req, res) => {
 
     const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;
     const countRes = await sequelize.query(countQuery, { type: sequelize.QueryTypes.SELECT });
-    const available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
-    if (available < count) return res.status(400).json({ error: 'Not enough questions available', available });
+    let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
 
-    const selectIdsQ = `SELECT q.id FROM questao q WHERE ${whereSql} ORDER BY random() LIMIT :limit`;
-    const rows = await sequelize.query(selectIdsQ, { replacements: { limit: count }, type: sequelize.QueryTypes.SELECT });
+    // Always respect exam type; no fallback that drops exam_type
+    const whereSqlUsed = whereSql;
+    if (available < 1) return res.status(400).json({ error: 'Not enough questions available', available });
+    const limitUsed = Math.min(count, available);
+
+    const selectIdsQ = `SELECT q.id FROM questao q WHERE ${whereSqlUsed} ORDER BY random() LIMIT :limit`;
+    const rows = await sequelize.query(selectIdsQ, { replacements: { limit: limitUsed }, type: sequelize.QueryTypes.SELECT });
     const questionIds = rows.map(r => r.id || r.Id);
     const sessionId = genSessionId();
     // initialize pause state based on policy
@@ -557,7 +574,7 @@ exports.startOnDemand = async (req, res) => {
         UserId: user.Id || user.id,
         ExamTypeId: examCfg._dbId || null,
         Modo: 'on-demand',
-        QuantidadeQuestoes: questionIds.length,
+  QuantidadeQuestoes: questionIds.length,
         StartedAt: new Date(),
         Status: 'in_progress',
         PauseState: pauseState,
@@ -572,7 +589,7 @@ exports.startOnDemand = async (req, res) => {
           multiplaSelecao: examCfg.multiplaSelecao,
           pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
         },
-        FiltrosUsados: { dominios, areas, grupos },
+  FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
       }, { transaction: t });
       if (attempt && questionIds.length) {
         const rows = questionIds.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));

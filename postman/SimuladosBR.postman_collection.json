@@ -187,5 +187,61 @@
         }
       ]
     }
+    ,
+    {
+      "name": "Admin — Roles",
+      "item": [
+        {
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/roles", "host": ["{{BACKEND_BASE}}"], "path": ["api","roles"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const data = pm.response.json(); if (Array.isArray(data) && data.length) { pm.environment.set('lastRoleSlug', data[0].slug); pm.environment.set('lastRoleId', data[0].id); }"
+          ] } } ]
+        },
+        {
+          "name": "Get user roles",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/roles/user/{{lastCreatedUserId}}", "host": ["{{BACKEND_BASE}}"], "path": ["api","roles","user","{{lastCreatedUserId}}"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const rows = pm.response.json(); pm.expect(rows).to.be.an('array');"
+          ] } } ]
+        },
+        {
+          "name": "Assign role (admin)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": {{lastCreatedUserId}},\n  \"roleSlug\": \"admin\"\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/roles/assign", "host": ["{{BACKEND_BASE}}"], "path": ["api","roles","assign"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const r = pm.response.json(); pm.expect(r).to.have.property('ok', true);"
+          ] } } ]
+        },
+        {
+          "name": "Remove role (admin)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": {{lastCreatedUserId}},\n  \"roleSlug\": \"admin\"\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/roles/remove", "host": ["{{BACKEND_BASE}}"], "path": ["api","roles","remove"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const r = pm.response.json(); pm.expect(r).to.have.property('ok', true);"
+          ] } } ]
+        }
+      ]
+    }
   ]
 }

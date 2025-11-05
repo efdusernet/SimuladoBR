@@ -2,23 +2,303 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>SimuladosBR</title>
-    <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
-    <link rel="stylesheet" href="./dist/styles.css">
-    <link rel="stylesheet" href="./styles.css">
+    <style>
+        :root{
+            --bg: #0f172a;         /* slate-900 */
+            --panel: #111827;      /* gray-900 */
+            --text: #e5e7eb;       /* gray-200 */
+            --muted: #94a3b8;      /* slate-400 */
+            --primary: #4f46e5;    /* indigo-600 */
+            --primary-press: #4338ca; /* indigo-700 */
+            --border: #1f2937;     /* gray-800 */
+            --shadow: 0 8px 20px rgba(0,0,0,.35);
+        }
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{
+            margin:0; padding:0;
+            display:flex; flex-direction:column; min-height:100vh;
+            background:var(--bg); color:var(--text);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, 'Helvetica Neue', Arial, 'Apple Color Emoji','Segoe UI Emoji';
+            touch-action: manipulation;
+        }
+
+        /* Main content area (scrollable above bottom nav) */
+                    .content{
+                        flex:1 1 auto; overflow-y:auto; padding:16px 16px calc(env(safe-area-inset-bottom) + 48px) 16px;
+                    }
+        .section{display:none}
+        .section.active{display:block}
+        .title{font-size:1.6rem; text-align:center; margin:4px 0 6px}
+        .debug{font-size:0.9rem; color:var(--muted); text-align:center; margin:0 0 16px}
+
+        /* Grid of 6 cards (2 x 3) */
+            .card-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; width:100%; max-width:320px; margin:0 auto; justify-items:center; }
+                .card{
+                    background:var(--panel); border:1px solid var(--border);
+                    width:44px; height:44px; /* mantém área de toque confortável */
+                    display:flex; align-items:center; justify-content:center;
+                    border-radius:10px; box-shadow: var(--shadow);
+                    cursor:pointer; transition: transform .15s ease, box-shadow .15s ease;
+                    padding:0; outline:none; color:inherit;
+                }
+            .card:hover{ transform: scale(1.08) }
+            .card:active{ transform: scale(0.98) }
+                .thumb{ width:30px; height:30px; border-radius:8px; object-fit:cover; display:block }
+                    /* Simulador card variant: icon + label */
+                    .card--simulador{ flex-direction:column; gap:2px }
+                    .card--simulador .thumb{ width:24px; height:24px; border-radius:6px }
+                    .card-label{ font-size:.55rem; line-height:1; color:var(--muted); user-select:none }
+                @media (min-width:480px){
+                    .card{ width:64px; height:64px }
+                        .thumb{ width:50px; height:50px }
+                        .card--simulador .thumb{ width:38px; height:38px }
+                        .card-label{ font-size:.62rem }
+                .card-grid{ max-width:340px }
+            }
+
+        /* Bottom navigation bar */
+                    .bottom-nav{
+                        position:fixed; left:0; right:0; bottom:0; height:44px;
+            background:var(--panel); border-top:1px solid var(--border);
+            display:flex; align-items:center; justify-content:space-around; z-index:1000;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+                        .nav-item{
+                            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0;
+                            min-width:40px; min-height:44px; padding:1px 4px; border-radius:8px; color:var(--muted);
+            user-select:none; -webkit-tap-highlight-color: transparent; cursor:pointer; transition: color .15s ease, background .15s ease;
+        }
+        .nav-item.active{ color: var(--primary); background: rgba(79,70,229,0.08) }
+                        .nav-icon{ width:16px; height:16px; fill: currentColor; display:block }
+                        .nav-text{ display:none }
+
+                /* Desktop: reduzir ainda mais o bottom nav mantendo mobile confortável */
+                @media (min-width: 640px){
+                    .bottom-nav{ height:36px }
+                    .nav-item{ min-height:32px; min-width:36px; padding:1px 4px }
+                    .nav-icon{ width:14px; height:14px }
+                    .content{ padding-bottom: calc(env(safe-area-inset-bottom) + 40px) }
+                }
+
+                /* Modo compacto opcional: aplique a classe .compact no <body> para forçar tamanho reduzido em qualquer tela */
+                body.compact .bottom-nav{ height:32px }
+                body.compact .nav-item{ min-height:32px; min-width:32px; padding:0 4px }
+                body.compact .nav-icon{ width:14px; height:14px }
+                body.compact .content{ padding-bottom: calc(env(safe-area-inset-bottom) + 36px) }
+
+        /* Fullscreen overlay */
+        .overlay{ position:fixed; inset:0; background:#000; display:none; align-items:center; justify-content:center; z-index:2000; }
+        .overlay.active{ display:flex }
+        .overlay img{ max-width:100vw; max-height:100vh; object-fit:contain }
+        .back-btn{
+            position:fixed; top:16px; left:16px; width:40px; height:40px; border-radius:999px; border:1px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none;
+        }
+        .back-btn svg{ width:22px; height:22px; fill:#fff }
+    </style>
 </head>
 <body>
-    <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
-        <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
-    </header>
-    <main>
-        <h1>Bem-vindo ao SimuladosBR</h1>
-        <p id="status">Verificando sessão...</p>
+    <main class="content">
+        <!-- Sections -->
+        <section id="home" class="section active" aria-labelledby="tab-home">
+            <h2 class="title">HOME</h2>
+            <p class="debug" id="debug-home">Cliques: 1</p>
+            <div class="card-grid">
+                                <button class="card card--simulador" data-full="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='none'><rect x='40' y='24' width='176' height='208' rx='16' fill='%2321283a' stroke='%23ffffff' stroke-width='8'/><rect x='88' y='8' width='80' height='24' rx='6' fill='%234f46e5'/><path d='M72 80h112' stroke='%23ffffff' stroke-width='10' stroke-linecap='round'/><path d='M72 112h80' stroke='%23ffffff' stroke-width='10' stroke-linecap='round'/><path d='M72 144h96' stroke='%23ffffff' stroke-width='10' stroke-linecap='round'/><path d='M72 176h72' stroke='%23ffffff' stroke-width='10' stroke-linecap='round'/><path d='M160 112l12 12 24-24' stroke='%234f46e5' stroke-width='12' stroke-linecap='round' stroke-linejoin='round'/></svg>" aria-label="Simulador">
+                                        <svg class="thumb" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="none">
+                                            <rect x="12" y="8" width="40" height="48" rx="6" fill="#1f2937" stroke="#ffffff" stroke-width="2"/>
+                                            <path d="M20 20h28" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M20 28h20" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M20 36h24" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M42 28l4 4 8-8" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        <span class="card-label">Simulador</span>
+                                </button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=2" aria-label="Abrir imagem 2">
+                    <img class="thumb" src="https://picsum.photos/80/80?random=2" alt="Imagem 2">
+                </button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=3" aria-label="Abrir imagem 3">
+                    <img class="thumb" src="https://picsum.photos/80/80?random=3" alt="Imagem 3">
+                </button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=4" aria-label="Abrir imagem 4">
+                    <img class="thumb" src="https://picsum.photos/80/80?random=4" alt="Imagem 4">
+                </button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=5" aria-label="Abrir imagem 5">
+                    <img class="thumb" src="https://picsum.photos/80/80?random=5" alt="Imagem 5">
+                </button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=6" aria-label="Abrir imagem 6">
+                    <img class="thumb" src="https://picsum.photos/80/80?random=6" alt="Imagem 6">
+                </button>
+            </div>
+        </section>
+
+        <section id="search" class="section" aria-labelledby="tab-search">
+            <h2 class="title">BUSCAR</h2>
+            <p class="debug" id="debug-search">Cliques: 0</p>
+            <div class="card-grid">
+                <button class="card" data-full="https://picsum.photos/800/800?random=11" aria-label="Abrir imagem 1"><img class="thumb" src="https://picsum.photos/80/80?random=11" alt="Imagem 1"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=12" aria-label="Abrir imagem 2"><img class="thumb" src="https://picsum.photos/80/80?random=12" alt="Imagem 2"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=13" aria-label="Abrir imagem 3"><img class="thumb" src="https://picsum.photos/80/80?random=13" alt="Imagem 3"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=14" aria-label="Abrir imagem 4"><img class="thumb" src="https://picsum.photos/80/80?random=14" alt="Imagem 4"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=15" aria-label="Abrir imagem 5"><img class="thumb" src="https://picsum.photos/80/80?random=15" alt="Imagem 5"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=16" aria-label="Abrir imagem 6"><img class="thumb" src="https://picsum.photos/80/80?random=16" alt="Imagem 6"></button>
+            </div>
+        </section>
+
+        <section id="favorites" class="section" aria-labelledby="tab-favorites">
+            <h2 class="title">FAVORITOS</h2>
+            <p class="debug" id="debug-favorites">Cliques: 0</p>
+            <div class="card-grid">
+                <button class="card" data-full="https://picsum.photos/800/800?random=21" aria-label="Abrir imagem 1"><img class="thumb" src="https://picsum.photos/80/80?random=21" alt="Imagem 1"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=22" aria-label="Abrir imagem 2"><img class="thumb" src="https://picsum.photos/80/80?random=22" alt="Imagem 2"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=23" aria-label="Abrir imagem 3"><img class="thumb" src="https://picsum.photos/80/80?random=23" alt="Imagem 3"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=24" aria-label="Abrir imagem 4"><img class="thumb" src="https://picsum.photos/80/80?random=24" alt="Imagem 4"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=25" aria-label="Abrir imagem 5"><img class="thumb" src="https://picsum.photos/80/80?random=25" alt="Imagem 5"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=26" aria-label="Abrir imagem 6"><img class="thumb" src="https://picsum.photos/80/80?random=26" alt="Imagem 6"></button>
+            </div>
+        </section>
+
+        <section id="profile" class="section" aria-labelledby="tab-profile">
+            <h2 class="title">PERFIL</h2>
+            <p class="debug" id="debug-profile">Cliques: 0</p>
+            <div class="card-grid">
+                <button class="card" data-full="https://picsum.photos/800/800?random=31" aria-label="Abrir imagem 1"><img class="thumb" src="https://picsum.photos/80/80?random=31" alt="Imagem 1"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=32" aria-label="Abrir imagem 2"><img class="thumb" src="https://picsum.photos/80/80?random=32" alt="Imagem 2"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=33" aria-label="Abrir imagem 3"><img class="thumb" src="https://picsum.photos/80/80?random=33" alt="Imagem 3"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=34" aria-label="Abrir imagem 4"><img class="thumb" src="https://picsum.photos/80/80?random=34" alt="Imagem 4"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=35" aria-label="Abrir imagem 5"><img class="thumb" src="https://picsum.photos/80/80?random=35" alt="Imagem 5"></button>
+                <button class="card" data-full="https://picsum.photos/800/800?random=36" aria-label="Abrir imagem 6"><img class="thumb" src="https://picsum.photos/80/80?random=36" alt="Imagem 6"></button>
+            </div>
+        </section>
     </main>
 
-    <!-- Página inicial não contém mais o modal de login; use /login -->
+    <!-- Bottom navigation bar -->
+    <nav class="bottom-nav" aria-label="Navegação inferior">
+        <button class="nav-item active" id="tab-home" data-target="home" aria-label="Home">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.172l8 7V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.828l8-7zM21 10.414l-9-7.875-9 7.875V20a3 3 0 0 0 3 3h4a1 1 0 0 0 1-1v-6h4v6a1 1 0 0 0 1 1h4a3 3 0 0 0 3-3v-9.586z"/></svg>
+            <span class="nav-text">Home</span>
+        </button>
+        <button class="nav-item" id="tab-search" data-target="search" aria-label="Buscar">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2a8 8 0 0 1 6.32 12.9l4.39 4.39a1 1 0 0 1-1.42 1.42l-4.39-4.39A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12A6 6 0 0 0 10 4z"/></svg>
+            <span class="nav-text">Buscar</span>
+        </button>
+        <button class="nav-item" id="tab-favorites" data-target="favorites" aria-label="Favoritos">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C6 15.36 3 12.53 3 9.24 3 6.5 5.24 4.5 7.88 4.5c1.54 0 3.04.73 4.12 1.9a5.9 5.9 0 0 1 4.12-1.9C18.76 4.5 21 6.5 21 9.24c0 3.29-3 6.12-7.55 10.79L12 21.35z"/></svg>
+            <span class="nav-text">Favoritos</span>
+        </button>
+        <button class="nav-item" id="tab-profile" data-target="profile" aria-label="Perfil">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a6 6 0 1 1 0 12A6 6 0 0 1 12 2zm0 14c4.42 0 8 2.24 8 5v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1c0-2.76 3.58-5 8-5z"/></svg>
+            <span class="nav-text">Perfil</span>
+        </button>
+    </nav>
 
-    <script src="./assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='./script.js';document.body.appendChild(s);}())"></script>
+    <!-- Fullscreen overlay for image -->
+    <div id="fullOverlay" class="overlay" aria-hidden="true">
+        <button id="backBtn" class="back-btn" aria-label="Voltar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <img id="fullImg" alt="Imagem em tela cheia" />
+    </div>
+
+        <!-- Configura caminho absoluto para o fragmento do examSetup -->
+        <script>
+            window.SIMULADOS_CONFIG = Object.assign({}, window.SIMULADOS_CONFIG || {}, {
+                EXAM_SETUP_PATH: '/pages/examSetup.html'
+            });
+        </script>
+        <!-- Script global do app (necessário para abrir o examSetup modal) -->
+    <script src="./script.js" onerror="(function(){var s=document.createElement('script');s.src='./assets/build/script.js';document.body.appendChild(s);}())"></script>
+
+    <script>
+        (function(){
+            const counters = { home: 1, search: 0, favorites: 0, profile: 0 };
+            const sections = {
+                home: document.getElementById('home'),
+                search: document.getElementById('search'),
+                favorites: document.getElementById('favorites'),
+                profile: document.getElementById('profile')
+            };
+            const debugEls = {
+                home: document.getElementById('debug-home'),
+                search: document.getElementById('debug-search'),
+                favorites: document.getElementById('debug-favorites'),
+                profile: document.getElementById('debug-profile')
+            };
+            const nav = document.querySelector('.bottom-nav');
+            const navItems = Array.from(document.querySelectorAll('.bottom-nav .nav-item'));
+            const overlay = document.getElementById('fullOverlay');
+            const fullImg = document.getElementById('fullImg');
+            const backBtn = document.getElementById('backBtn');
+
+            function updateDebug(name){ if (debugEls[name]) debugEls[name].textContent = 'Cliques: ' + counters[name]; }
+
+            function setActive(target){
+                // update nav state
+                navItems.forEach(it => it.classList.remove('active'));
+                const btn = navItems.find(it => it.dataset.target === target);
+                if (btn) btn.classList.add('active');
+
+                // update sections
+                Object.keys(sections).forEach(k => sections[k].classList.remove('active'));
+                if (sections[target]) sections[target].classList.add('active');
+            }
+
+            // Initialize Home debug
+            updateDebug('home');
+
+            // Nav click handling
+            navItems.forEach(it => {
+                it.addEventListener('click', () => {
+                    const target = it.dataset.target;
+                    if (!target) return;
+                    counters[target] = (counters[target] || 0) + 1;
+                    updateDebug(target);
+                    setActive(target);
+                });
+            });
+
+            // Card click: Simulador abre examSetup (opção A); demais abrem overlay full screen
+            document.addEventListener('click', (e) => {
+                const card = e.target.closest && e.target.closest('.card');
+                if (!card) return;
+                // Se for o card do Simulador, usar fluxo do script.js
+                if (card.classList.contains('card--simulador')){
+                    // Evita qualquer ação/navegação padrão e outros handlers paralelos
+                    try { e.preventDefault(); } catch(_) {}
+                    try { e.stopPropagation(); } catch(_) {}
+                    try { if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation(); } catch(_) {}
+                    if (window.showExamSetupAndRedirect) {
+                        // Usa caminho absoluto para consistência
+                        window.showExamSetupAndRedirect('/pages/exam.html');
+                    }
+                    return;
+                }
+                const url = card.getAttribute('data-full');
+                if (!url) return;
+                fullImg.src = url;
+                overlay.classList.add('active');
+                overlay.setAttribute('aria-hidden', 'false');
+                if (nav) nav.style.display = 'none';
+                document.body.style.overflow = 'hidden';
+            }, true); // capture phase para interceptar o clique o quanto antes
+
+            // Close overlay
+            backBtn.addEventListener('click', () => {
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+                fullImg.removeAttribute('src');
+                if (nav) nav.style.display = '';
+                document.body.style.overflow = '';
+            });
+
+            // Close overlay when clicking backdrop (except image/back button)
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) backBtn.click();
+            });
+        })();
+    </script>
 </body>
 </html>

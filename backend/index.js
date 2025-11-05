@@ -34,6 +34,18 @@ const path = require('path');
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const fs = require('fs');
+
+// Protect admin pages before static middleware: only admins can fetch /pages/admin/* HTML files
+const requireAdmin = require('./middleware/requireAdmin');
+app.use('/pages/admin', requireAdmin, express.static(path.join(FRONTEND_DIR, 'pages', 'admin')));
+
+// Friendly aliases for admin pages (HTML), protected
+app.get('/admin/questions/form', requireAdmin, (req, res) => {
+	res.sendFile(path.join(FRONTEND_DIR, 'pages', 'admin', 'questionForm.html'));
+});
+app.get('/admin/questions/bulk', requireAdmin, (req, res) => {
+	res.sendFile(path.join(FRONTEND_DIR, 'pages', 'admin', 'questionBulk.html'));
+});
 if (fs.existsSync(FRONTEND_DIST)) {
 	app.use(express.static(FRONTEND_DIST));
 }
@@ -56,6 +68,8 @@ app.use('/api/questions', require('./routes/questions'));
 app.use('/api/meta', require('./routes/meta'));
 // Play Integrity
 app.use('/api/integrity', require('./routes/integrity'));
+// Admin: roles management (protected)
+app.use('/api/roles', require('./routes/roles'));
 // Mount debug routes (development only)
 app.use('/api/debug', require('./routes/debug'));
 

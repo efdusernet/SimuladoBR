@@ -1,8 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const status = document.getElementById('status');
-    // Safe helpers so code doesn't error if #status is not present on the page
-    const setStatus = (txt) => { try { if (status) { status.style.display = ''; status.textContent = txt || ''; } } catch(_){} };
-    const clearStatus = () => { try { if (status) { status.textContent = ''; status.style.display = 'none'; } } catch(_){} };
+    // Status banner removido do app — helpers mantidos como no-op para compatibilidade
+    const setStatus = () => {};
+    const clearStatus = () => {};
     const modal = document.getElementById('emailModal');
     const emailInput = document.getElementById('emailInput');
     const nameInput = document.getElementById('nameInput');
@@ -148,15 +147,32 @@ document.addEventListener('DOMContentLoaded', () => {
         // load modal (if not yet) and show it; store target url on modal
         const modalEl = await loadExamSetupModal();
         if (!modalEl) {
-            // fallback to direct redirect if modal can't be loaded
-            showRedirectSpinner('Entrando no simulado...');
-            setTimeout(()=>{ window.location.href = examUrl; }, 300);
+            // fallback revisado: se não conseguiu carregar o modal, vá para a página de configuração
+            const setupPath = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.EXAM_SETUP_PATH) || '/pages/examSetup.html';
+            showRedirectSpinner('Abrindo configuração do simulado...');
+            setTimeout(()=>{ window.location.href = setupPath; }, 100);
             return;
         }
         modalEl.setAttribute('data-exam-url', examUrl);
         modalEl.style.display = 'flex';
         modalEl.setAttribute('aria-hidden', 'false');
     }
+
+    // Sidebar: inject if placeholder exists
+    (async function initSidebar(){
+        try {
+            const mount = document.getElementById('appSidebar');
+            if (!mount) return; // only load when explicitly requested by the page
+            const resp = await fetch('/components/sidebar.html', { cache: 'no-store' });
+            if (!resp.ok) return;
+            const html = await resp.text();
+            mount.innerHTML = html;
+            // apply layout shift only for legacy sidebar; mcd-menu handles its own width
+            if (!/\bmcd-menu\b/.test(html)) {
+                document.body.classList.add('has-sidebar');
+            }
+        } catch(e) { console.warn('sidebar load failed', e); }
+    })();
 
     // Helper: generate token that ends with '#'
     function generateGuestToken() {
@@ -173,31 +189,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // If user appears logged-in and is visiting the site root, redirect to the exam page.
     try {
-    // Consider only true landing as root: '/', '' or '/index.html' (avoid matching '/login')
-    const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
+        // Consider only true landing as root: '/', '' or '/index.html' (avoid matching '/login')
+        const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
         const loggedIn = Boolean(hasUserId || hasNomeUsuario || hasNome);
         // treat guest tokens (ending with '#') as not-logged-in
         const isGuest = !!(sessionToken && sessionToken.endsWith('#'));
+        const hasSidebar = !!document.getElementById('appSidebar');
 
         // Diagnostics to help debugging when redirect does not occur
-    console.debug('[redirect-check] pathNow=', pathNow, 'isLanding=', isLanding, 'loggedIn=', loggedIn, 'isGuest=', isGuest, 'sessionToken=', sessionToken, 'hasUserId=', hasUserId, 'hasNomeUsuario=', hasNomeUsuario, 'hasNome=', hasNome);
+        console.debug('[redirect-check] pathNow=', pathNow, 'isLanding=', isLanding, 'loggedIn=', loggedIn, 'isGuest=', isGuest, 'hasSidebar=', hasSidebar);
 
-    if (isLanding && loggedIn && !isGuest) {
-            // Redirect to standalone setup page instead of going straight to the exam
-            const setupUrl = './pages/examSetup.html';
-            let absoluteUrl;
-            try {
-                absoluteUrl = new URL(setupUrl, window.location.href).href;
-            } catch (e) {
-                absoluteUrl = setupUrl;
-            }
-            console.info('[redirect] user looks logged in — redirecting to', absoluteUrl);
-            window.location.assign(absoluteUrl);
-            return; // stop further initialization on index
-        } else if (isLanding && (!loggedIn || isGuest)) {
-            // On the home page, if not logged in (or guest), go straight to /login
-            window.location.assign('/login');
-            return;
+        if (isLanding) {
+            // Não redirecionar mais a partir da index (home). Mantém usuário na página inicial.
+            // Importante: não sair da função para permitir que o restante da inicialização ocorra
+            // (ex.: exposição de funções globais para o card Simulador).
         }
     } catch (e) { console.warn('redirect check failed', e); }
 
@@ -222,6 +227,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Sync session token into a cookie so the server can authorize HTML GETs for admin pages
+    try {
+        if (sessionToken) {
+            // Write cookie for whole site; avoid Secure flag in http; SameSite=Lax for basic CSRF hardening
+            document.cookie = `sessionToken=${encodeURIComponent(sessionToken)}; Path=/; SameSite=Lax`;
+        }
+    } catch (e) { /* ignore cookie errors */ }
+
     // Try to sync BloqueioAtivado early (best-effort). This will populate localStorage for UI that reads it.
     if (sessionToken && !(sessionToken && sessionToken.endsWith('#'))) {
         syncBloqueioFromServer(sessionToken).catch(e => console.warn('early syncBloqueio failed', e));
@@ -231,21 +244,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Determine whether to force registration modal.
     // Old behavior: show modal when token endsWith('#').
-    // New: only show modal when token endsWith('#') AND we have no other registration hints (userId/nomeUsuario/nome).
-    if ((sessionToken && sessionToken.endsWith('#')) && !hasUserId && !hasNomeUsuario && !hasNome) {
-        setStatus('Usuário não registrado — registro obrigatório.');
-        if (modal) {
-            showEmailModal();
+    // New: on home (index.html) with sidebar, DO NOT redirect to /login and do not force modal; show as visitante.
+    (function(){
+        const guestUnregistered = (sessionToken && sessionToken.endsWith('#')) && !hasUserId && !hasNomeUsuario && !hasNome;
+        const pathNow = window.location.pathname || '';
+        const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
+        const hasSidebar = !!document.getElementById('appSidebar');
+
+        if (guestUnregistered) {
+            if (isLanding) {
+                // Na index, não força modal e não redireciona mais
+                setStatus('Visitante');
+                try { showUserHeader('Visitante'); } catch(_){}
+                return;
+            }
+            // Fora da index, manter comportamento anterior (mostrar modal ou redirecionar)
+            setStatus('Usuário não registrado — registro obrigatório.');
+            if (modal) {
+                showEmailModal();
+            } else {
+                window.location.assign('/login');
+                return;
+            }
         } else {
-            // Se não houver modal na página atual (ex.: index), redirecionar para /login
-            window.location.assign('/login');
-            return;
+            const displayedName = localStorage.getItem('nome') || localStorage.getItem('nomeUsuario') || sessionToken || '';
+            setStatus(displayedName ? `Usuário: ${displayedName}` : '');
+            try { showUserHeader(displayedName); } catch(e) { /* showUserHeader may be defined later */ }
         }
-    } else {
-        const displayedName = localStorage.getItem('nome') || localStorage.getItem('nomeUsuario') || sessionToken || '';
-        setStatus(displayedName ? `Usuário: ${displayedName}` : '');
-        try { showUserHeader(displayedName); } catch(e) { /* showUserHeader may be defined later */ }
-    }
+    })();
 
     function showEmailModal() {
         if (!modal) return;
@@ -701,4 +727,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setModalMode(next);
         });
     }
+    // Expor funções para uso externo (index.html - card Simulador)
+    try {
+        window.loadExamSetupModal = loadExamSetupModal;
+        window.showExamSetupAndRedirect = showExamSetupAndRedirect;
+    } catch (_) { /* ignore */ }
 });

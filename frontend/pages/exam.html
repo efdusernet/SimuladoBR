@@ -103,6 +103,7 @@
   <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->
   <script src="../script.js"></script>
   
+<<<<<<< HEAD
 =======
   <!-- registration/session script must run before exam script -->
   <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
@@ -111,6 +112,8 @@
   <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->
   <script src="../script.js"></script>
 >>>>>>> d408e4b (Versão ajustada intervalos PMP)
+=======
+>>>>>>> 869e54a (examSetup: clear quantidade on filter select; when filters selected and quantidade blank, start with available count (capped at 25 for free, exact for premium); removed debug SQL UI and hooks from examSetup and exam pages. Backend: always enforce exam_type_id in all selects; removed ignoreExamType and fallback; keep count-only debug support.)
   <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed -->
   <script>
     (function(){

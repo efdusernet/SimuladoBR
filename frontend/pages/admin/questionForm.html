@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastrar Questão</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .container{ max-width: 900px; margin: 24px auto; padding: 16px; background:#fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06);} 
+    .row{ margin-bottom: 12px; }
+    label{ display:block; font-weight:600; margin-bottom:6px; }
+    input[type="text"], textarea, select{ width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; }
+    .inline{ display:flex; gap:12px; align-items:flex-start; flex-wrap: wrap; }
+    .inline > *{ flex: 1 1 200px; }
+    /* Stack the optional taxonomy fields on the left, one below another */
+    .left-stack{ display:flex; flex-direction:column; gap:12px; align-items:stretch; flex: 0 0 320px; }
+    @media (max-width: 720px){ .left-stack{ flex-basis:100%; } }
+    .opts{ margin-top:8px; }
+    .opt{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+    .opt input[type="text"]{ flex: 1; }
+    .actions{ display:flex; gap:12px; margin-top: 16px; }
+    .btn{ background:#2b6cb0; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
+    .btn.secondary{ background:#edf2f7; color:#2b6cb0; border:1px solid #c6d3ff; }
+    .hint{ font-size:.9rem; color:#555; }
+    /* Reduce specific field widths by 1% as requested */
+    .left-stack input[type="text"]{ width:97%; }
+    #descricao{ width:97%; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Cadastrar Questão</h1>
+
+    <div class="row">
+      <label for="descricao">Enunciado</label>
+      <textarea id="descricao" rows="6" placeholder="Digite o enunciado da questão..."></textarea>
+    </div>
+
+    <div class="row inline">
+      <div class="left-stack">
+        <div>
+          <label for="iddominio">Domínio (opcional)</label>
+          <input type="text" id="iddominio" placeholder="ex.: 1" />
+        </div>
+        <div>
+          <label for="area">Área do conhecimento (opcional)</label>
+          <input type="text" id="area" placeholder="ex.: 1" />
+        </div>
+        <div>
+          <label for="grupo">Grupo de processo (opcional)</label>
+          <input type="text" id="grupo" placeholder="ex.: 1" />
+        </div>
+      </div>
+      <div>
+        <label for="examType">Tipo de exame</label>
+        <select id="examType"></select>
+      </div>
+      <div>
+        <label for="tipo">Tipo</label>
+        <select id="tipo">
+          <option value="single">Opção única (rádio)</option>
+          <option value="multi">Múltipla escolha (checkbox)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Dicas (opcional)</label>
+      <input type="text" id="dica" placeholder="Dica curta" />
+    </div>
+
+    <div class="row">
+      <label>Alternativas</label>
+      <div class="hint">Marque a correta. No tipo "Opção única" só é permitido 1 correta.</div>
+      <div id="opts" class="opts"></div>
+      <div class="actions">
+        <button class="btn secondary" id="addOpt">+ Adicionar alternativa</button>
+        <button class="btn secondary" id="clearOpts">Limpar alternativas</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="save">Salvar</button>
+      <a class="btn secondary" href="/">Voltar</a>
+    </div>
+
+    <div id="status" class="row"></div>
+  </div>
+
+  <script>
+    const $ = (id)=> document.getElementById(id);
+    const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+
+    function makeOptRow(text = '', correta = false){
+      const wrap = document.createElement('div');
+      wrap.className = 'opt';
+      const tipo = $('tipo').value;
+      const check = document.createElement('input');
+      check.type = (tipo === 'multi') ? 'checkbox' : 'radio';
+      check.name = 'correta';
+      check.checked = !!correta;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Texto da alternativa';
+      input.value = text || '';
+      const del = document.createElement('button');
+      del.className = 'btn secondary';
+      del.type = 'button';
+      del.textContent = 'Remover';
+      del.onclick = ()=> wrap.remove();
+
+      // Enforce single-correct for single type
+      check.addEventListener('change', ()=>{
+        if ($('tipo').value !== 'multi' && check.checked){
+          document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(r=>{ if (r !== check) r.checked = false; });
+        }
+      });
+
+      wrap.appendChild(check);
+      wrap.appendChild(input);
+      wrap.appendChild(del);
+      return wrap;
+    }
+
+    function ensureAtLeastTwo(){
+      const list = $('opts');
+      while (list.children.length < 4){ list.appendChild(makeOptRow()); }
+    }
+
+    $('addOpt').onclick = function(e){ e.preventDefault(); $('opts').appendChild(makeOptRow()); };
+    $('clearOpts').onclick = function(e){ e.preventDefault(); $('opts').innerHTML=''; ensureAtLeastTwo(); };
+    $('tipo').addEventListener('change', ()=>{
+      // Rebuild checks to correct control type
+      const list = $('opts');
+      const current = Array.from(list.children).map(row => ({ text: row.querySelector('input[type=text]').value, correta: row.querySelector('input[type=checkbox],input[type=radio]').checked }));
+      list.innerHTML='';
+      current.forEach(o => list.appendChild(makeOptRow(o.text, o.correta)));
+    });
+
+    function readOptions(){
+      const rows = Array.from(document.querySelectorAll('#opts .opt'));
+      const tipo = $('tipo').value;
+      const out = [];
+      let correctCount = 0;
+      rows.forEach(r => {
+        const text = r.querySelector('input[type=text]').value.trim();
+        const correta = r.querySelector('input[type=checkbox],input[type=radio]').checked;
+        if (text){ out.push({ descricao: text, correta }); if (correta) correctCount++; }
+      });
+      if (tipo === 'single' && correctCount > 1){
+        // keep only the first checked as correct
+        let seen = false;
+        out.forEach(o => { if (o.correta){ if (!seen) { seen = true; } else { o.correta = false; } } });
+      }
+      return out;
+    }
+
+    async function loadExamTypes(){
+      try {
+        const sel = $('examType');
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/exams/types');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(t => {
+          const o = document.createElement('option');
+          o.value = t.id; // slug
+          o.textContent = t.nome || t.id;
+          sel.appendChild(o);
+        });
+        // auto-select first concrete type if available
+        try { if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1; } catch(e){}
+      } catch(e) {
+        const sel = $('examType');
+        sel.innerHTML = '<option value="pmp">PMP</option>';
+      }
+    }
+
+    $('save').onclick = async function(){
+      const descricao = $('descricao').value.trim();
+      const tiposlug = $('tipo').value;
+      const examTypeSlug = ($('examType').value || '').trim();
+      const iddominio = $('iddominio').value.trim();
+      const area = $('area').value.trim();
+      const grupo = $('grupo').value.trim();
+      const dica = $('dica').value.trim();
+      if (!descricao){ alert('Informe o enunciado'); return; }
+  if (!examTypeSlug){ alert('Selecione o tipo de exame'); return; }
+      const options = readOptions();
+      if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
+      if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+
+      const payload = {
+        descricao,
+        tiposlug,
+        examTypeSlug: examTypeSlug || undefined,
+        iddominio: iddominio ? Number(iddominio) : undefined,
+        codareaconhecimento: area ? Number(area) : undefined,
+        codgrupoprocesso: grupo ? Number(grupo) : undefined,
+        dica: dica || undefined,
+        options
+      };
+      const token = localStorage.getItem('sessionToken') || '';
+      const url = (BACKEND_BASE || '') + '/api/questions';
+      $('status').textContent = 'Salvando...';
+      const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+      if (!resp.ok){ const t = await resp.text(); $('status').textContent = 'Erro ao salvar: ' + t; return; }
+      const data = await resp.json();
+      $('status').textContent = 'Criado com sucesso. ID: ' + data.id;
+      // Limpar formulário
+      $('descricao').value = '';
+      $('dica').value = '';
+      $('opts').innerHTML = '';
+      ensureAtLeastTwo();
+    };
+
+    // init
+    loadExamTypes();
+    ensureAtLeastTwo();
+  </script>
+</body>
+</html>

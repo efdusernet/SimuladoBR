@@ -12,12 +12,11 @@
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
     <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
   </header>
-  <p id="status" style="max-width:900px;margin:10px auto 0;display:none;padding:0 18px;color:#333"></p>
-  <div id="autosaveIndicator" style="max-width:900px;margin:4px auto 0;padding:0 18px;color:var(--muted);font-size:0.95rem;display:none;"></div>
+  
   <div id="toast" class="toast" aria-live="polite" style="display:none"></div>
 
-  <main class="exam-container" role="main">
-    <header class="exam-header">
+  <main class="exam-container" role="main" style="margin-top:8px;">
+    <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
       <div class="header-left" aria-hidden="true"></div>
 
       <div class="header-center" id="centerHeader">
@@ -37,6 +36,8 @@
         </div>
       </div>
     </header>
+
+    
 
     <section class="question-panel" aria-labelledby="questionNumber">
       <div class="meta-row">
@@ -62,30 +63,7 @@
         <p id="questionText" class="question-text">Carregando pergunta...</p>
 
         <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="0" />
-              <span class="option-text" id="opt0">Opção A</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="1" />
-              <span class="option-text" id="opt1">Opção B</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="2" />
-              <span class="option-text" id="opt2">Opção C</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="3" />
-              <span class="option-text" id="opt3">Opção D</span>
-            </label>
-          </div>
+          <div id="answersContainer"></div>
         </form>
 
         <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
@@ -99,22 +77,97 @@
   <!-- define session vars required by exam pages -->
   <script>
     try {
-  // tempoExame (minutos totais para o exame completo): 180 questões = 230 minutos
-  const _tempoExame = 230; // minutos
-  // FullExam: número total de questões do exame completo
-  const _FullExam = 180;
+      // Descobrir o blueprint do exame (se definido pelo setup ou pela API)
+      let bp = null;
+      try { const raw = localStorage.getItem('examBlueprint'); bp = raw ? JSON.parse(raw) : null; } catch(_) { bp = null; }
+
+      // Defaults (PMP): 180 questões, 230 minutos
+      const _tempoExame = (bp && Number(bp.duracaoMinutos)) ? Number(bp.duracaoMinutos) : 230; // em minutos
+      const _FullExam = (bp && Number(bp.numeroQuestoes)) ? Number(bp.numeroQuestoes) : 180;
+
       sessionStorage.setItem('tempoExame', JSON.stringify(_tempoExame));
       sessionStorage.setItem('FullExam', JSON.stringify(_FullExam));
       // também expor como variáveis globais numéricas para uso imediato no script
       window.tempoExame = _tempoExame;
       window.FullExam = _FullExam;
+      // Expor algumas flags do blueprint (usadas pelo script)
+      window.ExamMultiplaSelecao = !!(bp && bp.multiplaSelecao);
+      window.ExamCheckpoints = (bp && bp.pausas && Array.isArray(bp.pausas.checkpoints)) ? bp.pausas.checkpoints.slice() : [60,120];
     } catch (e) {
       console.warn('Falha ao definir variáveis de sessão:', e);
     }
   </script>
 
-  <!-- registration/session script must run before exam script -->
-  <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
+  <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->
+  <script src="../script.js"></script>
+  
+  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed; also auto-resume session on 404 'session not found' like examFull -->
+  <script>
+    (function(){
+      try {
+        const origFetch = window.fetch.bind(window);
+        window.fetch = async function(input, init){
+          try {
+            const url = (typeof input === 'string') ? input : (input && input.url) || '';
+            if (url && url.endsWith('/api/exams/select') && init && typeof init === 'object' && String(init.method||'').toUpperCase() === 'POST' && init.body) {
+              let body = null; try { body = JSON.parse(init.body); } catch(_){ body = null; }
+              const cnt = body && Number(body.count);
+              const onlyCount = !!(body && body.onlyCount === true);
+              // Inject quiz mode header (short exam) unless caller already specified
+              try {
+                const headers = new Headers(init.headers || {});
+                if (!headers.has('X-Exam-Mode')) headers.set('X-Exam-Mode', 'quiz');
+                init.headers = headers;
+              } catch(_){ }
+              if (cnt === 180 && body) {
+                delete body.areas; delete body.grupos; delete body.dominios;
+                init.body = JSON.stringify(body);
+              }
+              const resp = await origFetch(input, init);
+              if (resp && resp.status === 400 && cnt === 180) {
+                let available = null;
+                try { const t = await resp.clone().text(); const j = t ? JSON.parse(t) : null; if (j && typeof j.available === 'number') available = j.available; } catch(_){}
+                if (available === 0) {
+                  const headers = new Headers(init.headers || {});
+                  headers.delete('X-Exam-Type');
+                  // Preserve quiz mode on fallback retry
+                  if (!headers.has('X-Exam-Mode')) headers.set('X-Exam-Mode', 'quiz');
+                  return await origFetch(input, { method: 'POST', headers, body: JSON.stringify({ count: cnt, ignoreExamType: true, onlyCount }) });
+                }
+              }
+              return resp;
+            } else if (url && /\/api\/exams\/.+\/question\//.test(url)) {
+              // Auto-resume session if server lost in-memory state (e.g., after restart)
+              const resp = await origFetch(input, init);
+              if (resp && resp.status === 404) {
+                try {
+                  const txt = await resp.clone().text();
+                  const isSessionMissing = /session not found/i.test(txt || '');
+                  if (isSessionMissing) {
+                    const m = url.match(/\/api\/exams\/([^/]+)\/question\//);
+                    const sid = m && m[1] ? m[1] : null;
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    if (sid && token) {
+                      const r = await origFetch('/api/exams/resume', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                        body: JSON.stringify({ sessionId: sid })
+                      });
+                      if (r && r.ok) {
+                        return await origFetch(input, init);
+                      }
+                    }
+                  }
+                } catch(_){ }
+              }
+              return resp;
+            }
+          } catch(_){ }
+          return origFetch(input, init);
+        };
+      } catch(_){ }
+    })();
+  </script>
   <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
 
   <!-- initialize global QtdQuestoes and timer behavior -->
@@ -286,7 +339,23 @@
       function closeFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
       function attach(){
         const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
-  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', ()=>{ closeFinishConfirm(); clearExamData(); window.location.assign('/login'); });
+  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', async ()=>{
+    try { closeFinishConfirm(); } catch(_){ }
+    // submit to backend before clearing
+    try { if (window.submitExam) { await window.submitExam(); } } catch(e){ console.warn('submit on finalize failed', e); }
+    try { clearExamData(); } catch(_){ }
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+      const isGuest = token && token.endsWith('#');
+      const isLogged = !!(token || hasIdentity) && !(isGuest && !hasIdentity);
+      if (isLogged) {
+        window.location.assign('/pages/examSetup.html');
+      } else {
+        window.location.assign('/login');
+      }
+    } catch(e){ window.location.assign('/login'); }
+  });
         const no = document.getElementById('finishConfirmNo'); if (no) no.addEventListener('click', closeFinishConfirm);
         window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeFinishConfirm(); });
       }

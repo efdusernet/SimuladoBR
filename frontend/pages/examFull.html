@@ -168,14 +168,19 @@
                 if (bs) { bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }
         window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGrid(); });
       }
+                // manter o botão Continuar desabilitado durante a pausa
+                try {
+                  if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'false');
+                  const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                } catch(_){ }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachGridHandlers); else attachGridHandlers();
     })();
   </script>
 
   <!-- registration/session script must run before exam script -->
-  <!-- Use built script with fallback to non-minified for safety fixes (#status/#autosaveIndicator) -->
-  <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
-  <!-- Intercept selection to bypass filters when count=180; fallback ignoring exam_type if needed; auto-resume session on 404 question fetch -->
+  <!-- Prefer non-minified script on examFull to honor latest safety fixes for missing #status/#autosaveIndicator -->
+  <script src="../script.js"></script>
+  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed; also auto-resume session on 404 -->
   <script>
     (function(){
       try {
@@ -187,6 +192,12 @@
               let body = null; try { body = JSON.parse(init.body); } catch(_){ body = null; }
               const cnt = body && Number(body.count);
               const onlyCount = !!(body && body.onlyCount === true);
+              // Inject full mode header unless caller provided
+              try {
+                const headers = new Headers(init.headers || {});
+                if (!headers.has('X-Exam-Mode')) headers.set('X-Exam-Mode', 'full');
+                init.headers = headers;
+              } catch(_){ }
               if (cnt === 180 && body) {
                 delete body.areas; delete body.grupos; delete body.dominios;
                 init.body = JSON.stringify(body);
@@ -199,19 +210,21 @@
                 if (available === 0) {
                   const headers = new Headers(init.headers || {});
                   headers.delete('X-Exam-Type');
+                  // Preserve full mode on fallback retry
+                  if (!headers.has('X-Exam-Mode')) headers.set('X-Exam-Mode', 'full');
                   return await origFetch(input, { method: 'POST', headers, body: JSON.stringify({ count: cnt, ignoreExamType: true, onlyCount }) });
                 }
               }
               return resp;
             } else if (url && /\/api\/exams\/.+\/question\//.test(url)) {
-              // Auto-resume lost session (e.g., server restart) transparently once on 404
-              // Auto-resume lost session (e.g., server restart) transparently once on 404
+              // If session was lost (server restart), try to resume transparently once
               const resp = await origFetch(input, init);
               if (resp && resp.status === 404) {
                 try {
                   const txt = await resp.clone().text();
                   const isSessionMissing = /session not found/i.test(txt || '');
                   if (isSessionMissing) {
+                    // Extract sessionId from URL and attempt resume with X-Session-Token
                     const m = url.match(/\/api\/exams\/([^/]+)\/question\//);
                     const sid = m && m[1] ? m[1] : null;
                     const token = (localStorage.getItem('sessionToken') || '').trim();
@@ -221,7 +234,10 @@
                         headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
                         body: JSON.stringify({ sessionId: sid })
                       });
-                      if (r && r.ok) return await origFetch(input, init); // retry once
+                      if (r && r.ok) {
+                        // Retry original question fetch once
+                        return await origFetch(input, init);
+                      }
                     }
                   }
                 } catch(_){ }
@@ -234,7 +250,7 @@
       } catch(_){ }
     })();
   </script>
-  <!-- Make progress.currentIdx and backBarrier 1-based in storage; expose 0-based to runtime reads -->
+  <!-- Make progress.currentIdx and backBarrier 1-based in storage, but expose 0-based to runtime reads -->
   <script>
     (function(){
       try {
@@ -255,16 +271,22 @@
             if (isProgressKey(key) && val){
               const obj = JSON.parse(val);
               if (obj && typeof obj.currentIdx === 'number'){
+                // Convert 1-based (stored) -> 0-based (runtime)
                 const zero = Math.max(0, Math.floor(obj.currentIdx) - 1);
                 const clone = { ...obj, currentIdx: zero };
                 return JSON.stringify(clone);
               }
+              return val;
             }
             if (isBarrierKey(key) && val){
               const n = Number(val);
-              if (Number.isFinite(n)) return String(Math.max(0, Math.floor(n) - 1));
+              if (Number.isFinite(n)){
+                const zero = Math.max(0, Math.floor(n) - 1);
+                return String(zero);
+              }
+              return val;
             }
-          } catch(_){ }
+          } catch(_){}
           return val;
         };
 
@@ -283,7 +305,10 @@
             }
             if (isBarrierKey(key) && typeof value === 'string' && value.length){
               const n = Number(value);
-              if (Number.isFinite(n)) return __origSetItem(key, String(Math.max(1, Math.floor(n) + 1)));
+              if (Number.isFinite(n)){
+                const one = Math.max(1, Math.floor(n) + 1);
+                return __origSetItem(key, String(one));
+              }
             }
           } catch(_){}
           return __origSetItem(key, value);
@@ -348,19 +373,7 @@
           lab.style.color = on ? '#1b5e20' : '#b00020';
         } catch(_){ }
       }
-  function isGateIndex(idx){ return idx === 59 || idx === 119; }
-      function getCurrentIdxFromLabel(){ try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; } catch(_) { return null; } }
 
-      function writeStatus(){
-        try {
-          const lab = document.getElementById('continueStatusLabel');
-          const btn = document.getElementById('continueBtn');
-          if (!lab || !btn) return;
-          const on = !btn.disabled;
-          lab.textContent = 'Status do botão: ' + (on ? 'Habilitado' : 'Desabilitado');
-          lab.style.color = on ? '#1b5e20' : '#b00020';
-        } catch(_){ }
-      }
       function enforceGate(idx){
         try {
           const btn = document.getElementById('continueBtn'); if (!btn) return;
@@ -517,6 +530,7 @@
 
       } catch(e){ }
     })();
+  </script>
   </script>
 
   <!-- Finalizar exame: limpa variáveis de sessão/cache e deixa TODO para persistência futura -->

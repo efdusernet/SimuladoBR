@@ -20,7 +20,24 @@ router.post('/login', async (req, res) => {
 
         const email = body.Email.trim().toLowerCase();
         const user = await User.findOne({ where: { Email: email } });
-        if (!user) return res.status(401).json({ message: 'Credenciais inválidas' });
+        if (!user) {
+            // Usuário inexistente: não há onde registrar falha
+            return res.status(401).json({ message: 'Credenciais inválidas' });
+        }
+
+        // Verifica bloqueio temporário por FimBloqueio
+        try {
+            const now = Date.now();
+            const until = user.FimBloqueio ? new Date(user.FimBloqueio).getTime() : 0;
+            if (until && until > now) {
+                const secondsLeft = Math.ceil((until - now) / 1000);
+                return res.status(423).json({
+                    message: 'Muitas tentativas de login. Sua conta foi bloqueada temporariamente. Aguarde 5 minutos antes de tentar novamente.',
+                    lockoutUntil: new Date(until).toISOString(),
+                    lockoutSecondsLeft: secondsLeft
+                });
+            }
+        } catch (_) { /* ignore */ }
 
         // If email not confirmed, create/send verification token and ask user to validate
         if (!user.EmailConfirmado) {
@@ -35,12 +52,47 @@ router.post('/login', async (req, res) => {
             return res.status(403).json({ message: 'E-mail não confirmado. Enviamos um token para o seu e-mail.' });
         }
 
-        if (!user.SenhaHash) return res.status(401).json({ message: 'Usuário sem senha cadastrada' });
+        if (!user.SenhaHash) {
+            // Conta sem senha definida – registra falha
+            try {
+                const current = Number(user.AccessFailedCount || 0);
+                const next = current + 1;
+                let patch = { AccessFailedCount: next, DataAlteracao: new Date() };
+                // aplica bloqueio após 5 falhas
+                if (next >= 5) {
+                    const until = new Date(Date.now() + 5 * 60 * 1000);
+                    patch = { ...patch, AccessFailedCount: 0, FimBloqueio: until };
+                }
+                await user.update(patch);
+            } catch (_) { /* ignore */ }
+            return res.status(401).json({ message: 'Usuário sem senha cadastrada' });
+        }
 
         const match = await bcrypt.compare(body.SenhaHash, user.SenhaHash);
-        if (!match) return res.status(401).json({ message: 'Credenciais inválidas' });
+        if (!match) {
+            // Senha incorreta – incrementa contador de falhas
+            try {
+                const current = Number(user.AccessFailedCount || 0);
+                const next = current + 1;
+                let patch = { AccessFailedCount: next, DataAlteracao: new Date() };
+                // aplica bloqueio após 5 falhas
+                if (next >= 5) {
+                    const until = new Date(Date.now() + 5 * 60 * 1000);
+                    patch = { ...patch, AccessFailedCount: 0, FimBloqueio: until };
+                }
+                await user.update(patch);
+            } catch (_) { /* ignore */ }
+            return res.status(401).json({ message: 'Credenciais inválidas' });
+        }
 
         // Successful login - return minimal user info
+        // Zera o contador de falhas, se necessário
+        try {
+            const patch = { DataAlteracao: new Date() };
+            if (Number(user.AccessFailedCount || 0) !== 0) patch.AccessFailedCount = 0;
+            if (user.FimBloqueio) patch.FimBloqueio = null; // limpa bloqueio antigo
+            await user.update(patch);
+        } catch (_) { /* ignore */ }
         return res.json({
             Id: user.Id,
             NomeUsuario: user.NomeUsuario,

@@ -287,25 +287,29 @@
     </div>
   </div>
 
-  <!-- Modal de confirmação para exame completo (180 questões) -->
-  <div id="fullExamConfirmModal" class="modal" aria-hidden="true" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
-    <div class="modal-content" style="background:#fff;border-radius:10px;max-width:560px;width:92%;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);">
-      <h2 style="margin-top:0;margin-bottom:8px; font-size:1.02rem;">Você será direcionado para o exame completo. Deseja prosseguir?</h2>
-      <h3 style="margin:8px 0 6px 0; font-size:0.98rem; color:#222;">Exame completo:</h3>
-      <ul style="margin:6px 0 0 16px; padding:0; color:#333; font-size:0.92em;">
-        <li>Tempo total 230 minutos ou 3 horas e 49 minutos</li>
-        <li>Você terá direito a 2 pausas de 10 minutos.</li>
-        <li>A primeira pausa acontece ao concluir as questões de 1-60.</li>
-        <li>A segunda pausa acontece ao concluir as questões de 61-120.</li>
-        <li>Você não poderá voltar às questões anteriores assim que a pausa iniciar.</li>
-        <li>5 questões do exame serão desconsideradas para efeitos de pré-teste</li>
-      </ul>
-      <div class="modal-actions" style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">
-        <button id="fullExamCancel" type="button" class="secondary-btn" style="background:#eef1f6;color:#334; border:1px solid #cfd6e4;border-radius:6px;padding:6px 10px;min-height:36px;cursor:pointer;">Cancelar</button>
-        <button id="fullExamProceed" type="button" class="primary-btn" style="background:#007bff;color:#fff;border:0;border-radius:6px;padding:6px 10px;min-height:36px;cursor:pointer;">Prosseguir</button>
-      </div>
-    </div>
-  </div>
+  <!-- Modal de confirmação para exame completo (180 questões) - carregado dinamicamente do componente -->
+  <script>
+    (function(){
+      // Attempt to load reusable component from ../components/fullExamConfirm.html and append to body
+      async function loadFullExamConfirm(){
+        try {
+          const resp = await fetch('../components/fullExamConfirm.html');
+          if (!resp.ok) return;
+          const html = await resp.text();
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = html;
+          const el = wrapper.firstElementChild;
+          if (el) document.body.appendChild(el);
+        } catch (e) {
+          console.warn('Não foi possível carregar o componente fullExamConfirm:', e);
+        }
+      }
+      // load asynchronously but early
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadFullExamConfirm);
+      } else { loadFullExamConfirm(); }
+    })();
+  </script>
 
   
 

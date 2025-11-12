@@ -99,6 +99,9 @@ exports.selectQuestions = async (req, res) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   const examCfg = await getExamTypeBySlugOrDefault(examType);
+  // Reintroduce legacy ignoreExamType flag (allows bypassing exam_type_id filter when explicitly requested)
+  // Accept boolean true in body or X-Ignore-Exam-Type: true header
+  const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
 
@@ -251,7 +254,7 @@ exports.selectQuestions = async (req, res) => {
             multiplaSelecao: examCfg.multiplaSelecao,
             pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
           },
-          FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
+          FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: !!ignoreExamType },
         }, { transaction: t });
         if (attempt && ids.length) {
           const rows = ids.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));
@@ -517,6 +520,8 @@ exports.startOnDemand = async (req, res) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   const examCfg = await getExamTypeBySlugOrDefault(examType);
+    // Legacy flag: allow bypassing exam_type_id linkage when explicitly requested (kept for compatibility)
+    const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
     let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -539,8 +544,8 @@ exports.startOnDemand = async (req, res) => {
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
     const whereClauses = [`excluido = false`, `idstatus = 1`];
-    // Always respect exam type; no fallback that drops exam_type
-    if (examCfg && examCfg._dbId) {
+    // Respect exam type when available unless explicitly ignoring via compatibility flag
+    if (!ignoreExamType && examCfg && examCfg._dbId) {
       whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
     }
     if (bloqueio) whereClauses.push(`seed = true`);
@@ -553,8 +558,8 @@ exports.startOnDemand = async (req, res) => {
     const countRes = await sequelize.query(countQuery, { type: sequelize.QueryTypes.SELECT });
     let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
 
-    // Always respect exam type; no fallback that drops exam_type
-    const whereSqlUsed = whereSql;
+  // Keep where as built (with or without exam_type depending on flag)
+  const whereSqlUsed = whereSql;
     if (available < 1) return res.status(400).json({ error: 'Not enough questions available', available });
     const limitUsed = Math.min(count, available);
 
@@ -590,7 +595,7 @@ exports.startOnDemand = async (req, res) => {
           multiplaSelecao: examCfg.multiplaSelecao,
           pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
         },
-  FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
+  FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: !!ignoreExamType },
       }, { transaction: t });
       if (attempt && questionIds.length) {
         const rows = questionIds.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));

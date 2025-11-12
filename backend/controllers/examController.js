@@ -132,7 +132,7 @@ exports.selectQuestions = async (req, res) => {
   // Build WHERE clause
   const whereClauses = [`excluido = false`, `idstatus = 1`];
   // Filter by exam type linkage if available in DB (1:N)
-  if (examCfg && examCfg._dbId) {
+  if (!ignoreExamType && examCfg && examCfg._dbId) {
     whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
   }
   if (bloqueio) whereClauses.push(`seed = true`);
@@ -517,13 +517,6 @@ exports.startOnDemand = async (req, res) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   const examCfg = await getExamTypeBySlugOrDefault(examType);
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-  const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
->>>>>>> 404de87 (numero questão alinhada com currentIdx)
-=======
->>>>>>> 869e54a (examSetup: clear quantidade on filter select; when filters selected and quantidade blank, start with available count (capped at 25 for free, exact for premium); removed debug SQL UI and hooks from examSetup and exam pages. Backend: always enforce exam_type_id in all selects; removed ignoreExamType and fallback; keep count-only debug support.)
     let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -546,6 +539,7 @@ exports.startOnDemand = async (req, res) => {
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
     const whereClauses = [`excluido = false`, `idstatus = 1`];
+    // Always respect exam type; no fallback that drops exam_type
     if (examCfg && examCfg._dbId) {
       whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
     }

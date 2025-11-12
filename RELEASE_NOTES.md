@@ -19,3 +19,19 @@ Date: 2025-11-12
 ## Links
 - Tag: v1.0.0
 - Compare: fb7c51a..da61682
+
+---
+
+# v1.0.1
+
+Date: 2025-11-12
+
+Patch release for repository version alignment.
+
+## Changes
+- Bump `frontend/package.json` from 0.1.0 to 1.0.0 so both backend and frontend share a unified 1.0.0 base.
+- No code or behavioral changes from v1.0.0.
+
+## Links
+- Tag: v1.0.1
+- Compare: v1.0.0..v1.0.1

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
+## [1.0.1] - 2025-11-12
+
+### Notes
+- Version alignment only: bump `frontend/package.json` to 1.0.0 to match backend and repo tag baseline.
+- No functional changes; code and APIs remain identical to v1.0.0.
+
 ## [1.0.0] - 2025-11-12
 
 ### Highlights
@@ -33,3 +39,4 @@ This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 - Ensure DB migrations for exam_* and question_type tables are applied before using attempt persistence and last-exam endpoints.
 
 [1.0.0]: https://github.com/efdusernet/SimuladoBR/releases/tag/v1.0.0
+[1.0.1]: https://github.com/efdusernet/SimuladoBR/releases/tag/v1.0.1

@@ -1,0 +1,148 @@
+# API de Exames — Endpoints e Uso Rápido
+
+Este documento resume os endpoints principais sob `/api/exams`, com propósito, payloads e onde são chamados no frontend.
+
+Observações gerais
+- Autorização por token de sessão do app: header `X-Session-Token: <sessionToken>` quando indicado.
+- Responses em JSON; erros comuns: 400 (payload inválido), 404 (não encontrado), 500 (erro interno).
+
+## GET /api/exams
+Lista tipos de exame disponíveis (fonte DB; fallback opcional via registry).
+- Usado por: páginas que listam tipos (internamente por `listExams`).
+- Response: `[{ id, nome, numeroQuestoes, duracaoMinutos, ... }]`
+
+## GET /api/exams/types
+Lista de tipos para UI (similar ao endpoint acima; interface estável).
+- Usado por: `frontend/pages/admin/questionBulk.html` (carregar tipos).
+- Response: `[{ id, nome, numeroQuestoes, duracaoMinutos, ... }]`
+
+## POST /api/exams/select
+Seleciona e retorna um conjunto de questões (com opções) e cria uma tentativa (`exam_attempt`).
+- Usado por: `frontend/pages/examSetup.html` (contar/selecionar), wrappers em `exam.html`/`examFull.html`.
+- Headers:
+  - `X-Session-Token: <sessionToken>` (obrigatório)
+  - `X-Exam-Mode: quiz | full` (opcional; se ausente o backend infere: `full` quando `count` >= número total de questões do tipo (ex.: 180), `quiz` quando `count` <= 50)
+- Body:
+  - `count: number` (obrigatório)
+  - `examType?: string` (slug; default `pmp`)
+  - `dominios?: number[]`, `areas?: number[]`, `grupos?: number[]`
+  - `onlyCount?: boolean` (pré-checagem)
+- Response (sucesso): `{ sessionId, total, attemptId, examMode, exam, questions }`
+
+## POST /api/exams/start-on-demand
+Inicia sessão persistindo perguntas, sem retornar o conteúdo completo de cada questão (fluxo alternativo).
+- Usado por: reservado (não há chamada ativa no frontend no momento).
+- Headers: `X-Session-Token`
+- Body: `{ count, examType?, dominios?, areas?, grupos? }`
+- Headers opcionais: `X-Exam-Mode: quiz | full` (mesma inferência quando ausente)
+- Response: `{ sessionId, total, attemptId, examMode, exam }`
+
+## GET /api/exams/:sessionId/question/:index
+Busca uma questão específica da sessão (útil no fluxo on-demand).
+- Usado por: fluxo on-demand (não habilitado no frontend atual).
+- Response: `{ index, total, examType, question: { id, type, descricao, ... } }`
+
+## POST /api/exams/submit
+Registra respostas (parciais ou finais), computa nota na submissão final e encerra a tentativa.
+- Usado por: `frontend/assets/build/script_exam.js` e `frontend/script_exam.js` ao salvar/encerrar.
+- Headers: `X-Session-Token`
+- Body:
+  - `sessionId: string`
+  - `answers: Array<{ questionId: number, optionId?: number, optionIds?: number[], response?: any }>`
+  - `partial?: boolean` (default false; quando true, não encerra tentativa)
+- Response (final): `{ sessionId, totalQuestions, totalCorrect, details }`
+- Efeitos colaterais (final): atualiza `exam_attempt` com `Corretas`, `Total`, `ScorePercent`, `Aprovado`, `FinishedAt`, `Status='finished'`.
+
+## POST /api/exams/:sessionId/pause/start
+Inicia pausa (exame completo com checkpoints).
+- Usado por: `frontend/pages/examFull.html`.
+- Body: `{ index: number }` (checkpoint)
+- Response: `{ ok: true, pauseUntil }`
+
+## POST /api/exams/:sessionId/pause/skip
+Pula pausa do checkpoint atual.
+- Usado por: `frontend/pages/examFull.html`.
+- Body: `{ index: number }`
+- Response: `{ ok: true }`
+
+## GET /api/exams/:sessionId/pause/status
+Estado atual de pausa e política configurada.
+- Usado por: `frontend/pages/examFull.html`.
+- Response: `{ pauses, policy, examType }`
+
+## POST /api/exams/resume
+Reconstrói a sessão em memória a partir do banco (após restart do servidor).
+- Usado por: `frontend/pages/exam.html` e `frontend/pages/examFull.html` (auto-resume).
+- Headers: `X-Session-Token`
+- Body: `{ sessionId?: string, attemptId?: number }`
+- Response: `{ ok: true, sessionId, attemptId, total, examType }`
+
+## GET /api/exams/last
+Resumo da última tentativa finalizada do usuário (para o gauge da Home).
+- Usado por: `frontend/index.html` (componente `lastExamResults`).
+- Headers: `X-Session-Token`
+- Response:
+  ```json
+  {
+    "correct": number,
+    "total": number,
+    "scorePercent": number,
+    "approved": boolean | null,
+    "finishedAt": string,
+    "examTypeId": number | null,
+    "examMode": "quiz" | "full" | null
+  }
+  ```
+
+## GET /api/exams/history?limit=3
+Histórico das últimas N tentativas finalizadas do usuário (default 3).
+- Headers: `X-Session-Token`
+- Query: `limit` (1–10, default 3)
+- Response: `[{ correct, total, scorePercent, approved, startedAt, finishedAt, examTypeId, durationSeconds, examMode }]`
+
+Exemplo:
+```json
+[
+  {
+    "correct": 112,
+    "total": 180,
+    "scorePercent": 62.22,
+    "approved": false,
+    "startedAt": "2025-11-10T18:31:22.123Z",
+    "finishedAt": "2025-11-10T20:58:55.456Z",
+    "examTypeId": 1,
+    "durationSeconds": 8800,
+    "examMode": "full"
+  },
+  {
+    "correct": 18,
+    "total": 25,
+    "scorePercent": 72.0,
+    "approved": null,
+    "startedAt": "2025-11-09T15:02:00.000Z",
+    "finishedAt": "2025-11-09T15:40:12.000Z",
+    "examTypeId": 1,
+    "durationSeconds": 2280,
+    "examMode": "quiz"
+  }
+]
+```
+
+---
+
+### Modelos usados (resumo)
+- `exam_attempt` (ExamAttempt): tentativa e metadados (ScorePercent, Aprovado, Started/FinishedAt, etc.)
+- `exam_attempt_question` (ExamAttemptQuestion): questões por tentativa (TempoGastoSegundos, Correta)
+- `exam_attempt_answer` (ExamAttemptAnswer): respostas selecionadas
+- `exam_type` (ExamType): configuração por tipo de exame (numeroQuestoes, pausas, pontuação mínima)
+- `question_type` (QuestionType): tipos de questão (single/multi/avançadas)
+- `questao`: base de questões (relacionada via QuestionId)
+
+### Notas
+- Token de sessão: o app utiliza `localStorage.sessionToken`; o backend o resolve como user id, nome de usuário ou e-mail.
+- Usuário com bloqueio: limites aplicados (ex.: máximo de 25 questões na seleção).
+- Exame completo: 180 questões, pausas conforme `ExamType` (se configurado).
+- Campo novo: `exam_attempt.exam_mode` armazena `quiz` ou `full` para cada tentativa. Persistência:
+  - Definido pelo header `X-Exam-Mode` quando presente e válido.
+  - Caso ausente, inferido por `count` (>= total definido para o tipo => `full`; <=50 => `quiz`; outro caso => null).
+  - Retornado nos endpoints: `POST /api/exams/select`, `POST /api/exams/start-on-demand`, `GET /api/exams/last`, `GET /api/exams/history`.

@@ -35,7 +35,6 @@ router.post('/', requireAdmin, questionController.createQuestion);
 //      <explicacao>Opcional</explicacao>
 //    </question>
 //  </questions>
-// Order: auth first, then parse file (avoid wasting work on large upload if unauthorized)
 router.post('/bulk', requireAdmin, upload.single('file'), questionController.bulkCreateQuestions);
 
 module.exports = router;

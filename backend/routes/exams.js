@@ -20,4 +20,8 @@ router.get('/:sessionId/pause/status', examController.pauseStatus);
 router.post('/submit', examController.submitAnswers);
 // Rebuild a session in memory from DB after a restart
 router.post('/resume', examController.resumeSession);
+// Stats: last finished attempt summary for gauge
+router.get('/last', examController.lastAttemptSummary);
+// Stats: last N finished attempts (default 3) for styling rules on gauge
+router.get('/history', examController.lastAttemptsHistory);
 module.exports = router;

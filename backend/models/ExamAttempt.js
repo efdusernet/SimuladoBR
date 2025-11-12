@@ -5,6 +5,7 @@ module.exports = (sequelize, DataTypes) => {
     ExamTypeId: { type: DataTypes.INTEGER, allowNull: false, field: 'exam_type_id' },
     Modo: { type: DataTypes.TEXT, allowNull: true, field: 'modo' },
     QuantidadeQuestoes: { type: DataTypes.INTEGER, allowNull: true, field: 'quantidade_questoes' },
+  ExamMode: { type: DataTypes.TEXT, allowNull: true, field: 'exam_mode' },
     StartedAt: { type: DataTypes.DATE, allowNull: true, field: 'started_at' },
     FinishedAt: { type: DataTypes.DATE, allowNull: true, field: 'finished_at' },
     Status: { type: DataTypes.TEXT, allowNull: true, field: 'status' },

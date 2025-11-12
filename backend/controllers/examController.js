@@ -95,15 +95,25 @@ exports.listExamTypes = async (_req, res) => {
 
 // POST /api/exams/select
 // Body: { count: number, dominios?: [ids], areas?: [ids], grupos?: [ids] }
+// Used by: frontend/pages/examSetup.html (para contar/selecionar) e wrappers em exam.html/examFull.html
 exports.selectQuestions = async (req, res) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
+  // Resolve exam mode from header or infer by count (quiz/full). Header wins if valid.
+  let headerMode = (req.get('X-Exam-Mode') || '').trim().toLowerCase();
+  if (!(headerMode === 'quiz' || headerMode === 'full')) headerMode = null;
   const examCfg = await getExamTypeBySlugOrDefault(examType);
-  // Reintroduce legacy ignoreExamType flag (allows bypassing exam_type_id filter when explicitly requested)
-  // Accept boolean true in body or X-Ignore-Exam-Type: true header
-  const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
+    // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (ex.: 180), quiz when count <= 50
+    let examMode = headerMode;
+    try {
+      if (!examMode) {
+        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : 180;
+        if (count >= fullThreshold) examMode = 'full';
+        else if (count > 0 && count <= 50) examMode = 'quiz';
+      }
+    } catch(_) { /* keep null if inference fails */ }
 
     // resolve user via X-Session-Token (same logic as /api/auth/me)
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -135,7 +145,7 @@ exports.selectQuestions = async (req, res) => {
   // Build WHERE clause
   const whereClauses = [`excluido = false`, `idstatus = 1`];
   // Filter by exam type linkage if available in DB (1:N)
-  if (!ignoreExamType && examCfg && examCfg._dbId) {
+  if (examCfg && examCfg._dbId) {
     whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
   }
   if (bloqueio) whereClauses.push(`seed = true`);
@@ -240,10 +250,11 @@ exports.selectQuestions = async (req, res) => {
           ExamTypeId: examCfg._dbId || null,
           Modo: 'select',
           QuantidadeQuestoes: payloadQuestions.length,
+          ExamMode: examMode || null,
           StartedAt: new Date(),
           Status: 'in_progress',
           PauseState: pauseState,
-          Meta: { sessionId, source: 'select', examType: examCfg.id },
+          Meta: { sessionId, source: 'select', examType: examCfg.id, examMode: examMode || null },
           BlueprintSnapshot: {
             id: examCfg.id,
             nome: examCfg.nome,
@@ -254,7 +265,7 @@ exports.selectQuestions = async (req, res) => {
             multiplaSelecao: examCfg.multiplaSelecao,
             pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
           },
-          FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: !!ignoreExamType },
+          FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
         }, { transaction: t });
         if (attempt && ids.length) {
           const rows = ids.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));
@@ -289,7 +300,7 @@ exports.selectQuestions = async (req, res) => {
       multiplaSelecao: examCfg.multiplaSelecao,
     };
 
-    return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, attemptId: attempt ? attempt.Id : null, exam: blueprint, questions: payloadQuestions });
+  return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, examMode: examMode || null, attemptId: attempt ? attempt.Id : null, exam: blueprint, questions: payloadQuestions });
   } catch (err) {
     console.error('Erro selectQuestions:', err);
     return res.status(500).json({ error: 'Internal error' });
@@ -308,6 +319,7 @@ exports.startExam = async (req, res) => {
 
 // POST /api/exams/submit
 // Body: { sessionId: string, answers: [{ questionId: number, optionId?: number, optionIds?: number[], response?: any }] }
+// Used by: frontend/assets/build/script_exam.js e frontend/script_exam.js quando o usuário finaliza ou salva parcialmente
 exports.submitAnswers = async (req, res) => {
   try {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
@@ -516,13 +528,15 @@ exports.submitAnswers = async (req, res) => {
 // POST /api/exams/start-on-demand
 // Body: { count, filters... }
 // Returns { sessionId, total }
+// Used by: (reservado para fluxo alternativo; não há chamada ativa no frontend no momento)
 exports.startOnDemand = async (req, res) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   const examCfg = await getExamTypeBySlugOrDefault(examType);
-    // Legacy flag: allow bypassing exam_type_id linkage when explicitly requested (kept for compatibility)
-    const ignoreExamType = (req.body && req.body.ignoreExamType === true) || String(req.get('X-Ignore-Exam-Type')||'').toLowerCase() === 'true';
-    let count = Number((req.body && req.body.count) || 0) || 0;
+  // Resolve exam mode from header or infer by count
+  let headerMode = (req.get('X-Exam-Mode') || '').trim().toLowerCase();
+  if (!(headerMode === 'quiz' || headerMode === 'full')) headerMode = null;
+  let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
     if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
@@ -538,14 +552,22 @@ exports.startOnDemand = async (req, res) => {
 
     const bloqueio = Boolean(user.BloqueioAtivado);
     if (bloqueio && count > 25) count = 25;
+    // Infer mode when header not provided: full when count >= blueprint total; quiz when count <= 50
+    let examMode = headerMode;
+    try {
+      if (!examMode) {
+        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : 180;
+        if (count >= fullThreshold) examMode = 'full';
+        else if (count > 0 && count <= 50) examMode = 'quiz';
+      }
+    } catch(_) { examMode = examMode || null; }
 
   const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
   const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
     const whereClauses = [`excluido = false`, `idstatus = 1`];
-    // Respect exam type when available unless explicitly ignoring via compatibility flag
-    if (!ignoreExamType && examCfg && examCfg._dbId) {
+    if (examCfg && examCfg._dbId) {
       whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
     }
     if (bloqueio) whereClauses.push(`seed = true`);
@@ -558,8 +580,8 @@ exports.startOnDemand = async (req, res) => {
     const countRes = await sequelize.query(countQuery, { type: sequelize.QueryTypes.SELECT });
     let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
 
-  // Keep where as built (with or without exam_type depending on flag)
-  const whereSqlUsed = whereSql;
+    // Always respect exam type; no fallback that drops exam_type
+    const whereSqlUsed = whereSql;
     if (available < 1) return res.status(400).json({ error: 'Not enough questions available', available });
     const limitUsed = Math.min(count, available);
 
@@ -580,11 +602,12 @@ exports.startOnDemand = async (req, res) => {
         UserId: user.Id || user.id,
         ExamTypeId: examCfg._dbId || null,
         Modo: 'on-demand',
-  QuantidadeQuestoes: questionIds.length,
+        QuantidadeQuestoes: questionIds.length,
+        ExamMode: examMode || null,
         StartedAt: new Date(),
         Status: 'in_progress',
         PauseState: pauseState,
-        Meta: { sessionId, source: 'on-demand', examType: examCfg.id },
+        Meta: { sessionId, source: 'on-demand', examType: examCfg.id, examMode: examMode || null },
         BlueprintSnapshot: {
           id: examCfg.id,
           nome: examCfg.nome,
@@ -595,7 +618,7 @@ exports.startOnDemand = async (req, res) => {
           multiplaSelecao: examCfg.multiplaSelecao,
           pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
         },
-  FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: !!ignoreExamType },
+  FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
       }, { transaction: t });
       if (attempt && questionIds.length) {
         const rows = questionIds.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));
@@ -613,7 +636,7 @@ exports.startOnDemand = async (req, res) => {
       pauses: pauseState,
     });
 
-    return res.json({ sessionId, total: questionIds.length, examType: examCfg.id, attemptId: attempt ? attempt.Id : null, exam: {
+    return res.json({ sessionId, total: questionIds.length, examType: examCfg.id, examMode: examMode || null, attemptId: attempt ? attempt.Id : null, exam: {
       id: examCfg.id,
       nome: examCfg.nome,
       numeroQuestoes: examCfg.numeroQuestoes,
@@ -629,6 +652,7 @@ exports.startOnDemand = async (req, res) => {
 };
 
 // GET /api/exams/:sessionId/question/:index
+// Used by: fluxo on-demand (quando ativo) para buscar questão a questão
 exports.getQuestion = async (req, res) => {
   try {
     const { sessionId, index } = { sessionId: req.params.sessionId, index: Number(req.params.index) };
@@ -684,6 +708,7 @@ exports.getQuestion = async (req, res) => {
 };
 
 // POST /api/exams/:sessionId/pause/start { index }
+// Used by: frontend/pages/examFull.html para iniciar pausa nos checkpoints
 exports.pauseStart = async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -709,6 +734,7 @@ exports.pauseStart = async (req, res) => {
 };
 
 // POST /api/exams/:sessionId/pause/skip { index }
+// Used by: frontend/pages/examFull.html para pular pausa no checkpoint
 exports.pauseSkip = async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -731,6 +757,7 @@ exports.pauseSkip = async (req, res) => {
 };
 
 // GET /api/exams/:sessionId/pause/status
+// Used by: frontend/pages/examFull.html para consultar o estado da pausa
 exports.pauseStatus = async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -746,6 +773,7 @@ exports.pauseStatus = async (req, res) => {
 // POST /api/exams/resume
 // Body: { sessionId?: string, attemptId?: number }
 // Rebuilds in-memory session state after server restart, using DB as source of truth
+// Used by: frontend/pages/exam.html e frontend/pages/examFull.html no auto-resume ao detectar 404 de sessão
 exports.resumeSession = async (req, res) => {
   try {
     // Resolve user (same policy as other endpoints)
@@ -828,3 +856,130 @@ exports.resumeSession = async (req, res) => {
     return res.status(500).json({ error: 'Internal error' });
   }
 };
+
+  // GET /api/exams/last
+  // Returns summary of the last finished attempt for the resolved user
+  // Response: { correct, total, scorePercent, approved, finishedAt, examTypeId }
+  // Used by: frontend/index.html (loadLastExamResults) para alimentar o gauge de "Último exame"
+  exports.lastAttemptSummary = async (req, res) => {
+    try {
+      // Resolve user using the same policy applied in selection endpoints
+      const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+      if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+
+      let user = null;
+      if (/^\d+$/.test(sessionToken)) {
+        user = await db.User.findByPk(Number(sessionToken));
+      }
+      if (!user) {
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+        user = await db.User.findOne({ where });
+      }
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const attempt = await db.ExamAttempt.findOne({
+        where: { UserId: user.Id || user.id, Status: 'finished' },
+        order: [['FinishedAt', 'DESC']],
+        attributes: ['Id','Corretas','Total','QuantidadeQuestoes','ScorePercent','Aprovado','StartedAt','FinishedAt','ExamTypeId','ExamMode']
+      });
+      if (!attempt) return res.status(204).end();
+
+      const correct = Number(attempt.Corretas != null ? attempt.Corretas : 0);
+      const total = Number(
+        attempt.Total != null ? attempt.Total : (attempt.QuantidadeQuestoes != null ? attempt.QuantidadeQuestoes : 0)
+      );
+      let scorePercent = null;
+      if (attempt.ScorePercent != null) {
+        scorePercent = Number(attempt.ScorePercent);
+        if (!Number.isFinite(scorePercent) && total > 0) scorePercent = (correct * 100.0) / total;
+      } else {
+        scorePercent = total > 0 ? (correct * 100.0) / total : 0;
+      }
+
+      // duration in seconds when both timestamps present
+      let durationSeconds = null;
+      try {
+        if (attempt.StartedAt && attempt.FinishedAt) {
+          const ms = new Date(attempt.FinishedAt) - new Date(attempt.StartedAt);
+          if (Number.isFinite(ms)) durationSeconds = Math.max(0, Math.round(ms / 1000));
+        }
+      } catch(_) { durationSeconds = null; }
+
+      return res.json({
+        correct,
+        total,
+        scorePercent,
+        approved: attempt.Aprovado == null ? null : !!attempt.Aprovado,
+        startedAt: attempt.StartedAt,
+        finishedAt: attempt.FinishedAt,
+        examTypeId: attempt.ExamTypeId || null,
+        durationSeconds,
+        examMode: attempt.ExamMode || null
+      });
+    } catch (err) {
+      console.error('Erro lastAttemptSummary:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  };
+
+  // GET /api/exams/history?limit=3
+  // Returns the last N finished attempts for the resolved user (default 3)
+  // Response: [{ correct,total,scorePercent,approved,startedAt,finishedAt,examTypeId,durationSeconds }]
+  // Used by: frontend/index.html (loadLastExamResults) para estilizar o gauge conforme regra dos últimos 3
+  exports.lastAttemptsHistory = async (req, res) => {
+    try {
+      const limit = Math.max(1, Math.min(10, Number(req.query.limit) || 3));
+      const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+      if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+
+      let user = null;
+      if (/^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
+      if (!user) {
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+        user = await db.User.findOne({ where });
+      }
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const attempts = await db.ExamAttempt.findAll({
+        where: { UserId: user.Id || user.id, Status: 'finished' },
+        order: [['FinishedAt', 'DESC']],
+        limit,
+        attributes: ['Id','Corretas','Total','QuantidadeQuestoes','ScorePercent','Aprovado','StartedAt','FinishedAt','ExamTypeId','ExamMode']
+      });
+      const out = (attempts || []).map(a => {
+        const correct = Number(a.Corretas != null ? a.Corretas : 0);
+        const total = Number(a.Total != null ? a.Total : (a.QuantidadeQuestoes != null ? a.QuantidadeQuestoes : 0));
+        let scorePercent = null;
+        if (a.ScorePercent != null) {
+          scorePercent = Number(a.ScorePercent);
+          if (!Number.isFinite(scorePercent) && total > 0) scorePercent = (correct * 100.0) / total;
+        } else {
+          scorePercent = total > 0 ? (correct * 100.0) / total : 0;
+        }
+        let durationSeconds = null;
+        try {
+          if (a.StartedAt && a.FinishedAt) {
+            const ms = new Date(a.FinishedAt) - new Date(a.StartedAt);
+            if (Number.isFinite(ms)) durationSeconds = Math.max(0, Math.round(ms / 1000));
+          }
+        } catch(_) { durationSeconds = null; }
+        return {
+          correct,
+          total,
+          scorePercent,
+          approved: a.Aprovado == null ? null : !!a.Aprovado,
+          startedAt: a.StartedAt,
+          finishedAt: a.FinishedAt,
+          examTypeId: a.ExamTypeId || null,
+          durationSeconds,
+          examMode: a.ExamMode || null
+        };
+      });
+      return res.json(out);
+    } catch (err) {
+      console.error('Erro lastAttemptsHistory:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  };

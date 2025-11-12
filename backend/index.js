@@ -68,8 +68,7 @@ app.use('/api/questions', require('./routes/questions'));
 app.use('/api/meta', require('./routes/meta'));
 // Play Integrity
 app.use('/api/integrity', require('./routes/integrity'));
-// Admin: roles management (protected)
-app.use('/api/roles', require('./routes/roles'));
+// Admin: roles management (removed)
 // Mount debug routes (development only)
 app.use('/api/debug', require('./routes/debug'));
 

@@ -98,23 +98,10 @@
     }
   </script>
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->
   <script src="../script.js"></script>
   
-<<<<<<< HEAD
-=======
-  <!-- registration/session script must run before exam script -->
-  <script src="../assets/build/script.js" onerror="(function(){var s=document.createElement('script');s.src='../script.js';document.body.appendChild(s);}())"></script>
->>>>>>> 404de87 (numero questão alinhada com currentIdx)
-=======
-  <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->
-  <script src="../script.js"></script>
->>>>>>> d408e4b (Versão ajustada intervalos PMP)
-=======
->>>>>>> 869e54a (examSetup: clear quantidade on filter select; when filters selected and quantidade blank, start with available count (capped at 25 for free, exact for premium); removed debug SQL UI and hooks from examSetup and exam pages. Backend: always enforce exam_type_id in all selects; removed ignoreExamType and fallback; keep count-only debug support.)
-  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed -->
+  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed; also auto-resume session on 404 'session not found' like examFull -->
   <script>
     (function(){
       try {
@@ -126,6 +113,12 @@
               let body = null; try { body = JSON.parse(init.body); } catch(_){ body = null; }
               const cnt = body && Number(body.count);
               const onlyCount = !!(body && body.onlyCount === true);
+              // Inject quiz mode header (short exam) unless caller already specified
+              try {
+                const headers = new Headers(init.headers || {});
+                if (!headers.has('X-Exam-Mode')) headers.set('X-Exam-Mode', 'quiz');
+                init.headers = headers;
+              } catch(_){ }
               if (cnt === 180 && body) {
                 delete body.areas; delete body.grupos; delete body.dominios;
                 init.body = JSON.stringify(body);
@@ -137,8 +130,35 @@
                 if (available === 0) {
                   const headers = new Headers(init.headers || {});
                   headers.delete('X-Exam-Type');
+                  // Preserve quiz mode on fallback retry
+                  if (!headers.has('X-Exam-Mode')) headers.set('X-Exam-Mode', 'quiz');
                   return await origFetch(input, { method: 'POST', headers, body: JSON.stringify({ count: cnt, ignoreExamType: true, onlyCount }) });
                 }
+              }
+              return resp;
+            } else if (url && /\/api\/exams\/.+\/question\//.test(url)) {
+              // Auto-resume session if server lost in-memory state (e.g., after restart)
+              const resp = await origFetch(input, init);
+              if (resp && resp.status === 404) {
+                try {
+                  const txt = await resp.clone().text();
+                  const isSessionMissing = /session not found/i.test(txt || '');
+                  if (isSessionMissing) {
+                    const m = url.match(/\/api\/exams\/([^/]+)\/question\//);
+                    const sid = m && m[1] ? m[1] : null;
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    if (sid && token) {
+                      const r = await origFetch('/api/exams/resume', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                        body: JSON.stringify({ sessionId: sid })
+                      });
+                      if (r && r.ok) {
+                        return await origFetch(input, init);
+                      }
+                    }
+                  }
+                } catch(_){ }
               }
               return resp;
             }

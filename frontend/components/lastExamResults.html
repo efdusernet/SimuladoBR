@@ -1,0 +1,194 @@
+<!-- lastExamResults: reusable component -->
+<div class="ler-card" role="group" aria-label="Resultados do último exame" aria-describedby="lastExamHelpText">
+  <style>
+  .ler-card{ min-width:288px; min-height:56px; display:flex; align-items:center; gap:10px; padding:8px 10px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.04); position:relative; transition: background .25s ease, color .2s ease; }
+  /* Background color will be overridden dynamically (history-based) on #lastExamResultsMount */
+  /* High contrast variant when parent adds .dark-perf class OR on the card itself */
+  .dark-perf .ler-card, #lastExamResultsMount.dark-perf .ler-card, .ler-card.dark-perf{ border-color:#0d4b3a; }
+  #lastExamResultsMount.dark-perf .ler-text, .ler-card.dark-perf .ler-text{ color:#ECFDF5; }
+  #lastExamResultsMount.dark-perf .ler-subtext, .ler-card.dark-perf .ler-subtext{ color:#D1FAE5; }
+  #lastExamResultsMount.dark-perf .ler-score, .ler-card.dark-perf .ler-score{ color:#6EE7B7; }
+  #lastExamResultsMount.dark-perf .ler-percent, .ler-card.dark-perf .ler-percent{ color:#A7F3D0 !important; }
+  #lastExamResultsMount.dark-perf .ler-date, #lastExamResultsMount.dark-perf .ler-dur, .ler-card.dark-perf .ler-date, .ler-card.dark-perf .ler-dur{ color:#D1FAE5 !important; }
+  #lastExamResultsMount.dark-perf .ler-gauge text, .ler-card.dark-perf .ler-gauge text{ fill:#F0FFF4; }
+  #lastExamResultsMount.dark-perf .ler-thumb, .ler-card.dark-perf .ler-thumb{ color:#F0FFF4; }
+  /* Deixe o host ocupar 100% para alinhar com a grid, o contêiner pai limita a largura */
+  :host, .ler-card{ width:100%; }
+  /* Gauge: aumentar largura em +15px (39 -> 54) e ajustar altura proporcionalmente */
+  .ler-left{ width:54px; height:46px; display:flex; align-items:center; justify-content:center; }
+    .ler-right{ flex:1 1 auto; min-width:0; position:relative; }
+    .ler-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; line-height:1; }
+  .ler-text{ font-size:14px; color:#111827; font-weight:700; letter-spacing:.3px; }
+  .ler-icon{ width:44px; height:44px; color:#6b7280; display:inline-flex; align-items:center; justify-content:center; }
+    .ler-subtext{ margin-top:4px; font-size:11px; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ler-score{ font-weight:600; color:#0f766e; }
+    /* Gauge styles */
+  .ler-gauge{ width:54px; height:46px; display:block; }
+    .ler-gauge path{ fill:none; stroke-linecap:round; }
+    .ler-gauge .bg{ stroke:#e5e7eb; stroke-width:4; }
+  .ler-gauge .fg{ stroke:#10b981; stroke-width:5.5; transition: stroke-dashoffset .4s ease; }
+    .ler-gauge text{ font-size:11px; fill:#111827; font-weight:800; }
+  /* Help line: visually distinct & accessible */
+  .ler-help{ display:none; color:#4b5563; font-style:italic; padding-left:8px; border-left:3px solid #9ca3af; margin-right:6px; align-items:center; gap:6px; }
+  .ler-help .ler-help-icon{ width:14px; height:14px; display:inline-block; color:#6b7280; }
+  </style>
+
+  <div class="ler-left">
+    <!-- semicircle gauge: viewBox 0 0 30 25 -->
+    <svg class="ler-gauge" viewBox="0 0 30 25" aria-hidden="true">
+      <defs>
+        <!-- Deep green performance gradient for >=85% -->
+        <linearGradient id="gaugeDeepGreen" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#0A7A0A"/>
+          <stop offset="100%" stop-color="#006400"/>
+        </linearGradient>
+      </defs>
+      <!-- Background arc from (3,22) to (27,22) with rx=ry=14 -->
+      <path class="bg" d="M 3 22 A 14 14 0 0 1 27 22"/>
+      <path class="fg" d="M 3 22 A 14 14 0 0 1 27 22"/>
+    <!-- Percentage text centered (moved ~9px upward) -->
+  <text x="15" y="7" text-anchor="middle" style="font-size:9px; font-weight:800;">--%</text>
+    </svg>
+  </div>
+
+  <div class="ler-right">
+    <div class="ler-header">
+      <span class="ler-text">Último exame</span>
+      <span class="ler-icon" role="img" aria-label="Indicadores de desempenho (gradiente)">
+        <!-- KPI / indicadores: barras com gradientes + linha de tendência -->
+        <svg viewBox="0 0 24 24" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="barBlue" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#93C5FD"/>
+              <stop offset="100%" stop-color="#3B82F6"/>
+            </linearGradient>
+            <linearGradient id="barAmber" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#FCD34D"/>
+              <stop offset="100%" stop-color="#F59E0B"/>
+            </linearGradient>
+            <linearGradient id="barGreen" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#6EE7B7"/>
+              <stop offset="100%" stop-color="#10B981"/>
+            </linearGradient>
+            <linearGradient id="trend" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#6366F1"/>
+              <stop offset="100%" stop-color="#EC4899"/>
+            </linearGradient>
+          </defs>
+          <!-- Bars with gradients -->
+          <rect x="3" y="12" width="3" height="6" rx="0.8" fill="url(#barBlue)"/>
+            <rect x="9" y="8" width="3" height="10" rx="0.8" fill="url(#barAmber)"/>
+            <rect x="15" y="4" width="3" height="14" rx="0.8" fill="url(#barGreen)"/>
+          <!-- Trend line with gradient stroke -->
+          <path d="M3 7.2 L8.5 10 L14.5 5.2 L21 8.2" stroke="url(#trend)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Dots -->
+          <circle cx="8.5" cy="10" r="1.25" fill="#6366F1"/>
+          <circle cx="14.5" cy="5.2" r="1.25" fill="#EC4899"/>
+        </svg>
+      </span>
+    </div>
+    <div class="ler-subtext">
+      <span class="ler-help" id="lastExamHelpText" aria-live="polite">
+        <span class="ler-help-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+        </span>
+        <!-- Help text will be injected from i18n -->
+      </span>
+  <span class="ler-vals"><span class="ler-label-correct">Acertos</span>: <span class="ler-score">—</span><span class="ler-percent" style="margin-left:4px; font-weight:600; color:#334">(—%)</span> <span class="ler-sep" style="margin:0 4px; color:#9ca3af;">|</span> <span class="ler-date" aria-label="Finalizado em" style="color:#6b7280;"></span>
+  <span class="ler-dur" aria-label="Duração" style="margin-left:6px; color:#6b7280; display:inline-flex; align-items:center; gap:4px;">
+        <svg class="dur-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span class="dur-text"></span>
+      </span></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+  function setup(el, value, max){
+    try{
+      const gauge = el.querySelector('.ler-gauge');
+      const fg = gauge && gauge.querySelector('.fg');
+      const txt = gauge && gauge.querySelector('text');
+      const scoreEl = el.querySelector('.ler-score');
+      if (!fg || !gauge) return;
+      const v = Number(value != null ? value : el.getAttribute('data-value') || 0);
+      const m = Number(max != null ? max : el.getAttribute('data-max') || 100);
+      const pct = m > 0 ? clamp(v / m, 0, 1) : 0;
+      // Measure path length to compute dashoffset
+      const len = fg.getTotalLength();
+      fg.style.strokeDasharray = len.toString();
+      fg.style.strokeDashoffset = ((1 - pct) * len).toString();
+      if (txt) txt.textContent = Math.round(pct * 100) + '%';
+      if (scoreEl) scoreEl.textContent = v + ' / ' + m;
+      // Color/gradient shift by performance
+      try {
+        if (pct >= 0.85) {
+          // Use deep green gradient for very high performance
+          fg.setAttribute('stroke', 'url(#gaugeDeepGreen)');
+        } else if (pct >= 0.7) {
+          fg.setAttribute('stroke', '#10b981'); // solid green for 70%–84%
+        } else if (pct >= 0.5) {
+          fg.setAttribute('stroke', '#f59e0b'); // amber 50%–69%
+        } else {
+          fg.setAttribute('stroke', '#ef4444'); // red <50%
+        }
+      } catch(_){ /* ignore color errors */ }
+
+  // No history-based styling here by design (aplicado apenas em index.html conforme regra).
+    }catch(e){ /* noop */ }
+  }
+  // Public API
+  if (!window.initLastExamResults){
+    window.initLastExamResults = function(el, opts){
+      try { if (!el) return; setup(el, opts && opts.value, opts && opts.max); } catch(_){}
+    };
+  }
+  if (!window.updateLastExamResults){
+    window.updateLastExamResults = function(el, value, max){
+      try { if (!el) return; setup(el, value, max); } catch(_){}
+    };
+  }
+  // Auto-init if data-value/max present on this instance
+  try{
+    const host = document.currentScript && document.currentScript.previousElementSibling && document.currentScript.previousElementSibling.matches && document.currentScript.previousElementSibling.matches('.ler-card')
+      ? document.currentScript.previousElementSibling
+      : null;
+    if (host){
+      // Inject i18n help text if available
+      try{
+        const help = host.querySelector('.ler-help');
+        if (help){
+          const txt = (window.SIMULADOS_I18N && window.SIMULADOS_I18N.HELP_NEED_3_FULL) || 'Faça pelo menos 3 exames completos para ver seus indicadores';
+          // If there's an icon container, append text node after it; else set textContent
+          const icon = help.querySelector('.ler-help-icon');
+          if (icon){
+            // Clear existing non-icon text
+            // Ensure only one text node follows
+            const rest = Array.from(help.childNodes).filter(n => n !== icon && !(n.nodeType===1 && n.classList && n.classList.contains('ler-help-icon')));
+            rest.forEach(n => help.removeChild(n));
+            help.appendChild(document.createTextNode(' ' + txt));
+          } else {
+            help.textContent = txt;
+          }
+          help.style.display = 'none';
+        }
+      }catch(_){ }
+      // Localize labels
+      try {
+        const lblCorrect = host.querySelector('.ler-label-correct');
+        if (lblCorrect){ lblCorrect.textContent = (window.SIMULADOS_I18N && window.SIMULADOS_I18N.LABEL_CORRECT) || lblCorrect.textContent; }
+        const dateEl = host.querySelector('.ler-date');
+        if (dateEl){ dateEl.setAttribute('aria-label', (window.SIMULADOS_I18N && window.SIMULADOS_I18N.LABEL_FINISHED_AT) || 'Finalizado em'); }
+        const durWrap = host.querySelector('.ler-dur');
+        if (durWrap){ durWrap.setAttribute('aria-label', (window.SIMULADOS_I18N && window.SIMULADOS_I18N.LABEL_DURATION) || 'Duração'); }
+      } catch(_){ }
+      setup(host);
+    }
+  }catch(_){ }
+})();
+</script>

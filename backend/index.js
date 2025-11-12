@@ -34,6 +34,18 @@ const path = require('path');
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const fs = require('fs');
+
+// Protect admin pages before static middleware: only admins can fetch /pages/admin/* HTML files
+const requireAdmin = require('./middleware/requireAdmin');
+app.use('/pages/admin', requireAdmin, express.static(path.join(FRONTEND_DIR, 'pages', 'admin')));
+
+// Friendly aliases for admin pages (HTML), protected
+app.get('/admin/questions/form', requireAdmin, (req, res) => {
+	res.sendFile(path.join(FRONTEND_DIR, 'pages', 'admin', 'questionForm.html'));
+});
+app.get('/admin/questions/bulk', requireAdmin, (req, res) => {
+	res.sendFile(path.join(FRONTEND_DIR, 'pages', 'admin', 'questionBulk.html'));
+});
 if (fs.existsSync(FRONTEND_DIST)) {
 	app.use(express.static(FRONTEND_DIST));
 }
@@ -50,10 +62,13 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
 // Exams (select questions)
 app.use('/api/exams', require('./routes/exams'));
+// Questions (admin)
+app.use('/api/questions', require('./routes/questions'));
 // Meta lists for exam setup
 app.use('/api/meta', require('./routes/meta'));
 // Play Integrity
 app.use('/api/integrity', require('./routes/integrity'));
+// Admin: roles management (removed)
 // Mount debug routes (development only)
 app.use('/api/debug', require('./routes/debug'));
 

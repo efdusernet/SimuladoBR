@@ -6,26 +6,31 @@
   "scripts": {
     "start": "node index.js",
     "start:sync": "node syncStart.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:apply-sql": "node scripts/apply_sql.js",
+    "role:grant-admin": "node scripts/grant_admin.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.2",
-  "nodemailer": "^6.9.4",
     "cors": "^2.8.5",
-    "uuid": "^9.0.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "helmet": "^8.1.0",
     "express-rate-limit": "^7.4.0",
-    "jose": "^5.9.2",
+    "fast-xml-parser": "^4.5.0",
+    "helmet": "^8.1.0",
     "joi": "^18.0.1",
+    "jose": "^5.9.2",
     "jsonwebtoken": "^9.0.2",
     "mercadopago": "^2.9.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^6.9.4",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "simuladosbr-frontend": "file:../frontend",
+    "uuid": "^9.0.0"
   }
 }

@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const status = document.getElementById('status');
+    // Status banner removido do app — helpers mantidos como no-op para compatibilidade
+    const setStatus = () => {};
+    const clearStatus = () => {};
     const modal = document.getElementById('emailModal');
     const emailInput = document.getElementById('emailInput');
     const nameInput = document.getElementById('nameInput');
@@ -145,15 +147,32 @@ document.addEventListener('DOMContentLoaded', () => {
         // load modal (if not yet) and show it; store target url on modal
         const modalEl = await loadExamSetupModal();
         if (!modalEl) {
-            // fallback to direct redirect if modal can't be loaded
-            showRedirectSpinner('Entrando no simulado...');
-            setTimeout(()=>{ window.location.href = examUrl; }, 300);
+            // fallback revisado: se não conseguiu carregar o modal, vá para a página de configuração
+            const setupPath = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.EXAM_SETUP_PATH) || '/pages/examSetup.html';
+            showRedirectSpinner('Abrindo configuração do simulado...');
+            setTimeout(()=>{ window.location.href = setupPath; }, 100);
             return;
         }
         modalEl.setAttribute('data-exam-url', examUrl);
         modalEl.style.display = 'flex';
         modalEl.setAttribute('aria-hidden', 'false');
     }
+
+    // Sidebar: inject if placeholder exists
+    (async function initSidebar(){
+        try {
+            const mount = document.getElementById('appSidebar');
+            if (!mount) return; // only load when explicitly requested by the page
+            const resp = await fetch('/components/sidebar.html', { cache: 'no-store' });
+            if (!resp.ok) return;
+            const html = await resp.text();
+            mount.innerHTML = html;
+            // apply layout shift only for legacy sidebar; mcd-menu handles its own width
+            if (!/\bmcd-menu\b/.test(html)) {
+                document.body.classList.add('has-sidebar');
+            }
+        } catch(e) { console.warn('sidebar load failed', e); }
+    })();
 
     // Helper: generate token that ends with '#'
     function generateGuestToken() {
@@ -170,31 +189,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // If user appears logged-in and is visiting the site root, redirect to the exam page.
     try {
-    // Consider only true landing as root: '/', '' or '/index.html' (avoid matching '/login')
-    const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
+        // Consider only true landing as root: '/', '' or '/index.html' (avoid matching '/login')
+        const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
         const loggedIn = Boolean(hasUserId || hasNomeUsuario || hasNome);
         // treat guest tokens (ending with '#') as not-logged-in
         const isGuest = !!(sessionToken && sessionToken.endsWith('#'));
+        const hasSidebar = !!document.getElementById('appSidebar');
 
         // Diagnostics to help debugging when redirect does not occur
-    console.debug('[redirect-check] pathNow=', pathNow, 'isLanding=', isLanding, 'loggedIn=', loggedIn, 'isGuest=', isGuest, 'sessionToken=', sessionToken, 'hasUserId=', hasUserId, 'hasNomeUsuario=', hasNomeUsuario, 'hasNome=', hasNome);
+        console.debug('[redirect-check] pathNow=', pathNow, 'isLanding=', isLanding, 'loggedIn=', loggedIn, 'isGuest=', isGuest, 'hasSidebar=', hasSidebar);
 
-    if (isLanding && loggedIn && !isGuest) {
-            // Redirect to standalone setup page instead of going straight to the exam
-            const setupUrl = './pages/examSetup.html';
-            let absoluteUrl;
-            try {
-                absoluteUrl = new URL(setupUrl, window.location.href).href;
-            } catch (e) {
-                absoluteUrl = setupUrl;
-            }
-            console.info('[redirect] user looks logged in — redirecting to', absoluteUrl);
-            window.location.assign(absoluteUrl);
-            return; // stop further initialization on index
-        } else if (isLanding && (!loggedIn || isGuest)) {
-            // On the home page, if not logged in (or guest), go straight to /login
-            window.location.assign('/login');
-            return;
+        if (isLanding) {
+            // Não redirecionar mais a partir da index (home). Mantém usuário na página inicial.
+            // Importante: não sair da função para permitir que o restante da inicialização ocorra
+            // (ex.: exposição de funções globais para o card Simulador).
         }
     } catch (e) { console.warn('redirect check failed', e); }
 
@@ -219,6 +227,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Sync session token into a cookie so the server can authorize HTML GETs for admin pages
+    try {
+        if (sessionToken) {
+            // Write cookie for whole site; avoid Secure flag in http; SameSite=Lax for basic CSRF hardening
+            document.cookie = `sessionToken=${encodeURIComponent(sessionToken)}; Path=/; SameSite=Lax`;
+        }
+    } catch (e) { /* ignore cookie errors */ }
+
     // Try to sync BloqueioAtivado early (best-effort). This will populate localStorage for UI that reads it.
     if (sessionToken && !(sessionToken && sessionToken.endsWith('#'))) {
         syncBloqueioFromServer(sessionToken).catch(e => console.warn('early syncBloqueio failed', e));
@@ -228,23 +244,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Determine whether to force registration modal.
     // Old behavior: show modal when token endsWith('#').
-    // New: only show modal when token endsWith('#') AND we have no other registration hints (userId/nomeUsuario/nome).
-    if ((sessionToken && sessionToken.endsWith('#')) && !hasUserId && !hasNomeUsuario && !hasNome) {
-        status.style.display = '';
-        status.textContent = 'Usuário não registrado — registro obrigatório.';
-        if (modal) {
-            showEmailModal();
+    // New: on home (index.html) with sidebar, DO NOT redirect to /login and do not force modal; show as visitante.
+    (function(){
+        const guestUnregistered = (sessionToken && sessionToken.endsWith('#')) && !hasUserId && !hasNomeUsuario && !hasNome;
+        const pathNow = window.location.pathname || '';
+        const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
+        const hasSidebar = !!document.getElementById('appSidebar');
+
+        if (guestUnregistered) {
+            if (isLanding) {
+                // Na index, não força modal e não redireciona mais
+                setStatus('Visitante');
+                try { showUserHeader('Visitante'); } catch(_){}
+                return;
+            }
+            // Fora da index, manter comportamento anterior (mostrar modal ou redirecionar)
+            setStatus('Usuário não registrado — registro obrigatório.');
+            if (modal) {
+                showEmailModal();
+            } else {
+                window.location.assign('/login');
+                return;
+            }
         } else {
-            // Se não houver modal na página atual (ex.: index), redirecionar para /login
-            window.location.assign('/login');
-            return;
+            const displayedName = localStorage.getItem('nome') || localStorage.getItem('nomeUsuario') || sessionToken || '';
+            setStatus(displayedName ? `Usuário: ${displayedName}` : '');
+            try { showUserHeader(displayedName); } catch(e) { /* showUserHeader may be defined later */ }
         }
-    } else {
-        status.style.display = '';
-        const displayedName = localStorage.getItem('nome') || localStorage.getItem('nomeUsuario') || sessionToken || '';
-        status.textContent = displayedName ? `Usuário: ${displayedName}` : '';
-        try { showUserHeader(displayedName); } catch(e) { /* showUserHeader may be defined later */ }
-    }
+    })();
 
     function showEmailModal() {
         if (!modal) return;
@@ -507,6 +534,129 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.warn('showTemporaryNotification error', e); }
     }
 
+    // Persistent toast with countdown for lockout
+    let _lockoutTimerId = null;
+    function startLockoutCountdown(secondsLeft) {
+        try {
+            const id = 'simLockoutToast';
+            let el = document.getElementById(id);
+            if (!el) {
+                el = document.createElement('div');
+                el.id = id;
+                el.style.position = 'fixed';
+                el.style.top = '16px';
+                el.style.right = '16px';
+                el.style.zIndex = 99999;
+                el.style.background = '#c53030';
+                el.style.color = '#fff';
+                el.style.padding = '12px 16px';
+                el.style.borderRadius = '8px';
+                el.style.boxShadow = '0 6px 18px rgba(0,0,0,0.18)';
+                el.style.display = 'inline-block';
+                document.body.appendChild(el);
+            }
+
+            function fmt(sec){
+                const s = Math.max(0, Math.floor(sec));
+                const m = Math.floor(s / 60);
+                const r = s % 60;
+                return `${m}:${String(r).padStart(2,'0')}`;
+            }
+
+            function update(sec){
+                const txt = `Conta bloqueada por muitas tentativas. Aguarde ${fmt(sec)} para tentar novamente.`;
+                el.textContent = txt;
+                if (modalError) {
+                    modalError.style.color = 'crimson';
+                    modalError.textContent = txt;
+                    modalError.style.display = 'block';
+                }
+                // also show exact release time under the form
+                try {
+                    const untilIso = localStorage.getItem('lockoutUntil');
+                    const infoEl = ensureLockoutReleaseInfo(untilIso);
+                    // no-op if not on login modal
+                } catch(_){ }
+            }
+
+            // Clear any previous timer
+            if (_lockoutTimerId) { try { clearInterval(_lockoutTimerId); } catch(_){ } _lockoutTimerId = null; }
+
+            let remaining = Number(secondsLeft || 300);
+            // ensure we have a consistent lockoutUntil to display
+            try {
+                let untilIso = localStorage.getItem('lockoutUntil');
+                if (!untilIso) {
+                    untilIso = new Date(Date.now() + remaining * 1000).toISOString();
+                    localStorage.setItem('lockoutUntil', untilIso);
+                }
+                ensureLockoutReleaseInfo(untilIso);
+            } catch(_){ }
+            update(remaining);
+            _lockoutTimerId = setInterval(() => {
+                remaining -= 1;
+                if (remaining <= 0) {
+                    try { clearInterval(_lockoutTimerId); } catch(_){}
+                    _lockoutTimerId = null;
+                    try { el.remove(); } catch(_){ }
+                    try { localStorage.removeItem('lockoutUntil'); } catch(_){ }
+                    try { const inf = document.getElementById('lockoutReleaseTime'); if (inf) inf.remove(); } catch(_){ }
+                    if (modalError) {
+                        modalError.style.color = '#2f855a';
+                        modalError.textContent = 'O bloqueio expirou. Você já pode tentar novamente.';
+                        modalError.style.display = 'block';
+                    }
+                    if (submitBtn) submitBtn.disabled = false;
+                } else {
+                    update(remaining);
+                }
+            }, 1000);
+        } catch (e) { console.warn('startLockoutCountdown error', e); }
+    }
+
+    function ensureLockoutReleaseInfo(untilIso){
+        try {
+            if (!modal) return null;
+            const until = untilIso ? new Date(untilIso) : null;
+            if (!until || isNaN(until.getTime())) return null;
+            // Format local time HH:mm (or locale 24h where applicable)
+            const timeStr = until.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let info = document.getElementById('lockoutReleaseTime');
+            if (!info) {
+                info = document.createElement('div');
+                info.id = 'lockoutReleaseTime';
+                info.style.marginTop = '8px';
+                info.style.fontSize = '0.95em';
+                info.style.color = '#4a5568';
+                // place below modal actions or below modalError if present
+                const actions = modal.querySelector('.modal-actions');
+                if (actions && actions.parentNode) actions.parentNode.insertBefore(info, actions.nextSibling);
+                else if (modalError && modalError.parentNode) modalError.parentNode.insertBefore(info, modalError.nextSibling);
+                else modal.appendChild(info);
+            }
+            info.textContent = `Liberação às ${timeStr}`;
+            return info;
+        } catch(e) { console.warn('ensureLockoutReleaseInfo error', e); return null; }
+    }
+
+    // On load, resume lockout countdown if persisted in localStorage
+    function resumeLockoutIfAny(){
+        try {
+            const untilStr = localStorage.getItem('lockoutUntil');
+            if (!untilStr) return;
+            const until = new Date(untilStr).getTime();
+            if (!Number.isFinite(until)) { localStorage.removeItem('lockoutUntil'); return; }
+            const now = Date.now();
+            if (until > now) {
+                const secLeft = Math.max(1, Math.floor((until - now) / 1000));
+                if (submitBtn) submitBtn.disabled = true;
+                startLockoutCountdown(secLeft);
+            } else {
+                localStorage.removeItem('lockoutUntil');
+            }
+        } catch(e) { console.warn('resumeLockoutIfAny error', e); }
+    }
+
     if (modal && submitBtn && emailInput) submitBtn.addEventListener('click', async () => {
         const email = emailInput.value && emailInput.value.trim();
         const nome = nameInput.value && nameInput.value.trim();
@@ -583,6 +733,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         submitBtn.disabled = false;
                         return; // stop login flow here
                     }
+                    // Lockout policy: show toast with live countdown and disable login until expiry
+                    if (res.status === 423 || res.status === 429) {
+                        try {
+                            const secLeft = (data && typeof data.lockoutSecondsLeft === 'number') ? Math.max(1, Math.floor(data.lockoutSecondsLeft)) : 300;
+                            if (submitBtn) submitBtn.disabled = true;
+                            // persist lockout until to survive reloads
+                            try {
+                                const untilIso = (data && data.lockoutUntil) ? String(data.lockoutUntil) : new Date(Date.now() + secLeft * 1000).toISOString();
+                                localStorage.setItem('lockoutUntil', untilIso);
+                                ensureLockoutReleaseInfo(untilIso);
+                            } catch(_){ }
+                            startLockoutCountdown(secLeft);
+                        } catch(_){}
+                        return;
+                    }
                     throw new Error(msg);
                 }
 
@@ -599,7 +764,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // synchronize BloqueioAtivado from server and store in localStorage
                 try { await syncBloqueioFromServer(nomeUsuarioStored); } catch(e) { console.warn('syncBloqueio error', e); }
 
-                status.textContent = `Logado como ${nomeReal}`;
+                setStatus(`Logado como ${nomeReal}`);
                 showUserHeader(nomeReal);
                 hideEmailModal();
 
@@ -660,7 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // synchronize BloqueioAtivado from server and store in localStorage
                     try { await syncBloqueioFromServer(nomeUsuarioStored); } catch(e) { console.warn('syncBloqueio error', e); }
 
-                    status.textContent = `Logado como ${nomeReal}`;
+                    setStatus(`Logado como ${nomeReal}`);
                     showUserHeader(nomeReal);
                     hideEmailModal();
 
@@ -700,4 +865,17 @@ document.addEventListener('DOMContentLoaded', () => {
             setModalMode(next);
         });
     }
+    // Expor funções para uso externo (index.html - card Simulador)
+    try {
+        window.loadExamSetupModal = loadExamSetupModal;
+        window.showExamSetupAndRedirect = showExamSetupAndRedirect;
+    } catch (_) { /* ignore */ }
+
+    // Resume any existing lockout on page load (login page)
+    try {
+        const onLoginPage = (window.location.pathname || '').replace(/\/+$/, '') === '/login';
+        if (onLoginPage && modal) {
+            resumeLockoutIfAny();
+        }
+    } catch(_){ }
 });

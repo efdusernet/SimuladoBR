@@ -56,27 +56,14 @@
   </div>
 
   <div class="sections">
-    <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
-      <p class="section-desc">Resumo agregado de desempenho recente.</p>
-      <div class="grid" id="grid-geral"></div>
-    </section>
-    <section id="sec-grupos" class="section" aria-labelledby="tab-grupos">
-      <p class="section-desc">Distribuição por grupo de processos.</p>
-      <div class="grid" id="grid-grupos"></div>
-    </section>
-    <section id="sec-topico" class="section" aria-labelledby="tab-topico">
-      <p class="section-desc">Indicadores por tópico ou área de conhecimento.</p>
-      <div class="grid" id="grid-topico"></div>
-    </section>
-    <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem">
-      <p class="section-desc">Análise por abordagem / domínio (preparação, pessoas, processos, negócio).</p>
-      <div class="grid" id="grid-abordagem"></div>
-    </section>
+    <section id="sec-geral" class="section active" aria-labelledby="tab-geral"></section>
+    <section id="sec-grupos" class="section" aria-labelledby="tab-grupos"></section>
+    <section id="sec-topico" class="section" aria-labelledby="tab-topico"></section>
+    <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem"></section>
   </div>
 
-  <script type="module" src="/components/sb-hbar.js"></script>
   <script>
-    // Tabs logic
+    // Tabs logic only (conteúdo removido conforme solicitação)
     const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
     const sectionsMap = {
       'geral': document.getElementById('sec-geral'),
@@ -93,95 +80,6 @@
         if (sectionsMap[tab]) sectionsMap[tab].classList.add('active');
       });
     });
-
-    // Mock / placeholder data builder. Later can be replaced by backend fetch.
-    function percent(v, t){ if(!t) return 0; return Math.round((v*100)/t); }
-
-    function mountVisaoGeral(){
-      const host = document.getElementById('grid-geral'); host.innerHTML = '';
-      const cards = [
-        { title: 'Exames Completos', value: 3, extra: 'Últimos 30 dias' },
-        { title: 'Média de Acertos', value: '74%', accent: true },
-        { title: 'Questões Inéditas', value: 42, extra: 'Disponíveis' },
-        { title: 'Tempo Médio', value: '2h15m', extra: 'Exame completo' },
-      ];
-      cards.forEach(c => {
-        const el = document.createElement('div'); el.className='card';
-        el.innerHTML = `<h2>${c.title}</h2><div class="split"><span class="value">${c.value}</span>${c.extra?`<span class="pill">${c.extra}</span>`:''}</div>`;
-        host.appendChild(el);
-      });
-      // Performance barras agregadas
-      const perfCard = document.createElement('div'); perfCard.className='card'; perfCard.innerHTML = '<h2>Distribuição</h2>';
-      const bar = document.createElement('sb-hbar'); bar.setAttribute('show-percent',''); bar.setAttribute('data', JSON.stringify([
-        { label:'Pessoas', value:68, color:'#0ea5e9' },
-        { label:'Processos', value:74, color:'#6366f1' },
-        { label:'Negócio', value:81, color:'#10b981' }
-      ]));
-      perfCard.appendChild(bar);
-      host.appendChild(perfCard);
-    }
-
-    function mountGrupos(){
-      const host = document.getElementById('grid-grupos'); host.innerHTML='';
-      const grupos = [
-        { nome:'Iniciação', acertos: 28, total: 40 },
-        { nome:'Planejamento', acertos: 52, total: 70 },
-        { nome:'Execução', acertos: 45, total: 60 },
-        { nome:'Monitoramento', acertos: 30, total: 50 },
-        { nome:'Encerramento', acertos: 15, total: 20 }
-      ];
-      grupos.forEach(g => {
-        const el = document.createElement('div'); el.className='card';
-        const p = percent(g.acertos, g.total);
-        el.innerHTML = `<h2>${g.nome}</h2>`;
-        const bar = document.createElement('sb-hbar'); bar.setAttribute('value', String(p)); bar.setAttribute('max','100'); bar.setAttribute('label', 'Acertos'); bar.setAttribute('show-percent',''); bar.setAttribute('height','12'); bar.setAttribute('color', p>=70? '#10b981': (p>=50?'#f59e0b':'#ef4444')); bar.setAttribute('unit','%');
-        el.appendChild(bar);
-        host.appendChild(el);
-      });
-    }
-
-    function mountTopico(){
-      const host = document.getElementById('grid-topico'); host.innerHTML='';
-      const topicos = [
-        { nome:'Stakeholders', acertos:19, total:25 },
-        { nome:'Cronograma', acertos:32, total:40 },
-        { nome:'Riscos', acertos:24, total:30 },
-        { nome:'Qualidade', acertos:15, total:25 },
-        { nome:'Custos', acertos:26, total:35 }
-      ];
-      topicos.forEach(t => {
-        const el = document.createElement('div'); el.className='card';
-        const p = percent(t.acertos, t.total);
-        el.innerHTML = `<h2>${t.nome}</h2>`;
-        const bar = document.createElement('sb-hbar'); bar.setAttribute('value', String(p)); bar.setAttribute('max','100'); bar.setAttribute('label','Acertos'); bar.setAttribute('show-percent',''); bar.setAttribute('height','12'); bar.setAttribute('color', p>=70? '#0ea5e9': (p>=50?'#f59e0b':'#ef4444')); bar.setAttribute('unit','%');
-        el.appendChild(bar);
-        host.appendChild(el);
-      });
-    }
-
-    function mountAbordagem(){
-      const host = document.getElementById('grid-abordagem'); host.innerHTML='';
-      const abordagens = [
-        { nome:'Pessoas', value:68 },
-        { nome:'Processos', value:74 },
-        { nome:'Negócio', value:81 },
-        { nome:'Ágil', value:70 },
-        { nome:'Híbrido', value:62 }
-      ];
-      abordagens.forEach(a => {
-        const el = document.createElement('div'); el.className='card';
-        el.innerHTML = `<h2>${a.nome}</h2>`;
-        const bar = document.createElement('sb-hbar'); bar.setAttribute('value', String(a.value)); bar.setAttribute('max','100'); bar.setAttribute('label','Média'); bar.setAttribute('show-percent',''); bar.setAttribute('height','12'); bar.setAttribute('color', a.value>=75? '#10b981': (a.value>=60?'#2563eb':'#ef4444')); bar.setAttribute('unit','%');
-        el.appendChild(bar);
-        host.appendChild(el);
-      });
-    }
-
-    // Initial mount
-    mountVisaoGeral();
-    mountGrupos();
-    mountTopico();
-    mountAbordagem();
   </script>
 </body>
 </html>

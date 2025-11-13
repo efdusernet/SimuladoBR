@@ -401,6 +401,11 @@
 
   // Defaults; will be adjusted per exam type when loaded
   let currentExamType = (localStorage.getItem('examType') || 'pmp');
+  // Allow URL to override stored exam type (e.g., ?examType=pmp)
+  try {
+    const qp = new URLSearchParams(window.location.search).get('examType');
+    if (qp) currentExamType = qp;
+  } catch(_) {}
   // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 25), else premium (180)
     const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
   let limiteQuestoes = bloqueado ? 25 : 180;
@@ -911,7 +916,6 @@
     });
 
     // Kick off
-    loadExamTypes();
     loadExamTypes();
     loadMeta().then(() => {
       // Faça uma contagem inicial se já houver filtros salvos

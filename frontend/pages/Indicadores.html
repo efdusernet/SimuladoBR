@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Indicadores</title>
+  <style>
+    :root {
+      --ind-bg: #f8fafc;
+      --ind-panel: #ffffff;
+      --ind-border: #e2e8f0;
+      --ind-text: #0f172a;
+      --ind-muted: #64748b;
+      --ind-primary: #2563eb;
+      --ind-radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background: var(--ind-bg); color: var(--ind-text); }
+    h1 { font-size:1.15rem; margin:16px 16px 8px; font-weight:600; }
+    .tabs { display:flex; gap:4px; padding:0 16px 8px; flex-wrap:wrap; }
+    .tab-btn { appearance:none; border:1px solid var(--ind-border); background:var(--ind-panel); padding:6px 12px; font-size:0.85rem; border-radius:8px; cursor:pointer; color:var(--ind-muted); font-weight:600; transition:.18s; }
+    .tab-btn:hover { background:#f1f5f9; }
+    .tab-btn.active { background: var(--ind-primary); color:#fff; border-color: var(--ind-primary); }
+    .sections { padding:0 16px 40px; }
+    .section { display:none; }
+    .section.active { display:block; animation: fade .25s ease; }
+    @keyframes fade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+    /* Grid layout */
+    .grid { display:grid; gap:12px; margin-top:12px; }
+    @media (min-width: 480px){ .grid { grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); } }
+    @media (max-width: 479px){ .grid { grid-template-columns: 1fr; } }
+
+    .card { background:var(--ind-panel); border:1px solid var(--ind-border); padding:12px 12px 10px; border-radius:var(--ind-radius); box-shadow:0 2px 4px rgba(15,23,42,.06); display:flex; flex-direction:column; gap:8px; min-height:120px; }
+    .card h2 { font-size:0.8rem; font-weight:600; margin:0; letter-spacing:.5px; text-transform:uppercase; color: var(--ind-muted); }
+    .card .value { font-size:0.95rem; font-weight:600; }
+    .split { display:flex; gap:10px; align-items:center; }
+    .pill { background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:14px; font-size:0.65rem; font-weight:600; letter-spacing:.5px; }
+
+    /* Horizontal bar component host styling overrides */
+    sb-hbar { --sb-hbar-track:#e2e8f0; --sb-hbar-color:#2563eb; }
+    sb-hbar::part(label){ font-weight:600; color:#334155; }
+    sb-hbar::part(value){ font-weight:600; color:#0f172a; }
+
+    .section-desc { font-size:0.75rem; color:var(--ind-muted); margin:4px 0 6px; }
+    .loading { font-size:0.75rem; color:var(--ind-muted); }
+  </style>
+</head>
+<body>
+  <h1>Indicadores</h1>
+  <div class="tabs" role="tablist" aria-label="Categorias de Indicadores">
+    <button class="tab-btn active" data-tab="geral" role="tab" aria-selected="true">Visão Geral</button>
+    <button class="tab-btn" data-tab="grupos" role="tab" aria-selected="false">Grupo Processos</button>
+    <button class="tab-btn" data-tab="topico" role="tab" aria-selected="false">Tópico</button>
+    <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
+  </div>
+
+  <div class="sections">
+    <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
+      <p class="section-desc">Resumo agregado de desempenho recente.</p>
+      <div class="grid" id="grid-geral"></div>
+    </section>
+    <section id="sec-grupos" class="section" aria-labelledby="tab-grupos">
+      <p class="section-desc">Distribuição por grupo de processos.</p>
+      <div class="grid" id="grid-grupos"></div>
+    </section>
+    <section id="sec-topico" class="section" aria-labelledby="tab-topico">
+      <p class="section-desc">Indicadores por tópico ou área de conhecimento.</p>
+      <div class="grid" id="grid-topico"></div>
+    </section>
+    <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem">
+      <p class="section-desc">Análise por abordagem / domínio (preparação, pessoas, processos, negócio).</p>
+      <div class="grid" id="grid-abordagem"></div>
+    </section>
+  </div>
+
+  <script type="module" src="/components/sb-hbar.js"></script>
+  <script>
+    // Tabs logic
+    const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+    const sectionsMap = {
+      'geral': document.getElementById('sec-geral'),
+      'grupos': document.getElementById('sec-grupos'),
+      'topico': document.getElementById('sec-topico'),
+      'abordagem': document.getElementById('sec-abordagem')
+    };
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab');
+        tabButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+        btn.classList.add('active'); btn.setAttribute('aria-selected','true');
+        Object.keys(sectionsMap).forEach(k => { sectionsMap[k].classList.remove('active'); });
+        if (sectionsMap[tab]) sectionsMap[tab].classList.add('active');
+      });
+    });
+
+    // Mock / placeholder data builder. Later can be replaced by backend fetch.
+    function percent(v, t){ if(!t) return 0; return Math.round((v*100)/t); }
+
+    function mountVisaoGeral(){
+      const host = document.getElementById('grid-geral'); host.innerHTML = '';
+      const cards = [
+        { title: 'Exames Completos', value: 3, extra: 'Últimos 30 dias' },
+        { title: 'Média de Acertos', value: '74%', accent: true },
+        { title: 'Questões Inéditas', value: 42, extra: 'Disponíveis' },
+        { title: 'Tempo Médio', value: '2h15m', extra: 'Exame completo' },
+      ];
+      cards.forEach(c => {
+        const el = document.createElement('div'); el.className='card';
+        el.innerHTML = `<h2>${c.title}</h2><div class="split"><span class="value">${c.value}</span>${c.extra?`<span class="pill">${c.extra}</span>`:''}</div>`;
+        host.appendChild(el);
+      });
+      // Performance barras agregadas
+      const perfCard = document.createElement('div'); perfCard.className='card'; perfCard.innerHTML = '<h2>Distribuição</h2>';
+      const bar = document.createElement('sb-hbar'); bar.setAttribute('show-percent',''); bar.setAttribute('data', JSON.stringify([
+        { label:'Pessoas', value:68, color:'#0ea5e9' },
+        { label:'Processos', value:74, color:'#6366f1' },
+        { label:'Negócio', value:81, color:'#10b981' }
+      ]));
+      perfCard.appendChild(bar);
+      host.appendChild(perfCard);
+    }
+
+    function mountGrupos(){
+      const host = document.getElementById('grid-grupos'); host.innerHTML='';
+      const grupos = [
+        { nome:'Iniciação', acertos: 28, total: 40 },
+        { nome:'Planejamento', acertos: 52, total: 70 },
+        { nome:'Execução', acertos: 45, total: 60 },
+        { nome:'Monitoramento', acertos: 30, total: 50 },
+        { nome:'Encerramento', acertos: 15, total: 20 }
+      ];
+      grupos.forEach(g => {
+        const el = document.createElement('div'); el.className='card';
+        const p = percent(g.acertos, g.total);
+        el.innerHTML = `<h2>${g.nome}</h2>`;
+        const bar = document.createElement('sb-hbar'); bar.setAttribute('value', String(p)); bar.setAttribute('max','100'); bar.setAttribute('label', 'Acertos'); bar.setAttribute('show-percent',''); bar.setAttribute('height','12'); bar.setAttribute('color', p>=70? '#10b981': (p>=50?'#f59e0b':'#ef4444')); bar.setAttribute('unit','%');
+        el.appendChild(bar);
+        host.appendChild(el);
+      });
+    }
+
+    function mountTopico(){
+      const host = document.getElementById('grid-topico'); host.innerHTML='';
+      const topicos = [
+        { nome:'Stakeholders', acertos:19, total:25 },
+        { nome:'Cronograma', acertos:32, total:40 },
+        { nome:'Riscos', acertos:24, total:30 },
+        { nome:'Qualidade', acertos:15, total:25 },
+        { nome:'Custos', acertos:26, total:35 }
+      ];
+      topicos.forEach(t => {
+        const el = document.createElement('div'); el.className='card';
+        const p = percent(t.acertos, t.total);
+        el.innerHTML = `<h2>${t.nome}</h2>`;
+        const bar = document.createElement('sb-hbar'); bar.setAttribute('value', String(p)); bar.setAttribute('max','100'); bar.setAttribute('label','Acertos'); bar.setAttribute('show-percent',''); bar.setAttribute('height','12'); bar.setAttribute('color', p>=70? '#0ea5e9': (p>=50?'#f59e0b':'#ef4444')); bar.setAttribute('unit','%');
+        el.appendChild(bar);
+        host.appendChild(el);
+      });
+    }
+
+    function mountAbordagem(){
+      const host = document.getElementById('grid-abordagem'); host.innerHTML='';
+      const abordagens = [
+        { nome:'Pessoas', value:68 },
+        { nome:'Processos', value:74 },
+        { nome:'Negócio', value:81 },
+        { nome:'Ágil', value:70 },
+        { nome:'Híbrido', value:62 }
+      ];
+      abordagens.forEach(a => {
+        const el = document.createElement('div'); el.className='card';
+        el.innerHTML = `<h2>${a.nome}</h2>`;
+        const bar = document.createElement('sb-hbar'); bar.setAttribute('value', String(a.value)); bar.setAttribute('max','100'); bar.setAttribute('label','Média'); bar.setAttribute('show-percent',''); bar.setAttribute('height','12'); bar.setAttribute('color', a.value>=75? '#10b981': (a.value>=60?'#2563eb':'#ef4444')); bar.setAttribute('unit','%');
+        el.appendChild(bar);
+        host.appendChild(el);
+      });
+    }
+
+    // Initial mount
+    mountVisaoGeral();
+    mountGrupos();
+    mountTopico();
+    mountAbordagem();
+  </script>
+</body>
+</html>

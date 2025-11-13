@@ -546,7 +546,7 @@
       });
     }
 
-    function atualizarResumo() {
+    async function atualizarResumo() {
       resumoQtd.textContent = quantidadeInput.value || '-';
         // Se não houver filtros selecionados, manter o comportamento anterior (mostrar quantidade digitada)
         const filtrosSelecionados = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length) > 0;

@@ -140,6 +140,8 @@ exports.selectQuestions = async (req, res) => {
   const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
   const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
+  // Flag premium: somente questões inéditas
+  const onlyNew = (!bloqueio) && (req.body.onlyNew === true || req.body.onlyNew === 'true');
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
 
   // Build WHERE clause
@@ -154,6 +156,22 @@ exports.selectQuestions = async (req, res) => {
   if (dominios && dominios.length) whereClauses.push(`iddominio IN (${dominios.join(',')})`);
   if (areas && areas.length) whereClauses.push(`codareaconhecimento IN (${areas.join(',')})`);
   if (grupos && grupos.length) whereClauses.push(`codgrupoprocesso IN (${grupos.join(',')})`);
+  // Excluir questões já respondidas se onlyNew ativo (premium)
+  if (onlyNew) {
+    try {
+      const answeredSql = `SELECT DISTINCT aq.question_id AS qid
+        FROM exam_attempt_answer aa
+        JOIN exam_attempt_question aq ON aq.id = aa.attempt_question_id
+        JOIN exam_attempt a ON a.id = aq.attempt_id
+        WHERE a.user_id = :uid ${examCfg && examCfg._dbId ? 'AND a.exam_type_id = :etype' : ''}`;
+      const answeredRows = await sequelize.query(answeredSql, { replacements: { uid: user.Id || user.id, etype: examCfg ? examCfg._dbId : null }, type: sequelize.QueryTypes.SELECT });
+      const answeredIds = (answeredRows || []).map(r => Number(r.qid)).filter(n => Number.isFinite(n));
+      if (answeredIds.length) {
+        const limited = answeredIds.slice(0, 10000); // limite defensivo
+        whereClauses.push(`id NOT IN (${limited.join(',')})`);
+      }
+    } catch(e) { /* ignore */ }
+  }
   const whereSql = whereClauses.join(' AND ');
 
     // Count available (with exam_type when applicable)
@@ -265,7 +283,7 @@ exports.selectQuestions = async (req, res) => {
             multiplaSelecao: examCfg.multiplaSelecao,
             pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
           },
-          FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
+          FiltrosUsados: { dominios, areas, grupos, onlyNew: !!onlyNew, fallbackIgnoreExamType: false },
         }, { transaction: t });
         if (attempt && ids.length) {
           const rows = ids.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));

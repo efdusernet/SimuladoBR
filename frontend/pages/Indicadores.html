@@ -7,9 +7,13 @@
   <style>
     body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#f8fafc; color:#0f172a; }
     h1 { font-size:1.1rem; margin:16px; font-weight:600; }
-    .tabs { display:flex; gap:4px; padding:0 16px 8px; flex-wrap:wrap; }
-    .tab-btn { border:1px solid #e2e8f0; background:#fff; padding:6px 12px; font-size:0.8rem; border-radius:8px; cursor:pointer; color:#64748b; font-weight:600; }
-    .tab-btn.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+    .tabs-bar { background:#1e293b; width:100%; padding:12px 16px; box-sizing:border-box; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; }
+    .tab-btn { background:#1e293b; padding:8px 16px; font-size:0.8rem; border-radius:6px; cursor:pointer; color:#cbd5e1; font-weight:600; line-height:1.2; transition:background .18s,color .18s,box-shadow .18s; position:relative; border:none; }
+    .tab-btn:not(:first-child)::before { content:''; position:absolute; left:0; top:20%; bottom:20%; width:1px; background:#475569; pointer-events:none; }
+    .tab-btn:hover:not(.active) { background:#334155; }
+    .tab-btn:focus-visible { outline:2px solid #3b82f6; outline-offset:2px; }
+    .tab-btn.active { background:#3b82f6; color:#fff; box-shadow:0 0 0 1px #3b82f6 inset; }
     .sections { padding:0 16px 24px; }
     .section { display:none; min-height:80px; border:1px dashed #e2e8f0; border-radius:6px; padding:12px; background:#ffffff; }
     .section.active { display:block; }
@@ -17,11 +21,13 @@
 </head>
 <body>
   <h1>Indicadores</h1>
-  <div class="tabs" role="tablist" aria-label="Categorias de Indicadores">
-    <button class="tab-btn active" data-tab="geral" role="tab" aria-selected="true">Visão Geral</button>
-    <button class="tab-btn" data-tab="grupos" role="tab" aria-selected="false">Grupo Processos</button>
-    <button class="tab-btn" data-tab="topico" role="tab" aria-selected="false">Tópico</button>
-    <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
+  <div class="tabs-bar">
+    <div class="tabs" role="tablist" aria-label="Categorias de Indicadores">
+      <button class="tab-btn active" data-tab="geral" role="tab" aria-selected="true">Visão Geral</button>
+      <button class="tab-btn" data-tab="grupos" role="tab" aria-selected="false">Grupo Processos</button>
+      <button class="tab-btn" data-tab="topico" role="tab" aria-selected="false">Tópico</button>
+      <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
+    </div>
   </div>
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral"><!-- vazio --></section>

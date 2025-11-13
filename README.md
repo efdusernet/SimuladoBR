@@ -196,6 +196,15 @@ Coleção e instruções em: `postman/README.md`
 
 Se algo não estiver claro ou faltar um exemplo específico, abra uma issue ou peça que eu amplie a seção correspondente.
 
+## Componentes UI
+
+- `sb-hbar` (barra horizontal): Web Component reutilizável para exibir barras simples ou múltiplas com dataset JSON.
+	- Arquivo: `frontend/components/sb-hbar.js`
+	- Importe em páginas onde for usar: `<script type="module" src="/components/sb-hbar.js"></script>`
+	- Uso rápido (única barra): `<sb-hbar value="72" max="100" label="Aproveitamento" show-percent unit="%"></sb-hbar>`
+	- Uso com dataset JSON: `<sb-hbar data='[{"label":"Domínio 1","value":45},{"label":"Domínio 2","value":80}]' show-percent></sb-hbar>`
+	- Documentação completa: `docs/ui-components.md`
+
 ## Reset de Dados de Exames
 
 Existem dois mecanismos para limpar tentativas e respostas de exame em ambientes de desenvolvimento/teste:

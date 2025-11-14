@@ -134,8 +134,8 @@
 
           <div class="cell rowlabel" data-cell="OV-R4C1">Exames realizados</div>
           <div class="cell" data-cell="OV-R4C2" data-key="last15.you.total">&nbsp;</div>
-          <div class="cell" data-cell="OV-R4C3" data-key="last15.you.aprovado">&nbsp;</div>
-          <div class="cell" data-cell="OV-R4C4" data-key="last15.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C3" data-format="percent" data-key="last15.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C4" data-format="percent" data-key="last15.you.reprovado">&nbsp;</div>
           <div class="cell" data-cell="OV-R4C5" data-key="last15.others.aprovado">&nbsp;</div>
           <div class="cell" data-cell="OV-R4C6" data-key="last15.others.reprovado">&nbsp;</div>
           <div class="cell" data-cell="OV-R4C7" data-key="last30.you.total">&nbsp;</div>
@@ -255,7 +255,13 @@
         const cells = data && data.cells ? data.cells : {};
         Object.keys(cells).forEach(code => {
           const el = document.querySelector(`[data-cell="${code}"]`);
-          if (el) el.textContent = String(cells[code]);
+          if (el) {
+            const fmt = el.getAttribute('data-format');
+            const val = cells[code];
+            let text = (val === null || typeof val === 'undefined') ? '' : String(val);
+            if (fmt === 'percent' && text !== '') text = `${text}%`;
+            el.textContent = text;
+          }
         });
       } catch(_) { /* ignore */ }
     }

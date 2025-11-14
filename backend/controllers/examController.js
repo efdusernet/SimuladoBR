@@ -60,6 +60,12 @@ async function getExamTypeBySlugOrDefault(slug) {
   return reg ? { ...reg, _dbId: null } : null;
 }
 
+// Read FULL_EXAM_QUESTION_COUNT from env with a safe default
+function getFullExamQuestionCount() {
+  const v = Number(process.env.FULL_EXAM_QUESTION_COUNT);
+  return Number.isFinite(v) && v > 0 ? v : 180;
+}
+
 exports.listExams = async (req, res) => {
   try {
     const types = await loadExamTypesFromDb();
@@ -105,11 +111,11 @@ exports.selectQuestions = async (req, res) => {
   const examCfg = await getExamTypeBySlugOrDefault(examType);
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
-    // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (ex.: 180), quiz when count <= 50
+    // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (or env-configured), quiz when count <= 50
     let examMode = headerMode;
     try {
       if (!examMode) {
-        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : 180;
+        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : getFullExamQuestionCount();
         if (count >= fullThreshold) examMode = 'full';
         else if (count > 0 && count <= 50) examMode = 'quiz';
       }
@@ -574,7 +580,7 @@ exports.startOnDemand = async (req, res) => {
     let examMode = headerMode;
     try {
       if (!examMode) {
-        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : 180;
+        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : getFullExamQuestionCount();
         if (count >= fullThreshold) examMode = 'full';
         else if (count > 0 && count <= 50) examMode = 'quiz';
       }

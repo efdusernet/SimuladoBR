@@ -5,7 +5,7 @@ SELECT 'Exames Realizados Resultados 30 dias',
        '/pages/Indicadores.html',
        '#sec-geral',
        'COUNT(exam_attempt WHERE quantidade_questoes=180 AND finished_at >= NOW() - (X days))',
-       '{"diasPadrao":30,"alternativas":[30,60],"examMode":["quiz","full"]}',
+    '{"diasPadrao":30,"alternativas":[30,60],"examMode":["quiz","full"],"idUsuario":null}',
        'PMP',
        TRUE
 WHERE NOT EXISTS (SELECT 1 FROM indicator WHERE nome = 'Exames Realizados Resultados 30 dias');
@@ -16,7 +16,7 @@ SELECT '% de aprovação no período',
        '/pages/Indicadores.html',
        '#sec-geral',
        '(COUNT WHERE score_percent>=75 / COUNT total) * 100',
-       '{"diasPadrao":30,"examMode":["quiz","full"]}',
+    '{"diasPadrao":30,"examMode":["quiz","full"],"idUsuario":null}',
        'PMP',
        TRUE
 WHERE NOT EXISTS (SELECT 1 FROM indicator WHERE nome = '% de aprovação no período');

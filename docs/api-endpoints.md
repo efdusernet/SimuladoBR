@@ -154,28 +154,33 @@ Exemplo:
 Observações gerais
 - Autorização via JWT: header `Authorization: Bearer <token>`.
 - Janelas de tempo: parâmetro `days` (1–120, default 30).
+- Filtro por modo: `exam_mode=quiz|full` (opcional). Se ausente, aplica-se lógica de exame completo.
+- Filtro por usuário: `idUsuario` (opcional; inteiro > 0). Quando presente, restringe aos exames daquele usuário.
 - Filtro de exames completos: considera tentativas com `exam_mode='full'` ou `quantidade_questoes = FULL_EXAM_QUESTION_COUNT` (definido por `.env`).
 
-### GET /api/indicators/exams-completed?days=30&exam_mode=full
+### GET /api/indicators/exams-completed?days=30&exam_mode=full&idUsuario=42
 Total de exames finalizados no período.
 - Query: 
   - `days` (opcional; default 30)
   - `exam_mode` (opcional; "quiz" ou "full"; default: full-exam logic quando ausente)
-- Response: `{ days, examMode, total }`
+  - `idUsuario` (opcional; inteiro > 0)
+- Response: `{ days, examMode, userId, total }`
 
-### GET /api/indicators/approval-rate?days=30&exam_mode=full
+### GET /api/indicators/approval-rate?days=30&exam_mode=full&idUsuario=42
 Percentual de aprovação no período (nota >= 75%).
 - Query: 
   - `days` (opcional; default 30)
   - `exam_mode` (opcional; "quiz" ou "full"; default: full-exam logic quando ausente)
-- Response: `{ days, examMode, total, approved, ratePercent }`
+  - `idUsuario` (opcional; inteiro > 0)
+- Response: `{ days, examMode, userId, total, approved, ratePercent }`
 
-### GET /api/indicators/failure-rate?days=30&exam_mode=full
+### GET /api/indicators/failure-rate?days=30&exam_mode=full&idUsuario=42
 Percentual de reprovação no período (nota < 75%).
 - Query: 
   - `days` (opcional; default 30)
   - `exam_mode` (opcional; "quiz" ou "full"; default: full-exam logic quando ausente)
-- Response: `{ days, examMode, total, failed, ratePercent }`
+  - `idUsuario` (opcional; inteiro > 0)
+- Response: `{ days, examMode, userId, total, failed, ratePercent }`
 
 ### GET /api/indicators/overview
 Resumo agregado para cards na página de Indicadores.
@@ -189,16 +194,16 @@ Entradas semeadas na tabela `indicator` (idempotentes):
 
 - Nome: `Exames Realizados Resultados 30 dias`
   - Descrição: Somatório de tentativas de exames nos últimos X dias (padrão 30).
-  - Parâmetros: `{"diasPadrao":30, "alternativas":[30,60], "examMode":["quiz","full"]}`
+  - Parâmetros: `{"diasPadrao":30, "alternativas":[30,60], "examMode":["quiz","full"], "idUsuario":null}`
   - Fórmula (descr.): `COUNT(exam_attempt WHERE exam_mode IN (quiz,full) AND finished_at >= NOW() - (X days))`
   - Observação: Quando `exam_mode` ausente, fallback para full-exam logic (`exam_mode='full'` OU `quantidade_questoes = FULL_EXAM_QUESTION_COUNT`).
 
 - Nome: `% de aprovação no período`
   - Descrição: `(Exames com score_percent >= 75% * 100) / Exames no período (padrão 30 dias).`
-  - Parâmetros: `{"diasPadrao":30, "examMode":["quiz","full"]}`
+  - Parâmetros: `{"diasPadrao":30, "examMode":["quiz","full"], "idUsuario":null}`
   - Fórmula (descr.): `(COUNT WHERE score_percent >= 75 / COUNT total) * 100`
 
 - Nome: `% de reprovação no período`
   - Descrição: `(Exames com score_percent < 75% * 100) / Exames no período (padrão 30 dias).`
-  - Parâmetros: `{"diasPadrao":30, "examMode":["quiz","full"]}`
+  - Parâmetros: `{"diasPadrao":30, "examMode":["quiz","full"], "idUsuario":null}`
   - Fórmula (descr.): `(COUNT WHERE score_percent < 75 / COUNT total) * 100`

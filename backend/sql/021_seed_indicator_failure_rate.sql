@@ -5,7 +5,7 @@ SELECT '% de reprovação no período',
        '/pages/Indicadores.html',
        '#sec-geral',
        '(COUNT WHERE score_percent<75 / COUNT total) * 100',
-       '{"diasPadrao":30,"examMode":["quiz","full"]}',
+    '{"diasPadrao":30,"examMode":["quiz","full"],"idUsuario":null}',
        'PMP',
        TRUE
 WHERE NOT EXISTS (SELECT 1 FROM indicator WHERE nome = '% de reprovação no período');

@@ -6,6 +6,7 @@ const Op = db.Sequelize && db.Sequelize.Op;
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { sendVerificationEmail } = require('../utils/mailer');
+const jwt = require('jsonwebtoken');
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -93,13 +94,23 @@ router.post('/login', async (req, res) => {
             if (user.FimBloqueio) patch.FimBloqueio = null; // limpa bloqueio antigo
             await user.update(patch);
         } catch (_) { /* ignore */ }
+        // Issue JWT for protected endpoints (e.g., indicators)
+        let token = null;
+        try {
+            const payload = { sub: user.Id, email: user.Email, name: user.NomeUsuario };
+            const expiresIn = process.env.JWT_EXPIRES_IN || '12h';
+            token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
+        } catch (_) { /* ignore token error */ }
+
         return res.json({
             Id: user.Id,
             NomeUsuario: user.NomeUsuario,
             Nome: user.Nome,
             Email: user.Email,
             EmailConfirmado: user.EmailConfirmado,
-            BloqueioAtivado: user.BloqueioAtivado
+            BloqueioAtivado: user.BloqueioAtivado,
+            token,
+            tokenType: token ? 'Bearer' : null
         });
     } catch (err) {
         console.error('Erro em /api/auth/login:', err);

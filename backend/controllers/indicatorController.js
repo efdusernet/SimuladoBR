@@ -29,14 +29,28 @@ async function getExamsCompleted(req, res) {
   try {
     const raw = parseInt(req.query.days, 10);
     const days = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 120) : 30;
-    const sql = `SELECT COUNT(*)::int AS total
+    const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : null;
+    
+    let sql, replacements;
+    if (examMode) {
+      sql = `SELECT COUNT(*)::int AS total
+                 FROM exam_attempt
+                 WHERE finished_at IS NOT NULL
+                   AND exam_mode = :examMode
+                   AND finished_at >= NOW() - (:days || ' days')::interval`;
+      replacements = { days: String(days), examMode };
+    } else {
+      sql = `SELECT COUNT(*)::int AS total
                  FROM exam_attempt
                  WHERE finished_at IS NOT NULL
                    AND (exam_mode = 'full' OR quantidade_questoes = :fullQ)
                    AND finished_at >= NOW() - (:days || ' days')::interval`;
-    const rows = await sequelize.query(sql, { replacements: { days: String(days), fullQ: getFullExamQuestionCount() }, type: sequelize.QueryTypes.SELECT });
+      replacements = { days: String(days), fullQ: getFullExamQuestionCount() };
+    }
+    
+    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
     const total = rows && rows[0] ? Number(rows[0].total) : 0;
-    return res.json({ days, total });
+    return res.json({ days, examMode: examMode || 'full', total });
   } catch (err) {
     return res.status(500).json({ message: 'Erro interno' });
   }
@@ -46,17 +60,32 @@ async function getApprovalRate(req, res) {
   try {
     const raw = parseInt(req.query.days, 10);
     const days = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 120) : 30;
-    const sql = `SELECT COUNT(*)::int AS total,
+    const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : null;
+    
+    let sql, replacements;
+    if (examMode) {
+      sql = `SELECT COUNT(*)::int AS total,
+                        COUNT(*) FILTER (WHERE score_percent >= 75)::int AS approved
+                 FROM exam_attempt
+                 WHERE finished_at IS NOT NULL
+                   AND exam_mode = :examMode
+                   AND finished_at >= NOW() - (:days || ' days')::interval`;
+      replacements = { days: String(days), examMode };
+    } else {
+      sql = `SELECT COUNT(*)::int AS total,
                         COUNT(*) FILTER (WHERE score_percent >= 75)::int AS approved
                  FROM exam_attempt
                  WHERE finished_at IS NOT NULL
                    AND (exam_mode = 'full' OR quantidade_questoes = :fullQ)
                    AND finished_at >= NOW() - (:days || ' days')::interval`;
-    const rows = await sequelize.query(sql, { replacements: { days: String(days), fullQ: getFullExamQuestionCount() }, type: sequelize.QueryTypes.SELECT });
+      replacements = { days: String(days), fullQ: getFullExamQuestionCount() };
+    }
+    
+    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
     const total = rows && rows[0] ? Number(rows[0].total) : 0;
     const approved = rows && rows[0] ? Number(rows[0].approved) : 0;
     const ratePercent = total > 0 ? Number(((approved * 100) / total).toFixed(2)) : null;
-    return res.json({ days, total, approved, ratePercent });
+    return res.json({ days, examMode: examMode || 'full', total, approved, ratePercent });
   } catch (err) {
     return res.status(500).json({ message: 'Erro interno' });
   }
@@ -66,17 +95,32 @@ async function getFailureRate(req, res) {
   try {
     const raw = parseInt(req.query.days, 10);
     const days = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 120) : 30;
-    const sql = `SELECT COUNT(*)::int AS total,
+    const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : null;
+    
+    let sql, replacements;
+    if (examMode) {
+      sql = `SELECT COUNT(*)::int AS total,
+                        COUNT(*) FILTER (WHERE score_percent < 75)::int AS failed
+                 FROM exam_attempt
+                 WHERE finished_at IS NOT NULL
+                   AND exam_mode = :examMode
+                   AND finished_at >= NOW() - (:days || ' days')::interval`;
+      replacements = { days: String(days), examMode };
+    } else {
+      sql = `SELECT COUNT(*)::int AS total,
                         COUNT(*) FILTER (WHERE score_percent < 75)::int AS failed
                  FROM exam_attempt
                  WHERE finished_at IS NOT NULL
                    AND (exam_mode = 'full' OR quantidade_questoes = :fullQ)
                    AND finished_at >= NOW() - (:days || ' days')::interval`;
-    const rows = await sequelize.query(sql, { replacements: { days: String(days), fullQ: getFullExamQuestionCount() }, type: sequelize.QueryTypes.SELECT });
+      replacements = { days: String(days), fullQ: getFullExamQuestionCount() };
+    }
+    
+    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
     const total = rows && rows[0] ? Number(rows[0].total) : 0;
     const failed = rows && rows[0] ? Number(rows[0].failed) : 0;
     const ratePercent = total > 0 ? Number(((failed * 100) / total).toFixed(2)) : null;
-    return res.json({ days, total, failed, ratePercent });
+    return res.json({ days, examMode: examMode || 'full', total, failed, ratePercent });
   } catch (err) {
     return res.status(500).json({ message: 'Erro interno' });
   }

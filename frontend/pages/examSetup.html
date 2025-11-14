@@ -406,13 +406,28 @@
     const qp = new URLSearchParams(window.location.search).get('examType');
     if (qp) currentExamType = qp;
   } catch(_) {}
-  // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 25), else premium (180)
+  // Determine limits from server config (.env) and user plan
     const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
-  let limiteQuestoes = bloqueado ? 25 : 180;
+  let FULL_Q = 180;
+  let FREE_LIMIT = 25;
+  let limiteQuestoes = bloqueado ? FREE_LIMIT : FULL_Q;
+  (async function initLimits(){
+    try {
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const cfg = await fetch(base + '/api/meta/config').then(r => r.ok ? r.json() : null).catch(()=>null);
+      if (cfg) {
+        if (typeof cfg.fullExamQuestionCount === 'number') FULL_Q = cfg.fullExamQuestionCount;
+        if (typeof cfg.freeExamQuestionLimit === 'number') FREE_LIMIT = cfg.freeExamQuestionLimit;
+      }
+    } catch(_){}
+    // recompute with config
+    limiteQuestoes = bloqueado ? FREE_LIMIT : FULL_Q;
     document.getElementById('limite-texto').textContent = bloqueado
-      ? 'Usuário gratuito: limite de 25 questões.'
-      : 'Usuário pagante: limite de 180 questões.';
+      ? `Usuário gratuito: limite de ${FREE_LIMIT} questões.`
+      : `Usuário pagante: limite de ${limiteQuestoes} questões.`;
     document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
+    quantidadeInput.setAttribute('max', String(limiteQuestoes));
+  })();
   quantidadeInput.setAttribute('max', String(limiteQuestoes));
     quantidadeInput.setAttribute('min', '1');
     // Inicializa campo Somente questões inéditas (Premium somente)
@@ -442,12 +457,12 @@
       return function(...args){ clearTimeout(t); t = setTimeout(() => fn.apply(this, args), delay); };
     }
 
-    // Contagem sempre respeitando filtros (sem bypass por 180) e com retorno de SQL de depuração
+    // Contagem sempre respeitando filtros (sem bypass por FULL_Q) e com retorno de SQL de depuração
     async function countForCurrentFilters() {
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
       const url = base + '/api/exams/select';
       const token = getSessionToken();
-      // Usar count=1 para não acionar bypassFilters de 180 no checkAvailability
+      // Usar count=1 para não acionar bypassFilters de FULL_Q no checkAvailability
       const payload = { count: 1, onlyCount: true, examType: currentExamType };
       if (selecionados.areas.length) payload.areas = selecionados.areas;
       if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
@@ -642,8 +657,8 @@
   const token = getSessionToken();
       const cnum = Number(count) || 0;
       const payload = { count: cnum, onlyCount: true, examType: currentExamType };
-      // Regra: se quantidade for 180, não aplicar filtros de Domínio/Grupo/Área
-      const bypassFilters = (cnum === 180);
+      // Regra: se quantidade for FULL_Q, não aplicar filtros de Domínio/Grupo/Área
+      const bypassFilters = (cnum === FULL_Q);
       if (!bypassFilters) {
         if (selecionados.areas.length) payload.areas = selecionados.areas;
         if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
@@ -655,7 +670,7 @@
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
         if (data && typeof data.available === 'number') {
-          // Fallback: se count=180 e available=0, tentar novamente ignorando exam_type (base inteira)
+          // Fallback: se count=FULL_Q e available=0, tentar novamente ignorando exam_type (base inteira)
           if (bypassFilters && data.available === 0) {
             try {
               const resp2 = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify({ count: cnum, onlyCount: true, ignoreExamType: true }) });
@@ -678,8 +693,8 @@
         return Math.max(1, Math.min(limiteQuestoes, val));
       }
       if (hasFocos) {
-        // quando usuário não informou quantidade, usar padrão por perfil: 25 (bloqueado) ou 180 (premium)
-        return bloqueado ? 25 : 180;
+        // quando usuário não informou quantidade, usar padrão por perfil: FREE_LIMIT (bloqueado) ou FULL_Q (premium)
+        return bloqueado ? FREE_LIMIT : FULL_Q;
       }
       return null; // sem quantidade e sem focos -> inválido
     }
@@ -697,7 +712,7 @@
       return true;
     }
 
-    // Start button: validate, preflight, persist, and redirect (com confirmação para 180)
+    // Start button: validate, preflight, persist, and redirect (com confirmação para FULL_Q)
     startBtn.addEventListener('click', async () => {
       startError.style.display = 'none';
       const errorBox = document.getElementById('errorMsg');
@@ -720,11 +735,11 @@
           return;
         }
         const finalCount = bloqueado ? Math.min(disponiveis, 25) : disponiveis;
-        // Confirmar se exatamente 180 (exame completo)
-        if (finalCount === 180) {
+        // Confirmar se exatamente FULL_Q (exame completo)
+        if (finalCount === FULL_Q) {
           showFullExamConfirm(() => {
             try {
-              localStorage.setItem('examQuestionCount', String(180));
+              localStorage.setItem('examQuestionCount', String(FULL_Q));
               localStorage.setItem('examCountFromDefault', 'true');
             } catch(e) {}
             salvarSelecoes();
@@ -754,11 +769,11 @@
             const suggested = available;
             quantidadeInput.value = String(suggested);
             updateResumo();
-            // Se ajustou para 180, exigir confirmação antes de redirecionar
-            if (suggested === 180) {
+            // Se ajustou para FULL_Q, exigir confirmação antes de redirecionar
+            if (suggested === FULL_Q) {
               showFullExamConfirm(() => {
                 try {
-                  localStorage.setItem('examQuestionCount', String(180));
+                  localStorage.setItem('examQuestionCount', String(FULL_Q));
                   localStorage.setItem('examCountFromDefault', quantidadeInput.value ? 'false' : 'true');
                 } catch(e) {}
                 salvarSelecoes();
@@ -767,7 +782,7 @@
               });
               return;
             }
-            // Caso contrário (premium com ajuste < 180), prosseguir normalmente
+            // Caso contrário (premium com ajuste < FULL_Q), prosseguir normalmente
             try {
               localStorage.setItem('examQuestionCount', String(suggested));
               localStorage.setItem('examCountFromDefault', quantidadeInput.value ? 'false' : 'true');
@@ -802,13 +817,13 @@
       }
       // Persistência: se usuário não informou quantidade, salvar o count efetivo depois na exam.html
       // Entretanto, para a exam.html requisitar corretamente, salvamos agora o valor que será enviado —
-      // exceto quando effCount === 180, onde pediremos confirmação antes de redirecionar
+      // exceto quando effCount === FULL_Q, onde pediremos confirmação antes de redirecionar
       // userProvided já calculado acima
-      if (effCount === 180) {
+      if (effCount === FULL_Q) {
         // pedir confirmação antes de seguir para a página dedicada
         showFullExamConfirm(() => {
           try {
-            localStorage.setItem('examQuestionCount', String(180));
+            localStorage.setItem('examQuestionCount', String(FULL_Q));
             localStorage.setItem('examCountFromDefault', userProvided ? 'false' : 'true');
           } catch(e) {}
           salvarSelecoes();
@@ -886,8 +901,8 @@
         const sel = (types || []).find(x => x.id === currentExamType) || (types || [])[0];
         if (sel) {
           // Ajuste limite máximo proporcional ao tipo; manter cap de 25 para bloqueado
-          const maxByType = Number(sel.numeroQuestoes) || 180;
-          limiteQuestoes = bloqueado ? Math.min(25, maxByType) : maxByType;
+          const maxByType = Number(sel.numeroQuestoes) || FULL_Q;
+          limiteQuestoes = bloqueado ? Math.min(FREE_LIMIT, maxByType) : maxByType;
           document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
           quantidadeInput.setAttribute('max', String(limiteQuestoes));
           try { localStorage.setItem('examBlueprint', JSON.stringify(sel)); } catch(e){}
@@ -906,8 +921,8 @@
       currentExamType = examTypeSelect.value || 'pmp';
       try { localStorage.setItem('examType', currentExamType); } catch(e){}
       // Reset quantity clamp on change
-      const maxByType = (()=>{ try { const bp = JSON.parse(localStorage.getItem('examBlueprint')||'null'); return (bp && bp.numeroQuestoes) || 180; } catch(e){ return 180; } })();
-      limiteQuestoes = bloqueado ? Math.min(25, maxByType) : maxByType;
+      const maxByType = (()=>{ try { const bp = JSON.parse(localStorage.getItem('examBlueprint')||'null'); return (bp && bp.numeroQuestoes) || FULL_Q; } catch(e){ return FULL_Q; } })();
+      limiteQuestoes = bloqueado ? Math.min(FREE_LIMIT, maxByType) : maxByType;
       document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
       quantidadeInput.setAttribute('max', String(limiteQuestoes));
       atualizarResumo();

@@ -148,6 +148,7 @@ async function getOverviewDetailed(req, res) {
     const sql = `SELECT 
         COUNT(*) FILTER (WHERE user_id = :userId)::int AS total_user,
         COUNT(*) FILTER (WHERE user_id = :userId AND score_percent >= 75)::int AS approved_user,
+        COUNT(*) FILTER (WHERE user_id = :userId AND score_percent < 75)::int AS failed_user,
         COUNT(*) FILTER (WHERE user_id != :userId)::int AS total_others,
         COUNT(*) FILTER (WHERE user_id != :userId AND score_percent >= 75)::int AS approved_others
       FROM exam_attempt
@@ -163,11 +164,12 @@ async function getOverviewDetailed(req, res) {
     const r = rows && rows[0] ? rows[0] : {};
     const totalUser = Number(r.total_user || 0);
     const approvedUser = Number(r.approved_user || 0);
+    const failedUser = Number(r.failed_user || 0);
     const totalOthers = Number(r.total_others || 0);
     const approvedOthers = Number(r.approved_others || 0);
 
     const rateUser = totalUser > 0 ? Number(((approvedUser * 100) / totalUser).toFixed(2)) : null;
-    const rateOthers = totalOthers > 0 ? Number(((approvedOthers * 100) / totalOthers).toFixed(2)) : null;
+    const rateFailedUser = totalUser > 0 ? Number(((failedUser * 100) / totalUser).toFixed(2)) : null;
 
     // Map directly to requested cells
     return res.json({
@@ -175,11 +177,11 @@ async function getOverviewDetailed(req, res) {
       cells: {
         'OV-R4C2': totalUser,          // Indicador 1 (total exames do usuário)
         'OV-R4C3': rateUser,           // Indicador 2 (aprovação %) do usuário
-        'OV-R4C4': rateOthers          // Indicador 2 (aprovação %) de outros
+        'OV-R4C4': rateFailedUser      // Indicador 3 (reprovação %) do usuário
       },
       aggregates: {
-        totalUser, approvedUser, rateUser,
-        totalOthers, approvedOthers, rateOthers
+        totalUser, approvedUser, failedUser, rateUser, rateFailedUser,
+        totalOthers, approvedOthers
       }
     });
   } catch (err) {

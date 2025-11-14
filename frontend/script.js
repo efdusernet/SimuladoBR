@@ -180,6 +180,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return `guest_${rnd}#`;
     }
 
+    // Helper to read/store JWT for protected APIs (e.g., indicators)
+    function saveJwtFromResponse(obj){
+        try {
+            const tok = obj && obj.token ? String(obj.token) : '';
+            const typ = obj && obj.tokenType ? String(obj.tokenType) : 'Bearer';
+            if (tok) {
+                localStorage.setItem('jwtToken', tok);
+                localStorage.setItem('jwtTokenType', typ);
+            }
+        } catch(_){}
+    }
+    function getAuthHeaders(){
+        try {
+            const tok = localStorage.getItem('jwtToken');
+            const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
+            return tok ? { Authorization: `${typ} ${tok}` } : {};
+        } catch(_) { return {}; }
+    }
+    try { window.getAuthHeaders = getAuthHeaders; } catch(_){}
+
     // Read session token (if absent, create a guest token).
     // However, if user is clearly registered (we have userId/nomeUsuario/nome) prefer that state.
     let sessionToken = localStorage.getItem('sessionToken');
@@ -752,6 +772,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const user = data;
+                // persist JWT if provided
+                saveJwtFromResponse(user);
                 const nomeUsuarioStored = user.NomeUsuario || email;
                 const userId = user.Id || user.id || null;
                 const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
@@ -813,6 +835,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     // behave as successful login
                     const user = data2;
+                    // persist JWT if provided
+                    saveJwtFromResponse(user);
                     const nomeUsuarioStored = user.NomeUsuario || email;
                     const userId = user.Id || user.id || null;
                     const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;

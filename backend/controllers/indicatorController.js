@@ -1,6 +1,11 @@
 const db = require('../models');
 const sequelize = require('../config/database');
 
+function getFullExamQuestionCount(){
+  const n = Number(process.env.FULL_EXAM_QUESTION_COUNT || 180);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 180;
+}
+
 async function getOverview(req, res) {
   try {
     const out = {
@@ -27,9 +32,9 @@ async function getExamsCompleted(req, res) {
     const sql = `SELECT COUNT(*)::int AS total
                  FROM exam_attempt
                  WHERE finished_at IS NOT NULL
-                   AND quantidade_questoes = 180
+                   AND (exam_mode = 'full' OR quantidade_questoes = :fullQ)
                    AND finished_at >= NOW() - (:days || ' days')::interval`;
-    const rows = await sequelize.query(sql, { replacements: { days: String(days) }, type: sequelize.QueryTypes.SELECT });
+    const rows = await sequelize.query(sql, { replacements: { days: String(days), fullQ: getFullExamQuestionCount() }, type: sequelize.QueryTypes.SELECT });
     const total = rows && rows[0] ? Number(rows[0].total) : 0;
     return res.json({ days, total });
   } catch (err) {
@@ -45,9 +50,9 @@ async function getApprovalRate(req, res) {
                         COUNT(*) FILTER (WHERE score_percent >= 75)::int AS approved
                  FROM exam_attempt
                  WHERE finished_at IS NOT NULL
-                   AND quantidade_questoes = 180
+                   AND (exam_mode = 'full' OR quantidade_questoes = :fullQ)
                    AND finished_at >= NOW() - (:days || ' days')::interval`;
-    const rows = await sequelize.query(sql, { replacements: { days: String(days) }, type: sequelize.QueryTypes.SELECT });
+    const rows = await sequelize.query(sql, { replacements: { days: String(days), fullQ: getFullExamQuestionCount() }, type: sequelize.QueryTypes.SELECT });
     const total = rows && rows[0] ? Number(rows[0].total) : 0;
     const approved = rows && rows[0] ? Number(rows[0].approved) : 0;
     const ratePercent = total > 0 ? Number(((approved * 100) / total).toFixed(2)) : null;

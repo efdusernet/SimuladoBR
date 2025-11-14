@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const indicatorController = require('../controllers/indicatorController');
+const auth = require('../middleware/auth');
 
-router.get('/overview', indicatorController.getOverview);
+// All indicators endpoints require JWT via Authorization: Bearer <token>
+router.get('/overview', auth, indicatorController.getOverview);
 
 module.exports = router;

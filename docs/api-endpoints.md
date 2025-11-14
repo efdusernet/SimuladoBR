@@ -146,3 +146,53 @@ Exemplo:
   - Definido pelo header `X-Exam-Mode` quando presente e válido.
   - Caso ausente, inferido por `count` (>= total definido para o tipo => `full`; <=50 => `quiz`; outro caso => null).
   - Retornado nos endpoints: `POST /api/exams/select`, `POST /api/exams/start-on-demand`, `GET /api/exams/last`, `GET /api/exams/history`.
+
+---
+
+## Indicadores
+
+Observações gerais
+- Autorização via JWT: header `Authorization: Bearer <token>`.
+- Janelas de tempo: parâmetro `days` (1–120, default 30).
+- Filtro de exames completos: considera tentativas com `exam_mode='full'` ou `quantidade_questoes = FULL_EXAM_QUESTION_COUNT` (definido por `.env`).
+
+### GET /api/indicators/exams-completed?days=30
+Total de exames completos finalizados no período.
+- Query: `days` (opcional; default 30)
+- Response: `{ days, total }`
+
+### GET /api/indicators/approval-rate?days=30
+Percentual de aprovação no período (nota >= 75%).
+- Query: `days` (opcional; default 30)
+- Response: `{ days, total, approved, ratePercent }`
+
+### GET /api/indicators/failure-rate?days=30
+Percentual de reprovação no período (nota < 75%).
+- Query: `days` (opcional; default 30)
+- Response: `{ days, total, failed, ratePercent }`
+
+### GET /api/indicators/overview
+Resumo agregado para cards na página de Indicadores.
+- Status: estrutura base retornada (valores placeholder) — em evolução.
+- Response: `{ last15: { you, others }, last30: { you, others }, meta: { windowDays } }`
+
+---
+
+### Registro de Indicadores (metadata)
+Entradas semeadas na tabela `indicator` (idempotentes):
+
+- Nome: `Exames Realizados Resultados 30 dias`
+  - Descrição: Somatório de tentativas de exames completos nos últimos X dias (padrão 30).
+  - Parâmetros: `{"diasPadrao":30, "alternativas":[30,60]}`
+  - Fórmula (descr.): `COUNT(exam_attempt WHERE full AND finished_at >= NOW() - (X days))`
+  - Observação: `FULL_EXAM_QUESTION_COUNT` define o tamanho do exame completo.
+
+- Nome: `% de aprovação no período`
+  - Descrição: `(Exames com score_percent >= 75% * 100) / Exames no período (padrão 30 dias).`
+  - Parâmetros: `{"diasPadrao":30}`
+  - Fórmula (descr.): `(COUNT WHERE score_percent >= 75 / COUNT total) * 100`
+
+- Nome: `% de reprovação no período`
+  - Descrição: `(Exames com score_percent < 75% * 100) / Exames no período (padrão 30 dias).`
+  - Parâmetros: `{"diasPadrao":30}`
+  - Fórmula (descr.): `(COUNT WHERE score_percent < 75 / COUNT total) * 100`

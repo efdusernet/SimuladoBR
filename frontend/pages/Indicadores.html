@@ -21,9 +21,11 @@
   <style>
     .ov-wrapper{max-width:100%; overflow-x:auto;}
     .ov-grid{display:grid; grid-template-columns:minmax(160px,auto) repeat(10,minmax(80px,1fr)); border:1px solid #e2e8f0;}
-    .cell{padding:10px 5px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; font-size:14px; text-align:center;}
+    .cell{padding:10px 5px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; font-size:14px; text-align:center; position:relative;}
     .rowlabel{text-align:left;}
     .head,.subhead,.colhead{font-weight:normal;}
+    .marker-toggle{ margin:6px 0; font-size:12px; color:#475569; }
+    .ov-grid.show-markers .cell::after{ content: attr(data-cell); position:absolute; top:2px; right:4px; font-size:10px; color:#94a3b8; pointer-events:none; }
   </style>
   <style>
     /* Top-left menu button and simple dropdown panel */
@@ -105,53 +107,54 @@
   </div>
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
+      <div class="marker-toggle"><label><input type="checkbox" id="toggleMarkers"> Mostrar marcadores</label></div>
       <div class="ov-wrapper">
         <div class="ov-grid">
-          <div class="cell rowlabel"></div>
-          <div class="cell head" style="grid-column: span 5;">Últimos 15 dias</div>
-          <div class="cell head" style="grid-column: span 5;">Últimos&nbsp;&nbsp;&nbsp;30 dias</div>
+          <div class="cell rowlabel" data-cell="OV-R1C1"></div>
+          <div class="cell head" data-cell="OV-R1C2-6" style="grid-column: span 5;">Últimos 15 dias</div>
+          <div class="cell head" data-cell="OV-R1C7-11" style="grid-column: span 5;">Últimos&nbsp;&nbsp;&nbsp;30 dias</div>
 
-          <div class="cell rowlabel"></div>
-          <div class="cell subhead" style="grid-column: span 3;">Você</div>
-          <div class="cell subhead" style="grid-column: span 2;">Outros candidatos</div>
-          <div class="cell subhead" style="grid-column: span 3;">Você</div>
-          <div class="cell subhead" style="grid-column: span 2;">Outros candidatos</div>
+          <div class="cell rowlabel" data-cell="OV-R2C1"></div>
+          <div class="cell subhead" data-cell="OV-R2C2-4" style="grid-column: span 3;">Você</div>
+          <div class="cell subhead" data-cell="OV-R2C5-6" style="grid-column: span 2;">Outros candidatos</div>
+          <div class="cell subhead" data-cell="OV-R2C7-9" style="grid-column: span 3;">Você</div>
+          <div class="cell subhead" data-cell="OV-R2C10-11" style="grid-column: span 2;">Outros candidatos</div>
 
-          <div class="cell rowlabel"></div>
-          <div class="cell colhead">Total</div>
-          <div class="cell colhead">Aprovado</div>
-          <div class="cell colhead">Reprovado</div>
-          <div class="cell colhead">Aprovado</div>
-          <div class="cell colhead">Reprovado</div>
-          <div class="cell colhead">Total</div>
-          <div class="cell colhead">Aprovado</div>
-          <div class="cell colhead">Reprovado</div>
-          <div class="cell colhead">Aprovado</div>
-          <div class="cell colhead">Reprovado</div>
+          <div class="cell rowlabel" data-cell="OV-R3C1"></div>
+          <div class="cell colhead" data-cell="OV-R3C2">Total</div>
+          <div class="cell colhead" data-cell="OV-R3C3">Aprovado</div>
+          <div class="cell colhead" data-cell="OV-R3C4">Reprovado</div>
+          <div class="cell colhead" data-cell="OV-R3C5">Aprovado</div>
+          <div class="cell colhead" data-cell="OV-R3C6">Reprovado</div>
+          <div class="cell colhead" data-cell="OV-R3C7">Total</div>
+          <div class="cell colhead" data-cell="OV-R3C8">Aprovado</div>
+          <div class="cell colhead" data-cell="OV-R3C9">Reprovado</div>
+          <div class="cell colhead" data-cell="OV-R3C10">Aprovado</div>
+          <div class="cell colhead" data-cell="OV-R3C11">Reprovado</div>
 
-          <div class="cell rowlabel">Exames realizados</div>
-          <div class="cell" data-key="last15.you.total">&nbsp;</div>
-          <div class="cell" data-key="last15.you.aprovado">&nbsp;</div>
-          <div class="cell" data-key="last15.you.reprovado">&nbsp;</div>
-          <div class="cell" data-key="last15.others.aprovado">&nbsp;</div>
-          <div class="cell" data-key="last15.others.reprovado">&nbsp;</div>
-          <div class="cell" data-key="last30.you.total">&nbsp;</div>
-          <div class="cell" data-key="last30.you.aprovado">&nbsp;</div>
-          <div class="cell" data-key="last30.you.reprovado">&nbsp;</div>
-          <div class="cell" data-key="last30.others.aprovado">&nbsp;</div>
-          <div class="cell" data-key="last30.others.reprovado">&nbsp;</div>
+          <div class="cell rowlabel" data-cell="OV-R4C1">Exames realizados</div>
+          <div class="cell" data-cell="OV-R4C2" data-key="last15.you.total">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C3" data-key="last15.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C4" data-key="last15.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C5" data-key="last15.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C6" data-key="last15.others.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C7" data-key="last30.you.total">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C8" data-key="last30.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C9" data-key="last30.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C10" data-key="last30.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C11" data-key="last30.others.reprovado">&nbsp;</div>
 
-          <div class="cell rowlabel">Quis&nbsp;&nbsp;&nbsp;realizados</div>
-          <div class="cell" data-key="last15.you.total">&nbsp;</div>
-          <div class="cell" data-key="last15.you.aprovado">&nbsp;</div>
-          <div class="cell" data-key="last15.you.reprovado">&nbsp;</div>
-          <div class="cell" data-key="last15.others.aprovado">&nbsp;</div>
-          <div class="cell" data-key="last15.others.reprovado">&nbsp;</div>
-          <div class="cell" data-key="last30.you.total">&nbsp;</div>
-          <div class="cell" data-key="last30.you.aprovado">&nbsp;</div>
-          <div class="cell" data-key="last30.you.reprovado">&nbsp;</div>
-          <div class="cell" data-key="last30.others.aprovado">&nbsp;</div>
-          <div class="cell" data-key="last30.others.reprovado">&nbsp;</div>
+          <div class="cell rowlabel" data-cell="OV-R5C1">Quis&nbsp;&nbsp;&nbsp;realizados</div>
+          <div class="cell" data-cell="OV-R5C2" data-key="last15.you.total">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C3" data-key="last15.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C4" data-key="last15.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C5" data-key="last15.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C6" data-key="last15.others.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C7" data-key="last30.you.total">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C8" data-key="last30.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C9" data-key="last30.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C10" data-key="last30.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C11" data-key="last30.others.reprovado">&nbsp;</div>
         </div>
       </div>
     </section>
@@ -240,6 +243,16 @@
 
     // Load overview on page display
     loadOverview();
+
+    // Toggle markers visibility on the overview grid
+    (function initMarkerToggle(){
+      const toggle = document.getElementById('toggleMarkers');
+      const grid = document.querySelector('.ov-grid');
+      if (!toggle || !grid) return;
+      toggle.addEventListener('change', (e)=>{
+        grid.classList.toggle('show-markers', !!e.target.checked);
+      });
+    })();
   </script>
 </body>
 </html>

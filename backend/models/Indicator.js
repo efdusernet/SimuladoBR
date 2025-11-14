@@ -5,6 +5,7 @@ module.exports = (sequelize, DataTypes) => {
     Descricao: { type: DataTypes.TEXT, allowNull: true, field: 'descricao' },
     Pagina: { type: DataTypes.TEXT, allowNull: false, field: 'pagina' },
     ElementoHtml: { type: DataTypes.TEXT, allowNull: false, field: 'elemento_html' },
+    FormulaCalculo: { type: DataTypes.TEXT, allowNull: true, field: 'formula_calculo' },
     VersaoExame: { type: DataTypes.TEXT, allowNull: true, field: 'versao_exame' },
     Ativo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true, field: 'ativo' },
     CreatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW, field: 'created_at' },

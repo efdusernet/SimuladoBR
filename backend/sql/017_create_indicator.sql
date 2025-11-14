@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS indicator (
   descricao TEXT NULL,
   pagina TEXT NOT NULL,
   elemento_html TEXT NOT NULL,
+  formula_calculo TEXT NULL,
   versao_exame TEXT NULL,
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),

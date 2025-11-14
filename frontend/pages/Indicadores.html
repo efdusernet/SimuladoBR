@@ -25,8 +25,75 @@
     .rowlabel{text-align:left;}
     .head,.subhead,.colhead{font-weight:normal;}
   </style>
+  <style>
+    /* Top-left menu button and simple dropdown panel */
+    .menu-toggle {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1100;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #d6d9e0;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover { background: #f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile {
+      display:inline-block;
+      width: 18px;
+      height: 2px;
+      background: #333;
+      border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    .menu-panel {
+      position: fixed;
+      top: 44px;
+      left: 8px;
+      z-index: 1099;
+      background: #fff;
+      border: 1px solid #d6d9e0;
+      border-radius: 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px;
+      padding: 6px;
+      display: none;
+    }
+    .menu-panel.open { display: block; }
+    .menu-panel a {
+      display: block;
+      padding: 6px 8px;
+      color: #222;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .menu-panel a:hover { background: #f4f7fb; }
+    @media (min-width: 640px){
+      .menu-toggle { width: 28px; height: 28px; top: 6px; left: 6px; }
+      .ui-menu-icon-set-hamburger-mobile { width: 16px; }
+      .menu-panel { top: 40px; min-width: 160px; }
+      .menu-panel a { padding: 5px 8px; }
+    }
+  </style>
 </head>
 <body>
+  <!-- Top-left menu button and dropdown -->
+  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+  </button>
+  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/pages/examSetup.html?examType=pmp" rel="noopener">Simulador PMP</a>
+    <a href="/pages/examSetup.html?examType=cpm" rel="noopener">Simulador CPM</a>
+    <a href="/pages/results.html" rel="noopener">Resultados</a>
+    <a href="#" class="page-logout">Sair</a>
+  </nav>
   <h1>Indicadores</h1>
   <div class="tabs-bar">
     <div class="tabs" role="tablist" aria-label="Categorias de Indicadores">
@@ -93,6 +160,32 @@
     <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem"><!-- vazio --></section>
   </div>
   <script>
+    // Lightweight menu toggle and logout for this page
+    (function initTopMenu(){
+      const btn = document.getElementById('menuToggle');
+      const panel = document.getElementById('pageMenu');
+      if (!btn || !panel) return;
+      const close = ()=>{ panel.classList.remove('open'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); };
+      const open = ()=>{ panel.classList.add('open'); panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); };
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        if (panel.classList.contains('open')) close(); else open();
+      });
+      document.addEventListener('click', (e)=>{
+        if (!panel.contains(e.target) && e.target !== btn) close();
+      });
+      const logout = panel.querySelector('.page-logout');
+      if (logout) logout.addEventListener('click', (e)=>{
+        e.preventDefault();
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+          document.cookie = 'sessionToken=; Max-Age=0; Path=/';
+        } catch(_){ }
+        window.location.assign('/login');
+      });
+    })();
+
     const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
     const sectionsMap = {
       geral: document.getElementById('sec-geral'),

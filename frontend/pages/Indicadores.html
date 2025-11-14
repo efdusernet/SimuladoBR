@@ -63,28 +63,28 @@
           <div class="cell colhead">Reprovado</div>
 
           <div class="cell rowlabel">Exames realizados</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
+          <div class="cell" data-key="last15.you.total">&nbsp;</div>
+          <div class="cell" data-key="last15.you.aprovado">&nbsp;</div>
+          <div class="cell" data-key="last15.you.reprovado">&nbsp;</div>
+          <div class="cell" data-key="last15.others.aprovado">&nbsp;</div>
+          <div class="cell" data-key="last15.others.reprovado">&nbsp;</div>
+          <div class="cell" data-key="last30.you.total">&nbsp;</div>
+          <div class="cell" data-key="last30.you.aprovado">&nbsp;</div>
+          <div class="cell" data-key="last30.you.reprovado">&nbsp;</div>
+          <div class="cell" data-key="last30.others.aprovado">&nbsp;</div>
+          <div class="cell" data-key="last30.others.reprovado">&nbsp;</div>
 
           <div class="cell rowlabel">Quis&nbsp;&nbsp;&nbsp;realizados</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
-          <div class="cell">&nbsp;</div>
+          <div class="cell" data-key="last15.you.total">&nbsp;</div>
+          <div class="cell" data-key="last15.you.aprovado">&nbsp;</div>
+          <div class="cell" data-key="last15.you.reprovado">&nbsp;</div>
+          <div class="cell" data-key="last15.others.aprovado">&nbsp;</div>
+          <div class="cell" data-key="last15.others.reprovado">&nbsp;</div>
+          <div class="cell" data-key="last30.you.total">&nbsp;</div>
+          <div class="cell" data-key="last30.you.aprovado">&nbsp;</div>
+          <div class="cell" data-key="last30.you.reprovado">&nbsp;</div>
+          <div class="cell" data-key="last30.others.aprovado">&nbsp;</div>
+          <div class="cell" data-key="last30.others.reprovado">&nbsp;</div>
         </div>
       </div>
     </section>
@@ -109,6 +109,44 @@
         sectionsMap[tab].classList.add('active');
       });
     });
+    // Simple helper to build Authorization header from localStorage (JWT)
+    function getAuthHeadersLocal(){
+      try {
+        const tok = localStorage.getItem('jwtToken');
+        const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
+        return tok ? { Authorization: `${typ} ${tok}` } : {};
+      } catch(_) { return {}; }
+    }
+
+    // Populate overview grid from /api/indicators/overview (uses JWT if present)
+    async function loadOverview(){
+      const target = sectionsMap.geral;
+      if (!target) return;
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/overview', { headers });
+        if (res.status === 401 || res.status === 403) {
+          const note = document.createElement('div');
+          note.style.marginTop = '8px';
+          note.style.color = '#b91c1c';
+          note.textContent = 'Faça login para visualizar seus indicadores.';
+          target.appendChild(note);
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const cells = target.querySelectorAll('[data-key]');
+        const getByPath = (obj, path) => path.split('.').reduce((o,k) => (o && typeof o === 'object') ? o[k] : undefined, obj);
+        cells.forEach(c => {
+          const key = c.getAttribute('data-key');
+          const val = getByPath(data, key);
+          if (typeof val !== 'undefined' && val !== null) c.textContent = String(val);
+        });
+      } catch(_) { /* silent */ }
+    }
+
+    // Load overview on page display
+    loadOverview();
   </script>
 </body>
 </html>

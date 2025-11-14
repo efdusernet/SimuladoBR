@@ -244,6 +244,24 @@
     // Load overview on page display
     loadOverview();
 
+    // Load detailed overview values for specific cells
+    async function loadOverviewDetailed(){
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const url = '/api/indicators/overview-detailed?days=30&exam_mode=full';
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        const cells = data && data.cells ? data.cells : {};
+        Object.keys(cells).forEach(code => {
+          const el = document.querySelector(`[data-cell="${code}"]`);
+          if (el) el.textContent = String(cells[code]);
+        });
+      } catch(_) { /* ignore */ }
+    }
+
+    loadOverviewDetailed();
+
     // Toggle markers visibility on the overview grid
     (function initMarkerToggle(){
       const toggle = document.getElementById('toggleMarkers');

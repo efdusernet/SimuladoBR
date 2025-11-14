@@ -19,12 +19,11 @@
     .section.active { display:block; }
   </style>
   <style>
-    .tg  {border-collapse:collapse;border-spacing:0;}
-    .tg td{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
-      overflow:hidden;padding:10px 5px;word-break:normal;}
-    .tg th{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
-      font-weight:normal;overflow:hidden;padding:10px 5px;word-break:normal;}
-    .tg .tg-0lax{text-align:left;vertical-align:top}
+    .ov-wrapper{max-width:100%; overflow-x:auto;}
+    .ov-grid{display:grid; grid-template-columns:minmax(160px,auto) repeat(10,minmax(80px,1fr)); border:1px solid #000;}
+    .cell{padding:10px 5px; box-sizing:border-box; box-shadow:inset -1px 0 0 #000, inset 0 -1px 0 #000; font-family:Arial, sans-serif; font-size:14px;}
+    .rowlabel{text-align:left;}
+    .head,.subhead,.colhead{font-weight:normal;}
   </style>
 </head>
 <body>
@@ -39,60 +38,55 @@
   </div>
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
-      <table class="tg"><thead>
-        <tr>
-          <th class="tg-0lax"></th>
-          <th class="tg-0lax" colspan="5">Últimos 15 dias</th>
-          <th class="tg-0lax" colspan="5">Últimos&nbsp;&nbsp;&nbsp;30 dias</th>
-        </tr></thead>
-      <tbody>
-        <tr>
-          <td class="tg-0lax"></td>
-          <td class="tg-0lax" colspan="3">Você</td>
-          <td class="tg-0lax" colspan="2">Outros candidatos</td>
-          <td class="tg-0lax" colspan="3">Você</td>
-          <td class="tg-0lax" colspan="2">Outros candidatos</td>
-        </tr>
-        <tr>
-          <td class="tg-0lax"></td>
-          <td class="tg-0lax">Total</td>
-          <td class="tg-0lax">Aprovado</td>
-          <td class="tg-0lax">Reprovado</td>
-          <td class="tg-0lax">Aprovado</td>
-          <td class="tg-0lax">Reprovado</td>
-          <td class="tg-0lax">Total</td>
-          <td class="tg-0lax">Aprovado</td>
-          <td class="tg-0lax">Reprovado</td>
-          <td class="tg-0lax">Aprovado</td>
-          <td class="tg-0lax">Reprovado</td>
-        </tr>
-        <tr>
-          <td class="tg-0lax">Exames realizados</td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-        </tr>
-        <tr>
-          <td class="tg-0lax">Quis&nbsp;&nbsp;&nbsp;realizados</td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-          <td class="tg-0lax"> </td>
-        </tr>
-      </tbody></table>
+      <div class="ov-wrapper">
+        <div class="ov-grid">
+          <div class="cell rowlabel"></div>
+          <div class="cell head" style="grid-column: span 5;">Últimos 15 dias</div>
+          <div class="cell head" style="grid-column: span 5;">Últimos&nbsp;&nbsp;&nbsp;30 dias</div>
+
+          <div class="cell rowlabel"></div>
+          <div class="cell subhead" style="grid-column: span 3;">Você</div>
+          <div class="cell subhead" style="grid-column: span 2;">Outros candidatos</div>
+          <div class="cell subhead" style="grid-column: span 3;">Você</div>
+          <div class="cell subhead" style="grid-column: span 2;">Outros candidatos</div>
+
+          <div class="cell rowlabel"></div>
+          <div class="cell colhead">Total</div>
+          <div class="cell colhead">Aprovado</div>
+          <div class="cell colhead">Reprovado</div>
+          <div class="cell colhead">Aprovado</div>
+          <div class="cell colhead">Reprovado</div>
+          <div class="cell colhead">Total</div>
+          <div class="cell colhead">Aprovado</div>
+          <div class="cell colhead">Reprovado</div>
+          <div class="cell colhead">Aprovado</div>
+          <div class="cell colhead">Reprovado</div>
+
+          <div class="cell rowlabel">Exames realizados</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+
+          <div class="cell rowlabel">Quis&nbsp;&nbsp;&nbsp;realizados</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+          <div class="cell">&nbsp;</div>
+        </div>
+      </div>
     </section>
     <section id="sec-grupos" class="section" aria-labelledby="tab-grupos"><!-- vazio --></section>
     <section id="sec-topico" class="section" aria-labelledby="tab-topico"><!-- vazio --></section>

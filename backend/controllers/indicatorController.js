@@ -135,4 +135,56 @@ async function getFailureRate(req, res) {
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate };
+async function getOverviewDetailed(req, res) {
+  try {
+    const user = req.user || {};
+    const userId = Number.isFinite(parseInt(user.sub, 10)) ? parseInt(user.sub, 10) : null;
+    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+
+    const rawDays = parseInt(req.query.days, 10);
+    const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 120) : 30;
+    const examMode = (req.query.exam_mode === 'quiz' || req.query.exam_mode === 'full') ? req.query.exam_mode : 'full';
+
+    const sql = `SELECT 
+        COUNT(*) FILTER (WHERE user_id = :userId)::int AS total_user,
+        COUNT(*) FILTER (WHERE user_id = :userId AND score_percent >= 75)::int AS approved_user,
+        COUNT(*) FILTER (WHERE user_id != :userId)::int AS total_others,
+        COUNT(*) FILTER (WHERE user_id != :userId AND score_percent >= 75)::int AS approved_others
+      FROM exam_attempt
+      WHERE finished_at IS NOT NULL
+        AND exam_mode = :examMode
+        AND finished_at >= NOW() - (:days || ' days')::interval`;
+
+    const rows = await sequelize.query(sql, {
+      replacements: { userId, days: String(days), examMode },
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    const r = rows && rows[0] ? rows[0] : {};
+    const totalUser = Number(r.total_user || 0);
+    const approvedUser = Number(r.approved_user || 0);
+    const totalOthers = Number(r.total_others || 0);
+    const approvedOthers = Number(r.approved_others || 0);
+
+    const rateUser = totalUser > 0 ? Number(((approvedUser * 100) / totalUser).toFixed(2)) : null;
+    const rateOthers = totalOthers > 0 ? Number(((approvedOthers * 100) / totalOthers).toFixed(2)) : null;
+
+    // Map directly to requested cells
+    return res.json({
+      params: { days, examMode, userId },
+      cells: {
+        'OV-R4C2': totalUser,          // Indicador 1 (total exames do usuário)
+        'OV-R4C3': rateUser,           // Indicador 2 (aprovação %) do usuário
+        'OV-R4C4': rateOthers          // Indicador 2 (aprovação %) de outros
+      },
+      aggregates: {
+        totalUser, approvedUser, rateUser,
+        totalOthers, approvedOthers, rateOthers
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed };

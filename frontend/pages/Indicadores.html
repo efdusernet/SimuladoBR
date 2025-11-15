@@ -111,8 +111,8 @@
       <div class="ov-wrapper">
         <div class="ov-grid">
           <div class="cell rowlabel" data-cell="OV-R1C1"></div>
-          <div class="cell head" data-cell="OV-R1C2-6" style="grid-column: span 5;">Últimos 15 dias</div>
-          <div class="cell head" data-cell="OV-R1C7-11" style="grid-column: span 5;">Últimos&nbsp;&nbsp;&nbsp;30 dias</div>
+          <div class="cell head" data-cell="OV-R1C2-6" style="grid-column: span 5;">Últimos 30 dias</div>
+          <div class="cell head" data-cell="OV-R1C7-11" style="grid-column: span 5;">Últimos&nbsp;&nbsp;&nbsp;60 dias</div>
 
           <div class="cell rowlabel" data-cell="OV-R2C1"></div>
           <div class="cell subhead" data-cell="OV-R2C2-4" style="grid-column: span 3;">Você</div>
@@ -144,17 +144,17 @@
           <div class="cell" data-cell="OV-R4C10" data-format="percent" data-key="last30.others.aprovado">&nbsp;</div>
           <div class="cell" data-cell="OV-R4C11" data-format="percent" data-key="last30.others.reprovado">&nbsp;</div>
 
-          <div class="cell rowlabel" data-cell="OV-R5C1">Quis&nbsp;&nbsp;&nbsp;realizados</div>
+          <div class="cell rowlabel" data-cell="OV-R5C1">Quiz&nbsp;realizados</div>
           <div class="cell" data-cell="OV-R5C2" data-key="last15.you.total">&nbsp;</div>
-          <div class="cell" data-cell="OV-R5C3" data-key="last15.you.aprovado">&nbsp;</div>
-          <div class="cell" data-cell="OV-R5C4" data-key="last15.you.reprovado">&nbsp;</div>
-          <div class="cell" data-cell="OV-R5C5" data-key="last15.others.aprovado">&nbsp;</div>
-          <div class="cell" data-cell="OV-R5C6" data-key="last15.others.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C3" data-format="percent" data-key="last15.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C4" data-format="percent" data-key="last15.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C5" data-format="percent" data-key="last15.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C6" data-format="percent" data-key="last15.others.reprovado">&nbsp;</div>
           <div class="cell" data-cell="OV-R5C7" data-key="last30.you.total">&nbsp;</div>
-          <div class="cell" data-cell="OV-R5C8" data-key="last30.you.aprovado">&nbsp;</div>
-          <div class="cell" data-cell="OV-R5C9" data-key="last30.you.reprovado">&nbsp;</div>
-          <div class="cell" data-cell="OV-R5C10" data-key="last30.others.aprovado">&nbsp;</div>
-          <div class="cell" data-cell="OV-R5C11" data-key="last30.others.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C8" data-format="percent" data-key="last30.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C9" data-format="percent" data-key="last30.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C10" data-format="percent" data-key="last30.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C11" data-format="percent" data-key="last30.others.reprovado">&nbsp;</div>
         </div>
       </div>
     </section>
@@ -285,6 +285,56 @@
             if (el && cells60[srcCode] !== undefined) {
               const fmt = el.getAttribute('data-format');
               const val = cells60[srcCode];
+              let text = (val === null || typeof val === 'undefined') ? '' : String(val);
+              if (fmt === 'percent' && text !== '') text = `${text}%`;
+              el.textContent = text;
+            }
+          });
+        }
+
+        // Fetch 30-day quiz data and map to OV-R5C2 to OV-R5C6
+        const resQ30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=quiz', { headers });
+        if (resQ30.ok) {
+          const dataQ30 = await resQ30.json();
+          const cellsQ30 = dataQ30 && dataQ30.cells ? dataQ30.cells : {};
+          const mappingQ30 = {
+            'OV-R4C2': 'OV-R5C2',
+            'OV-R4C3': 'OV-R5C3',
+            'OV-R4C4': 'OV-R5C4',
+            'OV-R4C5': 'OV-R5C5',
+            'OV-R4C6': 'OV-R5C6'
+          };
+          Object.keys(mappingQ30).forEach(srcCode => {
+            const targetCode = mappingQ30[srcCode];
+            const el = document.querySelector(`[data-cell="${targetCode}"]`);
+            if (el && cellsQ30[srcCode] !== undefined) {
+              const fmt = el.getAttribute('data-format');
+              const val = cellsQ30[srcCode];
+              let text = (val === null || typeof val === 'undefined') ? '' : String(val);
+              if (fmt === 'percent' && text !== '') text = `${text}%`;
+              el.textContent = text;
+            }
+          });
+        }
+
+        // Fetch 60-day quiz data and map to OV-R5C7 to OV-R5C11
+        const resQ60 = await fetch('/api/indicators/overview-detailed?days=60&exam_mode=quiz', { headers });
+        if (resQ60.ok) {
+          const dataQ60 = await resQ60.json();
+          const cellsQ60 = dataQ60 && dataQ60.cells ? dataQ60.cells : {};
+          const mappingQ60 = {
+            'OV-R4C2': 'OV-R5C7',
+            'OV-R4C3': 'OV-R5C8',
+            'OV-R4C4': 'OV-R5C9',
+            'OV-R4C5': 'OV-R5C10',
+            'OV-R4C6': 'OV-R5C11'
+          };
+          Object.keys(mappingQ60).forEach(srcCode => {
+            const targetCode = mappingQ60[srcCode];
+            const el = document.querySelector(`[data-cell="${targetCode}"]`);
+            if (el && cellsQ60[srcCode] !== undefined) {
+              const fmt = el.getAttribute('data-format');
+              const val = cellsQ60[srcCode];
               let text = (val === null || typeof val === 'undefined') ? '' : String(val);
               if (fmt === 'percent' && text !== '') text = `${text}%`;
               el.textContent = text;

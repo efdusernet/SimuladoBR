@@ -86,13 +86,14 @@
           const segments = Array.isArray(it && it.segments) ? it.segments : null;
           if (segments && segments.length) {
             let accPct = 0;
-            const textParts = [];
+            let primaryPct = null; // show-only percentage (first segment)
             segments.forEach((seg, idx) => {
               const sval = toNumber(seg && seg.value, 0);
               const scolor = (seg && seg.color) || this.getAttribute('color') || '#4f46e5';
               const pct = max > 0 ? Math.round((clamp01(sval / max)) * 100) : 0;
               const left = accPct;
               accPct = Math.min(100, accPct + pct);
+              if (idx === 0) primaryPct = pct;
 
               const bar = document.createElement('div'); bar.className='bar'; bar.style.setProperty('--sb-hbar-color', scolor);
               if (striped) bar.classList.add('striped'); if (animated) bar.classList.add('animated');
@@ -109,13 +110,13 @@
                 const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${pct}${unit || '%'}`; bar.appendChild(tip);
               }
               track.appendChild(bar);
-              if (segLabel) textParts.push(`${segLabel} ${pct}${unit || '%'}`);
             });
             row.appendChild(lab);
             row.appendChild(track);
             if (showPercent) {
               const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
-              val.textContent = textParts.length ? textParts.join(' / ') : `${Math.min(accPct,100)}${unit || '%'}`;
+              const p = (primaryPct == null) ? Math.min(accPct, 100) : primaryPct;
+              val.textContent = `${p}${unit || '%'}`;
               row.appendChild(val);
             }
             this._wrap.appendChild(row);

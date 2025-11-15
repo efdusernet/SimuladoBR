@@ -235,8 +235,12 @@
         const getByPath = (obj, path) => path.split('.').reduce((o,k) => (o && typeof o === 'object') ? o[k] : undefined, obj);
         cells.forEach(c => {
           const key = c.getAttribute('data-key');
+          const fmt = c.getAttribute('data-format');
           const val = getByPath(data, key);
-          if (typeof val !== 'undefined' && val !== null) c.textContent = String(val);
+          let v = (val === null || typeof val === 'undefined') ? 0 : val;
+          let text = String(v);
+          if (fmt === 'percent') text = `${text}%`;
+          c.textContent = text;
         });
       } catch(_) { /* silent */ }
     }
@@ -259,8 +263,9 @@
             if (el) {
               const fmt = el.getAttribute('data-format');
               const val = cells30[code];
-              let text = (val === null || typeof val === 'undefined') ? '' : String(val);
-              if (fmt === 'percent' && text !== '') text = `${text}%`;
+              let v = (val === null || typeof val === 'undefined') ? 0 : val;
+              let text = String(v);
+              if (fmt === 'percent') text = `${text}%`;
               el.textContent = text;
             }
           });
@@ -285,8 +290,9 @@
             if (el && cells60[srcCode] !== undefined) {
               const fmt = el.getAttribute('data-format');
               const val = cells60[srcCode];
-              let text = (val === null || typeof val === 'undefined') ? '' : String(val);
-              if (fmt === 'percent' && text !== '') text = `${text}%`;
+              let v = (val === null || typeof val === 'undefined') ? 0 : val;
+              let text = String(v);
+              if (fmt === 'percent') text = `${text}%`;
               el.textContent = text;
             }
           });
@@ -310,8 +316,9 @@
             if (el && cellsQ30[srcCode] !== undefined) {
               const fmt = el.getAttribute('data-format');
               const val = cellsQ30[srcCode];
-              let text = (val === null || typeof val === 'undefined') ? '' : String(val);
-              if (fmt === 'percent' && text !== '') text = `${text}%`;
+              let v = (val === null || typeof val === 'undefined') ? 0 : val;
+              let text = String(v);
+              if (fmt === 'percent') text = `${text}%`;
               el.textContent = text;
             }
           });
@@ -335,8 +342,9 @@
             if (el && cellsQ60[srcCode] !== undefined) {
               const fmt = el.getAttribute('data-format');
               const val = cellsQ60[srcCode];
-              let text = (val === null || typeof val === 'undefined') ? '' : String(val);
-              if (fmt === 'percent' && text !== '') text = `${text}%`;
+              let v = (val === null || typeof val === 'undefined') ? 0 : val;
+              let text = String(v);
+              if (fmt === 'percent') text = `${text}%`;
               el.textContent = text;
             }
           });

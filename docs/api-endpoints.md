@@ -189,21 +189,64 @@ Resumo agregado para cards na página de Indicadores.
 
 ---
 
-### Registro de Indicadores (metadata)
-Entradas semeadas na tabela `indicator` (idempotentes):
+### GET /api/indicators/questions-count?exam_type=1
+Quantidade de questões disponíveis no simulador.
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_type` (opcional; inteiro > 0). Quando ausente, retorna o total de todas as questões ativas.
+- Regra: considera `questao.excluido=false` e `questao.idstatus=1`.
+- Response: `{ examTypeId: number|null, total: number }`
 
-- Nome: `Exames Realizados Resultados 30 dias`
+### GET /api/indicators/answered-count?exam_type=1&idUsuario=42
+Quantidade distinta de questões já respondidas pelo usuário (por tipo de exame).
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_type` (obrigatório; inteiro > 0)
+  - `idUsuario` (opcional; se ausente, usa o usuário do JWT)
+- Regra: `COUNT(DISTINCT aq.question_id)` em `exam_attempt_question` com join em `exam_attempt_answer`, filtrando por `a.user_id` e `a.exam_type_id`.
+- Response: `{ examTypeId: number, userId: number, total: number }`
+
+### GET /api/indicators/total-hours?exam_type=1&idUsuario=42
+Total de horas gastas no simulador pelo usuário (por tipo de exame).
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_type` (obrigatório; inteiro > 0)
+  - `idUsuario` (opcional; se ausente, usa o usuário do JWT)
+- Regra: soma `exam_attempt_question.tempo_gasto_segundos` das tentativas do usuário (status finished ou null), retorna também em horas.
+- Response: `{ examTypeId: number, userId: number, segundos: number, horas: number }`
+
+---
+
+### Registro de Indicadores (metadata)
+Entradas semeadas na tabela `indicator` (idempotentes por código):
+
+- **IND1** - `Exames Realizados Resultados 30 dias`
   - Descrição: Somatório de tentativas de exames nos últimos X dias (padrão 30).
   - Parâmetros: `{"diasPadrao":30, "alternativas":[30,60], "examMode":["quiz","full"], "idUsuario":null}`
   - Fórmula (descr.): `COUNT(exam_attempt WHERE exam_mode IN (quiz,full) AND finished_at >= NOW() - (X days))`
   - Observação: Quando `exam_mode` ausente, fallback para full-exam logic (`exam_mode='full'` OU `quantidade_questoes = FULL_EXAM_QUESTION_COUNT`).
 
-- Nome: `% de aprovação no período`
+- **IND2** - `% de aprovação no período`
   - Descrição: `(Exames com score_percent >= 75% * 100) / Exames no período (padrão 30 dias).`
   - Parâmetros: `{"diasPadrao":30, "examMode":["quiz","full"], "idUsuario":null}`
   - Fórmula (descr.): `(COUNT WHERE score_percent >= 75 / COUNT total) * 100`
 
-- Nome: `% de reprovação no período`
+- **IND3** - `% de reprovação no período`
   - Descrição: `(Exames com score_percent < 75% * 100) / Exames no período (padrão 30 dias).`
   - Parâmetros: `{"diasPadrao":30, "examMode":["quiz","full"], "idUsuario":null}`
   - Fórmula (descr.): `(COUNT WHERE score_percent < 75 / COUNT total) * 100`
+
+- **IND4** - `Quantidade questões do simulador`
+  - Descrição: `Total de questões disponíveis (excluido=false, idstatus=1). Parâmetro opcional examTypeId.`
+  - Parâmetros: `{"examTypeId":null}`
+  - Fórmula (descr.): `COUNT(questao WHERE excluido=false AND idstatus=1 [AND exam_type_id = :examTypeId])`
+
+- **IND5** - `Quantidade questões respondidas`
+  - Descrição: `Qtd. distinta de questões respondidas pelo usuário (JOIN exam_attempt/question/answer) por examTypeId.`
+  - Parâmetros: `{"examTypeId":1, "idUsuario":null}`
+  - Fórmula (descr.): `COUNT(DISTINCT aq.question_id WHERE a.user_id=:idUsuario AND a.exam_type_id=:examTypeId)`
+
+- **IND6** - `Total horas no simulador`
+  - Descrição: `Soma do tempo gasto por questão (exam_attempt_question.tempo_gasto_segundos) por usuário/examTypeId.`
+  - Parâmetros: `{"examTypeId":1, "idUsuario":null}`
+  - Fórmula (descr.): `SUM(aq.tempo_gasto_segundos)/3600 WHERE a.user_id=:idUsuario AND a.exam_type_id=:examTypeId`

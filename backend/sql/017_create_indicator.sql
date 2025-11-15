@@ -1,6 +1,7 @@
 -- Create table to register app indicators and their placement
 CREATE TABLE IF NOT EXISTS indicator (
   id SERIAL PRIMARY KEY,
+  codigo TEXT UNIQUE,
   nome TEXT NOT NULL,
   descricao TEXT NULL,
   pagina TEXT NOT NULL,

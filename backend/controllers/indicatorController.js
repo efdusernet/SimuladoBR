@@ -195,4 +195,69 @@ async function getOverviewDetailed(req, res) {
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed };
+async function getQuestionsCount(req, res){
+  try {
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
+    const sql = `SELECT COUNT(*)::int AS total
+                 FROM questao
+                 WHERE excluido = false AND idstatus = 1
+                   ${hasExamType ? 'AND exam_type_id = :examTypeId' : ''}`;
+    const rows = await sequelize.query(sql, { replacements: hasExamType ? { examTypeId } : {}, type: sequelize.QueryTypes.SELECT });
+    const total = rows && rows[0] ? Number(rows[0].total) : 0;
+    return res.json({ examTypeId: hasExamType ? examTypeId : null, total });
+  } catch(err){
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+async function getAnsweredQuestionsCount(req, res){
+  try {
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
+      return res.status(400).json({ message: 'exam_type obrigatório' });
+    }
+    const userIdParam = parseInt(req.query.idUsuario, 10);
+    const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
+    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+
+    const sql = `SELECT COUNT(DISTINCT aq.question_id)::int AS respondidas
+                 FROM exam_attempt a
+                 JOIN exam_attempt_question aq ON aq.attempt_id = a.id
+                 JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+                 WHERE a.user_id = :userId
+                   AND a.exam_type_id = :examTypeId`;
+    const rows = await sequelize.query(sql, { replacements: { userId, examTypeId }, type: sequelize.QueryTypes.SELECT });
+    const total = rows && rows[0] ? Number(rows[0].respondidas) : 0;
+    return res.json({ examTypeId, userId, total });
+  } catch(err){
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+async function getTotalHours(req, res){
+  try {
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
+      return res.status(400).json({ message: 'exam_type obrigatório' });
+    }
+    const userIdParam = parseInt(req.query.idUsuario, 10);
+    const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
+    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+
+    const sql = `SELECT COALESCE(SUM(COALESCE(aq.tempo_gasto_segundos,0)),0)::bigint AS segundos
+                 FROM exam_attempt a
+                 JOIN exam_attempt_question aq ON aq.attempt_id = a.id
+                 WHERE a.user_id = :userId
+                   AND a.exam_type_id = :examTypeId
+                   AND (a.status = 'finished' OR a.status IS NULL)`;
+    const rows = await sequelize.query(sql, { replacements: { userId, examTypeId }, type: sequelize.QueryTypes.SELECT });
+    const segundos = rows && rows[0] ? Number(rows[0].segundos) : 0;
+    const horas = Number((segundos / 3600).toFixed(2));
+    return res.json({ examTypeId, userId, segundos, horas });
+  } catch(err){
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours };

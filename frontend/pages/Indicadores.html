@@ -25,8 +25,7 @@
     .cell{padding:6px 3px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
     .rowlabel{text-align:left; padding-left:4px; font-size:10px;}
     .head,.subhead,.colhead{font-weight:600; font-size:10px;}
-    .marker-toggle{ margin:4px 0; font-size:11px; color:#475569; }
-    .ov-grid.show-markers .cell::after{ content: attr(data-cell); position:absolute; top:1px; right:2px; font-size:8px; color:#94a3b8; pointer-events:none; }
+    
     @media (min-width: 640px) {
       h1 { font-size:1.1rem; margin:16px; padding-left:35px; }
       .tabs-bar { padding:12px 16px 12px 30px; }
@@ -38,8 +37,7 @@
       .cell { padding:8px 4px; }
       .rowlabel { font-size:12px; padding-left:6px; }
       .head,.subhead,.colhead { font-size:11px; }
-      .marker-toggle { font-size:12px; margin:6px 0; }
-      .ov-grid.show-markers .cell::after { font-size:9px; top:2px; right:3px; }
+      
     }
   </style>
   <style>
@@ -127,7 +125,7 @@
         <div style="margin-bottom:6px;"><strong>Respondidas por você:</strong> <span id="ind5-value">—</span></div>
         <div><strong>Você passou <span id="ind6-value">—</span> respondendo questões no simulador.</strong></div>
       </div>
-      <div class="marker-toggle"><label><input type="checkbox" id="toggleMarkers"> Mostrar marcadores</label></div>
+      
       <div class="ov-wrapper">
         <div class="ov-grid">
           <div class="cell rowlabel" data-cell="OV-R1C1"></div>
@@ -184,7 +182,9 @@
     <section id="sec-topico" class="section" aria-labelledby="tab-topico">
       <div id="areaConhecimentoContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
     </section>
-    <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem"><!-- vazio --></section>
+    <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem">
+      <div id="approachContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+    </section>
   </div>
   <script>
     // Lightweight menu toggle and logout for this page
@@ -414,15 +414,7 @@
 
     loadGeneralStats();
 
-    // Toggle markers visibility on the overview grid
-    (function initMarkerToggle(){
-      const toggle = document.getElementById('toggleMarkers');
-      const grid = document.querySelector('.ov-grid');
-      if (!toggle || !grid) return;
-      toggle.addEventListener('change', (e)=>{
-        grid.classList.toggle('show-markers', !!e.target.checked);
-      });
-    })();
+    
 
     // Load IND7: Process Group Stats
     async function loadProcessGroupStats(){
@@ -575,6 +567,81 @@
       }
     }
 
+    // IND9: % Acertos/Erros por Abordagem (categoriaquestao)
+    async function loadAbordagemStats(){
+      const container = document.getElementById('approachContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/approach-stats', { headers });
+        if (res.status === 401 || res.status === 403) {
+          container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Faça login para visualizar os dados de abordagens.</div>';
+          return;
+        }
+        if (!res.ok) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por abordagem.</div>';
+          return;
+        }
+        const data = await res.json();
+        let items = data && data.abordagens ? data.abordagens : [];
+        if (items.length === 0) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhuma abordagem encontrada.</div>';
+          return;
+        }
+        // Ordena pelo id
+        items = items.slice().sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+        items.forEach(a => {
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.alignItems = 'center';
+          row.style.gap = '12px';
+          row.style.flexWrap = 'wrap';
+
+          const label = document.createElement('div');
+          label.style.fontWeight = '600';
+          label.style.minWidth = '180px';
+          label.style.fontSize = '0.9rem';
+          label.textContent = `${a.id} - ${a.descricao || `Abordagem ${a.id}`}`;
+
+          const chartWrapper = document.createElement('div');
+          chartWrapper.style.flex = '1';
+          chartWrapper.style.minWidth = '300px';
+
+          const chart = document.createElement('sb-hbar');
+          const pctAcertos = a.percentAcertos !== undefined ? Math.round(a.percentAcertos) : 0;
+          const pctErros = a.percentErros !== undefined ? Math.round(a.percentErros) : 0;
+          const cAcertos = Number(a.acertos || 0);
+          const cErros = Number(a.erros || 0);
+          const item = {
+            label: '',
+            max: 100,
+            segments: [
+              { label: 'Acertos', value: pctAcertos, color: '#2b8a3e' },
+              { label: 'Erros', value: pctErros, color: '#dc3545' }
+            ]
+          };
+          chart.setAttribute('data', JSON.stringify([item]));
+          chart.setAttribute('height', '14');
+          chart.setAttribute('show-percent', '');
+
+          chartWrapper.appendChild(chart);
+          row.appendChild(label);
+          const counts = document.createElement('div');
+          counts.style.fontSize = '0.85rem';
+          counts.style.color = '#475569';
+          counts.style.minWidth = '64px';
+          counts.style.textAlign = 'center';
+          counts.textContent = `${cAcertos}/${cErros}`;
+          row.appendChild(counts);
+          row.appendChild(chartWrapper);
+          container.appendChild(row);
+        });
+      } catch(err) {
+        container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de abordagens.</div>';
+      }
+    }
+
     // Tab switching: load IND8 when Tópico tab is activated
     tabButtons.forEach(btn => {
       btn.addEventListener('click', function(){
@@ -584,6 +651,7 @@
         if (sectionsMap[tab]) {
           sectionsMap[tab].classList.add('active');
           if (tab === 'topico') loadAreaConhecimentoStats();
+          if (tab === 'abordagem') loadAbordagemStats();
         }
       });
     });

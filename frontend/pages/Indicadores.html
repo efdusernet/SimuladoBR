@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Indicadores</title>
+  <script src="/components/sb-hbar.js" defer></script>
   <style>
     body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#f8fafc; color:#0f172a; }
     h1 { font-size:1rem; margin:12px 8px; font-weight:600; padding-left:8px; }
@@ -177,7 +178,9 @@
         </div>
       </div>
     </section>
-    <section id="sec-grupos" class="section" aria-labelledby="tab-grupos"><!-- vazio --></section>
+    <section id="sec-grupos" class="section" aria-labelledby="tab-grupos">
+      <div id="processGroupsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+    </section>
     <section id="sec-topico" class="section" aria-labelledby="tab-topico"><!-- vazio --></section>
     <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem"><!-- vazio --></section>
   </div>
@@ -418,6 +421,68 @@
         grid.classList.toggle('show-markers', !!e.target.checked);
       });
     })();
+
+    // Load IND7: Process Group Stats
+    async function loadProcessGroupStats(){
+      const container = document.getElementById('processGroupsContainer');
+      if (!container) return;
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/process-group-stats', { headers });
+        if (res.status === 401 || res.status === 403) {
+          container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Faça login para visualizar os dados de grupos de processos.</div>';
+          return;
+        }
+        if (!res.ok) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por grupo de processos.</div>';
+          return;
+        }
+        const data = await res.json();
+        const grupos = data && data.grupos ? data.grupos : [];
+        if (grupos.length === 0) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum grupo de processos encontrado.</div>';
+          return;
+        }
+
+        // Render each process group with sb-hbar chart
+        grupos.forEach(g => {
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.alignItems = 'center';
+          row.style.gap = '12px';
+          row.style.flexWrap = 'wrap';
+
+          const label = document.createElement('div');
+          label.style.fontWeight = '600';
+          label.style.minWidth = '180px';
+          label.style.fontSize = '0.9rem';
+          label.textContent = g.grupo || 'Desconhecido';
+
+          const chartWrapper = document.createElement('div');
+          chartWrapper.style.flex = '1';
+          chartWrapper.style.minWidth = '300px';
+
+          const chart = document.createElement('sb-hbar');
+          const acertos = g.percentAcertos !== undefined ? Math.round(g.percentAcertos) : 0;
+          const erros = g.percentErros !== undefined ? Math.round(g.percentErros) : 0;
+          const chartData = [
+            { label: 'Acertos', value: acertos, max: 100, color: '#2b8a3e' },
+            { label: 'Erros', value: erros, max: 100, color: '#dc3545' }
+          ];
+          chart.setAttribute('data', JSON.stringify(chartData));
+          chart.setAttribute('show-percent', '');
+
+          chartWrapper.appendChild(chart);
+          row.appendChild(label);
+          row.appendChild(chartWrapper);
+          container.appendChild(row);
+        });
+      } catch(err) {
+        container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de grupos de processos.</div>';
+      }
+    }
+
+    loadProcessGroupStats();
   </script>
 </body>
 </html>

@@ -218,6 +218,34 @@ Total de horas gastas no simulador pelo usuário (por tipo de exame).
 - Regra: soma `exam_attempt_question.tempo_gasto_segundos` das tentativas do usuário (status finished ou null), retorna também em horas.
 - Response: `{ examTypeId: number, userId: number, segundos: number, horas: number }`
 
+### GET /api/indicators/process-group-stats?exam_mode=full&idUsuario=42&idExame=123
+Estatísticas de acertos/erros por grupo de processos no último exame completo do usuário.
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_mode` (opcional; padrão 'full')
+  - `idUsuario` (opcional; se ausente, usa o usuário do JWT)
+  - `idExame` (opcional; se ausente, busca o último exame finished do usuário com exam_mode especificado)
+- Regra: para cada `grupo_processos` distinto, calcula qtd de acertos (`is_correct=true`) e erros (`is_correct=false`), retorna percentuais.
+- Response: 
+  ```json
+  {
+    "userId": 42,
+    "examMode": "full",
+    "idExame": 123,
+    "grupos": [
+      {
+        "grupo": "Iniciação",
+        "acertos": 8,
+        "erros": 2,
+        "total": 10,
+        "percentAcertos": 80.00,
+        "percentErros": 20.00
+      },
+      ...
+    ]
+  }
+  ```
+
 ---
 
 ### Registro de Indicadores (metadata)
@@ -248,6 +276,17 @@ Entradas semeadas na tabela `indicator` (idempotentes por código):
   - Descrição: `Qtd. distinta de questões respondidas pelo usuário (JOIN exam_attempt/question/answer) por examTypeId.`
   - Parâmetros: `{"examTypeId":1, "idUsuario":null}`
   - Fórmula (descr.): `COUNT(DISTINCT aq.question_id WHERE a.user_id=:idUsuario AND a.exam_type_id=:examTypeId)`
+
+- **IND6** - `Total horas no simulador`
+  - Descrição: `Soma do tempo gasto por questão (exam_attempt_question.tempo_gasto_segundos) por usuário/examTypeId.`
+  - Parâmetros: `{"examTypeId":1, "idUsuario":null}`
+  - Fórmula (descr.): `SUM(aq.tempo_gasto_segundos)/3600 WHERE a.user_id=:idUsuario AND a.exam_type_id=:examTypeId`
+
+- **IND7** - `% Acertos/Erros por Grupo de Processos`
+  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada grupo de processos no último exame completo (exam_mode=full) do usuário.`
+  - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
+  - Fórmula (descr.): Para cada grupo_processos: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
+  - Resultado: array de `{grupo, acertos, erros, total, percentAcertos, percentErros}` ordenado por grupo
 
 - **IND6** - `Total horas no simulador`
   - Descrição: `Soma do tempo gasto por questão (exam_attempt_question.tempo_gasto_segundos) por usuário/examTypeId.`

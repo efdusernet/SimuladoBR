@@ -12,5 +12,6 @@ router.get('/failure-rate', auth, indicatorController.getFailureRate);
 router.get('/questions-count', auth, indicatorController.getQuestionsCount);
 router.get('/answered-count', auth, indicatorController.getAnsweredQuestionsCount);
 router.get('/total-hours', auth, indicatorController.getTotalHours);
+router.get('/process-group-stats', auth, indicatorController.getProcessGroupStats);
 
 module.exports = router;

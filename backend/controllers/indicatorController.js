@@ -52,38 +52,6 @@ async function getExamsCompleted(req, res) {
     }
     
     const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
-
-    // Map group code -> descricao using grupoprocesso/gruprocesso table with dynamic column detection
-    let groupMap = {};
-    try {
-      const candidates = ['grupoprocesso', 'gruprocesso'];
-      let chosen = null;
-      let idCol = null;
-      let descCol = null;
-      let whereSoft = '';
-      for (const tbl of candidates) {
-        const cols = await sequelize.query(
-          `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl`,
-          { replacements: { tbl }, type: sequelize.QueryTypes.SELECT }
-        );
-        const names = new Set((cols || []).map(c => c.column_name));
-        if (!cols || !cols.length) continue;
-        const idc = names.has('id') ? 'id' : (names.has('Id') ? '"Id"' : null);
-        const dsc = names.has('descricao') ? 'descricao' : (names.has('Descricao') ? '"Descricao"' : null);
-        if (!idc || !dsc) continue;
-        chosen = tbl; idCol = idc; descCol = dsc;
-        if (names.has('excluido')) whereSoft = 'WHERE (excluido = false OR excluido IS NULL)';
-        else if (names.has('Excluido')) whereSoft = 'WHERE ("Excluido" = false OR "Excluido" IS NULL)';
-        break;
-      }
-      if (chosen) {
-        const mapRows = await sequelize.query(
-          `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${chosen} ${whereSoft}`,
-          { type: sequelize.QueryTypes.SELECT }
-        );
-        groupMap = (mapRows || []).reduce((acc, r) => { const k = Number(r.id); if (Number.isFinite(k)) acc[k] = r.descricao; return acc; }, {});
-      }
-    } catch(_) { /* ignore mapping failures */ }
     const total = rows && rows[0] ? Number(rows[0].total) : 0;
     return res.json({ days, examMode: examMode || 'full', userId: userId || null, total });
   } catch (err) {
@@ -355,6 +323,42 @@ async function getProcessGroupStats(req, res){
     `;
     const replacements = hasExamType ? { idExame, examTypeId } : { idExame };
     const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    // Mapear código do grupo -> descrição a partir da tabela de referência
+    let groupMap = {};
+    try {
+      const candidates = ['grupoprocesso', 'gruprocesso'];
+      let chosen = null;
+      let idCol = null;
+      let descCol = null;
+      let whereSoft = '';
+      for (const tbl of candidates) {
+        const cols = await sequelize.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl`,
+          { replacements: { tbl }, type: sequelize.QueryTypes.SELECT }
+        );
+        if (!cols || !cols.length) continue;
+        const names = new Set(cols.map(c => c.column_name));
+        const idc = names.has('id') ? 'id' : (names.has('Id') ? '"Id"' : null);
+        const dsc = names.has('descricao') ? 'descricao' : (names.has('Descricao') ? '"Descricao"' : null);
+        if (!idc || !dsc) continue;
+        chosen = tbl; idCol = idc; descCol = dsc;
+        if (names.has('excluido')) whereSoft = 'WHERE (excluido = false OR excluido IS NULL)';
+        else if (names.has('Excluido')) whereSoft = 'WHERE ("Excluido" = false OR "Excluido" IS NULL)';
+        break;
+      }
+      if (chosen) {
+        const mapRows = await sequelize.query(
+          `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${chosen} ${whereSoft}`,
+          { type: sequelize.QueryTypes.SELECT }
+        );
+        groupMap = (mapRows || []).reduce((acc, r) => {
+          const k = Number(r.id);
+          if (Number.isFinite(k)) acc[k] = r.descricao;
+          return acc;
+        }, {});
+      }
+    } catch(_) { /* ignore */ }
 
     const grupos = (rows || []).map(r => {
       const total = Number(r.total) || 1; // evitar divisão por zero

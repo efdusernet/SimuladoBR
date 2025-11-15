@@ -111,11 +111,13 @@
               track.appendChild(bar);
               if (segLabel) textParts.push(`${segLabel} ${pct}${unit || '%'}`);
             });
-            const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
-            val.textContent = textParts.length ? textParts.join(' / ') : (showPercent ? `${Math.min(accPct,100)}${unit || '%'}` : '');
             row.appendChild(lab);
             row.appendChild(track);
-            row.appendChild(val);
+            if (showPercent) {
+              const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
+              val.textContent = textParts.length ? textParts.join(' / ') : `${Math.min(accPct,100)}${unit || '%'}`;
+              row.appendChild(val);
+            }
             this._wrap.appendChild(row);
           } else {
             // Default single bar per row

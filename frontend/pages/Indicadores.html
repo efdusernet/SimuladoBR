@@ -456,7 +456,7 @@
           label.style.fontWeight = '600';
           label.style.minWidth = '180px';
           label.style.fontSize = '0.9rem';
-          label.textContent = g.grupo || 'Desconhecido';
+          label.textContent = (g && (g.descricao || g.grupo)) ? (g.descricao || String(g.grupo)) : 'Desconhecido';
 
           const chartWrapper = document.createElement('div');
           chartWrapper.style.flex = '1';

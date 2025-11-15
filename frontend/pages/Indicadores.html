@@ -463,14 +463,16 @@
           chartWrapper.style.minWidth = '300px';
 
           const chart = document.createElement('sb-hbar');
-          const acertos = g.percentAcertos !== undefined ? Math.round(g.percentAcertos) : 0;
-          const erros = g.percentErros !== undefined ? Math.round(g.percentErros) : 0;
+          const pctAcertos = g.percentAcertos !== undefined ? Math.round(g.percentAcertos) : 0;
+          const pctErros = g.percentErros !== undefined ? Math.round(g.percentErros) : 0;
+          const cAcertos = Number(g.acertos || 0);
+          const cErros = Number(g.erros || 0);
           const item = {
             label: '',
             max: 100,
             segments: [
-              { label: 'Acertos', value: acertos, color: '#2b8a3e' },
-              { label: 'Erros', value: erros, color: '#dc3545' }
+              { label: 'Acertos', value: pctAcertos, color: '#2b8a3e' },
+              { label: 'Erros', value: pctErros, color: '#dc3545' }
             ]
           };
           chart.setAttribute('data', JSON.stringify([item]));
@@ -479,6 +481,13 @@
 
           chartWrapper.appendChild(chart);
           row.appendChild(label);
+          const counts = document.createElement('div');
+          counts.style.fontSize = '0.85rem';
+          counts.style.color = '#475569';
+          counts.style.minWidth = '64px';
+          counts.style.textAlign = 'center';
+          counts.textContent = `${cAcertos}/${cErros}`;
+          row.appendChild(counts);
           row.appendChild(chartWrapper);
           container.appendChild(row);
         });

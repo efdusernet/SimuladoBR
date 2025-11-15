@@ -71,39 +71,75 @@
 
       if (multiple) {
         const items = this.data || [];
-        items.forEach((it, idx) => {
+        items.forEach((it) => {
           const label = (it && (it.label ?? it.nome ?? it.name)) || '';
-          const value = toNumber(it && it.value, 0);
           const max = toNumber((it && it.max) ?? this.getAttribute('max'), 100);
           const unit = (it && it.unit) || this.getAttribute('unit') || '';
-          const color = (it && it.color) || this.getAttribute('color') || '#4f46e5';
           const trackBg = (it && (it.bg || it.background)) || bg || '#e5e7eb';
-          const pct = max > 0 ? Math.round((clamp01(value / max)) * 100) : 0;
 
           const row = document.createElement('div'); row.className='row'; row.setAttribute('part','row');
           const lab = document.createElement('div'); lab.className='label'; lab.textContent = label; lab.setAttribute('part','label');
           const track = document.createElement('div'); track.className='track'; track.style.setProperty('--sb-hbar-track', trackBg); if (heightAttr) track.style.height = `${toNumber(heightAttr, 12)}px`;
           if (radius) { track.style.borderRadius = radius; }
-          const bar = document.createElement('div'); bar.className='bar'; bar.style.setProperty('--sb-hbar-color', color);
-          if (striped) bar.classList.add('striped'); if (animated) bar.classList.add('animated');
-          bar.style.width = pct + '%';
-          if (radius) { bar.style.borderRadius = radius; }
-          bar.setAttribute('role','progressbar');
-          bar.setAttribute('aria-valuemin','0');
-          bar.setAttribute('aria-valuemax', String(max));
-          bar.setAttribute('aria-valuenow', String(value));
-          bar.setAttribute('aria-label', label || 'Barra');
 
-          const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
-          val.textContent = showPercent ? `${pct}${unit || '%'}` : `${value}${unit}`;
+          // Support stacked segments inside a single row when it.segments is provided
+          const segments = Array.isArray(it && it.segments) ? it.segments : null;
+          if (segments && segments.length) {
+            let accPct = 0;
+            const textParts = [];
+            segments.forEach((seg, idx) => {
+              const sval = toNumber(seg && seg.value, 0);
+              const scolor = (seg && seg.color) || this.getAttribute('color') || '#4f46e5';
+              const pct = max > 0 ? Math.round((clamp01(sval / max)) * 100) : 0;
+              const left = accPct;
+              accPct = Math.min(100, accPct + pct);
 
-          if (showPercent) { const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${pct}${unit || '%'}`; bar.appendChild(tip); }
-
-          track.appendChild(bar);
-          row.appendChild(lab);
-          row.appendChild(track);
-          row.appendChild(val);
-          this._wrap.appendChild(row);
+              const bar = document.createElement('div'); bar.className='bar'; bar.style.setProperty('--sb-hbar-color', scolor);
+              if (striped) bar.classList.add('striped'); if (animated) bar.classList.add('animated');
+              bar.style.width = pct + '%';
+              bar.style.left = left + '%';
+              if (radius) { bar.style.borderRadius = radius; }
+              bar.setAttribute('role','progressbar');
+              bar.setAttribute('aria-valuemin','0');
+              bar.setAttribute('aria-valuemax', String(max));
+              bar.setAttribute('aria-valuenow', String(sval));
+              const segLabel = (seg && (seg.label ?? seg.nome ?? seg.name)) || '';
+              bar.setAttribute('aria-label', segLabel || 'Segmento');
+              if (showPercent) {
+                const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${pct}${unit || '%'}`; bar.appendChild(tip);
+              }
+              track.appendChild(bar);
+              if (segLabel) textParts.push(`${segLabel} ${pct}${unit || '%'}`);
+            });
+            const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
+            val.textContent = textParts.length ? textParts.join(' / ') : (showPercent ? `${Math.min(accPct,100)}${unit || '%'}` : '');
+            row.appendChild(lab);
+            row.appendChild(track);
+            row.appendChild(val);
+            this._wrap.appendChild(row);
+          } else {
+            // Default single bar per row
+            const value = toNumber(it && it.value, 0);
+            const color = (it && it.color) || this.getAttribute('color') || '#4f46e5';
+            const pct = max > 0 ? Math.round((clamp01(value / max)) * 100) : 0;
+            const bar = document.createElement('div'); bar.className='bar'; bar.style.setProperty('--sb-hbar-color', color);
+            if (striped) bar.classList.add('striped'); if (animated) bar.classList.add('animated');
+            bar.style.width = pct + '%';
+            if (radius) { bar.style.borderRadius = radius; }
+            bar.setAttribute('role','progressbar');
+            bar.setAttribute('aria-valuemin','0');
+            bar.setAttribute('aria-valuemax', String(max));
+            bar.setAttribute('aria-valuenow', String(value));
+            bar.setAttribute('aria-label', label || 'Barra');
+            const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
+            val.textContent = showPercent ? `${pct}${unit || '%'}` : `${value}${unit}`;
+            if (showPercent) { const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${pct}${unit || '%'}`; bar.appendChild(tip); }
+            track.appendChild(bar);
+            row.appendChild(lab);
+            row.appendChild(track);
+            row.appendChild(val);
+            this._wrap.appendChild(row);
+          }
         });
       } else {
         const label = this.getAttribute('label') || '';

@@ -444,7 +444,7 @@
           return;
         }
 
-        // Render each process group with sb-hbar chart
+        // Render each process group with a single stacked bar (Acertos + Erros)
         grupos.forEach(g => {
           const row = document.createElement('div');
           row.style.display = 'flex';
@@ -465,12 +465,17 @@
           const chart = document.createElement('sb-hbar');
           const acertos = g.percentAcertos !== undefined ? Math.round(g.percentAcertos) : 0;
           const erros = g.percentErros !== undefined ? Math.round(g.percentErros) : 0;
-          const chartData = [
-            { label: 'Acertos', value: acertos, max: 100, color: '#2b8a3e' },
-            { label: 'Erros', value: erros, max: 100, color: '#dc3545' }
-          ];
-          chart.setAttribute('data', JSON.stringify(chartData));
+          const item = {
+            label: '',
+            max: 100,
+            segments: [
+              { label: 'Acertos', value: acertos, color: '#2b8a3e' },
+              { label: 'Erros', value: erros, color: '#dc3545' }
+            ]
+          };
+          chart.setAttribute('data', JSON.stringify([item]));
           chart.setAttribute('show-percent', '');
+          chart.setAttribute('height', '14');
 
           chartWrapper.appendChild(chart);
           row.appendChild(label);

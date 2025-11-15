@@ -121,6 +121,11 @@
   </div>
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
+      <div style="margin-bottom:12px; padding:8px; background:#f1f5f9; border-radius:6px; font-size:0.85rem; line-height:1.6;">
+        <div style="margin-bottom:6px;"><strong>Total de perguntas do simulador:</strong> <span id="ind4-value">—</span></div>
+        <div style="margin-bottom:6px;"><strong>Respondidas por você:</strong> <span id="ind5-value">—</span></div>
+        <div><strong>Você passou <span id="ind6-value">—</span> respondendo questões no simulador.</strong></div>
+      </div>
       <div class="marker-toggle"><label><input type="checkbox" id="toggleMarkers"> Mostrar marcadores</label></div>
       <div class="ov-wrapper">
         <div class="ov-grid">
@@ -367,6 +372,42 @@
     }
 
     loadOverviewDetailed();
+
+    // Load IND4, IND5, IND6 for Visão Geral
+    async function loadGeneralStats(){
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        // IND4: Total de perguntas do simulador (exam_type=1 para PMP)
+        const res4 = await fetch('/api/indicators/questions-count?exam_type=1', { headers });
+        if (res4.ok) {
+          const data4 = await res4.json();
+          const val = data4 && data4.total !== undefined ? data4.total : 0;
+          document.getElementById('ind4-value').textContent = val;
+        }
+
+        // IND5: Quantidade de questões respondidas pelo usuário (exam_type=1)
+        const res5 = await fetch('/api/indicators/answered-count?exam_type=1', { headers });
+        if (res5.ok) {
+          const data5 = await res5.json();
+          const val = data5 && data5.total !== undefined ? data5.total : 0;
+          document.getElementById('ind5-value').textContent = val;
+        }
+
+        // IND6: Total de horas no simulador (exam_type=1) - formato horas:minutos:segundos
+        const res6 = await fetch('/api/indicators/total-hours?exam_type=1', { headers });
+        if (res6.ok) {
+          const data6 = await res6.json();
+          const segundos = data6 && data6.segundos !== undefined ? data6.segundos : 0;
+          const h = Math.floor(segundos / 3600);
+          const m = Math.floor((segundos % 3600) / 60);
+          const s = segundos % 60;
+          const formatted = `${h}h ${m}min ${s}s`;
+          document.getElementById('ind6-value').textContent = formatted;
+        }
+      } catch(_) { /* ignore */ }
+    }
+
+    loadGeneralStats();
 
     // Toggle markers visibility on the overview grid
     (function initMarkerToggle(){

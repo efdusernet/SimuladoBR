@@ -111,13 +111,13 @@ exports.selectQuestions = async (req, res) => {
   const examCfg = await getExamTypeBySlugOrDefault(examType);
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
-    // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (or env-configured), quiz when count <= 50
+    // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (or env-configured), quiz when count < full threshold
     let examMode = headerMode;
     try {
       if (!examMode) {
         const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : getFullExamQuestionCount();
         if (count >= fullThreshold) examMode = 'full';
-        else if (count > 0 && count <= 50) examMode = 'quiz';
+        else if (count > 0 && count < fullThreshold) examMode = 'quiz';
       }
     } catch(_) { /* keep null if inference fails */ }
 
@@ -576,13 +576,13 @@ exports.startOnDemand = async (req, res) => {
 
     const bloqueio = Boolean(user.BloqueioAtivado);
     if (bloqueio && count > 25) count = 25;
-    // Infer mode when header not provided: full when count >= blueprint total; quiz when count <= 50
+    // Infer mode when header not provided: full when count >= blueprint total; quiz when count < full threshold
     let examMode = headerMode;
     try {
       if (!examMode) {
         const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : getFullExamQuestionCount();
         if (count >= fullThreshold) examMode = 'full';
-        else if (count > 0 && count <= 50) examMode = 'quiz';
+        else if (count > 0 && count < fullThreshold) examMode = 'quiz';
       }
     } catch(_) { examMode = examMode || null; }
 

@@ -1,3 +1,91 @@
+// IND8 - % Acertos/Erros por Area de Conhecimento
+async function getAreaConhecimentoStats(req, res){
+  try {
+    const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
+    const userIdParam = parseInt(req.query.idUsuario, 10);
+    const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
+    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+
+    // Identificar o último exame completo do usuário
+    let idExame = parseInt(req.query.idExame, 10);
+    if (!Number.isFinite(idExame) || idExame <= 0) {
+      const lastExamSql = `SELECT a.id, a.exam_type_id
+                           FROM exam_attempt a
+                           WHERE a.user_id = :userId
+                             AND a.exam_mode = :examMode
+                             AND a.finished_at IS NOT NULL
+                             ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+                           ORDER BY a.finished_at DESC
+                           LIMIT 1`;
+      const replacements = hasExamType ? { userId, examMode, examTypeId } : { userId, examMode };
+      const lastExamRows = await sequelize.query(lastExamSql, { replacements, type: sequelize.QueryTypes.SELECT });
+      if (!lastExamRows || !lastExamRows.length) {
+        return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame: null, areas: [] });
+      }
+      idExame = Number(lastExamRows[0].id);
+    }
+
+    // Calcular acertos/erros por área de conhecimento
+    const sql = `
+      WITH pq AS (
+        SELECT
+          aq.id AS aqid,
+          q.codareaconhecimento AS area_id,
+          ac.descricao AS area_nome,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+          COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
+        FROM exam_attempt_question aq
+        LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+        JOIN questao q ON q.id = aq.question_id
+        LEFT JOIN areaconhecimento ac ON ac.id = q.codareaconhecimento
+        LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+        JOIN exam_attempt a ON a.id = aq.attempt_id
+        WHERE aq.attempt_id = :idExame
+          AND q.codareaconhecimento IS NOT NULL
+          ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+        GROUP BY aq.id, q.codareaconhecimento, ac.descricao
+      )
+      SELECT
+        area_id,
+        area_nome,
+        COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS acertos,
+        COUNT(*) FILTER (WHERE NOT (chosen_count = correct_count AND chosen_correct_count = correct_count))::int AS erros,
+        COUNT(*)::int AS total
+      FROM pq
+      WHERE correct_count > 0
+      GROUP BY area_id, area_nome
+      ORDER BY area_nome;
+    `;
+    const replacements = hasExamType ? { idExame, examTypeId } : { idExame };
+    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    const areas = (rows || []).map(r => {
+      const total = Number(r.total) || 1;
+      const acertos = Number(r.acertos) || 0;
+      const erros = Number(r.erros) || 0;
+      const percentAcertos = Number(((acertos / total) * 100).toFixed(2));
+      const percentErros = Number(((erros / total) * 100).toFixed(2));
+      return {
+        id: Number(r.area_id) || null,
+        descricao: r.area_nome || String(r.area_id || 'Sem área'),
+        acertos,
+        erros,
+        total,
+        percentAcertos,
+        percentErros
+      };
+    });
+
+    return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, areas });
+  } catch(err){
+    console.error('getAreaConhecimentoStats error:', err);
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
 const db = require('../models');
 const sequelize = require('../config/database');
 
@@ -384,4 +472,4 @@ async function getProcessGroupStats(req, res){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats };
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats };

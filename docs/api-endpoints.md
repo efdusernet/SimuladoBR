@@ -52,6 +52,9 @@ Registra respostas (parciais ou finais), computa nota na submissão final e ence
   - `partial?: boolean` (default false; quando true, não encerra tentativa)
 - Response (final): `{ sessionId, totalQuestions, totalCorrect, details }`
 - Efeitos colaterais (final): atualiza `exam_attempt` com `Corretas`, `Total`, `ScorePercent`, `Aprovado`, `FinishedAt`, `Status='finished'`.
+- **Validação de completude (frontend)**: Ao finalizar exame completo (`examFull.html`), valida-se se pelo menos 95% das questões foram respondidas:
+  - Se ≥ 95%: prossegue com submit normal
+  - Se < 95%: exibe modal de aviso; usuário pode sair sem salvar (não chama submit) ou continuar respondendo
 
 ## POST /api/exams/:sessionId/pause/start
 Inicia pausa (exame completo com checkpoints).

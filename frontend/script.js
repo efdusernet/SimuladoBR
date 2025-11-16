@@ -283,7 +283,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (modal) {
                 showEmailModal();
             } else {
-                window.location.assign('/login');
+                try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+                window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
                 return;
             }
         } else {
@@ -790,11 +791,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 showUserHeader(nomeReal);
                 hideEmailModal();
 
-                // redirect to standalone exam setup page
+                // redirect to pre-login destination or default
                 try {
-                    const path = window.location.pathname || '';
-                    const onSetupPage = path.includes('/pages/examSetup.html') || path.endsWith('/examSetup.html');
-                    if (!onSetupPage) window.location.href = '/pages/examSetup.html';
+                    const params = new URLSearchParams(window.location.search || '');
+                    const redirectParam = params.get('redirect');
+                    let target = null;
+                    if (redirectParam) {
+                        try {
+                            const u = new URL(redirectParam, window.location.origin);
+                            if (u.origin === window.location.origin) target = u.href;
+                        } catch(_){ }
+                    }
+                    if (!target) {
+                        try { target = sessionStorage.getItem('postLoginRedirect'); } catch(_){ }
+                    }
+                    if (!target) target = '/';
+                    try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
+                    window.location.assign(target);
                 } catch (e) { console.warn('Erro redirect login:', e); }
             }
             else if (mode === 'verify') {
@@ -853,11 +866,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     showUserHeader(nomeReal);
                     hideEmailModal();
 
-                    // redirect to standalone exam setup page
+                    // redirect to pre-login destination or default
                     try {
-                        const path = window.location.pathname || '';
-                        const onSetupPage = path.includes('/pages/examSetup.html') || path.endsWith('/examSetup.html');
-                        if (!onSetupPage) window.location.href = '/pages/examSetup.html';
+                        const params = new URLSearchParams(window.location.search || '');
+                        const redirectParam = params.get('redirect');
+                        let target = null;
+                        if (redirectParam) {
+                            try {
+                                const u = new URL(redirectParam, window.location.origin);
+                                if (u.origin === window.location.origin) target = u.href;
+                            } catch(_){ }
+                        }
+                        if (!target) {
+                            try { target = sessionStorage.getItem('postLoginRedirect'); } catch(_){ }
+                        }
+                        if (!target) target = '/';
+                        try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
+                        window.location.assign(target);
                     } catch (e) { console.warn('Erro redirect login:', e); }
                 } else {
                     // switch to login mode so user can enter password

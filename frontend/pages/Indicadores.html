@@ -22,6 +22,7 @@
   <style>
     .ov-wrapper{max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;}
     .ov-grid{display:grid; grid-template-columns:minmax(80px,auto) repeat(10,minmax(50px,1fr)); border:1px solid #e2e8f0; font-size:11px;}
+    .det-grid{display:grid; grid-template-columns:repeat(4,minmax(100px,1fr)); border:1px solid #e2e8f0; font-size:11px;}
     .cell{padding:6px 3px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
     .rowlabel{text-align:left; padding-left:4px; font-size:10px;}
     .head,.subhead,.colhead{font-weight:600; font-size:10px;}
@@ -34,6 +35,7 @@
       .sections { padding:0 16px 24px; }
       .section { padding:12px; min-height:80px; }
       .ov-grid { grid-template-columns:minmax(140px,auto) repeat(10,minmax(70px,1fr)); font-size:13px; }
+      .det-grid { grid-template-columns:repeat(4,minmax(140px,1fr)); font-size:13px; }
       .cell { padding:8px 4px; }
       .rowlabel { font-size:12px; padding-left:6px; }
       .head,.subhead,.colhead { font-size:11px; }
@@ -187,57 +189,40 @@
       <div id="approachContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
     </section>
       <section id="sec-detalhes" class="section" aria-labelledby="tab-detalhes">
-        <style type="text/css">
-          .tg  {border-collapse:collapse;border-spacing:0;}
-          .tg td{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
-            overflow:hidden;padding:10px 5px;word-break:normal;}
-          .tg th{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
-            font-weight:normal;overflow:hidden;padding:10px 5px;word-break:normal;}
-          .tg .tg-c3ow{border-color:inherit;text-align:center;vertical-align:top}
-          .tg .tg-0pky{border-color:inherit;text-align:left;vertical-align:top}
-        </style>
-        <table class="tg"><thead>
-          <tr>
-            <th class="tg-c3ow" colspan="4">Última   tentativa</th>
-          </tr></thead>
-        <tbody>
-          <tr>
-            <td class="tg-c3ow">Domínio</td>
-            <td class="tg-c3ow">Corretas %</td>
-            <td class="tg-c3ow"># Corretas</td>
-            <td class="tg-c3ow">Performance</td>
-          </tr>
-          <tr>
-            <td class="tg-0pky">Iniciação</td>
-            <td class="tg-0pky">60%</td>
-            <td class="tg-0pky">80</td>
-            <td class="tg-0pky">1</td>
-          </tr>
-          <tr>
-            <td class="tg-0pky">Planejamento</td>
-            <td class="tg-0pky">70%</td>
-            <td class="tg-0pky">60</td>
-            <td class="tg-0pky">2</td>
-          </tr>
-          <tr>
-            <td class="tg-0pky">Execução</td>
-            <td class="tg-0pky"> </td>
-            <td class="tg-0pky"> </td>
-            <td class="tg-0pky"> </td>
-          </tr>
-          <tr>
-            <td class="tg-0pky">Monitoramento&nbsp;&nbsp;&nbsp;e Controle</td>
-            <td class="tg-0pky"> </td>
-            <td class="tg-0pky"> </td>
-            <td class="tg-0pky"> </td>
-          </tr>
-          <tr>
-            <td class="tg-0pky">Encerramento</td>
-            <td class="tg-0pky"> </td>
-            <td class="tg-0pky"> </td>
-            <td class="tg-0pky"> </td>
-          </tr>
-        </tbody></table>
+        <div class="ov-wrapper">
+          <div class="det-grid">
+            <div class="cell head" style="grid-column: span 4;">Última tentativa</div>
+            <div class="cell colhead">Domínio</div>
+            <div class="cell colhead">Corretas %</div>
+            <div class="cell colhead"># Corretas</div>
+            <div class="cell colhead">Performance</div>
+
+            <div class="cell">Iniciação</div>
+            <div class="cell">60%</div>
+            <div class="cell">80</div>
+            <div class="cell">1</div>
+
+            <div class="cell">Planejamento</div>
+            <div class="cell">70%</div>
+            <div class="cell">60</div>
+            <div class="cell">2</div>
+
+            <div class="cell">Execução</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+
+            <div class="cell">Monitoramento e Controle</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+
+            <div class="cell">Encerramento</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+          </div>
+        </div>
       </section>
   </div>
   <script>

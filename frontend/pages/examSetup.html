@@ -356,7 +356,8 @@
         const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
         const isGuest = token && token.endsWith('#');
         if ((!token && !hasIdentity) || (isGuest && !hasIdentity)) {
-          window.location.assign('/login');
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
         }
       } catch(e) { /* ignore */ }
     })();

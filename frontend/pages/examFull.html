@@ -435,7 +435,8 @@
           const token = localStorage.getItem('sessionToken') || '';
           const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
           if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
-            window.location.assign('/login');
+            try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+            window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
             return;
           }
         } catch(e) {}
@@ -606,8 +607,8 @@
       const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
       const isGuest = token && token.endsWith('#');
       const isLogged = !!(token || hasIdentity) && !(isGuest && !hasIdentity);
-      if (isLogged) { window.location.assign('/'); } else { window.location.assign('/login'); }
-    } catch(e){ window.location.assign('/login'); }
+      if (isLogged) { window.location.assign('/'); } else { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
+    } catch(e){ try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
   });
         const no = document.getElementById('finishConfirmNo'); if (no) no.addEventListener('click', closeFinishConfirm);
         window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') { closeFinishConfirm(); } });

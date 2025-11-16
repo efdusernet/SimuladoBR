@@ -115,7 +115,8 @@
       <button class="tab-btn active" data-tab="geral" role="tab" aria-selected="true">Visão Geral</button>
       <button class="tab-btn" data-tab="grupos" role="tab" aria-selected="false">Grupo Processos</button>
       <button class="tab-btn" data-tab="topico" role="tab" aria-selected="false">Tópico</button>
-      <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
+        <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
+        <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
     </div>
   </div>
   <div class="sections">
@@ -185,6 +186,7 @@
     <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem">
       <div id="approachContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
     </section>
+      <section id="sec-detalhes" class="section" aria-labelledby="tab-detalhes"><!-- Conteúdo futuro da aba Detalhes --></section>
   </div>
   <script>
     // Lightweight menu toggle and logout for this page
@@ -218,7 +220,8 @@
       geral: document.getElementById('sec-geral'),
       grupos: document.getElementById('sec-grupos'),
       topico: document.getElementById('sec-topico'),
-      abordagem: document.getElementById('sec-abordagem')
+      abordagem: document.getElementById('sec-abordagem'),
+      detalhes: document.getElementById('sec-detalhes')
     };
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -246,11 +249,7 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/overview', { headers });
         if (res.status === 401 || res.status === 403) {
-          const note = document.createElement('div');
-          note.style.marginTop = '8px';
-          note.style.color = '#b91c1c';
-          note.textContent = 'Faça login para visualizar seus indicadores.';
-          target.appendChild(note);
+          window.location.assign('/login');
           return;
         }
         if (!res.ok) return;
@@ -279,6 +278,10 @@
         
         // Fetch 30-day data for OV-R4C2 to OV-R4C6
         const res30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=full', { headers });
+        if (res30.status === 401 || res30.status === 403) {
+          window.location.assign('/login');
+          return;
+        }
         if (res30.ok) {
           const data30 = await res30.json();
           const cells30 = data30 && data30.cells ? data30.cells : {};
@@ -424,7 +427,7 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/process-group-stats', { headers });
         if (res.status === 401 || res.status === 403) {
-          container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Faça login para visualizar os dados de grupos de processos.</div>';
+          window.location.assign('/login');
           return;
         }
         if (!res.ok) {
@@ -501,7 +504,7 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/area-knowledge-stats', { headers });
         if (res.status === 401 || res.status === 403) {
-          container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Faça login para visualizar os dados de áreas de conhecimento.</div>';
+          window.location.assign('/login');
           return;
         }
         if (!res.ok) {
@@ -576,7 +579,7 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/approach-stats', { headers });
         if (res.status === 401 || res.status === 403) {
-          container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Faça login para visualizar os dados de abordagens.</div>';
+          window.location.assign('/login');
           return;
         }
         if (!res.ok) {

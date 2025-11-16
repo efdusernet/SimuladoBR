@@ -249,7 +249,8 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/overview', { headers });
         if (res.status === 401 || res.status === 403) {
-          window.location.assign('/login');
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
         }
         if (!res.ok) return;
@@ -279,7 +280,8 @@
         // Fetch 30-day data for OV-R4C2 to OV-R4C6
         const res30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=full', { headers });
         if (res30.status === 401 || res30.status === 403) {
-          window.location.assign('/login');
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
         }
         if (res30.ok) {
@@ -387,6 +389,7 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         // IND4: Total de perguntas do simulador (exam_type=1 para PMP)
         const res4 = await fetch('/api/indicators/questions-count?exam_type=1', { headers });
+        if (res4.status === 401 || res4.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res4.ok) {
           const data4 = await res4.json();
           const val = data4 && data4.total !== undefined ? data4.total : 0;
@@ -395,6 +398,7 @@
 
         // IND5: Quantidade de questões respondidas pelo usuário (exam_type=1)
         const res5 = await fetch('/api/indicators/answered-count?exam_type=1', { headers });
+        if (res5.status === 401 || res5.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res5.ok) {
           const data5 = await res5.json();
           const val = data5 && data5.total !== undefined ? data5.total : 0;
@@ -403,6 +407,7 @@
 
         // IND6: Total de horas no simulador (exam_type=1) - formato horas:minutos:segundos
         const res6 = await fetch('/api/indicators/total-hours?exam_type=1', { headers });
+        if (res6.status === 401 || res6.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res6.ok) {
           const data6 = await res6.json();
           const segundos = data6 && data6.segundos !== undefined ? data6.segundos : 0;
@@ -427,7 +432,8 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/process-group-stats', { headers });
         if (res.status === 401 || res.status === 403) {
-          window.location.assign('/login');
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
         }
         if (!res.ok) {
@@ -504,7 +510,8 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/area-knowledge-stats', { headers });
         if (res.status === 401 || res.status === 403) {
-          window.location.assign('/login');
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
         }
         if (!res.ok) {
@@ -579,7 +586,8 @@
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/approach-stats', { headers });
         if (res.status === 401 || res.status === 403) {
-          window.location.assign('/login');
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
         }
         if (!res.ok) {

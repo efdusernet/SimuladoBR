@@ -13,5 +13,7 @@ router.get('/questions-count', auth, indicatorController.getQuestionsCount);
 router.get('/answered-count', auth, indicatorController.getAnsweredQuestionsCount);
 router.get('/total-hours', auth, indicatorController.getTotalHours);
 router.get('/process-group-stats', auth, indicatorController.getProcessGroupStats);
+router.get('/area-knowledge-stats', auth, indicatorController.getAreaConhecimentoStats);
+router.get('/approach-stats', auth, indicatorController.getAbordagemStats);
 
 module.exports = router;

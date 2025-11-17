@@ -19,6 +19,13 @@ const requireAdmin = require('../middleware/requireAdmin');
 // }
 router.post('/', requireAdmin, questionController.createQuestion);
 
+// List and get by id
+router.get('/', requireAdmin, questionController.listQuestions);
+router.get('/:id', requireAdmin, questionController.getQuestionById);
+
+// Update question
+router.put('/:id', requireAdmin, questionController.updateQuestion);
+
 // Bulk upload: accepts JSON body or multipart/form-data with a file field named "file"
 // JSON format:
 //  - Either an array of questions [{ descricao, tiposlug, examTypeSlug|examTypeId, options:[{descricao, correta}], ... }]

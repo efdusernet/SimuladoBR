@@ -47,6 +47,9 @@ exports.listGruposProcesso = async (req, res) => {
   }
 };
 exports.listDominios = (req, res) => listSimple(req, res, 'dominio');
+exports.listDominiosGeral = (req, res) => listSimple(req, res, 'dominiogeral');
+exports.listPrincipios = (req, res) => listSimple(req, res, 'principios');
+exports.listCategorias = (req, res) => listSimple(req, res, 'categoriaquestao');
 
 // GET /api/meta/config -> expose server-side config relevant to frontend
 exports.getConfig = (_req, res) => {

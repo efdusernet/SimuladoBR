@@ -282,13 +282,25 @@ Entradas semeadas na tabela `indicator` (idempotentes por código):
   - Parâmetros: `{"examTypeId":1, "idUsuario":null}`
   - Fórmula (descr.): `SUM(aq.tempo_gasto_segundos)/3600 WHERE a.user_id=:idUsuario AND a.exam_type_id=:examTypeId`
 
+  
 - **IND7** - `% Acertos/Erros por Grupo de Processos`
   - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada grupo de processos no último exame completo (exam_mode=full) do usuário.`
   - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
   - Fórmula (descr.): Para cada grupo_processos: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
+
   - Resultado: array de `{grupo, acertos, erros, total, percentAcertos, percentErros}` ordenado por grupo
 
-- **IND6** - `Total horas no simulador`
-  - Descrição: `Soma do tempo gasto por questão (exam_attempt_question.tempo_gasto_segundos) por usuário/examTypeId.`
-  - Parâmetros: `{"examTypeId":1, "idUsuario":null}`
-  - Fórmula (descr.): `SUM(aq.tempo_gasto_segundos)/3600 WHERE a.user_id=:idUsuario AND a.exam_type_id=:examTypeId`
+- **IND8** - `% Acertos/Erros por Área de Conhecimento`
+  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada Área de Conhecimento no último exame completo (exam_mode=full) do usuário.`
+  - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
+  - Fórmula (descr.): Para cada área de conhecimento: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
+  - Resultado: array de `{area conhecimento, acertos, erros, total, percentAcertos, percentErros}` ordenado por área
+
+- **IND9** - `% Acertos/Erros por Abordagem`
+  - Endpoint: `GET /api/indicators/approach-stats`
+  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada abordagem (categoriaquestao) no último exame completo (exam_mode=full) do usuário.`
+  - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
+  - Fórmula (descr.): Para cada abordagem: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
+  - Resultado: array de `{abordagem, acertos, erros, total, percentAcertos, percentErros}` ordenado por id
+
+

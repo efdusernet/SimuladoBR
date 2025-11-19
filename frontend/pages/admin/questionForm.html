@@ -153,6 +153,10 @@
         <label for="codniveldificuldade">Nível de Dificuldade</label>
         <select id="codniveldificuldade"></select>
       </div>
+      <div>
+        <label for="idtask">Task (opcional)</label>
+        <select id="idtask"></select>
+      </div>
     </div>
 
     <div class="row">
@@ -253,6 +257,10 @@
         <div>
           <label for="codniveldificuldadeNav">Nível de Dificuldade</label>
           <select id="codniveldificuldadeNav"></select>
+        </div>
+        <div>
+          <label for="idtaskNav">Task (opcional)</label>
+          <select id="idtaskNav"></select>
         </div>
       </div>
 
@@ -631,6 +639,28 @@
       }
     }
 
+    async function loadTasks(targetId = 'idtask'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/tasks');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(t => {
+          const o = document.createElement('option');
+          o.value = t.id;
+          o.textContent = `Task ${t.id} - ${t.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        console.error('[loadTasks] error:', e);
+      }
+    }
+
     $('save').onclick = async function(){
       const descricao = $('descricao').value.trim();
       const tiposlug = $('tipo').value;
@@ -642,6 +672,7 @@
       const idprincipio = ($('idprincipio').value || '').trim();
       const codigocategoria = ($('codigocategoria').value || '').trim();
       const codniveldificuldade = ($('codniveldificuldade').value || '').trim();
+      const id_task = ($('idtask').value || '').trim();
       const dica = $('dica').value.trim();
       const imagemUrl = ($('imagemUrl').value || '').trim();
       const explicacao = $('explicacao').value.trim();
@@ -666,6 +697,7 @@
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
         codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
         codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
+        id_task: id_task ? Number(id_task) : undefined,
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
@@ -777,7 +809,8 @@
           loadGrupos('grupoNav'),
           loadPrincipios('idprincipioNav'),
           loadCategorias('codigocategoriaNav'),
-          loadNiveisDificuldade('codniveldificuldadeNav')
+          loadNiveisDificuldade('codniveldificuldadeNav'),
+          loadTasks('idtaskNav')
         ]);
         
         $('iddominioNav').value = q.iddominio != null ? String(q.iddominio) : '';
@@ -787,6 +820,7 @@
         $('idprincipioNav').value = q.idprincipio != null ? String(q.idprincipio) : '';
         $('codigocategoriaNav').value = q.codigocategoria != null ? String(q.codigocategoria) : '';
         $('codniveldificuldadeNav').value = q.codniveldificuldade != null ? String(q.codniveldificuldade) : '';
+        $('idtaskNav').value = q.id_task != null ? String(q.id_task) : '';
         $('dicaNav').value = q.dica || '';
         $('imagemUrlNav').value = q.imagemUrl || '';
         if (q.imagemUrl) showImagePreview('imagemPreviewNav', q.imagemUrl);
@@ -927,6 +961,7 @@
       const idprincipio = ($('idprincipioNav').value || '').trim();
       const codigocategoria = ($('codigocategoriaNav').value || '').trim();
       const codniveldificuldade = ($('codniveldificuldadeNav').value || '').trim();
+      const id_task = ($('idtaskNav').value || '').trim();
       const dica = $('dicaNav').value.trim();
       const imagemUrl = ($('imagemUrlNav').value || '').trim();
       const explicacao = $('explicacaoNav').value.trim();
@@ -946,6 +981,7 @@
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
         codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
         codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
+        id_task: id_task ? Number(id_task) : undefined,
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
@@ -982,6 +1018,7 @@
     loadPrincipios('idprincipio');
     loadCategorias('codigocategoria');
     loadNiveisDificuldade('codniveldificuldade');
+    loadTasks('idtask');
     ensureAtLeastTwo();
     setupImageUpload('imagemFile', 'imagemUrl', 'imagemPreview');
     initTabs();
@@ -995,6 +1032,7 @@
     loadPrincipios('idprincipioNav');
     loadCategorias('codigocategoriaNav');
     loadNiveisDificuldade('codniveldificuldadeNav');
+    loadTasks('idtaskNav');
     setupImageUpload('imagemFileNav', 'imagemUrlNav', 'imagemPreviewNav');
     ensureAtLeastTwoNav();
 

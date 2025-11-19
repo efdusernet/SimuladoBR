@@ -21,6 +21,7 @@ exports.createQuestion = async (req, res) => {
 	const idprincipio = (b.idprincipio != null && b.idprincipio !== '') ? Number(b.idprincipio) : null;
 	const codigocategoria = (b.codigocategoria != null && b.codigocategoria !== '') ? Number(b.codigocategoria) : null;
 	const codniveldificuldade = (b.codniveldificuldade != null && b.codniveldificuldade !== '') ? Number(b.codniveldificuldade) : null;
+	const id_task = (b.id_task != null && b.id_task !== '') ? Number(b.id_task) : null;
 	const dica = (b.dica || null);
 	const imagemUrl = (b.imagemUrl || b.imagem_url || '').trim() || null;
 	const explicacao = (b.explicacao != null) ? String(b.explicacao).trim() : null;
@@ -42,15 +43,15 @@ exports.createQuestion = async (req, res) => {
 		await sequelize.transaction(async (t) => {
 		// Insert question
 		const insertQ = `INSERT INTO public.questao (
-				iddominio, idstatus, descricao, datacadastro, dataalteracao,
-				criadousuario, alteradousuario, excluido, seed, nivel,
-				idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url
-			) VALUES (
-				:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
-				1, 1, false, false, 1,
-				:idprincipio, :dica, :multipla, :codigocategoria, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url
-			) RETURNING id`;
-		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl }, type: sequelize.QueryTypes.INSERT, transaction: t });
+			iddominio, idstatus, descricao, datacadastro, dataalteracao,
+			criadousuario, alteradousuario, excluido, seed, nivel,
+			idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task
+		) VALUES (
+			:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+			1, 1, false, false, 1,
+			:idprincipio, :dica, :multipla, :codigocategoria, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task
+		) RETURNING id`;
+		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
 			// Safer: fetch with SELECT currval... but RETURNING should give us id in r[0][0].id depending on dialect
 			const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
@@ -130,12 +131,12 @@ exports.getQuestionById = async (req, res) => {
 		const id = Number(req.params.id);
 		if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid id' });
 
-		const qsql = `SELECT q.id, q.descricao, q.tiposlug, q.iddominio, q.codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
-												 q.dica, q.imagem_url, q.multiplaescolha, q.exam_type_id,
-												 et.slug AS exam_type_slug, et.nome AS exam_type_nome
-									FROM public.questao q
-									LEFT JOIN public.exam_type et ON et.id = q.exam_type_id
-									WHERE q.id = :id`;
+	const qsql = `SELECT q.id, q.descricao, q.tiposlug, q.iddominio, q.codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
+											 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
+											 et.slug AS exam_type_slug, et.nome AS exam_type_nome
+								FROM public.questao q
+								LEFT JOIN public.exam_type et ON et.id = q.exam_type_id
+								WHERE q.id = :id`;
 		const row = await sequelize.query(qsql, { replacements: { id }, type: sequelize.QueryTypes.SELECT });
 		if (!row || !row[0]) return res.status(404).json({ error: 'not found' });
 		const base = row[0];
@@ -164,6 +165,8 @@ exports.getQuestionById = async (req, res) => {
 			iddominiogeral: base.iddominiogeral,
 			idprincipio: base.idprincipio,
 			codigocategoria: base.codigocategoria,
+			codniveldificuldade: base.codniveldificuldade,
+			id_task: base.id_task,
 			dica: base.dica,
 			imagemUrl: base.imagem_url,
 			explicacao,
@@ -197,9 +200,11 @@ exports.updateQuestion = async (req, res) => {
 		const codgrupoprocesso = (b.codgrupoprocesso != null && b.codgrupoprocesso !== '') ? Number(b.codgrupoprocesso) : null;
 		const iddominiogeral = (b.iddominiogeral != null && b.iddominiogeral !== '') ? Number(b.iddominiogeral) : null;
 		const idprincipio = (b.idprincipio != null && b.idprincipio !== '') ? Number(b.idprincipio) : null;
-		const codigocategoria = (b.codigocategoria != null && b.codigocategoria !== '') ? Number(b.codigocategoria) : null;
-		const dica = (b.dica || null);
-		const imagemUrl = (b.imagemUrl || b.imagem_url || '').trim() || null;
+	const codigocategoria = (b.codigocategoria != null && b.codigocategoria !== '') ? Number(b.codigocategoria) : null;
+	const codniveldificuldade = (b.codniveldificuldade != null && b.codniveldificuldade !== '') ? Number(b.codniveldificuldade) : null;
+	const id_task = (b.id_task != null && b.id_task !== '') ? Number(b.id_task) : null;
+	const dica = (b.dica || null);
+	const imagemUrl = (b.imagemUrl || b.imagem_url || '').trim() || null;
 		const explicacao = (b.explicacao != null) ? String(b.explicacao) : null;
 		const examTypeId = Number.isFinite(Number(b.examTypeId)) ? Number(b.examTypeId) : null;
 		const examTypeSlug = (b.examTypeSlug || b.examType || '').trim().toLowerCase() || null;
@@ -213,22 +218,24 @@ exports.updateQuestion = async (req, res) => {
 
 		await sequelize.transaction(async (t) => {
 			const upQ = `UPDATE public.questao SET
-					descricao = :descricao,
-					tiposlug = :tiposlug,
-					multiplaescolha = :multipla,
-					iddominio = :iddominio,
-					codareaconhecimento = :codareaconhecimento,
-					codgrupoprocesso = :codgrupoprocesso,
-					iddominiogeral = :iddominiogeral,
-					idprincipio = :idprincipio,
-					codigocategoria = :codigocategoria,
-					dica = :dica,
-					imagem_url = :imagem_url,
-					exam_type_id = COALESCE(:exam_type_id, exam_type_id),
-					dataalteracao = CURRENT_TIMESTAMP,
-					alteradousuario = 1
-				WHERE id = :id`;
-			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, exam_type_id: resolvedExamTypeId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+				descricao = :descricao,
+				tiposlug = :tiposlug,
+				multiplaescolha = :multipla,
+				iddominio = :iddominio,
+				codareaconhecimento = :codareaconhecimento,
+				codgrupoprocesso = :codgrupoprocesso,
+				iddominiogeral = :iddominiogeral,
+				idprincipio = :idprincipio,
+				codigocategoria = :codigocategoria,
+				dica = :dica,
+				imagem_url = :imagem_url,
+				codniveldificuldade = :codniveldificuldade,
+				id_task = :id_task,
+				exam_type_id = COALESCE(:exam_type_id, exam_type_id),
+				dataalteracao = CURRENT_TIMESTAMP,
+				alteradousuario = 1
+			WHERE id = :id`;
+			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, exam_type_id: resolvedExamTypeId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
 			// Options are master data; no update or reinsertion performed.
 

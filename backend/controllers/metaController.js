@@ -64,6 +64,20 @@ exports.listNiveisDificuldade = async (req, res) => {
   }
 };
 
+// List tasks from task table (only active)
+exports.listTasks = async (req, res) => {
+  try {
+    const rows = await sequelize.query(
+      `SELECT id, descricao FROM task WHERE ativo = true ORDER BY descricao`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.json(rows || []);
+  } catch (e) {
+    console.error('[meta] listTasks error', e);
+    return res.status(500).json({ error: 'internal error' });
+  }
+};
+
 // GET /api/meta/config -> expose server-side config relevant to frontend
 exports.getConfig = (_req, res) => {
   try {

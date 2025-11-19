@@ -6,6 +6,54 @@
   <title>Cadastrar Questão</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
+    .menu-toggle {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1100;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #d6d9e0;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover { background: #f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile {
+      display:inline-block;
+      width: 18px;
+      height: 2px;
+      background: #333;
+      border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    .menu-panel {
+      position: fixed;
+      top: 44px;
+      left: 8px;
+      z-index: 1099;
+      background: #fff;
+      border: 1px solid #d6d9e0;
+      border-radius: 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px;
+      padding: 6px;
+      display: none;
+    }
+    .menu-panel.open { display: block; }
+    .menu-panel a {
+      display: block;
+      padding: 6px 8px;
+      color: #222;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .menu-panel a:hover { background: #f4f7fb; }
+    
     .container{ max-width: 900px; margin: 24px auto; padding: 16px; background:#fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06);} 
     .row{ margin-bottom: 12px; }
     label{ display:block; font-weight:600; margin-bottom:6px; }
@@ -31,6 +79,15 @@
   </style>
 </head>
 <body>
+  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+  </button>
+  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/pages/admin/questionForm.html" rel="noopener">Cadastrar Questão</a>
+    <a href="/pages/admin/questionBulk.html" rel="noopener">Upload em Lote</a>
+  </nav>
+
   <div class="container">
     <div class="tabs">
       <div class="tab active" data-target="sec-nova">Nova questão</div>
@@ -92,6 +149,10 @@
         <label for="codigocategoria">Categoria</label>
         <select id="codigocategoria"></select>
       </div>
+      <div>
+        <label for="codniveldificuldade">Nível de Dificuldade</label>
+        <select id="codniveldificuldade"></select>
+      </div>
     </div>
 
     <div class="row">
@@ -107,6 +168,11 @@
         <button class="btn secondary" id="addOpt">+ Adicionar alternativa</button>
         <button class="btn secondary" id="clearOpts">Limpar alternativas</button>
       </div>
+    </div>
+
+    <div class="row">
+      <label for="explicacao">Explicação (opcional)</label>
+      <textarea id="explicacao" rows="4" placeholder="Texto de explicação"></textarea>
     </div>
 
     <div class="actions">
@@ -183,6 +249,10 @@
         <div>
           <label for="codigocategoriaNav">Categoria</label>
           <select id="codigocategoriaNav"></select>
+        </div>
+        <div>
+          <label for="codniveldificuldadeNav">Nível de Dificuldade</label>
+          <select id="codniveldificuldadeNav"></select>
         </div>
       </div>
 
@@ -539,6 +609,28 @@
       }
     }
 
+    async function loadNiveisDificuldade(targetId = 'codniveldificuldade'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/niveis-dificuldade');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(n => {
+          const o = document.createElement('option');
+          o.value = n.id;
+          o.textContent = `${n.id} - ${n.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        console.error('[loadNiveisDificuldade] error:', e);
+      }
+    }
+
     $('save').onclick = async function(){
       const descricao = $('descricao').value.trim();
       const tiposlug = $('tipo').value;
@@ -549,13 +641,16 @@
       const iddominiogeral = ($('iddominiogeral').value || '').trim();
       const idprincipio = ($('idprincipio').value || '').trim();
       const codigocategoria = ($('codigocategoria').value || '').trim();
+      const codniveldificuldade = ($('codniveldificuldade').value || '').trim();
       const dica = $('dica').value.trim();
       const imagemUrl = ($('imagemUrl').value || '').trim();
+      const explicacao = $('explicacao').value.trim();
         if (!descricao){ alert('Informe o enunciado'); return; }
         if (!examTypeId){ alert('Selecione o tipo de exame'); return; }
         if (!iddominiogeral){ alert('Selecione o domínio geral'); return; }
         if (!iddominio){ alert('Selecione o domínio'); return; }
         if (!codigocategoria){ alert('Selecione a categoria'); return; }
+        if (!codniveldificuldade){ alert('Selecione o nível de dificuldade'); return; }
       const options = readOptions();
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
@@ -570,8 +665,10 @@
         iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
         codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
+        codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
+        explicacao: explicacao || undefined,
         options
       };
       const token = localStorage.getItem('sessionToken') || '';
@@ -586,6 +683,18 @@
       $('dica').value = '';
       $('imagemUrl').value = '';
       $('imagemPreview').innerHTML = '';
+      $('explicacao').value = '';
+      // limpar selects e tipo
+      try { $('examType').value = ''; } catch{}
+      try { $('tipo').value = 'single'; } catch{}
+      try { $('iddominiogeral').value = ''; } catch{}
+      try { $('iddominio').value = ''; } catch{}
+      try { $('area').value = ''; } catch{}
+      try { $('grupo').value = ''; } catch{}
+      try { $('idprincipio').value = ''; } catch{}
+      try { $('codigocategoria').value = ''; } catch{}
+      try { $('codniveldificuldade').value = ''; } catch{}
+      try { $('imagemFile').value = ''; } catch{}
       $('opts').innerHTML = '';
       ensureAtLeastTwo();
     };
@@ -667,7 +776,8 @@
           loadAreas('areaNav'),
           loadGrupos('grupoNav'),
           loadPrincipios('idprincipioNav'),
-          loadCategorias('codigocategoriaNav')
+          loadCategorias('codigocategoriaNav'),
+          loadNiveisDificuldade('codniveldificuldadeNav')
         ]);
         
         $('iddominioNav').value = q.iddominio != null ? String(q.iddominio) : '';
@@ -676,6 +786,7 @@
         $('iddominiogeralNav').value = q.iddominiogeral != null ? String(q.iddominiogeral) : '';
         $('idprincipioNav').value = q.idprincipio != null ? String(q.idprincipio) : '';
         $('codigocategoriaNav').value = q.codigocategoria != null ? String(q.codigocategoria) : '';
+        $('codniveldificuldadeNav').value = q.codniveldificuldade != null ? String(q.codniveldificuldade) : '';
         $('dicaNav').value = q.dica || '';
         $('imagemUrlNav').value = q.imagemUrl || '';
         if (q.imagemUrl) showImagePreview('imagemPreviewNav', q.imagemUrl);
@@ -815,6 +926,7 @@
       const iddominiogeral = ($('iddominiogeralNav').value || '').trim();
       const idprincipio = ($('idprincipioNav').value || '').trim();
       const codigocategoria = ($('codigocategoriaNav').value || '').trim();
+      const codniveldificuldade = ($('codniveldificuldadeNav').value || '').trim();
       const dica = $('dicaNav').value.trim();
       const imagemUrl = ($('imagemUrlNav').value || '').trim();
       const explicacao = $('explicacaoNav').value.trim();
@@ -833,6 +945,7 @@
         iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
         codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
+        codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
@@ -868,6 +981,7 @@
     loadGrupos('grupo');
     loadPrincipios('idprincipio');
     loadCategorias('codigocategoria');
+    loadNiveisDificuldade('codniveldificuldade');
     ensureAtLeastTwo();
     setupImageUpload('imagemFile', 'imagemUrl', 'imagemPreview');
     initTabs();
@@ -880,8 +994,25 @@
     loadGrupos('grupoNav');
     loadPrincipios('idprincipioNav');
     loadCategorias('codigocategoriaNav');
+    loadNiveisDificuldade('codniveldificuldadeNav');
     setupImageUpload('imagemFileNav', 'imagemUrlNav', 'imagemPreviewNav');
     ensureAtLeastTwoNav();
+
+    // Menu toggle functionality
+    (function initTopMenu(){
+      const btn = document.getElementById('menuToggle');
+      const panel = document.getElementById('pageMenu');
+      if (!btn || !panel) return;
+      const close = ()=>{ panel.classList.remove('open'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); };
+      const open = ()=>{ panel.classList.add('open'); panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); };
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        if (panel.classList.contains('open')) close(); else open();
+      });
+      document.addEventListener('click', (e)=>{
+        if (!panel.contains(e.target) && e.target !== btn) close();
+      });
+    })();
   </script>
 </body>
 </html>

@@ -653,7 +653,9 @@
         (list || []).forEach(t => {
           const o = document.createElement('option');
           o.value = t.id;
-          o.textContent = `Task ${t.id} - ${t.descricao || 'N/A'}`;
+          // Backend already formats: dominioDesc - id - taskDesc
+          // Use it directly for display
+          o.textContent = t.descricao || 'N/A';
           sel.appendChild(o);
         });
       } catch(e) {

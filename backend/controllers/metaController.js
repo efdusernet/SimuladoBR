@@ -67,16 +67,15 @@ exports.listNiveisDificuldade = async (req, res) => {
 // List tasks from task table (only active)
 exports.listTasks = async (req, res) => {
   try {
-    // Join with dominiogeral via task.id_dominio to build formatted description
-    const rows = await sequelize.query(
-      `SELECT t.id,
-              (COALESCE(d.descricao,'(Sem domínio)') || ' - ' || t.id || ' - ' || t.descricao) AS descricao
-         FROM public.task t
-         LEFT JOIN public.dominiogeral d ON d.id = t.id_dominio
-        WHERE t.ativo = TRUE
-        ORDER BY t.id`,
-      { type: sequelize.QueryTypes.SELECT }
-    );
+    // Ensure table name and new id_dominio column usage.
+    // Format: descricao(dominiogeral) - id(task) - descricao(task)
+    const sql = `SELECT t.id,
+                        COALESCE(dg.descricao,'(sem domínio)') || ' - ' || t.id || ' - ' || t.descricao AS descricao
+                 FROM public.task t
+                 LEFT JOIN public.dominiogeral dg ON dg.id = t.id_dominio
+                 WHERE (t.ativo = true OR t.ativo IS NULL)
+                 ORDER BY t.id`;
+    const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
     return res.json(rows || []);
   } catch (e) {
     console.error('[meta] listTasks error', e);

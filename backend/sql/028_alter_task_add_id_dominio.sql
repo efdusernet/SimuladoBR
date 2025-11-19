@@ -1,5 +1,5 @@
 -- 028_alter_task_add_id_dominio.sql
--- Add id_dominio column to task and FK to dominiogeral(id)
+-- Add id_dominio column to task table referencing dominiogeral(id)
 
 ALTER TABLE public.task
   ADD COLUMN IF NOT EXISTS id_dominio INTEGER NULL;

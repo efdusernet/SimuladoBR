@@ -39,6 +39,8 @@ const fs = require('fs');
 
 // Protect admin pages before static middleware: only admins can fetch /pages/admin/* HTML files
 const requireAdmin = require('./middleware/requireAdmin');
+// Redirect /pages/admin/ to login
+app.get('/pages/admin/', (req, res) => res.redirect('/login'));
 app.use('/pages/admin', requireAdmin, express.static(path.join(FRONTEND_DIR, 'pages', 'admin')));
 
 // Friendly aliases for admin pages (HTML), protected

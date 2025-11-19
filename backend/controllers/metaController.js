@@ -67,8 +67,14 @@ exports.listNiveisDificuldade = async (req, res) => {
 // List tasks from task table (only active)
 exports.listTasks = async (req, res) => {
   try {
+    // Join with dominiogeral via task.id_dominio to build formatted description
     const rows = await sequelize.query(
-      `SELECT id, descricao FROM task WHERE ativo = true ORDER BY descricao`,
+      `SELECT t.id,
+              (COALESCE(d.descricao,'(Sem domínio)') || ' - ' || t.id || ' - ' || t.descricao) AS descricao
+         FROM public.task t
+         LEFT JOIN public.dominiogeral d ON d.id = t.id_dominio
+        WHERE t.ativo = TRUE
+        ORDER BY t.id`,
       { type: sequelize.QueryTypes.SELECT }
     );
     return res.json(rows || []);

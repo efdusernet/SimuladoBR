@@ -47,3 +47,36 @@ exports.listGruposProcesso = async (req, res) => {
   }
 };
 exports.listDominios = (req, res) => listSimple(req, res, 'dominio');
+exports.listDominiosGeral = (req, res) => listSimple(req, res, 'dominiogeral');
+exports.listPrincipios = (req, res) => listSimple(req, res, 'principios');
+exports.listCategorias = (req, res) => listSimple(req, res, 'categoriaquestao');
+// List difficulty levels from niveldificuldade table
+exports.listNiveisDificuldade = async (req, res) => {
+  try {
+    const rows = await sequelize.query(
+      `SELECT codigonivel AS id, descricao FROM niveldificuldade ORDER BY codigonivel`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.json(rows || []);
+  } catch (e) {
+    console.error('[meta] listNiveisDificuldade error', e);
+    return res.status(500).json({ error: 'internal error' });
+  }
+};
+
+// GET /api/meta/config -> expose server-side config relevant to frontend
+exports.getConfig = (_req, res) => {
+  try {
+    const fullExamQuestionCount = (() => {
+      const n = Number(process.env.FULL_EXAM_QUESTION_COUNT || 180);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 180;
+    })();
+    const freeExamQuestionLimit = (() => {
+      const n = Number(process.env.FREE_EXAM_QUESTION_LIMIT || 25);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 25;
+    })();
+    return res.json({ fullExamQuestionCount, freeExamQuestionLimit });
+  } catch (e) {
+    return res.status(500).json({ error: 'internal error' });
+  }
+};

@@ -1,12 +1,22 @@
 // Simple in-memory registry of exam types and their strategies (initial version)
 // Later this can read from DB (ExamType table) or config files.
 
+// Read defaults from env to avoid hard-coded fallbacks
+const FULL_Q = (() => {
+  const v = Number(process.env.FULL_EXAM_QUESTION_COUNT);
+  return Number.isFinite(v) && v > 0 ? v : 180;
+})();
+const FULL_DURATION_MIN = (() => {
+  const v = Number(process.env.FULL_EXAM_DURATION_MINUTES);
+  return Number.isFinite(v) && v > 0 ? v : 230;
+})();
+
 const TYPES = [
   {
     id: 'pmp',
     nome: 'PMP',
-    numeroQuestoes: 180,
-    duracaoMinutos: 230,
+    numeroQuestoes: FULL_Q,
+    duracaoMinutos: FULL_DURATION_MIN,
     opcoesPorQuestao: 4,
     multiplaSelecao: false,
     pontuacaoMinima: null, // define when grading thresholds are known

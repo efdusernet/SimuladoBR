@@ -52,6 +52,9 @@ Registra respostas (parciais ou finais), computa nota na submissão final e ence
   - `partial?: boolean` (default false; quando true, não encerra tentativa)
 - Response (final): `{ sessionId, totalQuestions, totalCorrect, details }`
 - Efeitos colaterais (final): atualiza `exam_attempt` com `Corretas`, `Total`, `ScorePercent`, `Aprovado`, `FinishedAt`, `Status='finished'`.
+- **Validação de completude (frontend)**: Ao finalizar exame completo (`examFull.html`), valida-se se pelo menos 95% das questões foram respondidas:
+  - Se ≥ 95%: prossegue com submit normal
+  - Se < 95%: exibe modal de aviso; usuário pode sair sem salvar (não chama submit) ou continuar respondendo
 
 ## POST /api/exams/:sessionId/pause/start
 Inicia pausa (exame completo com checkpoints).
@@ -146,3 +149,158 @@ Exemplo:
   - Definido pelo header `X-Exam-Mode` quando presente e válido.
   - Caso ausente, inferido por `count` (>= total definido para o tipo => `full`; <=50 => `quiz`; outro caso => null).
   - Retornado nos endpoints: `POST /api/exams/select`, `POST /api/exams/start-on-demand`, `GET /api/exams/last`, `GET /api/exams/history`.
+
+---
+
+## Indicadores
+
+Observações gerais
+- Autorização via JWT: header `Authorization: Bearer <token>`.
+- Janelas de tempo: parâmetro `days` (1–120, default 30).
+- Filtro por modo: `exam_mode=quiz|full` (opcional). Se ausente, aplica-se lógica de exame completo.
+- Filtro por usuário: `idUsuario` (opcional; inteiro > 0). Quando presente, restringe aos exames daquele usuário.
+- Filtro de exames completos: considera tentativas com `exam_mode='full'` ou `quantidade_questoes = FULL_EXAM_QUESTION_COUNT` (definido por `.env`).
+
+### GET /api/indicators/exams-completed?days=30&exam_mode=full&idUsuario=42
+Total de exames finalizados no período.
+- Query: 
+  - `days` (opcional; default 30)
+  - `exam_mode` (opcional; "quiz" ou "full"; default: full-exam logic quando ausente)
+  - `idUsuario` (opcional; inteiro > 0)
+- Response: `{ days, examMode, userId, total }`
+
+### GET /api/indicators/approval-rate?days=30&exam_mode=full&idUsuario=42
+Percentual de aprovação no período (nota >= 75%).
+- Query: 
+  - `days` (opcional; default 30)
+  - `exam_mode` (opcional; "quiz" ou "full"; default: full-exam logic quando ausente)
+  - `idUsuario` (opcional; inteiro > 0)
+- Response: `{ days, examMode, userId, total, approved, ratePercent }`
+
+### GET /api/indicators/failure-rate?days=30&exam_mode=full&idUsuario=42
+Percentual de reprovação no período (nota < 75%).
+- Query: 
+  - `days` (opcional; default 30)
+  - `exam_mode` (opcional; "quiz" ou "full"; default: full-exam logic quando ausente)
+  - `idUsuario` (opcional; inteiro > 0)
+- Response: `{ days, examMode, userId, total, failed, ratePercent }`
+
+### GET /api/indicators/overview
+Resumo agregado para cards na página de Indicadores.
+- Status: estrutura base retornada (valores placeholder) — em evolução.
+- Response: `{ last15: { you, others }, last30: { you, others }, meta: { windowDays } }`
+
+---
+
+### GET /api/indicators/questions-count?exam_type=1
+Quantidade de questões disponíveis no simulador.
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_type` (opcional; inteiro > 0). Quando ausente, retorna o total de todas as questões ativas.
+- Regra: considera `questao.excluido=false` e `questao.idstatus=1`.
+- Response: `{ examTypeId: number|null, total: number }`
+
+### GET /api/indicators/answered-count?exam_type=1&idUsuario=42
+Quantidade distinta de questões já respondidas pelo usuário (por tipo de exame).
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_type` (obrigatório; inteiro > 0)
+  - `idUsuario` (opcional; se ausente, usa o usuário do JWT)
+- Regra: `COUNT(DISTINCT aq.question_id)` em `exam_attempt_question` com join em `exam_attempt_answer`, filtrando por `a.user_id` e `a.exam_type_id`.
+- Response: `{ examTypeId: number, userId: number, total: number }`
+
+### GET /api/indicators/total-hours?exam_type=1&idUsuario=42
+Total de horas gastas no simulador pelo usuário (por tipo de exame).
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_type` (obrigatório; inteiro > 0)
+  - `idUsuario` (opcional; se ausente, usa o usuário do JWT)
+- Regra: soma `exam_attempt_question.tempo_gasto_segundos` das tentativas do usuário (status finished ou null), retorna também em horas.
+- Response: `{ examTypeId: number, userId: number, segundos: number, horas: number }`
+
+### GET /api/indicators/process-group-stats?exam_mode=full&idUsuario=42&idExame=123
+Estatísticas de acertos/erros por grupo de processos no último exame completo do usuário.
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_mode` (opcional; padrão 'full')
+  - `idUsuario` (opcional; se ausente, usa o usuário do JWT)
+  - `idExame` (opcional; se ausente, busca o último exame finished do usuário com exam_mode especificado)
+- Regra: para cada `grupo_processos` distinto, calcula qtd de acertos (`is_correct=true`) e erros (`is_correct=false`), retorna percentuais.
+- Response: 
+  ```json
+  {
+    "userId": 42,
+    "examMode": "full",
+    "idExame": 123,
+    "grupos": [
+      {
+        "grupo": "Iniciação",
+        "acertos": 8,
+        "erros": 2,
+        "total": 10,
+        "percentAcertos": 80.00,
+        "percentErros": 20.00
+      },
+      ...
+    ]
+  }
+  ```
+
+---
+
+### Registro de Indicadores (metadata)
+Entradas semeadas na tabela `indicator` (idempotentes por código):
+
+- **IND1** - `Exames Realizados Resultados 30 dias`
+  - Descrição: Somatório de tentativas de exames nos últimos X dias (padrão 30).
+  - Parâmetros: `{"diasPadrao":30, "alternativas":[30,60], "examMode":["quiz","full"], "idUsuario":null}`
+  - Fórmula (descr.): `COUNT(exam_attempt WHERE exam_mode IN (quiz,full) AND finished_at >= NOW() - (X days))`
+  - Observação: Quando `exam_mode` ausente, fallback para full-exam logic (`exam_mode='full'` OU `quantidade_questoes = FULL_EXAM_QUESTION_COUNT`).
+
+- **IND2** - `% de aprovação no período`
+  - Descrição: `(Exames com score_percent >= 75% * 100) / Exames no período (padrão 30 dias).`
+  - Parâmetros: `{"diasPadrao":30, "examMode":["quiz","full"], "idUsuario":null}`
+  - Fórmula (descr.): `(COUNT WHERE score_percent >= 75 / COUNT total) * 100`
+
+- **IND3** - `% de reprovação no período`
+  - Descrição: `(Exames com score_percent < 75% * 100) / Exames no período (padrão 30 dias).`
+  - Parâmetros: `{"diasPadrao":30, "examMode":["quiz","full"], "idUsuario":null}`
+  - Fórmula (descr.): `(COUNT WHERE score_percent < 75 / COUNT total) * 100`
+
+- **IND4** - `Quantidade questões do simulador`
+  - Descrição: `Total de questões disponíveis (excluido=false, idstatus=1). Parâmetro opcional examTypeId.`
+  - Parâmetros: `{"examTypeId":null}`
+  - Fórmula (descr.): `COUNT(questao WHERE excluido=false AND idstatus=1 [AND exam_type_id = :examTypeId])`
+
+- **IND5** - `Quantidade questões respondidas`
+  - Descrição: `Qtd. distinta de questões respondidas pelo usuário (JOIN exam_attempt/question/answer) por examTypeId.`
+  - Parâmetros: `{"examTypeId":1, "idUsuario":null}`
+  - Fórmula (descr.): `COUNT(DISTINCT aq.question_id WHERE a.user_id=:idUsuario AND a.exam_type_id=:examTypeId)`
+
+- **IND6** - `Total horas no simulador`
+  - Descrição: `Soma do tempo gasto por questão (exam_attempt_question.tempo_gasto_segundos) por usuário/examTypeId.`
+  - Parâmetros: `{"examTypeId":1, "idUsuario":null}`
+  - Fórmula (descr.): `SUM(aq.tempo_gasto_segundos)/3600 WHERE a.user_id=:idUsuario AND a.exam_type_id=:examTypeId`
+
+  
+- **IND7** - `% Acertos/Erros por Grupo de Processos`
+  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada grupo de processos no último exame completo (exam_mode=full) do usuário.`
+  - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
+  - Fórmula (descr.): Para cada grupo_processos: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
+
+  - Resultado: array de `{grupo, acertos, erros, total, percentAcertos, percentErros}` ordenado por grupo
+
+- **IND8** - `% Acertos/Erros por Área de Conhecimento`
+  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada Área de Conhecimento no último exame completo (exam_mode=full) do usuário.`
+  - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
+  - Fórmula (descr.): Para cada área de conhecimento: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
+  - Resultado: array de `{area conhecimento, acertos, erros, total, percentAcertos, percentErros}` ordenado por área
+
+- **IND9** - `% Acertos/Erros por Abordagem`
+  - Endpoint: `GET /api/indicators/approach-stats`
+  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada abordagem (categoriaquestao) no último exame completo (exam_mode=full) do usuário.`
+  - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
+  - Fórmula (descr.): Para cada abordagem: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
+  - Resultado: array de `{abordagem, acertos, erros, total, percentAcertos, percentErros}` ordenado por id
+
+

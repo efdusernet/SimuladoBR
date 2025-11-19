@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Indicadores</title>
+  <script src="/components/sb-hbar.js" defer></script>
+  <style>
+    body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#f8fafc; color:#0f172a; }
+    h1 { font-size:1rem; margin:12px 8px; font-weight:600; padding-left:8px; }
+    .tabs-bar { background:#1e293b; width:100%; padding:8px 8px 8px 8px; box-sizing:border-box; }
+    .tabs { display:flex; gap:4px; flex-wrap:wrap; }
+    .tab-btn { background:#1e293b; padding:6px 10px; font-size:0.7rem; border-radius:6px; cursor:pointer; color:#cbd5e1; font-weight:600; line-height:1.2; transition:background .18s,color .18s,box-shadow .18s; position:relative; border:none; }
+    .tab-btn:not(:first-child)::before { content:''; position:absolute; left:0; top:20%; bottom:20%; width:1px; background:#475569; pointer-events:none; }
+    .tab-btn:hover:not(.active) { background:#334155; }
+    .tab-btn:focus-visible { outline:2px solid #3b82f6; outline-offset:2px; }
+    .tab-btn.active { background:#3b82f6; color:#fff; box-shadow:0 0 0 1px #3b82f6 inset; }
+    .sections { padding:0 8px 16px; }
+    .section { display:none; min-height:60px; border:1px dashed #e2e8f0; border-radius:6px; padding:8px; background:#ffffff; }
+    .section.active { display:block; }
+  </style>
+  <style>
+    .ov-wrapper{max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+    .ov-grid{display:grid; grid-template-columns:minmax(80px,auto) repeat(10,minmax(50px,1fr)); border:1px solid #e2e8f0; font-size:11px;}
+    .det-grid{display:grid; grid-template-columns:repeat(4,minmax(100px,1fr)); border:1px solid #e2e8f0; font-size:11px;}
+    .cell{padding:6px 3px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
+    .rowlabel{text-align:left; padding-left:4px; font-size:10px;}
+    .head,.subhead,.colhead{font-weight:600; font-size:10px;}
+    
+    @media (min-width: 640px) {
+      h1 { font-size:1.1rem; margin:16px; padding-left:35px; }
+      .tabs-bar { padding:12px 16px 12px 30px; }
+      .tabs { gap:8px; }
+      .tab-btn { padding:8px 16px; font-size:0.8rem; }
+      .sections { padding:0 16px 24px; }
+      .section { padding:12px; min-height:80px; }
+      .ov-grid { grid-template-columns:minmax(140px,auto) repeat(10,minmax(70px,1fr)); font-size:13px; }
+      .det-grid { grid-template-columns:repeat(4,minmax(140px,1fr)); font-size:13px; }
+      .cell { padding:8px 4px; }
+      .rowlabel { font-size:12px; padding-left:6px; }
+      .head,.subhead,.colhead { font-size:11px; }
+      
+    }
+  </style>
+  <style>
+    /* Top-left menu button and simple dropdown panel */
+    .menu-toggle {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1100;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #d6d9e0;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover { background: #f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile {
+      display:inline-block;
+      width: 18px;
+      height: 2px;
+      background: #333;
+      border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    .menu-panel {
+      position: fixed;
+      top: 44px;
+      left: 8px;
+      z-index: 1099;
+      background: #fff;
+      border: 1px solid #d6d9e0;
+      border-radius: 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px;
+      padding: 6px;
+      display: none;
+    }
+    .menu-panel.open { display: block; }
+    .menu-panel a {
+      display: block;
+      padding: 6px 8px;
+      color: #222;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .menu-panel a:hover { background: #f4f7fb; }
+    @media (min-width: 640px){
+      .menu-toggle { width: 28px; height: 28px; top: 6px; left: 6px; }
+      .ui-menu-icon-set-hamburger-mobile { width: 16px; }
+      .menu-panel { top: 40px; min-width: 160px; }
+      .menu-panel a { padding: 5px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Top-left menu button and dropdown -->
+  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+  </button>
+  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/pages/examSetup.html?examType=pmp" rel="noopener">Simulador PMP</a>
+    <a href="/pages/examSetup.html?examType=cpm" rel="noopener">Simulador CPM</a>
+    <a href="/pages/results.html" rel="noopener">Resultados</a>
+    <a href="#" class="page-logout">Sair</a>
+  </nav>
+  <h1>Indicadores</h1>
+  <div class="tabs-bar">
+    <div class="tabs" role="tablist" aria-label="Categorias de Indicadores">
+      <button class="tab-btn active" data-tab="geral" role="tab" aria-selected="true">Visão Geral</button>
+      <button class="tab-btn" data-tab="grupos" role="tab" aria-selected="false">Grupo Processos</button>
+      <button class="tab-btn" data-tab="topico" role="tab" aria-selected="false">Tópico</button>
+        <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
+        <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
+    </div>
+  </div>
+  <div class="sections">
+    <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
+      <div style="margin-bottom:12px; padding:8px; background:#f1f5f9; border-radius:6px; font-size:0.85rem; line-height:1.6;">
+        <div style="margin-bottom:6px;"><strong>Total de perguntas do simulador:</strong> <span id="ind4-value">—</span></div>
+        <div style="margin-bottom:6px;"><strong>Respondidas por você:</strong> <span id="ind5-value">—</span></div>
+        <div><strong>Você passou <span id="ind6-value">—</span> respondendo questões no simulador.</strong></div>
+      </div>
+      
+      <div class="ov-wrapper">
+        <div class="ov-grid">
+          <div class="cell rowlabel" data-cell="OV-R1C1"></div>
+          <div class="cell head" data-cell="OV-R1C2-6" style="grid-column: span 5;">30d</div>
+          <div class="cell head" data-cell="OV-R1C7-11" style="grid-column: span 5;">60d</div>
+
+          <div class="cell rowlabel" data-cell="OV-R2C1"></div>
+          <div class="cell subhead" data-cell="OV-R2C2-4" style="grid-column: span 3;">Você</div>
+          <div class="cell subhead" data-cell="OV-R2C5-6" style="grid-column: span 2;">Outros</div>
+          <div class="cell subhead" data-cell="OV-R2C7-9" style="grid-column: span 3;">Você</div>
+          <div class="cell subhead" data-cell="OV-R2C10-11" style="grid-column: span 2;">Outros</div>
+
+          <div class="cell rowlabel" data-cell="OV-R3C1"></div>
+          <div class="cell colhead" data-cell="OV-R3C2">Tot</div>
+          <div class="cell colhead" data-cell="OV-R3C3">Apr%</div>
+          <div class="cell colhead" data-cell="OV-R3C4">Rep%</div>
+          <div class="cell colhead" data-cell="OV-R3C5">Apr%</div>
+          <div class="cell colhead" data-cell="OV-R3C6">Rep%</div>
+          <div class="cell colhead" data-cell="OV-R3C7">Tot</div>
+          <div class="cell colhead" data-cell="OV-R3C8">Apr%</div>
+          <div class="cell colhead" data-cell="OV-R3C9">Rep%</div>
+          <div class="cell colhead" data-cell="OV-R3C10">Apr%</div>
+          <div class="cell colhead" data-cell="OV-R3C11">Rep%</div>
+
+          <div class="cell rowlabel" data-cell="OV-R4C1">Exames realizados</div>
+          <div class="cell" data-cell="OV-R4C2" data-key="last15.you.total">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C3" data-format="percent" data-key="last15.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C4" data-format="percent" data-key="last15.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C5" data-format="percent" data-key="last15.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C6" data-format="percent" data-key="last15.others.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C7" data-key="last30.you.total">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C8" data-format="percent" data-key="last30.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C9" data-format="percent" data-key="last30.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C10" data-format="percent" data-key="last30.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R4C11" data-format="percent" data-key="last30.others.reprovado">&nbsp;</div>
+
+          <div class="cell rowlabel" data-cell="OV-R5C1">Quiz&nbsp;realizados</div>
+          <div class="cell" data-cell="OV-R5C2" data-key="last15.you.total">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C3" data-format="percent" data-key="last15.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C4" data-format="percent" data-key="last15.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C5" data-format="percent" data-key="last15.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C6" data-format="percent" data-key="last15.others.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C7" data-key="last30.you.total">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C8" data-format="percent" data-key="last30.you.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C9" data-format="percent" data-key="last30.you.reprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C10" data-format="percent" data-key="last30.others.aprovado">&nbsp;</div>
+          <div class="cell" data-cell="OV-R5C11" data-format="percent" data-key="last30.others.reprovado">&nbsp;</div>
+        </div>
+      </div>
+    </section>
+    <section id="sec-grupos" class="section" aria-labelledby="tab-grupos">
+      <div id="processGroupsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+    </section>
+    <section id="sec-topico" class="section" aria-labelledby="tab-topico">
+      <div id="areaConhecimentoContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+    </section>
+    <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem">
+      <div id="approachContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+    </section>
+      <section id="sec-detalhes" class="section" aria-labelledby="tab-detalhes">
+        <div class="ov-wrapper">
+          <div class="det-grid">
+            <div class="cell head" style="grid-column: span 4;">Última tentativa</div>
+            <div class="cell colhead">Domínio</div>
+            <div class="cell colhead">Corretas %</div>
+            <div class="cell colhead"># Corretas</div>
+            <div class="cell colhead">Performance</div>
+
+            <div class="cell">Iniciação</div>
+            <div class="cell">60%</div>
+            <div class="cell">80</div>
+            <div class="cell">1</div>
+
+            <div class="cell">Planejamento</div>
+            <div class="cell">70%</div>
+            <div class="cell">60</div>
+            <div class="cell">2</div>
+
+            <div class="cell">Execução</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+
+            <div class="cell">Monitoramento e Controle</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+
+            <div class="cell">Encerramento</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+            <div class="cell">&nbsp;</div>
+          </div>
+        </div>
+      </section>
+  </div>
+  <script>
+    // Lightweight menu toggle and logout for this page
+    (function initTopMenu(){
+      const btn = document.getElementById('menuToggle');
+      const panel = document.getElementById('pageMenu');
+      if (!btn || !panel) return;
+      const close = ()=>{ panel.classList.remove('open'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); };
+      const open = ()=>{ panel.classList.add('open'); panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); };
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        if (panel.classList.contains('open')) close(); else open();
+      });
+      document.addEventListener('click', (e)=>{
+        if (!panel.contains(e.target) && e.target !== btn) close();
+      });
+      const logout = panel.querySelector('.page-logout');
+      if (logout) logout.addEventListener('click', (e)=>{
+        e.preventDefault();
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+          document.cookie = 'sessionToken=; Max-Age=0; Path=/';
+        } catch(_){ }
+        window.location.assign('/login');
+      });
+    })();
+
+    const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+    const sectionsMap = {
+      geral: document.getElementById('sec-geral'),
+      grupos: document.getElementById('sec-grupos'),
+      topico: document.getElementById('sec-topico'),
+      abordagem: document.getElementById('sec-abordagem'),
+      detalhes: document.getElementById('sec-detalhes')
+    };
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab');
+        tabButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+        btn.classList.add('active'); btn.setAttribute('aria-selected','true');
+        Object.keys(sectionsMap).forEach(k => sectionsMap[k].classList.remove('active'));
+        sectionsMap[tab].classList.add('active');
+      });
+    });
+    // Simple helper to build Authorization header from localStorage (JWT)
+    function getAuthHeadersLocal(){
+      try {
+        const tok = localStorage.getItem('jwtToken');
+        const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
+        return tok ? { Authorization: `${typ} ${tok}` } : {};
+      } catch(_) { return {}; }
+    }
+
+    // Populate overview grid from /api/indicators/overview (uses JWT if present)
+    async function loadOverview(){
+      const target = sectionsMap.geral;
+      if (!target) return;
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/overview', { headers });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const cells = target.querySelectorAll('[data-key]');
+        const getByPath = (obj, path) => path.split('.').reduce((o,k) => (o && typeof o === 'object') ? o[k] : undefined, obj);
+        cells.forEach(c => {
+          const key = c.getAttribute('data-key');
+          const fmt = c.getAttribute('data-format');
+          const val = getByPath(data, key);
+          let v = (val === null || typeof val === 'undefined') ? 0 : val;
+          let text = String(v);
+          if (fmt === 'percent') text = `${text}%`;
+          c.textContent = text;
+        });
+      } catch(_) { /* silent */ }
+    }
+
+    // Load overview on page display
+    loadOverview();
+
+    // Load detailed overview values for specific cells
+    async function loadOverviewDetailed(){
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        
+        // Fetch 30-day data for OV-R4C2 to OV-R4C6
+        const res30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=full', { headers });
+        if (res30.status === 401 || res30.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (res30.ok) {
+          const data30 = await res30.json();
+          const cells30 = data30 && data30.cells ? data30.cells : {};
+          Object.keys(cells30).forEach(code => {
+            const el = document.querySelector(`[data-cell="${code}"]`);
+            if (el) {
+              const fmt = el.getAttribute('data-format');
+              const val = cells30[code];
+              let v = (val === null || typeof val === 'undefined') ? 0 : val;
+              let text = String(v);
+              if (fmt === 'percent') text = `${text}%`;
+              el.textContent = text;
+            }
+          });
+        }
+
+        // Fetch 60-day data and map to OV-R4C7 to OV-R4C11
+        const res60 = await fetch('/api/indicators/overview-detailed?days=60&exam_mode=full', { headers });
+        if (res60.ok) {
+          const data60 = await res60.json();
+          const cells60 = data60 && data60.cells ? data60.cells : {};
+          // Map the response codes to the 60-day columns
+          const mapping60 = {
+            'OV-R4C2': 'OV-R4C7',
+            'OV-R4C3': 'OV-R4C8',
+            'OV-R4C4': 'OV-R4C9',
+            'OV-R4C5': 'OV-R4C10',
+            'OV-R4C6': 'OV-R4C11'
+          };
+          Object.keys(mapping60).forEach(srcCode => {
+            const targetCode = mapping60[srcCode];
+            const el = document.querySelector(`[data-cell="${targetCode}"]`);
+            if (el && cells60[srcCode] !== undefined) {
+              const fmt = el.getAttribute('data-format');
+              const val = cells60[srcCode];
+              let v = (val === null || typeof val === 'undefined') ? 0 : val;
+              let text = String(v);
+              if (fmt === 'percent') text = `${text}%`;
+              el.textContent = text;
+            }
+          });
+        }
+
+        // Fetch 30-day quiz data and map to OV-R5C2 to OV-R5C6
+        const resQ30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=quiz', { headers });
+        if (resQ30.ok) {
+          const dataQ30 = await resQ30.json();
+          const cellsQ30 = dataQ30 && dataQ30.cells ? dataQ30.cells : {};
+          const mappingQ30 = {
+            'OV-R4C2': 'OV-R5C2',
+            'OV-R4C3': 'OV-R5C3',
+            'OV-R4C4': 'OV-R5C4',
+            'OV-R4C5': 'OV-R5C5',
+            'OV-R4C6': 'OV-R5C6'
+          };
+          Object.keys(mappingQ30).forEach(srcCode => {
+            const targetCode = mappingQ30[srcCode];
+            const el = document.querySelector(`[data-cell="${targetCode}"]`);
+            if (el && cellsQ30[srcCode] !== undefined) {
+              const fmt = el.getAttribute('data-format');
+              const val = cellsQ30[srcCode];
+              let v = (val === null || typeof val === 'undefined') ? 0 : val;
+              let text = String(v);
+              if (fmt === 'percent') text = `${text}%`;
+              el.textContent = text;
+            }
+          });
+        }
+
+        // Fetch 60-day quiz data and map to OV-R5C7 to OV-R5C11
+        const resQ60 = await fetch('/api/indicators/overview-detailed?days=60&exam_mode=quiz', { headers });
+        if (resQ60.ok) {
+          const dataQ60 = await resQ60.json();
+          const cellsQ60 = dataQ60 && dataQ60.cells ? dataQ60.cells : {};
+          const mappingQ60 = {
+            'OV-R4C2': 'OV-R5C7',
+            'OV-R4C3': 'OV-R5C8',
+            'OV-R4C4': 'OV-R5C9',
+            'OV-R4C5': 'OV-R5C10',
+            'OV-R4C6': 'OV-R5C11'
+          };
+          Object.keys(mappingQ60).forEach(srcCode => {
+            const targetCode = mappingQ60[srcCode];
+            const el = document.querySelector(`[data-cell="${targetCode}"]`);
+            if (el && cellsQ60[srcCode] !== undefined) {
+              const fmt = el.getAttribute('data-format');
+              const val = cellsQ60[srcCode];
+              let v = (val === null || typeof val === 'undefined') ? 0 : val;
+              let text = String(v);
+              if (fmt === 'percent') text = `${text}%`;
+              el.textContent = text;
+            }
+          });
+        }
+      } catch(_) { /* ignore */ }
+    }
+
+    loadOverviewDetailed();
+
+    // Load IND4, IND5, IND6 for Visão Geral
+    async function loadGeneralStats(){
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        // IND4: Total de perguntas do simulador (exam_type=1 para PMP)
+        const res4 = await fetch('/api/indicators/questions-count?exam_type=1', { headers });
+        if (res4.status === 401 || res4.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
+        if (res4.ok) {
+          const data4 = await res4.json();
+          const val = data4 && data4.total !== undefined ? data4.total : 0;
+          document.getElementById('ind4-value').textContent = val;
+        }
+
+        // IND5: Quantidade de questões respondidas pelo usuário (exam_type=1)
+        const res5 = await fetch('/api/indicators/answered-count?exam_type=1', { headers });
+        if (res5.status === 401 || res5.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
+        if (res5.ok) {
+          const data5 = await res5.json();
+          const val = data5 && data5.total !== undefined ? data5.total : 0;
+          document.getElementById('ind5-value').textContent = val;
+        }
+
+        // IND6: Total de horas no simulador (exam_type=1) - formato horas:minutos:segundos
+        const res6 = await fetch('/api/indicators/total-hours?exam_type=1', { headers });
+        if (res6.status === 401 || res6.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
+        if (res6.ok) {
+          const data6 = await res6.json();
+          const segundos = data6 && data6.segundos !== undefined ? data6.segundos : 0;
+          const h = Math.floor(segundos / 3600);
+          const m = Math.floor((segundos % 3600) / 60);
+          const s = segundos % 60;
+          const formatted = `${h}h ${m}min ${s}s`;
+          document.getElementById('ind6-value').textContent = formatted;
+        }
+      } catch(_) { /* ignore */ }
+    }
+
+    loadGeneralStats();
+
+    
+
+    // Load IND7: Process Group Stats
+    async function loadProcessGroupStats(){
+      const container = document.getElementById('processGroupsContainer');
+      if (!container) return;
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/process-group-stats', { headers });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!res.ok) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por grupo de processos.</div>';
+          return;
+        }
+        const data = await res.json();
+        const grupos = data && data.grupos ? data.grupos : [];
+        if (grupos.length === 0) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum grupo de processos encontrado.</div>';
+          return;
+        }
+
+        // Render each process group with a single stacked bar (Acertos + Erros)
+        grupos.forEach(g => {
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.alignItems = 'center';
+          row.style.gap = '12px';
+          row.style.flexWrap = 'wrap';
+
+          const label = document.createElement('div');
+          label.style.fontWeight = '600';
+          label.style.minWidth = '180px';
+          label.style.fontSize = '0.9rem';
+          label.textContent = (g && (g.descricao || g.grupo)) ? (g.descricao || String(g.grupo)) : 'Desconhecido';
+
+          const chartWrapper = document.createElement('div');
+          chartWrapper.style.flex = '1';
+          chartWrapper.style.minWidth = '300px';
+
+          const chart = document.createElement('sb-hbar');
+          const pctAcertos = g.percentAcertos !== undefined ? Math.round(g.percentAcertos) : 0;
+          const pctErros = g.percentErros !== undefined ? Math.round(g.percentErros) : 0;
+          const cAcertos = Number(g.acertos || 0);
+          const cErros = Number(g.erros || 0);
+          const item = {
+            label: '',
+            max: 100,
+            segments: [
+              { label: 'Acertos', value: pctAcertos, color: '#2b8a3e' },
+              { label: 'Erros', value: pctErros, color: '#dc3545' }
+            ]
+          };
+          chart.setAttribute('data', JSON.stringify([item]));
+          chart.setAttribute('height', '14');
+          chart.setAttribute('show-percent', '');
+
+          chartWrapper.appendChild(chart);
+          row.appendChild(label);
+          const counts = document.createElement('div');
+          counts.style.fontSize = '0.85rem';
+          counts.style.color = '#475569';
+          counts.style.minWidth = '64px';
+          counts.style.textAlign = 'center';
+          counts.textContent = `${cAcertos}/${cErros}`;
+          row.appendChild(counts);
+          row.appendChild(chartWrapper);
+          container.appendChild(row);
+        });
+      } catch(err) {
+        container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de grupos de processos.</div>';
+      }
+    }
+
+    loadProcessGroupStats();
+
+    // IND8: % Acertos/Erros por Área de Conhecimento
+    async function loadAreaConhecimentoStats(){
+      const container = document.getElementById('areaConhecimentoContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/area-knowledge-stats', { headers });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!res.ok) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por área de conhecimento.</div>';
+          return;
+        }
+        const data = await res.json();
+        let areas = data && data.areas ? data.areas : [];
+        if (areas.length === 0) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhuma área de conhecimento encontrada.</div>';
+          return;
+        }
+        // Ordena pelo id
+        areas = areas.slice().sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+        areas.forEach(a => {
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.alignItems = 'center';
+          row.style.gap = '12px';
+          row.style.flexWrap = 'wrap';
+
+          const label = document.createElement('div');
+          label.style.fontWeight = '600';
+          label.style.minWidth = '180px';
+          label.style.fontSize = '0.9rem';
+          label.textContent = `${a.id} - ${a.descricao || `Área ${a.id}`}`;
+
+          const chartWrapper = document.createElement('div');
+          chartWrapper.style.flex = '1';
+          chartWrapper.style.minWidth = '300px';
+
+          const chart = document.createElement('sb-hbar');
+          const pctAcertos = a.percentAcertos !== undefined ? Math.round(a.percentAcertos) : 0;
+          const pctErros = a.percentErros !== undefined ? Math.round(a.percentErros) : 0;
+          const cAcertos = Number(a.acertos || 0);
+          const cErros = Number(a.erros || 0);
+          const item = {
+            label: '',
+            max: 100,
+            segments: [
+              { label: 'Acertos', value: pctAcertos, color: '#2b8a3e' },
+              { label: 'Erros', value: pctErros, color: '#dc3545' }
+            ]
+          };
+          chart.setAttribute('data', JSON.stringify([item]));
+          chart.setAttribute('height', '14');
+          chart.setAttribute('show-percent', '');
+
+          chartWrapper.appendChild(chart);
+          row.appendChild(label);
+          const counts = document.createElement('div');
+          counts.style.fontSize = '0.85rem';
+          counts.style.color = '#475569';
+          counts.style.minWidth = '64px';
+          counts.style.textAlign = 'center';
+          counts.textContent = `${cAcertos}/${cErros}`;
+          row.appendChild(counts);
+          row.appendChild(chartWrapper);
+          container.appendChild(row);
+        });
+      } catch(err) {
+        container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de áreas de conhecimento.</div>';
+      }
+    }
+
+    // IND9: % Acertos/Erros por Abordagem (categoriaquestao)
+    async function loadAbordagemStats(){
+      const container = document.getElementById('approachContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      try {
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/approach-stats', { headers });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!res.ok) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por abordagem.</div>';
+          return;
+        }
+        const data = await res.json();
+        let items = data && data.abordagens ? data.abordagens : [];
+        if (items.length === 0) {
+          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhuma abordagem encontrada.</div>';
+          return;
+        }
+        // Ordena pelo id
+        items = items.slice().sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+        items.forEach(a => {
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.alignItems = 'center';
+          row.style.gap = '12px';
+          row.style.flexWrap = 'wrap';
+
+          const label = document.createElement('div');
+          label.style.fontWeight = '600';
+          label.style.minWidth = '180px';
+          label.style.fontSize = '0.9rem';
+          label.textContent = `${a.id} - ${a.descricao || `Abordagem ${a.id}`}`;
+
+          const chartWrapper = document.createElement('div');
+          chartWrapper.style.flex = '1';
+          chartWrapper.style.minWidth = '300px';
+
+          const chart = document.createElement('sb-hbar');
+          const pctAcertos = a.percentAcertos !== undefined ? Math.round(a.percentAcertos) : 0;
+          const pctErros = a.percentErros !== undefined ? Math.round(a.percentErros) : 0;
+          const cAcertos = Number(a.acertos || 0);
+          const cErros = Number(a.erros || 0);
+          const item = {
+            label: '',
+            max: 100,
+            segments: [
+              { label: 'Acertos', value: pctAcertos, color: '#2b8a3e' },
+              { label: 'Erros', value: pctErros, color: '#dc3545' }
+            ]
+          };
+          chart.setAttribute('data', JSON.stringify([item]));
+          chart.setAttribute('height', '14');
+          chart.setAttribute('show-percent', '');
+
+          chartWrapper.appendChild(chart);
+          row.appendChild(label);
+          const counts = document.createElement('div');
+          counts.style.fontSize = '0.85rem';
+          counts.style.color = '#475569';
+          counts.style.minWidth = '64px';
+          counts.style.textAlign = 'center';
+          counts.textContent = `${cAcertos}/${cErros}`;
+          row.appendChild(counts);
+          row.appendChild(chartWrapper);
+          container.appendChild(row);
+        });
+      } catch(err) {
+        container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de abordagens.</div>';
+      }
+    }
+
+    // Tab switching: load IND8 when Tópico tab is activated
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', function(){
+        const tab = btn.getAttribute('data-tab');
+        tabButtons.forEach(b => b.classList.toggle('active', b === btn));
+        Object.values(sectionsMap).forEach(sec => sec.classList.remove('active'));
+        if (sectionsMap[tab]) {
+          sectionsMap[tab].classList.add('active');
+          if (tab === 'topico') loadAreaConhecimentoStats();
+          if (tab === 'abordagem') loadAbordagemStats();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -196,3 +196,96 @@ Coleção e instruções em: `postman/README.md`
 
 Se algo não estiver claro ou faltar um exemplo específico, abra uma issue ou peça que eu amplie a seção correspondente.
 
+## Componentes UI
+
+- `sb-hbar` (barra horizontal): Web Component reutilizável para exibir barras simples ou múltiplas com dataset JSON.
+	- Arquivo: `frontend/components/sb-hbar.js`
+	- Importe em páginas onde for usar: `<script type="module" src="/components/sb-hbar.js"></script>`
+	- Uso rápido (única barra): `<sb-hbar value="72" max="100" label="Aproveitamento" show-percent unit="%"></sb-hbar>`
+	- Uso com dataset JSON: `<sb-hbar data='[{"label":"Domínio 1","value":45},{"label":"Domínio 2","value":80}]' show-percent></sb-hbar>`
+	- Documentação completa: `docs/ui-components.md`
+
+## Reset de Dados de Exames
+
+Existem dois mecanismos para limpar tentativas e respostas de exame em ambientes de desenvolvimento/teste:
+
+1. Script Node seguro (`backend/scripts/reset_exam_data.js`)
+2. Script SQL direto (`backend/sql/reset_exam_data.sql`)
+
+### 1) Script Node
+
+Proteções incorporadas:
+- Requer variável de ambiente `ALLOW_RESET=TRUE`.
+- Requer flag `--force` (sem ela o script aborta).
+- Sem `--execute` faz apenas DRY-RUN (mostra plano, não deleta nada).
+
+Tabelas afetadas (por padrão): `exam_attempt_answer`, `exam_attempt_question`, `exam_attempt`. Opcionalmente `exam_type` com `--include-types`.
+
+Comandos (PowerShell):
+```pwsh
+Set-Location backend
+$env:ALLOW_RESET="TRUE"
+node scripts/reset_exam_data.js --force            # dry-run (sem backup)
+node scripts/reset_exam_data.js --force --execute  # executa (backup JSON automático por padrão)
+node scripts/reset_exam_data.js --force --execute --no-backup  # executa sem backup
+node scripts/reset_exam_data.js --force --execute --backup     # força backup (igual padrão)
+node scripts/reset_exam_data.js --force --execute --include-types  # inclui exam_type
+```
+
+Adicionar atalhos em `backend/package.json` (opcional):
+```json
+"scripts": {
+	"reset:dry": "ALLOW_RESET=TRUE node scripts/reset_exam_data.js --force",
+	"reset:full": "ALLOW_RESET=TRUE node scripts/reset_exam_data.js --force --execute"
+}
+```
+Executando:
+```pwsh
+Set-Location backend
+$env:ALLOW_RESET="TRUE"
+npm run reset:dry
+npm run reset:full
+```
+
+Backups:
+- São gravados em `backend/backups/reset_<timestamp>/` como arquivos JSON (um por tabela).
+- Para desativar em uma execução use `--no-backup`.
+- Para garantir mesmo comportamento futuro use flag explícita `--backup`.
+
+### 2) Script SQL direto
+
+Arquivo: `backend/sql/reset_exam_data.sql`
+
+Conteúdo principal (por padrão preserva `exam_type`):
+```sql
+BEGIN;
+TRUNCATE TABLE exam_attempt_answer RESTART IDENTITY CASCADE;
+TRUNCATE TABLE exam_attempt_question RESTART IDENTITY CASCADE;
+TRUNCATE TABLE exam_attempt RESTART IDENTITY CASCADE;
+-- Opcional: TRUNCATE TABLE exam_type RESTART IDENTITY CASCADE;
+COMMIT;
+```
+
+Executar via psql (PowerShell):
+```pwsh
+psql -h $env:DB_HOST -U $env:DB_USER -d $env:DB_NAME -f backend/sql/reset_exam_data.sql
+```
+
+### Quando usar cada um
+
+- Use o script Node quando quiser camada de segurança, logs e fácil extensão.
+- Use o SQL quando estiver em um fluxo de CI simples ou precisar auditar tudo manualmente.
+
+### Passos recomendados de limpeza
+1. Rodar dry-run para revisar.
+2. Fazer backup opcional (pg_dump ou COPY).
+3. Executar limpeza real.
+4. Verificar contagens:
+	 ```sql
+	 SELECT COUNT(*) FROM exam_attempt;
+	 SELECT COUNT(*) FROM exam_attempt_question;
+	 SELECT COUNT(*) FROM exam_attempt_answer;
+	 ```
+
+Se desejar posso adicionar etapa automática de backup antes do truncate (COPY para CSV). Solicite se necessário.
+

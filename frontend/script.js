@@ -180,6 +180,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return `guest_${rnd}#`;
     }
 
+    // Helper to read/store JWT for protected APIs (e.g., indicators)
+    function saveJwtFromResponse(obj){
+        try {
+            const tok = obj && obj.token ? String(obj.token) : '';
+            const typ = obj && obj.tokenType ? String(obj.tokenType) : 'Bearer';
+            if (tok) {
+                localStorage.setItem('jwtToken', tok);
+                localStorage.setItem('jwtTokenType', typ);
+            }
+        } catch(_){}
+    }
+    function getAuthHeaders(){
+        try {
+            const tok = localStorage.getItem('jwtToken');
+            const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
+            return tok ? { Authorization: `${typ} ${tok}` } : {};
+        } catch(_) { return {}; }
+    }
+    try { window.getAuthHeaders = getAuthHeaders; } catch(_){}
+
     // Read session token (if absent, create a guest token).
     // However, if user is clearly registered (we have userId/nomeUsuario/nome) prefer that state.
     let sessionToken = localStorage.getItem('sessionToken');
@@ -263,7 +283,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (modal) {
                 showEmailModal();
             } else {
-                window.location.assign('/login');
+                try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+                window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
                 return;
             }
         } else {
@@ -752,6 +773,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const user = data;
+                // persist JWT if provided
+                saveJwtFromResponse(user);
                 const nomeUsuarioStored = user.NomeUsuario || email;
                 const userId = user.Id || user.id || null;
                 const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
@@ -768,11 +791,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 showUserHeader(nomeReal);
                 hideEmailModal();
 
-                // redirect to standalone exam setup page
+                // redirect to pre-login destination or default
                 try {
-                    const path = window.location.pathname || '';
-                    const onSetupPage = path.includes('/pages/examSetup.html') || path.endsWith('/examSetup.html');
-                    if (!onSetupPage) window.location.href = '/pages/examSetup.html';
+                    const params = new URLSearchParams(window.location.search || '');
+                    const redirectParam = params.get('redirect');
+                    let target = null;
+                    if (redirectParam) {
+                        try {
+                            const u = new URL(redirectParam, window.location.origin);
+                            if (u.origin === window.location.origin) target = u.href;
+                        } catch(_){ }
+                    }
+                    if (!target) {
+                        try { target = sessionStorage.getItem('postLoginRedirect'); } catch(_){ }
+                    }
+                    if (!target) target = '/';
+                    try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
+                    window.location.assign(target);
                 } catch (e) { console.warn('Erro redirect login:', e); }
             }
             else if (mode === 'verify') {
@@ -813,6 +848,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     // behave as successful login
                     const user = data2;
+                    // persist JWT if provided
+                    saveJwtFromResponse(user);
                     const nomeUsuarioStored = user.NomeUsuario || email;
                     const userId = user.Id || user.id || null;
                     const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
@@ -829,11 +866,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     showUserHeader(nomeReal);
                     hideEmailModal();
 
-                    // redirect to standalone exam setup page
+                    // redirect to pre-login destination or default
                     try {
-                        const path = window.location.pathname || '';
-                        const onSetupPage = path.includes('/pages/examSetup.html') || path.endsWith('/examSetup.html');
-                        if (!onSetupPage) window.location.href = '/pages/examSetup.html';
+                        const params = new URLSearchParams(window.location.search || '');
+                        const redirectParam = params.get('redirect');
+                        let target = null;
+                        if (redirectParam) {
+                            try {
+                                const u = new URL(redirectParam, window.location.origin);
+                                if (u.origin === window.location.origin) target = u.href;
+                            } catch(_){ }
+                        }
+                        if (!target) {
+                            try { target = sessionStorage.getItem('postLoginRedirect'); } catch(_){ }
+                        }
+                        if (!target) target = '/';
+                        try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
+                        window.location.assign(target);
                     } catch (e) { console.warn('Erro redirect login:', e); }
                 } else {
                     // switch to login mode so user can enter password

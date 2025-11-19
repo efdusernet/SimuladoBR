@@ -6,15 +6,63 @@
   <title>Cadastrar Questão</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
+    .menu-toggle {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1100;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #d6d9e0;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover { background: #f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile {
+      display:inline-block;
+      width: 18px;
+      height: 2px;
+      background: #333;
+      border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    .menu-panel {
+      position: fixed;
+      top: 44px;
+      left: 8px;
+      z-index: 1099;
+      background: #fff;
+      border: 1px solid #d6d9e0;
+      border-radius: 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px;
+      padding: 6px;
+      display: none;
+    }
+    .menu-panel.open { display: block; }
+    .menu-panel a {
+      display: block;
+      padding: 6px 8px;
+      color: #222;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .menu-panel a:hover { background: #f4f7fb; }
+    
     .container{ max-width: 900px; margin: 24px auto; padding: 16px; background:#fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06);} 
     .row{ margin-bottom: 12px; }
     label{ display:block; font-weight:600; margin-bottom:6px; }
     input[type="text"], textarea, select{ width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; }
     .inline{ display:flex; gap:12px; align-items:flex-start; flex-wrap: wrap; }
     .inline > *{ flex: 1 1 200px; }
-    /* Stack the optional taxonomy fields on the left, one below another */
-    .left-stack{ display:flex; flex-direction:column; gap:12px; align-items:stretch; flex: 0 0 320px; }
-    @media (max-width: 720px){ .left-stack{ flex-basis:100%; } }
+    /* Two-column grid for select fields */
+    .form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    @media (max-width: 720px){ .form-grid{ grid-template-columns: 1fr; } }
     .opts{ margin-top:8px; }
     .opt{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
     .opt input[type="text"]{ flex: 1; }
@@ -22,35 +70,50 @@
     .btn{ background:#2b6cb0; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
     .btn.secondary{ background:#edf2f7; color:#2b6cb0; border:1px solid #c6d3ff; }
     .hint{ font-size:.9rem; color:#555; }
-    /* Reduce specific field widths by 1% as requested */
-    .left-stack input[type="text"]{ width:97%; }
-    #descricao{ width:97%; }
+    /* Tabs */
+    .tabs{ display:flex; gap:8px; border-bottom:1px solid #eee; margin-bottom:12px; }
+    .tab{ padding:8px 12px; cursor:pointer; border-radius:8px 8px 0 0; background:#f7fafc; color:#2d3748; user-select:none; }
+    .tab.active{ background:#fff; border:1px solid #eee; border-bottom:none; }
+    .tab-section{ display:none; }
+    .tab-section.active{ display:block; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Cadastrar Questão</h1>
+  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+  </button>
+  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/pages/admin/questionForm.html" rel="noopener">Cadastrar Questão</a>
+    <a href="/pages/admin/questionBulk.html" rel="noopener">Upload em Lote</a>
+  </nav>
 
-    <div class="row">
+  <div class="container">
+    <div class="tabs">
+      <div class="tab active" data-target="sec-nova">Nova questão</div>
+      <div class="tab" data-target="sec-nav">Navegação</div>
+    </div>
+
+    <section id="sec-nova" class="tab-section active">
+      <h1>Cadastrar Questão</h1>
+
+      <div class="row">
       <label for="descricao">Enunciado</label>
       <textarea id="descricao" rows="6" placeholder="Digite o enunciado da questão..."></textarea>
     </div>
 
-    <div class="row inline">
-      <div class="left-stack">
-        <div>
-          <label for="iddominio">Domínio (opcional)</label>
-          <input type="text" id="iddominio" placeholder="ex.: 1" />
-        </div>
-        <div>
-          <label for="area">Área do conhecimento (opcional)</label>
-          <input type="text" id="area" placeholder="ex.: 1" />
-        </div>
-        <div>
-          <label for="grupo">Grupo de processo (opcional)</label>
-          <input type="text" id="grupo" placeholder="ex.: 1" />
-        </div>
+    <div class="row">
+      <label for="imagemUrl">Imagem (URL ou Base64)</label>
+      <input type="text" id="imagemUrl" placeholder="Cole a URL da imagem ou dados base64" />
+      <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+        <input type="file" id="imagemFile" accept="image/*" style="display: none;" />
+        <button class="btn secondary" type="button" onclick="$('imagemFile').click()">Escolher arquivo</button>
+        <button class="btn secondary" type="button" onclick="$('imagemUrl').value=''; $('imagemPreview').innerHTML=''">Limpar</button>
       </div>
+      <div id="imagemPreview" style="margin-top: 8px; max-width: 300px;"></div>
+    </div>
+
+    <div class="row form-grid">
       <div>
         <label for="examType">Tipo de exame</label>
         <select id="examType"></select>
@@ -61,6 +124,34 @@
           <option value="single">Opção única (rádio)</option>
           <option value="multi">Múltipla escolha (checkbox)</option>
         </select>
+      </div>
+      <div>
+        <label for="iddominiogeral">Domínio Geral</label>
+        <select id="iddominiogeral"></select>
+      </div>
+      <div>
+        <label for="iddominio">Domínio (opcional)</label>
+        <select id="iddominio"></select>
+      </div>
+      <div>
+        <label for="area">Área do conhecimento</label>
+        <select id="area"></select>
+      </div>
+      <div>
+        <label for="grupo">Grupo de processo</label>
+        <select id="grupo"></select>
+      </div>
+      <div>
+        <label for="idprincipio">Princípio (opcional)</label>
+        <select id="idprincipio"></select>
+      </div>
+      <div>
+        <label for="codigocategoria">Categoria</label>
+        <select id="codigocategoria"></select>
+      </div>
+      <div>
+        <label for="codniveldificuldade">Nível de Dificuldade</label>
+        <select id="codniveldificuldade"></select>
       </div>
     </div>
 
@@ -79,17 +170,171 @@
       </div>
     </div>
 
+    <div class="row">
+      <label for="explicacao">Explicação (opcional)</label>
+      <textarea id="explicacao" rows="4" placeholder="Texto de explicação"></textarea>
+    </div>
+
     <div class="actions">
       <button class="btn" id="save">Salvar</button>
       <a class="btn secondary" href="/">Voltar</a>
     </div>
 
     <div id="status" class="row"></div>
+    </section>
+
+    <section id="sec-nav" class="tab-section">
+      <h1>Navegação de Questões</h1>
+
+      <div class="row inline" style="align-items:flex-end;">
+        <div>
+          <label for="navGotoId">Ir para ID</label>
+          <input type="text" id="navGotoId" placeholder="ex.: 123" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn secondary" id="navPrev" type="button">Anterior</button>
+          <button class="btn secondary" id="navNext" type="button">Próxima</button>
+          <button class="btn" id="navGotoBtn" type="button">Ir</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="descricaoNav">Enunciado</label>
+        <textarea id="descricaoNav" rows="6" placeholder="Enunciado da questão..."></textarea>
+      </div>
+
+      <div class="row">
+        <label for="imagemUrlNav">Imagem (URL ou Base64)</label>
+        <input type="text" id="imagemUrlNav" placeholder="Cole a URL da imagem ou dados base64" />
+        <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+          <input type="file" id="imagemFileNav" accept="image/*" style="display: none;" />
+          <button class="btn secondary" type="button" onclick="$('imagemFileNav').click()">Escolher arquivo</button>
+          <button class="btn secondary" type="button" onclick="$('imagemUrlNav').value=''; $('imagemPreviewNav').innerHTML=''">Limpar</button>
+        </div>
+        <div id="imagemPreviewNav" style="margin-top: 8px; max-width: 300px;"></div>
+      </div>
+
+      <div class="row form-grid">
+        <div>
+          <label for="examTypeNav">Tipo de exame</label>
+          <select id="examTypeNav"></select>
+        </div>
+        <div>
+          <label for="tipoNav">Tipo</label>
+          <select id="tipoNav">
+            <option value="single">Opção única (rádio)</option>
+            <option value="multi">Múltipla escolha (checkbox)</option>
+          </select>
+        </div>
+        <div>
+          <label for="iddominiogeralNav">Domínio Geral</label>
+          <select id="iddominiogeralNav"></select>
+        </div>
+        <div>
+          <label for="iddominioNav">Domínio (opcional)</label>
+          <select id="iddominioNav"></select>
+        </div>
+        <div>
+          <label for="areaNav">Área do conhecimento</label>
+          <select id="areaNav"></select>
+        </div>
+        <div>
+          <label for="grupoNav">Grupo de processo</label>
+          <select id="grupoNav"></select>
+        </div>
+        <div>
+          <label for="idprincipioNav">Princípio (opcional)</label>
+          <select id="idprincipioNav"></select>
+        </div>
+        <div>
+          <label for="codigocategoriaNav">Categoria</label>
+          <select id="codigocategoriaNav"></select>
+        </div>
+        <div>
+          <label for="codniveldificuldadeNav">Nível de Dificuldade</label>
+          <select id="codniveldificuldadeNav"></select>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="dicaNav">Dicas (opcional)</label>
+        <input type="text" id="dicaNav" placeholder="Dica curta" />
+      </div>
+
+      <div class="row">
+        <label>Alternativas</label>
+        <div class="hint">Marque a correta. No tipo "Opção única" só é permitido 1 correta.</div>
+        <div id="optsNav" class="opts"></div>
+        <div class="actions">
+          <button class="btn secondary" id="addOptNav">+ Adicionar alternativa</button>
+          <button class="btn secondary" id="clearOptsNav">Limpar alternativas</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="explicacaoNav">Explicação (opcional)</label>
+        <textarea id="explicacaoNav" rows="4" placeholder="Texto de explicação"></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="saveNav" type="button">Salvar</button>
+      </div>
+
+      <div id="statusNav" class="row"></div>
+    </section>
   </div>
 
   <script>
     const $ = (id)=> document.getElementById(id);
     const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+
+    // Image upload handlers
+    function setupImageUpload(fileInputId, urlInputId, previewId) {
+      const fileInput = $(fileInputId);
+      const urlInput = $(urlInputId);
+      const preview = $(previewId);
+      
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          
+          if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione um arquivo de imagem válido');
+            fileInput.value = '';
+            return;
+          }
+          
+          if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            alert('Imagem muito grande. Limite: 5MB');
+            fileInput.value = '';
+            return;
+          }
+          
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const base64 = ev.target.result;
+            urlInput.value = base64;
+            showImagePreview(previewId, base64);
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+      
+      if (urlInput) {
+        urlInput.addEventListener('input', () => {
+          const val = urlInput.value.trim();
+          if (val) showImagePreview(previewId, val);
+          else if (preview) preview.innerHTML = '';
+        });
+      }
+    }
+    
+    function showImagePreview(previewId, src) {
+      const preview = $(previewId);
+      if (!preview) return;
+      preview.innerHTML = `<img src="${src}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" onerror="this.parentElement.innerHTML='<span style=color:red>Erro ao carregar imagem</span>'" />`;
+    }
 
     function makeOptRow(text = '', correta = false){
       const wrap = document.createElement('div');
@@ -155,9 +400,61 @@
       return out;
     }
 
-    async function loadExamTypes(){
+    // NAV: option helpers
+    function makeOptRowNav(text = '', correta = false){
+      const wrap = document.createElement('div');
+      wrap.className = 'opt';
+      const tipo = $('tipoNav').value;
+      const check = document.createElement('input');
+      check.type = (tipo === 'multi') ? 'checkbox' : 'radio';
+      check.name = 'corretaNav';
+      check.checked = !!correta;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Texto da alternativa';
+      input.value = text || '';
+      const del = document.createElement('button');
+      del.className = 'btn secondary';
+      del.type = 'button';
+      del.textContent = 'Remover';
+      del.onclick = ()=> wrap.remove();
+
+      check.addEventListener('change', ()=>{
+        if ($('tipoNav').value !== 'multi' && check.checked){
+          document.querySelectorAll('#optsNav input[type=radio][name=corretaNav]').forEach(r=>{ if (r !== check) r.checked = false; });
+        }
+      });
+      wrap.appendChild(check);
+      wrap.appendChild(input);
+      wrap.appendChild(del);
+      return wrap;
+    }
+
+    function ensureAtLeastTwoNav(){
+      const list = $('optsNav');
+      while (list.children.length < 4){ list.appendChild(makeOptRowNav()); }
+    }
+
+    function readOptionsNav(){
+      const rows = Array.from(document.querySelectorAll('#optsNav .opt'));
+      const tipo = $('tipoNav').value;
+      const out = [];
+      let correctCount = 0;
+      rows.forEach(r => {
+        const text = r.querySelector('input[type=text]').value.trim();
+        const correta = r.querySelector('input[type=checkbox],input[type=radio]').checked;
+        if (text){ out.push({ descricao: text, correta }); if (correta) correctCount++; }
+      });
+      if (tipo === 'single' && correctCount > 1){
+        let seen = false;
+        out.forEach(o => { if (o.correta){ if (!seen) { seen = true; } else { o.correta = false; } } });
+      }
+      return out;
+    }
+
+    async function loadExamTypes(targetId = 'examType'){
       try {
-        const sel = $('examType');
+        const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
         const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/exams/types');
         const list = await resp.json();
@@ -168,28 +465,192 @@
         sel.appendChild(optNone);
         (list || []).forEach(t => {
           const o = document.createElement('option');
-          o.value = t.id; // slug
+          o.value = t._dbId || t.id; // use numeric id from database
           o.textContent = t.nome || t.id;
           sel.appendChild(o);
         });
         // auto-select first concrete type if available
         try { if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1; } catch(e){}
+      } catch (e) {
+        console.error('[loadExamTypes] error:', e);
+      }
+    }
+
+    async function loadDominioGeral(targetId = 'iddominiogeral'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/dominios-geral');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(d => {
+          const o = document.createElement('option');
+          o.value = d.id;
+          o.textContent = `${d.id} - ${d.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
       } catch(e) {
         const sel = $('examType');
-        sel.innerHTML = '<option value="pmp">PMP</option>';
+        if (sel) sel.innerHTML = '<option value="pmp">PMP</option>';
+      }
+    }
+
+    async function loadDominios(targetId = 'iddominio'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/dominios');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(d => {
+          const o = document.createElement('option');
+          o.value = d.id;
+          o.textContent = `${d.id} - ${d.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        console.error('[loadDominios] error:', e);
+      }
+    }
+
+    async function loadAreas(targetId = 'area'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/areas');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(a => {
+          const o = document.createElement('option');
+          o.value = a.id;
+          o.textContent = `${a.id} - ${a.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        console.error('[loadAreas] error:', e);
+      }
+    }
+
+    async function loadGrupos(targetId = 'grupo'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/grupos');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(g => {
+          const o = document.createElement('option');
+          o.value = g.id;
+          o.textContent = `${g.id} - ${g.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        console.error('[loadGrupos] error:', e);
+      }
+    }
+
+    async function loadPrincipios(targetId = 'idprincipio'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/principios');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(p => {
+          const o = document.createElement('option');
+          o.value = p.id;
+          o.textContent = `${p.id} - ${p.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        console.error('[loadPrincipios] error:', e);
+      }
+    }
+
+    async function loadCategorias(targetId = 'codigocategoria'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/categorias');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(c => {
+          const o = document.createElement('option');
+          o.value = c.id;
+          o.textContent = `${c.id} - ${c.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        console.error('[loadCategorias] error:', e);
+      }
+    }
+
+    async function loadNiveisDificuldade(targetId = 'codniveldificuldade'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/niveis-dificuldade');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(n => {
+          const o = document.createElement('option');
+          o.value = n.id;
+          o.textContent = `${n.id} - ${n.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        console.error('[loadNiveisDificuldade] error:', e);
       }
     }
 
     $('save').onclick = async function(){
       const descricao = $('descricao').value.trim();
       const tiposlug = $('tipo').value;
-      const examTypeSlug = ($('examType').value || '').trim();
-      const iddominio = $('iddominio').value.trim();
-      const area = $('area').value.trim();
-      const grupo = $('grupo').value.trim();
+      const examTypeId = ($('examType').value || '').trim();
+      const iddominio = ($('iddominio').value || '').trim();
+      const area = ($('area').value || '').trim();
+      const grupo = ($('grupo').value || '').trim();
+      const iddominiogeral = ($('iddominiogeral').value || '').trim();
+      const idprincipio = ($('idprincipio').value || '').trim();
+      const codigocategoria = ($('codigocategoria').value || '').trim();
+      const codniveldificuldade = ($('codniveldificuldade').value || '').trim();
       const dica = $('dica').value.trim();
-      if (!descricao){ alert('Informe o enunciado'); return; }
-  if (!examTypeSlug){ alert('Selecione o tipo de exame'); return; }
+      const imagemUrl = ($('imagemUrl').value || '').trim();
+      const explicacao = $('explicacao').value.trim();
+        if (!descricao){ alert('Informe o enunciado'); return; }
+        if (!examTypeId){ alert('Selecione o tipo de exame'); return; }
+        if (!iddominiogeral){ alert('Selecione o domínio geral'); return; }
+        if (!iddominio){ alert('Selecione o domínio'); return; }
+        if (!codigocategoria){ alert('Selecione a categoria'); return; }
+        if (!codniveldificuldade){ alert('Selecione o nível de dificuldade'); return; }
       const options = readOptions();
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
@@ -197,11 +658,17 @@
       const payload = {
         descricao,
         tiposlug,
-        examTypeSlug: examTypeSlug || undefined,
+        examTypeId: examTypeId ? Number(examTypeId) : undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
         codareaconhecimento: area ? Number(area) : undefined,
         codgrupoprocesso: grupo ? Number(grupo) : undefined,
+        iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
+        idprincipio: idprincipio ? Number(idprincipio) : undefined,
+        codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
+        codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
         dica: dica || undefined,
+        imagemUrl: imagemUrl || undefined,
+        explicacao: explicacao || undefined,
         options
       };
       const token = localStorage.getItem('sessionToken') || '';
@@ -214,13 +681,338 @@
       // Limpar formulário
       $('descricao').value = '';
       $('dica').value = '';
+      $('imagemUrl').value = '';
+      $('imagemPreview').innerHTML = '';
+      $('explicacao').value = '';
+      // limpar selects e tipo
+      try { $('examType').value = ''; } catch{}
+      try { $('tipo').value = 'single'; } catch{}
+      try { $('iddominiogeral').value = ''; } catch{}
+      try { $('iddominio').value = ''; } catch{}
+      try { $('area').value = ''; } catch{}
+      try { $('grupo').value = ''; } catch{}
+      try { $('idprincipio').value = ''; } catch{}
+      try { $('codigocategoria').value = ''; } catch{}
+      try { $('codniveldificuldade').value = ''; } catch{}
+      try { $('imagemFile').value = ''; } catch{}
       $('opts').innerHTML = '';
       ensureAtLeastTwo();
     };
 
     // init
+    let navInitialized = false;
+    function initTabs(){
+      const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
+      tabs.forEach(tab => tab.addEventListener('click', async () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.getAttribute('data-target');
+        const sec = document.getElementById(target);
+        if (sec) sec.classList.add('active');
+        
+        // Auto-load first question when Navegação tab is opened for the first time
+        if (target === 'sec-nav' && !navInitialized) {
+          navInitialized = true;
+          console.log('[initTabs] Loading first question for Navegação tab...');
+          const firstId = await navGetFirstId(); 
+          console.log('[initTabs] firstId result:', firstId);
+          if (firstId) {
+            console.log('[initTabs] Calling navLoadById with:', firstId);
+            await navLoadById(firstId);
+          } else {
+            console.warn('[initTabs] No first ID found');
+            navSetStatus('Nenhuma questão encontrada');
+          }
+        }
+      }));
+    }
+
+    // Navegação state and logic
+    const navState = { loading: false, currentId: null, allIds: [], lastFetch: 0 };
+    function navSetStatus(msg){ const el = $('statusNav'); if (el) el.textContent = msg || ''; }
+
+    async function navGetFirstId(){
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const url = (BACKEND_BASE||'').replace(/\/$/, '') + '/api/questions?page=1&pageSize=1&order=id%20asc';
+        console.log('[navGetFirstId] fetching:', url);
+        const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+        console.log('[navGetFirstId] status:', resp.status);
+        if (!resp.ok) { 
+          console.error('[navGetFirstId] error response:', await resp.text());
+          return null; 
+        }
+        const data = await resp.json();
+        console.log('[navGetFirstId] data:', data);
+        const firstId = (data.items && data.items.length) ? data.items[0] : null;
+        console.log('[navGetFirstId] firstId:', firstId);
+        return firstId;
+      } catch(e){ 
+        console.error('[navGetFirstId] exception:', e);
+        return null; 
+      }
+    }
+
+    async function navLoadById(id){
+      if (!id) return;
+      navSetStatus('Carregando questão...');
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/${id}`;
+        const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+        if (!resp.ok){ const t = await resp.text(); navSetStatus('Erro: ' + t); return; }
+        const q = await resp.json();
+
+        // Ensure metadata loaded
+        await Promise.all([ loadExamTypes('examTypeNav'), loadDominioGeral('iddominiogeralNav') ]);
+
+        $('descricaoNav').value = q.descricao || '';
+        $('tipoNav').value = (q.tiposlug || 'single');
+        
+        // Wait for selects to be populated before setting values
+        await Promise.all([
+          loadDominios('iddominioNav'),
+          loadAreas('areaNav'),
+          loadGrupos('grupoNav'),
+          loadPrincipios('idprincipioNav'),
+          loadCategorias('codigocategoriaNav'),
+          loadNiveisDificuldade('codniveldificuldadeNav')
+        ]);
+        
+        $('iddominioNav').value = q.iddominio != null ? String(q.iddominio) : '';
+        $('areaNav').value = q.codareaconhecimento != null ? String(q.codareaconhecimento) : '';
+        $('grupoNav').value = q.codgrupoprocesso != null ? String(q.codgrupoprocesso) : '';
+        $('iddominiogeralNav').value = q.iddominiogeral != null ? String(q.iddominiogeral) : '';
+        $('idprincipioNav').value = q.idprincipio != null ? String(q.idprincipio) : '';
+        $('codigocategoriaNav').value = q.codigocategoria != null ? String(q.codigocategoria) : '';
+        $('codniveldificuldadeNav').value = q.codniveldificuldade != null ? String(q.codniveldificuldade) : '';
+        $('dicaNav').value = q.dica || '';
+        $('imagemUrlNav').value = q.imagemUrl || '';
+        if (q.imagemUrl) showImagePreview('imagemPreviewNav', q.imagemUrl);
+        else $('imagemPreviewNav').innerHTML = '';
+        $('explicacaoNav').value = q.explicacao || '';
+        // Use exam_type_id from the question record
+        if (q.examType && q.examType.id != null){ 
+          $('examTypeNav').value = String(q.examType.id); 
+        }
+
+        // Build options
+        const list = $('optsNav');
+        list.innerHTML = '';
+        const arr = Array.isArray(q.options) ? q.options : [];
+        if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta))); }
+        ensureAtLeastTwoNav();
+
+        navState.currentId = id;
+        $('navGotoId').value = String(id);
+        navSetStatus(`Questão ID ${id}`);
+      } catch(e){ navSetStatus('Falha ao carregar questão'); }
+    }
+
+    async function navLoadAllIds(){
+      // Cache IDs for 30 seconds
+      const now = Date.now();
+      if (navState.allIds.length > 0 && (now - navState.lastFetch) < 30000) {
+        return navState.allIds;
+      }
+      
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const allIds = [];
+        let page = 1;
+        let hasMore = true;
+        
+        // Fetch all IDs in batches
+        while (hasMore) {
+          const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions?page=${page}&pageSize=100&order=id%20asc`;
+          const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+          if (!resp.ok) break;
+          const data = await resp.json();
+          if (!Array.isArray(data.items) || data.items.length === 0) break;
+          
+          allIds.push(...data.items);
+          
+          // Check if there are more pages
+          hasMore = (page * 100 < data.total);
+          page++;
+        }
+        
+        navState.allIds = allIds;
+        navState.lastFetch = now;
+        console.log('[navLoadAllIds] Loaded', allIds.length, 'question IDs');
+        return allIds;
+      } catch(e) {
+        console.error('[navLoadAllIds] error:', e);
+        return navState.allIds; // Return cached if fetch fails
+      }
+    }
+
+    async function navFindAdjacentId(currentId, direction){
+      // direction: 'prev' or 'next'
+      try {
+        const allIds = await navLoadAllIds();
+        if (allIds.length === 0) return null;
+        
+        // Find index of current ID
+        const currentIndex = allIds.indexOf(currentId);
+        if (currentIndex === -1) {
+          // Current ID not in list - try to find closest
+          if (direction === 'prev') {
+            // Find largest ID smaller than currentId
+            for (let i = allIds.length - 1; i >= 0; i--) {
+              if (allIds[i] < currentId) return allIds[i];
+            }
+          } else {
+            // Find smallest ID larger than currentId
+            for (let i = 0; i < allIds.length; i++) {
+              if (allIds[i] > currentId) return allIds[i];
+            }
+          }
+          return null;
+        }
+        
+        // Navigate based on index
+        if (direction === 'prev') {
+          return currentIndex > 0 ? allIds[currentIndex - 1] : null;
+        } else {
+          return currentIndex < allIds.length - 1 ? allIds[currentIndex + 1] : null;
+        }
+      } catch(e){ 
+        console.error('[navFindAdjacentId] error:', e);
+        return null; 
+      }
+    }
+
+    $('navPrev').addEventListener('click', async ()=>{
+      const currentId = navState.currentId;
+      if (!currentId) return;
+      const prevId = await navFindAdjacentId(currentId, 'prev');
+      if (prevId) await navLoadById(prevId);
+      else navSetStatus('Não há questão anterior');
+    });
+    $('navNext').addEventListener('click', async ()=>{
+      const currentId = navState.currentId;
+      if (!currentId) return;
+      const nextId = await navFindAdjacentId(currentId, 'next');
+      if (nextId) await navLoadById(nextId);
+      else navSetStatus('Não há próxima questão');
+    });
+    $('navGotoBtn').addEventListener('click', async ()=>{
+      const val = ($('navGotoId').value || '').trim();
+      const id = Number(val);
+      if (!Number.isFinite(id)) { navSetStatus('ID inválido'); return; }
+      await navLoadById(id);
+    });
+
+    $('addOptNav').onclick = function(e){ e.preventDefault(); $('optsNav').appendChild(makeOptRowNav()); };
+    $('clearOptsNav').onclick = function(e){ e.preventDefault(); $('optsNav').innerHTML=''; ensureAtLeastTwoNav(); };
+    $('tipoNav').addEventListener('change', ()=>{
+      const list = $('optsNav');
+      const current = Array.from(list.children).map(row => ({ text: row.querySelector('input[type=text]').value, correta: row.querySelector('input[type=checkbox],input[type=radio]').checked }));
+      list.innerHTML='';
+      current.forEach(o => list.appendChild(makeOptRowNav(o.text, o.correta)));
+    });
+
+    $('saveNav').addEventListener('click', async ()=>{
+      const id = navState.currentId;
+      if (!id) { navSetStatus('Nenhuma questão carregada'); return; }
+      const descricao = $('descricaoNav').value.trim();
+      const tiposlug = $('tipoNav').value;
+      const examTypeId = ($('examTypeNav').value || '').trim();
+      const iddominio = ($('iddominioNav').value || '').trim();
+      const area = ($('areaNav').value || '').trim();
+      const grupo = ($('grupoNav').value || '').trim();
+      const iddominiogeral = ($('iddominiogeralNav').value || '').trim();
+      const idprincipio = ($('idprincipioNav').value || '').trim();
+      const codigocategoria = ($('codigocategoriaNav').value || '').trim();
+      const codniveldificuldade = ($('codniveldificuldadeNav').value || '').trim();
+      const dica = $('dicaNav').value.trim();
+      const imagemUrl = ($('imagemUrlNav').value || '').trim();
+      const explicacao = $('explicacaoNav').value.trim();
+      if (!descricao){ alert('Informe o enunciado'); return; }
+      const options = readOptionsNav();
+      if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
+      if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+
+      const payload = {
+        descricao,
+        tiposlug,
+        examTypeId: examTypeId ? Number(examTypeId) : undefined,
+        iddominio: iddominio ? Number(iddominio) : undefined,
+        codareaconhecimento: area ? Number(area) : undefined,
+        codgrupoprocesso: grupo ? Number(grupo) : undefined,
+        iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
+        idprincipio: idprincipio ? Number(idprincipio) : undefined,
+        codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
+        codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
+        dica: dica || undefined,
+        imagemUrl: imagemUrl || undefined,
+        explicacao: explicacao || undefined,
+        options
+      };
+      const token = localStorage.getItem('sessionToken') || '';
+      const url = (BACKEND_BASE || '') + `/api/questions/${id}`;
+      navSetStatus('Salvando...');
+      const resp = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+      const txt = await resp.text();
+      if (!resp.ok){ navSetStatus('Erro ao salvar: ' + txt); return; }
+      navSetStatus('Salvo com sucesso');
+    });
+
+    // Keyboard shortcut: Ctrl+S (or Cmd+S on macOS) to save in Navegação
+    document.addEventListener('keydown', (e) => {
+      const isSaveCombo = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S');
+      if (!isSaveCombo) return;
+      // Only handle when Navegação tab is active
+      const secNav = document.getElementById('sec-nav');
+      if (secNav && secNav.classList.contains('active')) {
+        e.preventDefault();
+        const btn = $('saveNav');
+        if (btn) btn.click();
+      }
+    });
+
+    // init
     loadExamTypes();
+    loadDominioGeral();
+    loadDominios('iddominio');
+    loadAreas('area');
+    loadGrupos('grupo');
+    loadPrincipios('idprincipio');
+    loadCategorias('codigocategoria');
+    loadNiveisDificuldade('codniveldificuldade');
     ensureAtLeastTwo();
+    setupImageUpload('imagemFile', 'imagemUrl', 'imagemPreview');
+    initTabs();
+
+    // init nav - prepare controls but don't load yet
+    loadExamTypes('examTypeNav');
+    loadDominioGeral('iddominiogeralNav');
+    loadDominios('iddominioNav');
+    loadAreas('areaNav');
+    loadGrupos('grupoNav');
+    loadPrincipios('idprincipioNav');
+    loadCategorias('codigocategoriaNav');
+    loadNiveisDificuldade('codniveldificuldadeNav');
+    setupImageUpload('imagemFileNav', 'imagemUrlNav', 'imagemPreviewNav');
+    ensureAtLeastTwoNav();
+
+    // Menu toggle functionality
+    (function initTopMenu(){
+      const btn = document.getElementById('menuToggle');
+      const panel = document.getElementById('pageMenu');
+      if (!btn || !panel) return;
+      const close = ()=>{ panel.classList.remove('open'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); };
+      const open = ()=>{ panel.classList.add('open'); panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); };
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        if (panel.classList.contains('open')) close(); else open();
+      });
+      document.addEventListener('click', (e)=>{
+        if (!panel.contains(e.target) && e.target !== btn) close();
+      });
+    })();
   </script>
 </body>
 </html>

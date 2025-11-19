@@ -279,13 +279,31 @@ exports.selectQuestions = async (req, res) => {
         topRows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });
       }
 
-      // Combine and shuffle final order preserving pretest flag internally
+      // Combine, then fetch options once for all selected IDs
       const combined = [...pretestRows.map(r => ({ ...r, _isPreTest: true })), ...regularRows.map(r => ({ ...r, _isPreTest: false }))];
-      // Simple shuffle
+      // Shuffle order
       for (let i = combined.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [combined[i], combined[j]] = [combined[j], combined[i]];
       }
+      const allIds = combined.map(q => q.id).filter(n => Number.isFinite(n));
+      let rawOptions = [];
+      if (allIds.length) {
+        try {
+          const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao
+            FROM respostaopcao
+            WHERE ("Excluido" = FALSE OR "Excluido" IS NULL) AND "IdQuestao" IN (:ids)
+            ORDER BY "IdQuestao", "Id"`;
+          rawOptions = await sequelize.query(optsQ, { replacements: { ids: allIds }, type: sequelize.QueryTypes.SELECT });
+        } catch(_) { rawOptions = []; }
+      }
+      const optsByQ = {};
+      rawOptions.forEach(o => {
+        const qid = Number(o.idquestao || o.IdQuestao);
+        if (!Number.isFinite(qid)) return;
+        if (!optsByQ[qid]) optsByQ[qid] = [];
+        optsByQ[qid].push({ id: o.id || o.Id, descricao: o.descricao || o.Descricao });
+      });
       payloadQuestions = combined.map(q => {
         const slug = (q.tiposlug || '').toString().toLowerCase();
         let type = null;
@@ -296,9 +314,9 @@ exports.selectQuestions = async (req, res) => {
         } else {
           type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
         }
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, type, options: [] , _isPreTest: q._isPreTest };
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, type, options: optsByQ[q.id] || [], _isPreTest: q._isPreTest };
       });
-      ids = payloadQuestions.map(q => q.id);
+      ids = allIds;
     } else {
       // Legacy path (quiz or non-full)
       const limitUsed = Math.min(count, available);

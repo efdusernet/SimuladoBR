@@ -475,6 +475,16 @@ exports.submitAnswers = async (req, res) => {
     }
     if (!qids.length) return res.status(400).json({ error: 'no valid questionIds' });
 
+    // Fetch IsPreTest flags for questions to exclude from scoring
+    let pretestQids = new Set();
+    if (attemptId) {
+      try {
+        const pretestQ = `SELECT "QuestionId" FROM exam_attempt_question WHERE "AttemptId" = :aid AND "IsPreTest" = TRUE`;
+        const pretestRows = await sequelize.query(pretestQ, { replacements: { aid: attemptId }, type: sequelize.QueryTypes.SELECT });
+        pretestQids = new Set((pretestRows || []).map(r => Number(r.QuestionId || r.questionid)).filter(n => Number.isFinite(n)));
+      } catch(e) { /* ignore if column doesn't exist yet */ }
+    }
+
     // fetch correct option ids from respostaopcao
     const correctQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao
       FROM respostaopcao
@@ -508,6 +518,7 @@ exports.submitAnswers = async (req, res) => {
 
     const details = qids.map(qid => {
       const rec = byQ.get(Number(qid));
+      const isPretest = pretestQids.has(Number(qid));
       let ok = false;
       if (rec && rec.typed) {
         ok = false; // typed grading engine TBD
@@ -520,11 +531,14 @@ exports.submitAnswers = async (req, res) => {
         const correctOpt = correctByQ[qid] || null;
         ok = !!(correctOpt && chosen != null && Number(chosen) === Number(correctOpt));
       }
-      if (ok) totalCorrect += 1;
-      return { questionId: Number(qid), chosenOptionId: (rec && rec.multi === false) ? (rec.optionId ?? null) : null, correct: ok };
+      // Only count toward score if not pretest
+      if (ok && !isPretest) totalCorrect += 1;
+      return { questionId: Number(qid), chosenOptionId: (rec && rec.multi === false) ? (rec.optionId ?? null) : null, correct: ok, isPretest };
     });
 
-    const result = { sessionId, totalQuestions: qids.length, totalCorrect, details };
+    // Calculate scorable questions (exclude pretest)
+    const scorableQids = qids.filter(qid => !pretestQids.has(Number(qid)));
+    const result = { sessionId, totalQuestions: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect, details };
 
     // Persist answers if we have an attempt
     try {
@@ -602,11 +616,13 @@ exports.submitAnswers = async (req, res) => {
         if (!partial) {
           const examSlug = (s && s.examType) || 'pmp';
           const examCfg = await getExamTypeBySlugOrDefault(examSlug);
-          const percent = qids.length ? (totalCorrect * 100.0) / qids.length : 0;
+          // Use scorableQids for percentage calculation (exclude pretest)
+          const scorableCount = scorableQids.length;
+          const percent = scorableCount > 0 ? (totalCorrect * 100.0) / scorableCount : 0;
           const aprovado = (examCfg && examCfg.pontuacaoMinima != null) ? (percent >= Number(examCfg.pontuacaoMinima)) : null;
           await db.ExamAttempt.update({
             Corretas: totalCorrect,
-            Total: qids.length,
+            Total: scorableCount, // store scorable count (excludes pretest)
             ScorePercent: percent,
             Aprovado: aprovado,
             Status: 'finished',
@@ -617,7 +633,7 @@ exports.submitAnswers = async (req, res) => {
     } catch (e) { console.warn('submitAnswers persistence warning:', e); }
 
     // For partial submissions, just acknowledge ok and include counts that were computed
-    if (partial) return res.json({ ok: true, sessionId, saved: (answers || []).length, totalKnown: qids.length, totalCorrect });
+    if (partial) return res.json({ ok: true, sessionId, saved: (answers || []).length, totalKnown: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect });
     return res.json(result);
   } catch (err) {
     console.error('Erro submitAnswers:', err);

@@ -60,6 +60,12 @@ async function getExamTypeBySlugOrDefault(slug) {
   return reg ? { ...reg, _dbId: null } : null;
 }
 
+// Read FULL_EXAM_QUESTION_COUNT from env with a safe default
+function getFullExamQuestionCount() {
+  const v = Number(process.env.FULL_EXAM_QUESTION_COUNT);
+  return Number.isFinite(v) && v > 0 ? v : 180;
+}
+
 exports.listExams = async (req, res) => {
   try {
     const types = await loadExamTypesFromDb();
@@ -105,13 +111,13 @@ exports.selectQuestions = async (req, res) => {
   const examCfg = await getExamTypeBySlugOrDefault(examType);
   let count = Number((req.body && req.body.count) || 0) || 0;
     if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
-    // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (ex.: 180), quiz when count <= 50
+    // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (or env-configured), quiz when count < full threshold
     let examMode = headerMode;
     try {
       if (!examMode) {
-        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : 180;
+        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : getFullExamQuestionCount();
         if (count >= fullThreshold) examMode = 'full';
-        else if (count > 0 && count <= 50) examMode = 'quiz';
+        else if (count > 0 && count < fullThreshold) examMode = 'quiz';
       }
     } catch(_) { /* keep null if inference fails */ }
 
@@ -140,6 +146,8 @@ exports.selectQuestions = async (req, res) => {
   const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
   const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
+  // Flag premium: somente questões inéditas
+  const onlyNew = (!bloqueio) && (req.body.onlyNew === true || req.body.onlyNew === 'true');
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
 
   // Build WHERE clause
@@ -154,6 +162,22 @@ exports.selectQuestions = async (req, res) => {
   if (dominios && dominios.length) whereClauses.push(`iddominio IN (${dominios.join(',')})`);
   if (areas && areas.length) whereClauses.push(`codareaconhecimento IN (${areas.join(',')})`);
   if (grupos && grupos.length) whereClauses.push(`codgrupoprocesso IN (${grupos.join(',')})`);
+  // Excluir questões já respondidas se onlyNew ativo (premium)
+  if (onlyNew) {
+    try {
+      const answeredSql = `SELECT DISTINCT aq.question_id AS qid
+        FROM exam_attempt_answer aa
+        JOIN exam_attempt_question aq ON aq.id = aa.attempt_question_id
+        JOIN exam_attempt a ON a.id = aq.attempt_id
+        WHERE a.user_id = :uid ${examCfg && examCfg._dbId ? 'AND a.exam_type_id = :etype' : ''}`;
+      const answeredRows = await sequelize.query(answeredSql, { replacements: { uid: user.Id || user.id, etype: examCfg ? examCfg._dbId : null }, type: sequelize.QueryTypes.SELECT });
+      const answeredIds = (answeredRows || []).map(r => Number(r.qid)).filter(n => Number.isFinite(n));
+      if (answeredIds.length) {
+        const limited = answeredIds.slice(0, 10000); // limite defensivo
+        whereClauses.push(`id NOT IN (${limited.join(',')})`);
+      }
+    } catch(e) { /* ignore */ }
+  }
   const whereSql = whereClauses.join(' AND ');
 
     // Count available (with exam_type when applicable)
@@ -180,58 +204,134 @@ exports.selectQuestions = async (req, res) => {
     if (available < 1) {
       return res.status(400).json({ error: 'Not enough questions available', available });
     }
-    const limitUsed = Math.min(count, available);
-    // Select random questions and join explicacaoguia to get the explanation text
-    // explicacaoguia.Descricao contains the explicacao and links by idquestao -> questao.id
-    const selectQ = `SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, eg."Descricao" AS explicacao
-      FROM questao q
-      LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
-      WHERE ${whereSqlUsed}
-      ORDER BY random()
-      LIMIT :limit`;
-    const questions = await sequelize.query(selectQ, { replacements: { limit: limitUsed }, type: sequelize.QueryTypes.SELECT });
+    // New selection path for full exam mode (distribution + pretest) else legacy random selection
+    let payloadQuestions = [];
+    let ids = [];
+    const FULL_TOTAL = count; // requested total (e.g. 180)
+    const PRETEST_COUNT_TARGET = (examMode === 'full') ? 5 : 0; // fixed 5 for full exam
+    const REGULAR_TARGET = Math.max(FULL_TOTAL - PRETEST_COUNT_TARGET, 0);
 
-    const ids = questions.map(q => q.id);
+    const baseQuestionSelect = (extraWhere, limit) => {
+      return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, eg."Descricao" AS explicacao
+        FROM questao q
+        LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
+        WHERE ${whereSqlUsed} ${extraWhere ? ' AND ' + extraWhere : ''}
+        ORDER BY random()
+        LIMIT :limit`, { replacements: { limit }, type: sequelize.QueryTypes.SELECT });
+    };
 
-    // Fetch options for selected questions (exclude excluded options)
-    let options = [];
-    if (ids.length) {
-      // Use the actual table/column names for RespostaOpcao (case-sensitive in this DB)
-      const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao, "IsCorreta" AS iscorreta
-        FROM respostaopcao
-        WHERE ("Excluido" = false OR "Excluido" IS NULL) AND "IdQuestao" IN (:ids)
-        ORDER BY random()`;
-      options = await sequelize.query(optsQ, { replacements: { ids }, type: sequelize.QueryTypes.SELECT });
-    }
+    if (examMode === 'full') {
+      // 1) Pretest questions (is_pretest = true)
+      const pretestRows = await baseQuestionSelect(`is_pretest = TRUE`, PRETEST_COUNT_TARGET);
+      const actualPretestCount = pretestRows.length;
 
-    // group options by question id
-    const optsByQ = {};
-    options.forEach(o => {
-      const qid = o.idquestao || o.IdQuestao || o.IdQuestao;
-      if (!optsByQ[qid]) optsByQ[qid] = [];
-      // do not include iscorreta in payload
-      optsByQ[qid].push({ id: o.id || o.Id, descricao: o.descricao || o.Descricao });
-    });
+      // 2) Regular distributed questions via ECO table (iddominiogeral share)
+      // Load ECO shares (id_dominio, share). Assume table eco with columns id_dominio (int) and share (numeric/percent)
+      let ecoShares = [];
+      try {
+        ecoShares = await sequelize.query(`SELECT id_dominio, share FROM eco`, { type: sequelize.QueryTypes.SELECT });
+      } catch (e) { ecoShares = []; }
 
-    // assemble payload
-    const payloadQuestions = questions.map(q => {
-      const slug = (q.tiposlug || '').toString().toLowerCase();
-      let type = null;
-      if (slug) {
-        if (slug === 'multi' || slug === 'multiple' || slug === 'checkbox') type = 'checkbox';
-        else if (slug === 'single' || slug === 'radio') type = 'radio';
-        else type = slug; // forward unknown slugs; front will fall back if not recognized
-      } else {
-        type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
+      // Compute allocations
+      let allocations = [];
+      if (ecoShares.length) {
+        const sumShare = ecoShares.reduce((s, r) => s + Number(r.share || 0), 0);
+        // Determine divisor: if sum looks like percentage (around 100) use 100; else use sumShare as weight total.
+        const divisor = (sumShare > 99 && sumShare < 101) ? 100 : (sumShare > 0 ? sumShare : 1);
+        // Preliminary allocation with fractional tracking
+        const prelim = ecoShares.map(r => {
+          const rawAlloc = (Number(r.share || 0) / divisor) * REGULAR_TARGET;
+          return { id_dominio: r.id_dominio, share: Number(r.share || 0), raw: rawAlloc, floor: Math.floor(rawAlloc), frac: rawAlloc - Math.floor(rawAlloc) };
+        });
+        let allocated = prelim.reduce((s, r) => s + r.floor, 0);
+        let remainder = REGULAR_TARGET - allocated;
+        // Distribute remainder by largest fractional part
+        prelim.sort((a, b) => b.frac - a.frac);
+        for (let i = 0; i < prelim.length && remainder > 0; i++, remainder--) prelim[i].floor++;
+        allocations = prelim.map(r => ({ id_dominio: r.id_dominio, count: r.floor })).filter(a => a.count > 0);
       }
-      return {
-        id: q.id || q.Id,
-        descricao: q.descricao || q.Descricao,
-        explicacao: q.explicacao || q.Explicacao,
-        type,
-        options: optsByQ[q.id] || []
-      };
-    });
+
+      // Fallback: if no ecoShares, select all remaining without distribution
+      if (!allocations.length) allocations = [{ id_dominio: null, count: REGULAR_TARGET }];
+
+      // Query per domain respecting availability and excluding pretest ids
+      let regularRows = [];
+      const excludeIds = new Set(pretestRows.map(r => r.id));
+      for (const alloc of allocations) {
+        if (alloc.count <= 0) continue;
+        const domWhere = alloc.id_dominio != null ? `iddominiogeral = ${Number(alloc.id_dominio)}` : null;
+        const extraWhereParts = [`is_pretest = FALSE`];
+        if (domWhere) extraWhereParts.push(domWhere);
+        if (excludeIds.size) extraWhereParts.push(`id NOT IN (${Array.from(excludeIds).join(',')})`);
+        const extraWhere = extraWhereParts.join(' AND ');
+        const rows = await baseQuestionSelect(extraWhere, alloc.count);
+        rows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });
+      }
+
+      // Top-up if shortage
+      const currentRegularCount = regularRows.length;
+      if (currentRegularCount < REGULAR_TARGET) {
+        const needed = REGULAR_TARGET - currentRegularCount;
+        const topUpWhereParts = [`is_pretest = FALSE`];
+        if (excludeIds.size) topUpWhereParts.push(`id NOT IN (${Array.from(excludeIds).join(',')})`);
+        const topUpWhere = topUpWhereParts.join(' AND ');
+        const topRows = await baseQuestionSelect(topUpWhere, needed);
+        topRows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });
+      }
+
+      // Combine and shuffle final order preserving pretest flag internally
+      const combined = [...pretestRows.map(r => ({ ...r, _isPreTest: true })), ...regularRows.map(r => ({ ...r, _isPreTest: false }))];
+      // Simple shuffle
+      for (let i = combined.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [combined[i], combined[j]] = [combined[j], combined[i]];
+      }
+      payloadQuestions = combined.map(q => {
+        const slug = (q.tiposlug || '').toString().toLowerCase();
+        let type = null;
+        if (slug) {
+          if (slug === 'multi' || slug === 'multiple' || slug === 'checkbox') type = 'checkbox';
+          else if (slug === 'single' || slug === 'radio') type = 'radio';
+          else type = slug;
+        } else {
+          type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
+        }
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, type, options: [] , _isPreTest: q._isPreTest };
+      });
+      ids = payloadQuestions.map(q => q.id);
+    } else {
+      // Legacy path (quiz or non-full)
+      const limitUsed = Math.min(count, available);
+      const questions = await baseQuestionSelect(null, limitUsed);
+      ids = questions.map(q => q.id);
+      // Fetch options
+      let options = [];
+      if (ids.length) {
+        const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao, "IsCorreta" AS iscorreta
+          FROM respostaopcao
+          WHERE ("Excluido" = false OR "Excluido" IS NULL) AND "IdQuestao" IN (:ids)
+          ORDER BY random()`;
+        options = await sequelize.query(optsQ, { replacements: { ids }, type: sequelize.QueryTypes.SELECT });
+      }
+      const optsByQ = {};
+      options.forEach(o => {
+        const qid = o.idquestao || o.IdQuestao;
+        if (!optsByQ[qid]) optsByQ[qid] = [];
+        optsByQ[qid].push({ id: o.id || o.Id, descricao: o.descricao || o.Descricao });
+      });
+      payloadQuestions = questions.map(q => {
+        const slug = (q.tiposlug || '').toString().toLowerCase();
+        let type = null;
+        if (slug) {
+          if (slug === 'multi' || slug === 'multiple' || slug === 'checkbox') type = 'checkbox';
+          else if (slug === 'single' || slug === 'radio') type = 'radio';
+          else type = slug;
+        } else {
+          type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
+        }
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, type, options: optsByQ[q.id] || [] };
+      });
+    }
 
     // generate session id and persist attempt with ordered questions
   const sessionId = genSessionId();
@@ -265,10 +365,10 @@ exports.selectQuestions = async (req, res) => {
             multiplaSelecao: examCfg.multiplaSelecao,
             pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
           },
-          FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
+          FiltrosUsados: { dominios, areas, grupos, onlyNew: !!onlyNew, fallbackIgnoreExamType: false },
         }, { transaction: t });
-        if (attempt && ids.length) {
-          const rows = ids.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));
+        if (attempt && payloadQuestions.length) {
+          const rows = payloadQuestions.map((q, idx) => ({ AttemptId: attempt.Id, QuestionId: q.id, Ordem: idx + 1, IsPreTest: q._isPreTest === true }));
           await db.ExamAttemptQuestion.bulkCreate(rows, { transaction: t });
         }
       });
@@ -375,6 +475,16 @@ exports.submitAnswers = async (req, res) => {
     }
     if (!qids.length) return res.status(400).json({ error: 'no valid questionIds' });
 
+    // Fetch IsPreTest flags for questions to exclude from scoring
+    let pretestQids = new Set();
+    if (attemptId) {
+      try {
+        const pretestQ = `SELECT "QuestionId" FROM exam_attempt_question WHERE "AttemptId" = :aid AND "IsPreTest" = TRUE`;
+        const pretestRows = await sequelize.query(pretestQ, { replacements: { aid: attemptId }, type: sequelize.QueryTypes.SELECT });
+        pretestQids = new Set((pretestRows || []).map(r => Number(r.QuestionId || r.questionid)).filter(n => Number.isFinite(n)));
+      } catch(e) { /* ignore if column doesn't exist yet */ }
+    }
+
     // fetch correct option ids from respostaopcao
     const correctQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao
       FROM respostaopcao
@@ -408,6 +518,7 @@ exports.submitAnswers = async (req, res) => {
 
     const details = qids.map(qid => {
       const rec = byQ.get(Number(qid));
+      const isPretest = pretestQids.has(Number(qid));
       let ok = false;
       if (rec && rec.typed) {
         ok = false; // typed grading engine TBD
@@ -420,11 +531,14 @@ exports.submitAnswers = async (req, res) => {
         const correctOpt = correctByQ[qid] || null;
         ok = !!(correctOpt && chosen != null && Number(chosen) === Number(correctOpt));
       }
-      if (ok) totalCorrect += 1;
-      return { questionId: Number(qid), chosenOptionId: (rec && rec.multi === false) ? (rec.optionId ?? null) : null, correct: ok };
+      // Only count toward score if not pretest
+      if (ok && !isPretest) totalCorrect += 1;
+      return { questionId: Number(qid), chosenOptionId: (rec && rec.multi === false) ? (rec.optionId ?? null) : null, correct: ok, isPretest };
     });
 
-    const result = { sessionId, totalQuestions: qids.length, totalCorrect, details };
+    // Calculate scorable questions (exclude pretest)
+    const scorableQids = qids.filter(qid => !pretestQids.has(Number(qid)));
+    const result = { sessionId, totalQuestions: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect, details };
 
     // Persist answers if we have an attempt
     try {
@@ -502,11 +616,13 @@ exports.submitAnswers = async (req, res) => {
         if (!partial) {
           const examSlug = (s && s.examType) || 'pmp';
           const examCfg = await getExamTypeBySlugOrDefault(examSlug);
-          const percent = qids.length ? (totalCorrect * 100.0) / qids.length : 0;
+          // Use scorableQids for percentage calculation (exclude pretest)
+          const scorableCount = scorableQids.length;
+          const percent = scorableCount > 0 ? (totalCorrect * 100.0) / scorableCount : 0;
           const aprovado = (examCfg && examCfg.pontuacaoMinima != null) ? (percent >= Number(examCfg.pontuacaoMinima)) : null;
           await db.ExamAttempt.update({
             Corretas: totalCorrect,
-            Total: qids.length,
+            Total: scorableCount, // store scorable count (excludes pretest)
             ScorePercent: percent,
             Aprovado: aprovado,
             Status: 'finished',
@@ -517,7 +633,7 @@ exports.submitAnswers = async (req, res) => {
     } catch (e) { console.warn('submitAnswers persistence warning:', e); }
 
     // For partial submissions, just acknowledge ok and include counts that were computed
-    if (partial) return res.json({ ok: true, sessionId, saved: (answers || []).length, totalKnown: qids.length, totalCorrect });
+    if (partial) return res.json({ ok: true, sessionId, saved: (answers || []).length, totalKnown: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect });
     return res.json(result);
   } catch (err) {
     console.error('Erro submitAnswers:', err);
@@ -552,13 +668,13 @@ exports.startOnDemand = async (req, res) => {
 
     const bloqueio = Boolean(user.BloqueioAtivado);
     if (bloqueio && count > 25) count = 25;
-    // Infer mode when header not provided: full when count >= blueprint total; quiz when count <= 50
+    // Infer mode when header not provided: full when count >= blueprint total; quiz when count < full threshold
     let examMode = headerMode;
     try {
       if (!examMode) {
-        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : 180;
+        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : getFullExamQuestionCount();
         if (count >= fullThreshold) examMode = 'full';
-        else if (count > 0 && count <= 50) examMode = 'quiz';
+        else if (count > 0 && count < fullThreshold) examMode = 'quiz';
       }
     } catch(_) { examMode = examMode || null; }
 

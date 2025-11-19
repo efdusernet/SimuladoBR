@@ -8,7 +8,9 @@ const app = express();
 // Security headers (CSP disabled initially to avoid breaking inline assets; can be tightened later)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(cors());
-app.use(express.json());
+// Increase JSON body limit to 10MB to support base64 images
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Conexão com DB e modelos
 const db = require('./models');
@@ -37,6 +39,8 @@ const fs = require('fs');
 
 // Protect admin pages before static middleware: only admins can fetch /pages/admin/* HTML files
 const requireAdmin = require('./middleware/requireAdmin');
+// Redirect /pages/admin/ to login
+app.get('/pages/admin/', (req, res) => res.redirect('/login'));
 app.use('/pages/admin', requireAdmin, express.static(path.join(FRONTEND_DIR, 'pages', 'admin')));
 
 // Friendly aliases for admin pages (HTML), protected
@@ -68,6 +72,8 @@ app.use('/api/questions', require('./routes/questions'));
 app.use('/api/meta', require('./routes/meta'));
 // Play Integrity
 app.use('/api/integrity', require('./routes/integrity'));
+// Indicators API
+app.use('/api/indicators', require('./routes/indicators'));
 // Admin: roles management (removed)
 // Mount debug routes (development only)
 app.use('/api/debug', require('./routes/debug'));

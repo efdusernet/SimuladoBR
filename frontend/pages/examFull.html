@@ -435,7 +435,8 @@
           const token = localStorage.getItem('sessionToken') || '';
           const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
           if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
-            window.location.assign('/login');
+            try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+            window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
             return;
           }
         } catch(e) {}
@@ -570,31 +571,47 @@
 
         try { if (typeof showToast === 'function') showToast('Exame finalizado. Dados locais limpos.'); } catch(_){ }
       }
-      // Modal de confirmação de finalização
-      function openFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display=''; m.setAttribute('aria-hidden','false'); } }
+      // Modal de confirmação de finalização (unificado)
+      function openFinishConfirm(){
+        // Calcula % de completude e injeta no modal unificado
+        try {
+          const totalQuestions = window.QUESTIONS ? window.QUESTIONS.length : 0;
+          let percent = 0;
+          if (totalQuestions > 0) {
+            let answeredCount = 0;
+            const answers = window.ANSWERS || {};
+            for (let i = 0; i < totalQuestions; i++) {
+              const q = window.QUESTIONS[i];
+              const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${i}`;
+              const a = answers[qKey];
+              if (a && ((a.optionId != null && a.optionId !== '') || (Array.isArray(a.optionIds) && a.optionIds.length > 0))) {
+                answeredCount++;
+              }
+            }
+            percent = (answeredCount / totalQuestions) * 100;
+          }
+          const sp = document.getElementById('completionPercent');
+          if (sp) sp.textContent = percent.toFixed(1) + '%';
+        } catch(_){ }
+        const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display=''; m.setAttribute('aria-hidden','false'); }
+      }
       function closeFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
       function attach(){
         const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
-  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', async ()=>{
+  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', ()=>{
     try { closeFinishConfirm(); } catch(_){ }
-    // submit to backend before clearing
-    try { if (window.submitExam) { await window.submitExam(); } } catch(e){ console.warn('submit on finalize failed', e); }
+    // Fluxo simplificado: sair sem salvar (sem enviar ao backend)
     try { clearExamData(); } catch(_){ }
-    // Decide redirect based on session state
     try {
       const token = localStorage.getItem('sessionToken') || '';
       const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
       const isGuest = token && token.endsWith('#');
       const isLogged = !!(token || hasIdentity) && !(isGuest && !hasIdentity);
-      if (isLogged) {
-        window.location.assign('/pages/examSetup.html');
-      } else {
-        window.location.assign('/login');
-      }
-    } catch(e){ window.location.assign('/login'); }
+      if (isLogged) { window.location.assign('/'); } else { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
+    } catch(e){ try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
   });
         const no = document.getElementById('finishConfirmNo'); if (no) no.addEventListener('click', closeFinishConfirm);
-        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeFinishConfirm(); });
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') { closeFinishConfirm(); } });
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach); else attach();
     })();
@@ -602,14 +619,20 @@
 
   <!-- Modal de confirmação para finalizar exame -->
   <div id="finishConfirmModal" class="modal" aria-hidden="true" style="display:none;">
-    <div class="modal-content" style="max-width:560px; padding:18px; text-align:center;">
-      <p style="margin:0;">Deseja encerrar o exame? Suas questões serão subetidas como estão, confirma?</p>
+    <div class="modal-content" style="max-width:600px; padding:20px; text-align:center;">
+      <p style="margin:0 0 16px 0; font-size:16px; line-height:1.5;">
+        <strong>Deseja mesmo encerrar o exame?</strong><br>
+        Você respondeu <strong id="completionPercent">0%</strong> das questões deste exame.<br>
+        Esta tentativa <strong>não será gravada</strong> na base de dados de exames realizados.<br><br>
+        Deseja mesmo sair?
+      </p>
       <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
-        <button id="finishConfirmYes" class="primary-btn" type="button">Sim</button>
-        <button id="finishConfirmNo" class="secondary-btn" type="button">Não</button>
+        <button id="finishConfirmYes" class="primary-btn" type="button" style="background:#dc3545;">Sim, sair sem salvar</button>
+        <button id="finishConfirmNo" class="secondary-btn" type="button">Não, continuar</button>
       </div>
     </div>
   </div>
+
 
   <!-- Marca a questão atual: salva JSON com { currentIdx, questionNumber, letter } em localStorage por sessão -->
   <script>

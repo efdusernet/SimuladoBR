@@ -115,6 +115,66 @@ Notas:
 - Parser de XML: `fast-xml-parser`.
 - DB: Postgres via Sequelize; migrações por SQL manual.
 
+## Questões Pré-Teste e Distribuição ECO (Implementado Nov 2025)
+
+### Conceito
+Para exames completos (modo `full`, 180 questões), o sistema agora:
+1. Seleciona **5 questões pré-teste** (`is_pretest = TRUE`) que **não contam para pontuação**.
+2. Seleciona **175 questões regulares** distribuídas proporcionalmente pela **tabela ECO** (campo `share` por `id_dominio`).
+
+### Estrutura de Dados
+
+**Tabela `questao`:**
+- `is_pretest BOOLEAN NOT NULL DEFAULT FALSE` — marca questões experimentais.
+
+**Tabela `exam_attempt_question`:**
+- `IsPreTest BOOLEAN NOT NULL DEFAULT FALSE` — marca questões pré-teste no attempt.
+
+**Tabela `eco`:**
+- `id_dominio INTEGER` — FK para `dominiogeral` (campo `iddominiogeral` em `questao`).
+- `share NUMERIC` — percentual ou peso da distribuição (ex: `20` = 20% das 175 questões).
+
+### Algoritmo de Seleção (Full Exam)
+
+1. **Pré-teste (5 questões):**
+   - `SELECT ... WHERE is_pretest = TRUE ORDER BY random() LIMIT 5`
+   - Exclui questões já respondidas pelo usuário (se `onlyNew` ativo).
+
+2. **Regular (175 questões):**
+   - Busca shares da tabela `eco`.
+   - Calcula alocação por domínio: `(share / soma_total) * 175`.
+   - Aplica arredondamento com redistribuição de restos por fração maior.
+   - Para cada domínio, seleciona questões: `WHERE is_pretest = FALSE AND iddominiogeral = X`.
+   - Se faltar questões em algum domínio, completa com top-up geral.
+
+3. **Combinação:**
+   - Embaralha pretest + regular para ordem aleatória.
+   - Persiste em `exam_attempt_question` com flag `IsPreTest`.
+
+### Cálculo de Pontuação
+
+Na submissão (`/api/exams/submit`):
+1. Busca flags `IsPreTest` de `exam_attempt_question`.
+2. Exclui questões pré-teste do contador `totalCorrect`.
+3. Calcula `scorePercent = (totalCorrect / scorableCount) * 100` onde `scorableCount = 175`.
+4. Persiste `Total = 175` (não 180) em `exam_attempt`.
+
+**Resposta JSON inclui:**
+- `totalQuestions: 180` — total incluindo pretest.
+- `totalScorableQuestions: 175` — questões que contam para pontuação.
+- `details[].isPretest: boolean` — flag por questão.
+
+### Fallbacks e Compatibilidade
+
+- Se tabela `eco` não existir ou estiver vazia: seleciona 175 aleatórias sem distribuição.
+- Se não houver 5 questões pré-teste disponíveis: usa quantas houver (não bloqueia exame).
+- Try-catch na busca de `IsPreTest` garante compatibilidade com DBs sem a coluna.
+- Modo legado (quiz, não-full) mantém seleção aleatória simples sem pretest.
+
+### Commits Relacionados
+- `bd6a340` — feat: implement pretest questions and ECO-based distribution
+- `743dbab` — fix: exclude pretest questions from scoring calculation
+
 ## Próximos passos sugeridos
 
 1) Segurança admin
@@ -131,6 +191,11 @@ Notas:
 
 5) Melhorias de UX admin
 - Validar campos e pré-visualização de alternativas; realçar conflitos (ex.: mais de uma correta para single).
+
+6) Gestão de Pré-Teste
+- Interface admin para marcar/desmarcar questões como pré-teste.
+- Dashboard de análise estatística para promover questões pré-teste (p-value, discriminação).
+- Configurar distribuição de pré-teste por domínio (evitar concentração).
 
 ## Como testar rápido
 

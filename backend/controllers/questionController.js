@@ -264,11 +264,12 @@ function normalizeQuestionJson(item, defaults){
 	const iddominiogeral = (o.iddominiogeral != null ? Number(o.iddominiogeral) : defaults.iddominiogeral);
 	const examTypeSlug = (o.examTypeSlug || o.examType || defaults.examTypeSlug || '').toString().toLowerCase();
 	const examTypeId = (o.examTypeId != null ? Number(o.examTypeId) : (defaults.examTypeId != null ? Number(defaults.examTypeId) : null));
+	const id_task = (o.id_task != null ? Number(o.id_task) : (defaults.id_task != null ? Number(defaults.id_task) : null));
 	const dica = o.dica != null ? String(o.dica) : (defaults.dica || null);
 	const descricao = String(o.descricao || o.texto || o.enunciado || '');
 	const options = Array.isArray(o.options) ? o.options : (Array.isArray(o.alternativas) ? o.alternativas.map(a=>({ descricao: a.texto||a.descricao||'', correta: !!a.correta })) : []);
 	const explicacao = (o.explicacao != null) ? String(o.explicacao) : null;
-	return { descricao, tiposlug, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, dica, options, examTypeSlug, examTypeId, explicacao };
+	return { descricao, tiposlug, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, id_task, dica, options, examTypeSlug, examTypeId, explicacao };
 }
 
 // Helper: parse XML payload into array of normalized questions
@@ -284,6 +285,7 @@ function parseQuestionsFromXml(xmlText){
 		codareaconhecimento: root.codareaconhecimento != null ? Number(root.codareaconhecimento) : undefined,
 		codgrupoprocesso: root.codgrupoprocesso != null ? Number(root.codgrupoprocesso) : undefined,
 		iddominiogeral: root.iddominiogeral != null ? Number(root.iddominiogeral) : undefined,
+		id_task: root.id_task != null ? Number(root.id_task) : undefined,
 		dica: root.dica != null ? String(root.dica) : undefined,
 	};
 	let arr = root.question || root.questao || [];
@@ -304,6 +306,7 @@ function parseQuestionsFromXml(xmlText){
 			codareaconhecimento: q.codareaconhecimento != null ? Number(q.codareaconhecimento) : undefined,
 			codgrupoprocesso: q.codgrupoprocesso != null ? Number(q.codgrupoprocesso) : undefined,
 			iddominiogeral: q.iddominiogeral != null ? Number(q.iddominiogeral) : undefined,
+			id_task: q.id_task != null ? Number(q.id_task) : undefined,
 			dica: q.dica != null ? String(q.dica) : undefined,
 			options,
 			examTypeSlug: (q.examType || q.exam_type || '').toString().toLowerCase() || '',
@@ -333,7 +336,7 @@ exports.bulkCreateQuestions = async (req, res) => {
 		}
 
 		// Normalize JSON payload
-		let defaults = { iddominio: undefined, codareaconhecimento: undefined, codgrupoprocesso: undefined, dica: undefined, examTypeSlug: undefined, examTypeId: undefined };
+		let defaults = { iddominio: undefined, codareaconhecimento: undefined, codgrupoprocesso: undefined, id_task: undefined, dica: undefined, examTypeSlug: undefined, examTypeId: undefined };
 		let items = [];
 		if (Array.isArray(payload)) {
 			items = payload.map(q => normalizeQuestionJson(q, defaults));
@@ -342,6 +345,7 @@ exports.bulkCreateQuestions = async (req, res) => {
 				iddominio: payload.iddominio != null ? Number(payload.iddominio) : undefined,
 				codareaconhecimento: payload.codareaconhecimento != null ? Number(payload.codareaconhecimento) : undefined,
 				codgrupoprocesso: payload.codgrupoprocesso != null ? Number(payload.codgrupoprocesso) : undefined,
+				id_task: payload.id_task != null ? Number(payload.id_task) : undefined,
 				dica: payload.dica != null ? String(payload.dica) : undefined,
 				examTypeSlug: (payload.examTypeSlug || payload.examType || '').toString().toLowerCase() || undefined,
 				examTypeId: payload.examTypeId != null ? Number(payload.examTypeId) : undefined,
@@ -391,6 +395,7 @@ exports.bulkCreateQuestions = async (req, res) => {
 				const codareaconhecimento = (q.codareaconhecimento != null ? Number(q.codareaconhecimento) : null);
 				const codgrupoprocesso = (q.codgrupoprocesso != null ? Number(q.codgrupoprocesso) : null);
 				const iddominiogeral = (q.iddominiogeral != null ? Number(q.iddominiogeral) : null);
+				const id_task = (q.id_task != null ? Number(q.id_task) : null);
 				const dica = q.dica || null;
 					const examTypeId = (q.examTypeId != null ? Number(q.examTypeId) : (q.examTypeSlug ? slugMap.get(String(q.examTypeSlug).toLowerCase()) : (defaults.examTypeId != null ? Number(defaults.examTypeId) : (defaults.examTypeSlug ? slugMap.get(String(defaults.examTypeSlug).toLowerCase()) : null))));
 					if (!Number.isFinite(examTypeId)) throw new Error('invalid or missing examType');
@@ -399,13 +404,13 @@ exports.bulkCreateQuestions = async (req, res) => {
 				const insertQ = `INSERT INTO public.questao (
 					iddominio, idstatus, descricao, datacadastro, dataalteracao,
 					criadousuario, alteradousuario, excluido, seed, nivel,
-					idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral
+					idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, id_task
 				) VALUES (
 					:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 					1, 1, false, false, 1,
-					NULL, :dica, :multipla, NULL, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral
+					NULL, :dica, :multipla, NULL, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :id_task
 				) RETURNING id`;
-				const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: examTypeId, iddominiogeral }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: examTypeId, iddominiogeral, id_task }, type: sequelize.QueryTypes.INSERT, transaction: t });
 					const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
 					const qid = insertedRow && insertedRow.id ? Number(insertedRow.id) : null;
 					if (!qid) throw new Error('Could not retrieve question id');

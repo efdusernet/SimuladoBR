@@ -155,6 +155,7 @@
       </div>
       <div>
         <label for="idtask">Task (opcional)</label>
+        <input type="text" id="idtaskFilter" placeholder="Filtrar tasks..." style="margin-bottom:6px;" />
         <select id="idtask"></select>
       </div>
     </div>
@@ -260,6 +261,7 @@
         </div>
         <div>
           <label for="idtaskNav">Task (opcional)</label>
+          <input type="text" id="idtaskNavFilter" placeholder="Filtrar tasks..." style="margin-bottom:6px;" />
           <select id="idtaskNav"></select>
         </div>
       </div>
@@ -670,9 +672,33 @@
           o.textContent = t.descricao || 'N/A';
           sel.appendChild(o);
         });
+        // Attach filter if matching filter input exists
+        attachTaskFilter(targetId, targetId === 'idtask' ? 'idtaskFilter' : (targetId === 'idtaskNav' ? 'idtaskNavFilter' : null));
       } catch(e) {
         console.error('[loadTasks] error:', e);
       }
+    }
+
+    function attachTaskFilter(selectId, filterId){
+      if (!filterId) return;
+      const sel = $(selectId);
+      const inp = $(filterId);
+      if (!sel || !inp) return;
+      let debounceTimer = null;
+      const apply = ()=>{
+        const term = inp.value.trim().toLowerCase();
+        Array.from(sel.options).forEach(opt => {
+          if (!opt.value) { opt.hidden = false; return; }
+          const txt = (opt.textContent || '').toLowerCase();
+          opt.hidden = term && !txt.includes(term);
+        });
+        // If current selection is hidden, reset to placeholder
+        if (sel.selectedOptions.length && sel.selectedOptions[0].hidden){ sel.selectedIndex = 0; }
+      };
+      inp.addEventListener('input', ()=>{
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(apply, 120);
+      });
     }
 
     $('save').onclick = async function(){

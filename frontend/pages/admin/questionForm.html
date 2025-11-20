@@ -296,6 +296,27 @@
     const $ = (id)=> document.getElementById(id);
     const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
 
+    // Simple cache to avoid spamming meta endpoints and hitting 429
+    const metaCache = Object.create(null);
+    const metaInflight = Object.create(null);
+    async function fetchMetaOnce(key, path){
+      if (metaCache[key]) return metaCache[key];
+      if (metaInflight[key]) return metaInflight[key];
+      const url = (BACKEND_BASE || '').replace(/\/$/, '') + path;
+      metaInflight[key] = (async ()=>{
+        const resp = await fetch(url);
+        if (!resp.ok){
+          // propagate textual error for debugging
+          const txt = await resp.text().catch(()=> '');
+          throw new Error(`GET ${path} failed: ${resp.status} ${txt}`);
+        }
+        const data = await resp.json();
+        metaCache[key] = data;
+        return data;
+      })().finally(()=>{ delete metaInflight[key]; });
+      return metaInflight[key];
+    }
+
     // Image upload handlers
     function setupImageUpload(fileInputId, urlInputId, previewId) {
       const fileInput = $(fileInputId);
@@ -464,8 +485,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/exams/types');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('examTypes', '/api/exams/types');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -488,8 +508,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/dominios-geral');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('dominiogeral', '/api/meta/dominios-geral');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -511,8 +530,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/dominios');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('dominios', '/api/meta/dominios');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -533,8 +551,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/areas');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('areas', '/api/meta/areas');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -555,8 +572,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/grupos');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('grupos', '/api/meta/grupos');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -577,8 +593,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/principios');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('principios', '/api/meta/principios');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -599,8 +614,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/categorias');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('categorias', '/api/meta/categorias');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -621,8 +635,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/niveis-dificuldade');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('niveis', '/api/meta/niveis-dificuldade');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -643,8 +656,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/tasks');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('tasks', '/api/meta/tasks');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -653,8 +665,8 @@
         (list || []).forEach(t => {
           const o = document.createElement('option');
           o.value = t.id;
-          // Backend already formats: dominioDesc - id - taskDesc
-          // Use it directly for display
+          // Backend already sends formatted string: "Task <numero> <dominio> <descricao>"
+          // So we just use t.descricao directly
           o.textContent = t.descricao || 'N/A';
           sel.appendChild(o);
         });

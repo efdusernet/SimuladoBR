@@ -5,6 +5,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 const questionController = require('../controllers/questionController');
 const requireAdmin = require('../middleware/requireAdmin');
+const requireUserSession = require('../middleware/requireUserSession');
 
 // Create a new question (with optional options)
 // Body: {
@@ -20,6 +21,9 @@ const requireAdmin = require('../middleware/requireAdmin');
 router.post('/', requireAdmin, questionController.createQuestion);
 
 // List and get by id
+// Public (authenticated user) read-only view of a single question (no admin role required)
+router.get('/view/:id', requireUserSession, questionController.getQuestionById);
+
 router.get('/', requireAdmin, questionController.listQuestions);
 router.get('/:id', requireAdmin, questionController.getQuestionById);
 

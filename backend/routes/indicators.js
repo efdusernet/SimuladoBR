@@ -15,5 +15,6 @@ router.get('/total-hours', auth, indicatorController.getTotalHours);
 router.get('/process-group-stats', auth, indicatorController.getProcessGroupStats);
 router.get('/area-knowledge-stats', auth, indicatorController.getAreaConhecimentoStats);
 router.get('/approach-stats', auth, indicatorController.getAbordagemStats);
+router.get('/details-last', auth, indicatorController.getDetailsLast);
 
 module.exports = router;

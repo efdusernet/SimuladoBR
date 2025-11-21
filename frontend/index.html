@@ -103,6 +103,14 @@
     </style>
 </head>
 <body>
+    <!-- Admin quick menu (rendered only if user has admin role) -->
+    <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="display:none;position:fixed;top:12px;left:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.10);font-size:.85rem;font-weight:600;">Admin ▾</button>
+    <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">
+        <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão</a>
+        <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
+        <button id="btnAdminPurge" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#b91c1c;font-size:.85rem;border-radius:6px;cursor:pointer;">Expurgar tentativas abandonadas</button>
+        <button id="btnAdminMarkAbandoned" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#dc2626;font-size:.85rem;border-radius:6px;cursor:pointer;">Marcar abandonadas (inatividade)</button>
+    </nav>
     <!-- i18n constants (can be extended or replaced per locale) -->
     <script>
         window.SIMULADOS_I18N = Object.assign({
@@ -113,6 +121,80 @@
             LABEL_FINISHED_AT: 'Finalizado em',
             LABEL_DURATION: 'Duração'
         }, window.SIMULADOS_I18N || {});
+    </script>
+    <!-- Admin menu logic: detect admin by probing an admin-only endpoint -->
+    <script>
+    (function initAdminMenu(){
+        const btn = document.getElementById('adminMenuBtn');
+        const panel = document.getElementById('adminMenuPanel');
+        if (!btn || !panel) return;
+        const token = (localStorage.getItem('sessionToken') || '').trim();
+        if (!token) return; // no session => skip
+        // Helper: append ?sessionToken= fallback if cookies not set
+        function applyTokenFallback(){
+            try {
+                const q = encodeURIComponent(token);
+                ['lnkAdminCadastrar','lnkAdminBulk'].forEach(id => {
+                    const a = document.getElementById(id); if (!a) return;
+                    const href = a.getAttribute('href') || '';
+                    if (href.includes('sessionToken=')) return;
+                    const sep = href.includes('?') ? '&' : '?';
+                    a.setAttribute('href', href + sep + 'sessionToken=' + q);
+                });
+            } catch(_){}
+        }
+        // Probe a lightweight admin-only endpoint to confirm role
+        const probeUrl = '/api/questions?page=1&pageSize=1&order=id%20asc';
+        fetch(probeUrl, { headers: { 'X-Session-Token': token }, method: 'GET' })
+          .then(r => {
+              if (!r.ok) return; // not admin
+              // Success => show menu
+              btn.style.display = 'inline-flex';
+              // Provide fallback token if cookies absent
+              applyTokenFallback();
+              function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+              function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+              btn.addEventListener('click', e => {
+                  e.stopPropagation();
+                  if (panel.style.display === 'block') close(); else open();
+              });
+              document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) close(); });
+
+              // Wire admin lifecycle actions
+              const purgeBtn = document.getElementById('btnAdminPurge');
+              const markBtn = document.getElementById('btnAdminMarkAbandoned');
+              function getToken(){ return (localStorage.getItem('sessionToken')||'').trim(); }
+              async function adminPost(path){
+                  const tk = getToken();
+                  const resp = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':tk}});
+                  const data = await resp.json().catch(()=>({}));
+                  return {ok:resp.ok,status:resp.status,data};
+              }
+              if (purgeBtn){
+                  purgeBtn.addEventListener('click', async ()=>{
+                      if (!confirm('Confirma expurgo de tentativas abandonadas conforme política? Esta ação é permanente.')) return;
+                      purgeBtn.disabled = true; purgeBtn.textContent = 'Expurgando...';
+                      try {
+                          const r = await adminPost('/api/admin/exams/purge-abandoned');
+                          alert(r.ok ? `Expurgo: ${r.data.purged} purgadas (inspecionadas ${r.data.inspected}).` : `Falhou (${r.status}).`);
+                      } catch(e){ alert('Erro ao expurgar: '+ e); }
+                      purgeBtn.disabled = false; purgeBtn.textContent = 'Expurgar tentativas abandonadas';
+                  });
+              }
+              if (markBtn){
+                  markBtn.addEventListener('click', async ()=>{
+                      if (!confirm('Executar marcação de tentativas abandonadas por inatividade?')) return;
+                      markBtn.disabled = true; markBtn.textContent = 'Marcando...';
+                      try {
+                          const r = await adminPost('/api/admin/exams/mark-abandoned');
+                          alert(r.ok ? `Marcadas: timeout=${r.data.markedTimeout}, lowProgress=${r.data.markedLowProgress} (processadas ${r.data.processed}).` : `Falhou (${r.status}).`);
+                      } catch(e){ alert('Erro ao marcar: ' + e); }
+                      markBtn.disabled = false; markBtn.textContent = 'Marcar abandonadas (inatividade)';
+                  });
+              }
+          })
+          .catch(()=>{});
+    })();
     </script>
     <!-- Test button for lastExamResults (cycles through performance levels) -->
     <button id="lastExamTestBtn" aria-label="Testar últimos exames" title="Clicar para simular próximos níveis" style="position:fixed;right:12px;top:12px;z-index:2200;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.08);">Simular: OFF</button>

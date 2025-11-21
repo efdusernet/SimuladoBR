@@ -281,6 +281,15 @@ exports.selectQuestions = async (req, res) => {
 
       // Combine, then fetch options once for all selected IDs
       const combined = [...pretestRows.map(r => ({ ...r, _isPreTest: true })), ...regularRows.map(r => ({ ...r, _isPreTest: false }))];
+      // Debug: log imagem_url presence for question 266 before shuffling
+      try {
+        const dbgQ266 = combined.find(q => q && Number(q.id) === 266);
+        if (dbgQ266) {
+          console.debug('[selectQuestions] pre-shuffle Q266 imagem_url raw length=', dbgQ266.imagem_url ? String(dbgQ266.imagem_url).length : 0, 'startsWith(data:)', /^data:/i.test(String(dbgQ266.imagem_url||'')), 'prefix50=', dbgQ266.imagem_url ? String(dbgQ266.imagem_url).slice(0,50) : null);
+        } else {
+          console.debug('[selectQuestions] Q266 not found in combined set (full mode)');
+        }
+      } catch(_) {}
       // Shuffle order
       for (let i = combined.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -316,6 +325,11 @@ exports.selectQuestions = async (req, res) => {
         }
         return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [], _isPreTest: q._isPreTest };
       });
+      // Debug: after initial mapping, log q266 again
+      try {
+        const mappedQ266 = payloadQuestions.find(q => q && Number(q.id) === 266);
+        if (mappedQ266) console.debug('[selectQuestions] mapped Q266 imagem_url length=', mappedQ266.imagem_url ? String(mappedQ266.imagem_url).length : 0);
+      } catch(_) {}
       ids = allIds;
     } else {
       // Legacy path (quiz or non-full)
@@ -349,6 +363,10 @@ exports.selectQuestions = async (req, res) => {
         }
         return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [] };
       });
+      try {
+        const mappedQ266 = payloadQuestions.find(q => q && Number(q.id) === 266);
+        if (mappedQ266) console.debug('[selectQuestions] (legacy) mapped Q266 imagem_url length=', mappedQ266.imagem_url ? String(mappedQ266.imagem_url).length : 0);
+      } catch(_) {}
     }
 
     // generate session id and persist attempt with ordered questions
@@ -370,6 +388,7 @@ exports.selectQuestions = async (req, res) => {
           QuantidadeQuestoes: payloadQuestions.length,
           ExamMode: examMode || null,
           StartedAt: new Date(),
+          LastActivityAt: new Date(),
           Status: 'in_progress',
           PauseState: pauseState,
           Meta: { sessionId, source: 'select', examType: examCfg.id, examMode: examMode || null },
@@ -418,7 +437,40 @@ exports.selectQuestions = async (req, res) => {
       multiplaSelecao: examCfg.multiplaSelecao,
     };
 
-  return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, examMode: examMode || null, attemptId: attempt ? attempt.Id : null, exam: blueprint, questions: payloadQuestions });
+    // Enrichment: always load imagem_url for all selected ids (covers cases where base SELECT dropped or returned null)
+    try {
+      const allIdsForImg = (payloadQuestions || []).map(q => Number(q.id)).filter(n => Number.isFinite(n));
+      if (allIdsForImg.length) {
+        const imgRows = await sequelize.query('SELECT id, imagem_url FROM public.questao WHERE id IN (:ids)', {
+          replacements: { ids: allIdsForImg },
+          type: sequelize.QueryTypes.SELECT,
+        });
+        const imgById = new Map((imgRows || []).map(r => [Number(r.id), (r.imagem_url != null && r.imagem_url !== '') ? String(r.imagem_url) : null]));
+        payloadQuestions = (payloadQuestions || []).map(q => {
+          if (!q) return q;
+          const fresh = imgById.get(Number(q.id));
+          // Precedence: use non-empty fresh value over existing; keep both aliases synced
+          const finalImg = fresh || q.imagem_url || q.imagemUrl || null;
+          return { ...q, imagem_url: finalImg, imagemUrl: finalImg };
+        });
+        // Debug after enrichment for Q266
+        try {
+          const enrichedQ266 = payloadQuestions.find(q => q && Number(q.id) === 266);
+          if (enrichedQ266) console.debug('[selectQuestions] enriched Q266 imagem_url length=', enrichedQ266.imagem_url ? String(enrichedQ266.imagem_url).length : 0, 'prefix50=', enrichedQ266.imagem_url ? String(enrichedQ266.imagem_url).slice(0,50) : null);
+        } catch(_) {}
+      }
+    } catch(e) { /* ignore enrichment errors */ }
+
+    // Optional debug header: if client sends X-Debug-Images:true add lengths summary
+    const wantDebugImages = String(req.get('X-Debug-Images') || '').toLowerCase() === 'true';
+    if (wantDebugImages) {
+      try {
+        const dbg = payloadQuestions.filter(q => q && q.id).map(q => ({ id: q.id, len: q.imagem_url ? String(q.imagem_url).length : 0 }));
+        res.set('X-Images-Debug', encodeURIComponent(JSON.stringify(dbg.slice(0, 50))));
+      } catch(_) {}
+    }
+
+    return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, examMode: examMode || null, attemptId: attempt ? attempt.Id : null, exam: blueprint, questions: payloadQuestions });
   } catch (err) {
     console.error('Erro selectQuestions:', err);
     return res.status(500).json({ error: 'Internal error' });
@@ -631,6 +683,12 @@ exports.submitAnswers = async (req, res) => {
         }
 
         // Score and finish attempt only if not partial
+        // Always refresh LastActivityAt on any submission
+        if (attemptId) {
+          try {
+            await db.ExamAttempt.update({ LastActivityAt: new Date() }, { where: { Id: attemptId } });
+          } catch(_) { /* ignore activity update errors */ }
+        }
         if (!partial) {
           const examSlug = (s && s.examType) || 'pmp';
           const examCfg = await getExamTypeBySlugOrDefault(examSlug);
@@ -645,6 +703,8 @@ exports.submitAnswers = async (req, res) => {
             Aprovado: aprovado,
             Status: 'finished',
             FinishedAt: new Date(),
+            StatusReason: 'user_finish',
+            LastActivityAt: new Date(),
           }, { where: { Id: attemptId } });
         }
       }
@@ -739,6 +799,7 @@ exports.startOnDemand = async (req, res) => {
         QuantidadeQuestoes: questionIds.length,
         ExamMode: examMode || null,
         StartedAt: new Date(),
+        LastActivityAt: new Date(),
         Status: 'in_progress',
         PauseState: pauseState,
         Meta: { sessionId, source: 'on-demand', examType: examCfg.id, examMode: examMode || null },
@@ -1114,6 +1175,92 @@ exports.resumeSession = async (req, res) => {
       return res.json(out);
     } catch (err) {
       console.error('Erro lastAttemptsHistory:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  };
+
+  // POST /api/admin/exams/mark-abandoned
+  // Marks in-progress attempts as abandoned based on inactivity and low progress rules.
+  exports.markAbandonedAttempts = async (req, res) => {
+    try {
+      const db = require('../models');
+      const policies = require('../config/examPolicies');
+      const { computeAttemptProgress } = require('../utils/examProgress');
+      const now = Date.now();
+      const batchLimit = policies.BATCH_LIMIT || 250;
+      const attempts = await db.ExamAttempt.findAll({ where: { Status: 'in_progress' }, order: [['StartedAt', 'ASC']], limit: batchLimit });
+      let processed = 0; let markedTimeout = 0; let markedLowProgress = 0;
+      for (const attempt of attempts) {
+        processed++;
+        const lastActivity = attempt.LastActivityAt || attempt.StartedAt || new Date();
+        const hoursSinceActivity = (now - new Date(lastActivity).getTime()) / 3600000;
+        const isFull = String(attempt.ExamMode || '').toLowerCase() === 'full';
+        const inactivityLimit = isFull ? policies.INACTIVITY_TIMEOUT_FULL_HOURS : policies.INACTIVITY_TIMEOUT_DEFAULT_HOURS;
+        const progress = await computeAttemptProgress(db, attempt.Id);
+        const respondedPercent = progress.respondedPercent;
+        let reason = null;
+        if (hoursSinceActivity >= inactivityLimit) {
+          reason = 'timeout_inactivity'; markedTimeout++;
+        } else if (hoursSinceActivity >= policies.ABANDON_THRESHOLD_INACTIVITY_HOURS && respondedPercent < policies.ABANDON_THRESHOLD_PERCENT) {
+          reason = 'abandoned_low_progress'; markedLowProgress++;
+        }
+        if (reason) {
+          await db.ExamAttempt.update({ Status: 'abandoned', StatusReason: reason }, { where: { Id: attempt.Id } });
+        }
+      }
+      return res.json({ ok: true, processed, markedTimeout, markedLowProgress });
+    } catch (err) {
+      console.error('Erro markAbandonedAttempts:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  };
+
+  // POST /api/admin/exams/purge-abandoned
+  // Purges abandoned attempts older than policy age and low progress threshold.
+  exports.purgeAbandonedAttempts = async (req, res) => {
+    try {
+      const db = require('../models');
+      const policies = require('../config/examPolicies');
+      const { computeAttemptProgress } = require('../utils/examProgress');
+      const now = Date.now();
+      const cutoffMs = now - policies.PURGE_AFTER_DAYS * 86400000;
+      const batchLimit = policies.BATCH_LIMIT || 250;
+      const attempts = await db.ExamAttempt.findAll({ where: { Status: 'abandoned' }, order: [['StartedAt', 'ASC']], limit: batchLimit });
+      let inspected = 0; let purged = 0;
+      for (const attempt of attempts) {
+        inspected++;
+        const startedMs = new Date(attempt.StartedAt || new Date()).getTime();
+        if (startedMs > cutoffMs) continue;
+        const progress = await computeAttemptProgress(db, attempt.Id);
+        if (progress.respondedPercent >= policies.PURGE_LOW_PROGRESS_PERCENT) continue;
+        const snapshot = {
+          attempt_id: attempt.Id,
+          user_id: attempt.UserId || null,
+          exam_type_id: attempt.ExamTypeId || null,
+          exam_mode: attempt.ExamMode || null,
+          quantidade_questoes: attempt.QuantidadeQuestoes || null,
+          responded_count: progress.respondedCount,
+          responded_percent: progress.respondedPercent,
+          status_before: attempt.Status,
+          status_reason_before: attempt.StatusReason || null,
+          started_at: attempt.StartedAt || null,
+          finished_at: attempt.FinishedAt || null,
+          purge_reason: 'policy',
+          meta: attempt.Meta || null,
+        };
+        await db.sequelize.transaction(async (t) => {
+          await db.ExamAttemptPurgeLog.create(snapshot, { transaction: t });
+          const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attempt.Id }, attributes: ['Id'], transaction: t });
+          const aqIds = aqRows.map(r => r.Id);
+          if (aqIds.length) await db.ExamAttemptAnswer.destroy({ where: { AttemptQuestionId: aqIds }, transaction: t });
+          await db.ExamAttemptQuestion.destroy({ where: { AttemptId: attempt.Id }, transaction: t });
+          await db.ExamAttempt.destroy({ where: { Id: attempt.Id }, transaction: t });
+        });
+        purged++;
+      }
+      return res.json({ ok: true, inspected, purged });
+    } catch (err) {
+      console.error('Erro purgeAbandonedAttempts:', err);
       return res.status(500).json({ error: 'Internal error' });
     }
   };

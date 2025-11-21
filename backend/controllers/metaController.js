@@ -71,11 +71,11 @@ exports.listTasks = async (req, res) => {
     // Return as id, descricao (formatted) to keep frontend compatibility
     const rows = await sequelize.query(
       `SELECT t.id,
-              (COALESCE(dg.descricao,'') || ' - ' || t.numero || ' - ' || t.descricao) AS descricao
+              (COALESCE(dg.descricao,'') ||' - Task ' || t.numero || ' | - ' || t.descricao) AS descricao
          FROM public."Tasks" t
          LEFT JOIN public.dominiogeral dg ON dg.id = t.id_dominio
         WHERE t.ativo = TRUE
-        ORDER BY t.id`,
+        ORDER BY t.id_dominio`,
       { type: sequelize.QueryTypes.SELECT }
     );
     return res.json(rows || []);

@@ -148,7 +148,15 @@
           const wrap = document.getElementById('questionImageWrapper'); if (!wrap) return;
           const qs = resolveQuestions(); const idx = currentIndex(); const q = (idx>=0 && idx < qs.length)? qs[idx] : null;
           const raw = q && (q.imagemUrl || q.imagem_url || q.imageUrl || q.image_url) || '';
-          const src = buildSrc(raw);
+          let src = buildSrc(raw);
+          if (!src) {
+            try {
+              const qt = document.getElementById('questionText');
+              const inlineImg = qt ? qt.querySelector('img') : null;
+              const inlineSrc = inlineImg ? inlineImg.getAttribute('src') : null;
+              if (inlineSrc) src = buildSrc(inlineSrc);
+            } catch(_) { /* ignore */ }
+          }
           // If no image, hide wrapper
           if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
           // (Re)create element (avoid reusing stale <img> after question change)

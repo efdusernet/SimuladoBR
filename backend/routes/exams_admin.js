@@ -186,11 +186,11 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
                         INSERT INTO exam_attempt_user_stats (
                             user_id, date, started_count, finished_count, abandoned_count,
                             timeout_count, low_progress_count, purged_count, avg_score_percent,
-                            created_at, updated_at
+                            updated_at
                         ) VALUES (
                             :userId, :date, :started, :finished, :abandoned,
                             :timeout, :lowProgress, :purged, :avgScore,
-                            NOW(), NOW()
+                            NOW()
                         )
                         ON CONFLICT (user_id, date) DO UPDATE SET
                             started_count = exam_attempt_user_stats.started_count + :started,

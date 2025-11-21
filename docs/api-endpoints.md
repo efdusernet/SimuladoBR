@@ -1,5 +1,7 @@
 # API de Exames — Endpoints e Uso Rápido
 
+> Documentação complementar: ver `docs/estatisticas-tentativas.md` para detalhes completos do sistema de estatísticas diárias (iniciadas, finalizadas, abandonadas, expurgadas, médias de score e fórmulas de taxas) e da aba "Estatísticas" no frontend.
+
 Este documento resume os endpoints principais sob `/api/exams`, com propósito, payloads e onde são chamados no frontend.
 
 Observações gerais

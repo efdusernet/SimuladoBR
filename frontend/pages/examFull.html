@@ -37,15 +37,6 @@
               Marcar questão
             </button>
 
-            <button class="-ml-px border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bhighlight">
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <!-- Highlighter marker icon -->
-                <path d="M14 3.2L3.2 14 2 22l8-1.2L22.8 10 14 3.2z"></path>
-                <path d="M2 22h10v2H2z"></path>
-              </svg>
-              Destacar questão
-            </button>
-
             <button class="-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bgrid">
               <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <!-- Grid icon (3x3 squares) -->
@@ -144,6 +135,56 @@
         }
         return s; // fallback (may 404)
       }
+      // Silent enrichment helpers to recover missing imagemUrl
+      const _imgEnrichment = { inflight: Object.create(null), cache: Object.create(null) };
+      function getSessionId(){ try { return window.currentSessionId || null; } catch(_) { return null; } }
+      function patchQuestionInStorage(id, fields){
+        try {
+          let patched = false;
+          if (Array.isArray(window.QUESTIONS)){
+            const i = window.QUESTIONS.findIndex(q => q && q.id === id);
+            if (i >= 0) { window.QUESTIONS[i] = Object.assign({}, window.QUESTIONS[i], fields); patched = true; }
+          }
+          const sid = getSessionId();
+          if (sid){
+            const key = `questions_${sid}`;
+            const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(key) : localStorage.getItem(key);
+            if (raw){
+              try {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)){
+                  const j = arr.findIndex(q => q && q.id === id);
+                  if (j >= 0) { arr[j] = Object.assign({}, arr[j], fields); patched = true; }
+                  localStorage.setItem(key, JSON.stringify(arr));
+                }
+              } catch(_){ }
+            }
+          }
+          return patched;
+        } catch(_) { return false; }
+      }
+      async function fetchQuestionForImage(id){
+        try {
+          if (!Number.isFinite(id)) return null;
+          if (_imgEnrichment.cache[id]) return _imgEnrichment.cache[id];
+          if (_imgEnrichment.inflight[id]) return await _imgEnrichment.inflight[id];
+          const token = (localStorage.getItem('sessionToken') || '').trim();
+          const doFetch = async () => {
+            const tryUrls = [`/api/questions/view/${id}`, `/api/questions/${id}`];
+            for (let k=0; k<tryUrls.length; k++){
+              try {
+                const r = await fetch(tryUrls[k], { headers: token ? { 'X-Session-Token': token } : {} });
+                if (r && r.ok){ const q = await r.json(); return q; }
+              } catch(_){ }
+            }
+            return null;
+          };
+          _imgEnrichment.inflight[id] = doFetch().finally(()=>{ delete _imgEnrichment.inflight[id]; });
+          const data = await _imgEnrichment.inflight[id];
+          if (data) _imgEnrichment.cache[id] = data;
+          return data;
+        } catch(_) { return null; }
+      }
       // Adiciona lógica de pré-visualização reutilizada do questionForm
       function showImagePreview(wrapper, src){
         if (!wrapper) return;
@@ -227,6 +268,19 @@
             } else {
               wrap.style.display='none';
               wrap.innerHTML='';
+            }
+            // Attempt silent enrichment to recover image if server has it
+            if (q && q.id){
+              fetchQuestionForImage(q.id).then(data => {
+                try {
+                  const url = data && (data.imagemUrl || data.imagem_url);
+                  if (url){
+                    patchQuestionInStorage(q.id, { imagemUrl: url, imagem_url: url });
+                    const enriched = buildSrc(url);
+                    if (enriched) showImagePreview(wrap, enriched);
+                  }
+                } catch(_){ }
+              }).catch(()=>{});
             }
             return;
           }

@@ -61,6 +61,7 @@
 
       <article class="question-content" id="questionContent">
         <p id="questionText" class="question-text">Carregando pergunta...</p>
+        <div id="questionImageWrapper" style="display:none; margin:12px 0 16px; text-align:center;"></div>
 
         <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
           <div id="answersContainer"></div>
@@ -96,6 +97,47 @@
     } catch (e) {
       console.warn('Falha ao definir variáveis de sessão:', e);
     }
+  </script>
+  <!-- Exibir imagem da questão (campo imagem_url / imagemUrl) abaixo do enunciado -->
+  <script>
+    (function(){
+      function resolveQuestions(){
+        try {
+          if (Array.isArray(window.QUESTIONS)) return window.QUESTIONS;
+          const sid = window.currentSessionId || null; if (!sid) return [];
+          const raw = localStorage.getItem(`questions_${sid}`);
+          if (!raw) return [];
+          const arr = JSON.parse(raw); return Array.isArray(arr)? arr : [];
+        } catch(_) { return []; }
+      }
+      function currentIndex(){
+        try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : 0; } catch(_) { return 0; }
+      }
+      function buildSrc(str){
+        if (!str) return null;
+        const s = String(str).trim();
+        if (!s) return null;
+        if (/^data:image\//i.test(s)) return s;
+        if (/^https?:\/\//i.test(s) || s.startsWith('/')) return s;
+        if (/^data:/i.test(s)) return s;
+        if (/^[A-Za-z0-9+/=]+$/.test(s) && s.length > 100) return 'data:image/png;base64,' + s;
+        return s;
+      }
+      function renderImage(){
+        try {
+          const wrap = document.getElementById('questionImageWrapper'); if (!wrap) return;
+          const qs = resolveQuestions(); const idx = currentIndex(); const q = (idx>=0 && idx < qs.length)? qs[idx] : null;
+          const raw = q && (q.imagemUrl || q.imagem_url || q.imageUrl || q.image_url) || '';
+          const src = buildSrc(raw);
+          if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+          const img = document.createElement('img');
+          img.src = src; img.alt='Imagem ilustrativa da questão'; img.style.maxWidth='680px'; img.style.width='100%'; img.style.height='auto'; img.style.border='1px solid #e2e8f0'; img.style.background='#fff'; img.style.borderRadius='6px'; img.style.boxShadow='0 1px 2px rgba(0,0,0,0.06)'; img.decoding='async'; img.loading='lazy';
+          wrap.innerHTML=''; wrap.appendChild(img); wrap.style.display='block';
+        } catch(_){}
+      }
+      document.addEventListener('exam:question-index-changed', renderImage);
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(renderImage,120)); else setTimeout(renderImage,120);
+    })();
   </script>
 
   <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->

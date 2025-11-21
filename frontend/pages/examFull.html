@@ -75,13 +75,15 @@
     </header>
 
   <section class="question-panel" aria-labelledby="questionNumber">
-      <div class="meta-row">
+      <div class="meta-row" style="display:flex; align-items:center;">
         <div id="qStatus" class="q-status" style="font-size:17px; font-family: Arial, Helvetica, sans-serif;">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
+        <span id="questionIdDisplay" style="margin-left:auto; font-size:14px; color:#555;"></span>
         <!-- Exame completo não exibe like/dislike -->
       </div>
 
       <article class="question-content" id="questionContent">
         <p id="questionText" class="question-text">Carregando pergunta...</p>
+        <div id="questionImageWrapper" style="display:none; margin:12px 0 16px; text-align:center;"></div>
 
         <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
           <div id="answersContainer"></div>
@@ -112,6 +114,66 @@
     } catch (e) {
       console.warn('Falha ao definir variáveis de sessão:', e);
     }
+  </script>
+  <!-- Exibir imagem da questão (campo imagem_url / imagemUrl) abaixo do enunciado -->
+  <script>
+    (function(){
+      function resolveQuestions(){
+        try {
+          if (Array.isArray(window.QUESTIONS)) return window.QUESTIONS;
+          const sid = window.currentSessionId || null; if (!sid) return [];
+          const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(`questions_${sid}`) : localStorage.getItem(`questions_${sid}`);
+          if (!raw) return [];
+          const arr = JSON.parse(raw); return Array.isArray(arr)? arr : [];
+        } catch(_) { return []; }
+      }
+      function currentIndex(){
+        try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : 0; } catch(_) { return 0; }
+      }
+      function buildSrc(str){
+        if (!str) return null;
+        const s = String(str).trim();
+        if (!s) return null;
+        if (/^data:image\//i.test(s)) return s; // already data URI
+        if (/^https?:\/\//i.test(s) || s.startsWith('/') ) return s; // http(s) or site-relative
+        if (/^data:/i.test(s)) return s; // other data types
+        // heuristic: raw base64 (PNG/JPEG) no prefix
+        if (/^[A-Za-z0-9+/=]+$/.test(s) && s.length > 100) {
+          return 'data:image/png;base64,' + s; // assume png if unknown
+        }
+        return s; // fallback (may 404)
+      }
+      function renderImage(){
+        try {
+          const wrap = document.getElementById('questionImageWrapper'); if (!wrap) return;
+          const qs = resolveQuestions(); const idx = currentIndex(); const q = (idx>=0 && idx < qs.length)? qs[idx] : null;
+          const raw = q && (q.imagemUrl || q.imagem_url || q.imageUrl || q.image_url) || '';
+          const src = buildSrc(raw);
+          // If no image, hide wrapper
+          if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+          // (Re)create element (avoid reusing stale <img> after question change)
+          const img = document.createElement('img');
+          img.src = src;
+          img.alt = 'Imagem ilustrativa da questão';
+          img.style.maxWidth = '680px';
+          img.style.width = '100%';
+          img.style.height = 'auto';
+          img.style.border = '1px solid #e2e8f0';
+          img.style.background = '#fff';
+          img.style.borderRadius = '6px';
+          img.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+          img.decoding = 'async';
+          img.loading = 'lazy';
+          wrap.innerHTML='';
+          wrap.appendChild(img);
+          wrap.style.display='block';
+        } catch(_) { /* ignore */ }
+      }
+      // Hook into question index change event
+      document.addEventListener('exam:question-index-changed', renderImage);
+      // Initial attempt (in case first question already loaded)
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(renderImage,120)); else setTimeout(renderImage,120);
+    })();
   </script>
 
   <!-- Modal de Grid de Questões -->
@@ -346,6 +408,73 @@
   </script>
   <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
 
+  <!-- Ensure question ID label and Continue visibility update regardless of build/non-build script -->
+  <script>
+    (function(){
+      function getIdxFromLabel(){
+        try { const el = document.getElementById('questionNumber'); const n = Number((el && el.textContent || '').trim()); return Number.isFinite(n)? n-1 : null; } catch(_) { return null; }
+      }
+      function getQuestionsArray(){
+        try {
+          if (Array.isArray(window.QUESTIONS) && window.QUESTIONS.length) return window.QUESTIONS;
+          const sid = window.currentSessionId || null; if (!sid) return [];
+          // use original getters if shimmed
+          const getItem = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem : (k)=>localStorage.getItem(k);
+          const raw = getItem(`questions_${sid}`);
+          if (!raw) return [];
+          const arr = JSON.parse(raw);
+          return Array.isArray(arr) ? arr : [];
+        } catch(_) { return []; }
+      }
+      function updateQuestionAux(forcedIdx){
+        try {
+          const idx = (typeof forcedIdx === 'number') ? forcedIdx : getIdxFromLabel();
+          // Update ID label
+          try {
+            const idSpan = document.getElementById('questionIdDisplay');
+            if (idSpan){
+              const arr = getQuestionsArray();
+              const q = (typeof idx === 'number' && idx >= 0 && idx < arr.length) ? arr[idx] : null;
+              idSpan.textContent = (q && q.id != null) ? ('ID: ' + q.id) : '';
+            }
+          } catch(_){ }
+          // Toggle Continue visibility at question 180 (1-based)
+          try {
+            const contBtn = document.getElementById('continueBtn');
+            if (contBtn){
+              const labelNum = (typeof idx === 'number') ? (idx + 1) : null;
+              contBtn.style.display = (labelNum === 180) ? 'none' : '';
+            }
+          } catch(_){ }
+        } catch(_){ }
+      }
+      // React to index change events if available
+      try {
+        document.addEventListener('exam:question-index-changed', function(ev){
+          try {
+            const i = ev && ev.detail && typeof ev.detail.index === 'number' ? ev.detail.index : null;
+            updateQuestionAux(i);
+          } catch(_) { updateQuestionAux(); }
+        });
+      } catch(_){ }
+      // Fallback: observe the question number label changing
+      try {
+        const qn = document.getElementById('questionNumber');
+        if (qn && window.MutationObserver){
+          const mo = new MutationObserver(()=>{ updateQuestionAux(); });
+          mo.observe(qn, { childList:true, characterData:true, subtree:true });
+        }
+      } catch(_){ }
+      // Initial paint (retry shortly if questions not yet cached)
+      function boot(){
+        updateQuestionAux();
+        setTimeout(updateQuestionAux, 120);
+        setTimeout(updateQuestionAux, 400);
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+    })();
+  </script>
+
   <!-- Hard-gate Continue at currentIdx 59 and 119 (0-based) => label 60 and 120, regardless of build version -->
   <script>
     (function(){
@@ -575,40 +704,100 @@
       function openFinishConfirm(){
         // Calcula % de completude e injeta no modal unificado
         try {
-          const totalQuestions = window.QUESTIONS ? window.QUESTIONS.length : 0;
-          let percent = 0;
-          if (totalQuestions > 0) {
-            let answeredCount = 0;
-            const answers = window.ANSWERS || {};
-            for (let i = 0; i < totalQuestions; i++) {
-              const q = window.QUESTIONS[i];
-              const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${i}`;
-              const a = answers[qKey];
-              if (a && ((a.optionId != null && a.optionId !== '') || (Array.isArray(a.optionIds) && a.optionIds.length > 0))) {
-                answeredCount++;
-              }
-            }
-            percent = (answeredCount / totalQuestions) * 100;
+          function getQuestions(){
+            if (Array.isArray(window.QUESTIONS) && window.QUESTIONS.length) return window.QUESTIONS;
+            try {
+              const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+              if (!sid) return [];
+              const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(`questions_${sid}`) : localStorage.getItem(`questions_${sid}`);
+              if (!raw) return [];
+              const arr = JSON.parse(raw);
+              return Array.isArray(arr) ? arr : [];
+            } catch(_) { return []; }
           }
-          const sp = document.getElementById('completionPercent');
-          if (sp) sp.textContent = percent.toFixed(1) + '%';
+          function getAnswers(){
+            // window.ANSWERS pode existir no script não-minificado
+            if (window.ANSWERS && typeof window.ANSWERS === 'object') return window.ANSWERS;
+            try {
+              const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+              if (!sid) return {};
+              const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(`answers_${sid}`) : localStorage.getItem(`answers_${sid}`);
+              if (!raw) return {};
+              const obj = JSON.parse(raw);
+              return (obj && typeof obj === 'object') ? obj : {};
+            } catch(_) { return {}; }
+          }
+          const qs = getQuestions();
+          const ans = getAnswers();
+          const totalQuestions = qs.length;
+          let answeredCount = 0;
+          if (totalQuestions > 0) {
+            for (let i = 0; i < totalQuestions; i++) {
+              const q = qs[i];
+              const key = (q && q.id != null) ? `q_${q.id}` : `idx_${i}`;
+              const a = ans[key];
+              if (!a) continue;
+              const hasSingle = (a.optionId != null && a.optionId !== '');
+              const hasMultiIds = Array.isArray(a.optionIds) && a.optionIds.length > 0;
+              const hasIndices = Array.isArray(a.indices) && a.indices.length > 0; // multi-select fallback
+              if (hasSingle || hasMultiIds || hasIndices) answeredCount++;
+            }
+          }
+          const percent = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+          window.__lastCompletionPercent = percent;
+          const msgEl = document.getElementById('finishModalMessage');
+          const yesBtn = document.getElementById('finishConfirmYes');
+          if (msgEl){
+            if (percent >= 95){
+              msgEl.innerHTML = `Você respondeu <strong>${percent.toFixed(1)}%</strong> das questões.<br>Ao encerrar o exame, suas questões serão submetidas como estão.<br><br>Deseja continuar?`;
+              if (yesBtn) yesBtn.textContent = 'Sim, enviar e encerrar';
+            } else {
+              msgEl.innerHTML = `Você respondeu <strong>${percent.toFixed(1)}%</strong> das questões deste exame.<br>Esta tentativa <strong>não será gravada</strong> na base de dados de exames realizados.<br><br>Deseja mesmo sair?`;
+              if (yesBtn) yesBtn.textContent = 'Sim, sair sem salvar';
+            }
+          }
         } catch(_){ }
         const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display=''; m.setAttribute('aria-hidden','false'); }
       }
       function closeFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
       function attach(){
         const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
-  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', ()=>{
-    try { closeFinishConfirm(); } catch(_){ }
-    // Fluxo simplificado: sair sem salvar (sem enviar ao backend)
-    try { clearExamData(); } catch(_){ }
-    try {
-      const token = localStorage.getItem('sessionToken') || '';
-      const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
-      const isGuest = token && token.endsWith('#');
-      const isLogged = !!(token || hasIdentity) && !(isGuest && !hasIdentity);
-      if (isLogged) { window.location.assign('/'); } else { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
-    } catch(e){ try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
+  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', async ()=>{
+    const pct = window.__lastCompletionPercent || 0;
+    try { yes.disabled = true; yes.textContent = 'Processando...'; } catch(_){ }
+    if (pct >= 95) {
+      // Envia resultados e limpa apenas dados da sessão do exame
+      try { if (typeof window.submitExam === 'function') await window.submitExam(); } catch(_){ }
+      try {
+        const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+        if (sid){
+          const sessionKeys = [
+            `answers_${sid}`,`answers_${sid}_savedAt`,
+            `progress_${sid}`,`progress_${sid}_savedAt`,
+            `questions_${sid}`,`questions_${sid}_savedAt`,
+            `FirstStop_${sid}`,`SecondStop_${sid}`,
+            `backBarrier_${sid}`,`allowContinueAfterCheckpoint_${sid}`,
+            `pauseUntil_${sid}`,`pauseConsumed_${sid}_cp1`,`pauseConsumed_${sid}_cp2`
+          ];
+          sessionKeys.forEach(k=>{ try { localStorage.removeItem(k); } catch(_){ } });
+          try { localStorage.removeItem('currentSessionId'); } catch(_){ }
+        }
+      } catch(_){ }
+      try { closeFinishConfirm(); } catch(_){ }
+      try { window.location.assign('/'); } catch(_){ window.location.href = '/'; }
+      return;
+    } else {
+      // Fluxo antigo: sair sem salvar
+      try { closeFinishConfirm(); } catch(_){ }
+      try { clearExamData(); } catch(_){ }
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+        const isGuest = token && token.endsWith('#');
+        const isLogged = !!(token || hasIdentity) && !(isGuest && !hasIdentity);
+        if (isLogged) { window.location.assign('/'); } else { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
+      } catch(e){ try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
+    }
   });
         const no = document.getElementById('finishConfirmNo'); if (no) no.addEventListener('click', closeFinishConfirm);
         window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') { closeFinishConfirm(); } });
@@ -620,15 +809,10 @@
   <!-- Modal de confirmação para finalizar exame -->
   <div id="finishConfirmModal" class="modal" aria-hidden="true" style="display:none;">
     <div class="modal-content" style="max-width:600px; padding:20px; text-align:center;">
-      <p style="margin:0 0 16px 0; font-size:16px; line-height:1.5;">
-        <strong>Deseja mesmo encerrar o exame?</strong><br>
-        Você respondeu <strong id="completionPercent">0%</strong> das questões deste exame.<br>
-        Esta tentativa <strong>não será gravada</strong> na base de dados de exames realizados.<br><br>
-        Deseja mesmo sair?
-      </p>
+      <p id="finishModalMessage" style="margin:0 0 16px 0; font-size:16px; line-height:1.5;"></p>
       <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
-        <button id="finishConfirmYes" class="primary-btn" type="button" style="background:#dc3545;">Sim, sair sem salvar</button>
-        <button id="finishConfirmNo" class="secondary-btn" type="button">Não, continuar</button>
+        <button id="finishConfirmYes" class="primary-btn" type="button" style="background:#dc3545;">Sim</button>
+        <button id="finishConfirmNo" class="secondary-btn" type="button">Não</button>
       </div>
     </div>
   </div>

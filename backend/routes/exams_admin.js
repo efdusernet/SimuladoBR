@@ -155,7 +155,15 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
                 await db.sequelize.queryInterface.bulkInsert(
                     'exam_attempt_user_stats',
                     chunk.map(r => ({
-                        ...r,
+                        user_id: r.UserId,
+                        date: r.Date,
+                        started_count: r.StartedCount,
+                        finished_count: r.FinishedCount,
+                        abandoned_count: r.AbandonedCount,
+                        timeout_count: r.TimeoutCount,
+                        low_progress_count: r.LowProgressCount,
+                        purged_count: r.PurgedCount,
+                        avg_score_percent: r.AvgScorePercent,
                         created_at: new Date(),
                         updated_at: new Date()
                     })),
@@ -173,18 +181,47 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
                     }
                 );
             } else {
-                // Merge: incrementar valores existentes
+                // Merge: incrementar valores existentes usando SQL bruto
                 for (const record of chunk) {
-                    await ExamAttemptUserStats.upsert({
-                        UserId: record.UserId,
-                        Date: record.Date,
-                        StartedCount: db.sequelize.literal(`COALESCE(started_count, 0) + ${record.StartedCount}`),
-                        FinishedCount: db.sequelize.literal(`COALESCE(finished_count, 0) + ${record.FinishedCount}`),
-                        AbandonedCount: db.sequelize.literal(`COALESCE(abandoned_count, 0) + ${record.AbandonedCount}`),
-                        TimeoutCount: db.sequelize.literal(`COALESCE(timeout_count, 0) + ${record.TimeoutCount}`),
-                        LowProgressCount: db.sequelize.literal(`COALESCE(low_progress_count, 0) + ${record.LowProgressCount}`),
-                        PurgedCount: db.sequelize.literal(`COALESCE(purged_count, 0) + ${record.PurgedCount}`),
-                        AvgScorePercent: record.AvgScorePercent
+                    const avgScoreValue = record.AvgScorePercent !== null ? record.AvgScorePercent : 'NULL';
+                    await db.sequelize.query(`
+                        INSERT INTO exam_attempt_user_stats (
+                            user_id, date, started_count, finished_count, abandoned_count,
+                            timeout_count, low_progress_count, purged_count, avg_score_percent,
+                            created_at, updated_at
+                        ) VALUES (
+                            :userId, :date, :started, :finished, :abandoned,
+                            :timeout, :lowProgress, :purged, :avgScore,
+                            NOW(), NOW()
+                        )
+                        ON CONFLICT (user_id, date) DO UPDATE SET
+                            started_count = exam_attempt_user_stats.started_count + :started,
+                            finished_count = exam_attempt_user_stats.finished_count + :finished,
+                            abandoned_count = exam_attempt_user_stats.abandoned_count + :abandoned,
+                            timeout_count = exam_attempt_user_stats.timeout_count + :timeout,
+                            low_progress_count = exam_attempt_user_stats.low_progress_count + :lowProgress,
+                            purged_count = exam_attempt_user_stats.purged_count + :purged,
+                            avg_score_percent = CASE 
+                                WHEN :avgScore IS NOT NULL AND exam_attempt_user_stats.avg_score_percent IS NOT NULL
+                                THEN (exam_attempt_user_stats.avg_score_percent + :avgScore) / 2
+                                WHEN :avgScore IS NOT NULL
+                                THEN :avgScore
+                                ELSE exam_attempt_user_stats.avg_score_percent
+                            END,
+                            updated_at = NOW()
+                    `, {
+                        replacements: {
+                            userId: record.UserId,
+                            date: record.Date,
+                            started: record.StartedCount,
+                            finished: record.FinishedCount,
+                            abandoned: record.AbandonedCount,
+                            timeout: record.TimeoutCount,
+                            lowProgress: record.LowProgressCount,
+                            purged: record.PurgedCount,
+                            avgScore: record.AvgScorePercent
+                        },
+                        type: db.sequelize.QueryTypes.INSERT
                     });
                 }
             }

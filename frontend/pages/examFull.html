@@ -149,6 +149,7 @@
           const qs = resolveQuestions(); const idx = currentIndex(); const q = (idx>=0 && idx < qs.length)? qs[idx] : null;
           const raw = q && (q.imagemUrl || q.imagem_url || q.imageUrl || q.image_url) || '';
           let src = buildSrc(raw);
+          try { if (q && q.id === 266) console.debug('[examFull] q266 raw value len', raw ? raw.length : 0, 'startsWith(data:)?', /^data:/i.test(raw), 'first50=', raw.slice(0,50)); } catch(_){ }
           if (!src) {
             try {
               const qt = document.getElementById('questionText');
@@ -164,7 +165,15 @@
               if (m && m[1]) src = buildSrc(m[1]);
             } catch(_) { /* ignore */ }
           }
+          if (!src && q && q.explicacao) {
+            try {
+              const html2 = String(q.explicacao || '').trim();
+              const m2 = html2.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (m2 && m2[1]) src = buildSrc(m2[1]);
+            } catch(_) { /* ignore */ }
+          }
           // Diagnostic
+          try { if (q && q.id === 266) console.debug('[examFull] q266 object', q); } catch(_){ }
           try { console.debug('[examFull] renderImage idx', idx, 'id', q && q.id, 'resolved src?', !!src); } catch(_){ }
           // If no image, hide wrapper
           if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }

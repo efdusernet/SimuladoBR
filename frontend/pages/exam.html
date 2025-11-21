@@ -146,6 +146,14 @@
               if (m && m[1]) src = buildSrc(m[1]);
             } catch(_) { /* ignore */ }
           }
+          // Fallback 3: parse explicacao HTML for an <img src="...">
+          if (!src && q && q.explicacao) {
+            try {
+              const html2 = String(q.explicacao || '').trim();
+              const m2 = html2.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (m2 && m2[1]) src = buildSrc(m2[1]);
+            } catch(_) { /* ignore */ }
+          }
           try { console.debug('[examSingle] renderImage idx', idx, 'id', q && q.id, 'resolved src?', !!src); } catch(_){ }
           if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
           const img = document.createElement('img');

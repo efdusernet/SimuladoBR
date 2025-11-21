@@ -153,9 +153,9 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
             const chunk = records.slice(i, i + CHUNK_SIZE);
             
             if (isRebuild) {
-                // Rebuild: INSERT ON CONFLICT DO UPDATE (sobrescreve)
-                await ExamAttemptUserStats.bulkCreate(
-                    chunk.map(r => ({
+                // Rebuild: sobrescrever completamente (upsert por registro)
+                for (const r of chunk) {
+                    await ExamAttemptUserStats.upsert({
                         UserId: r.UserId,
                         Date: r.Date,
                         StartedCount: r.StartedCount,
@@ -164,20 +164,10 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
                         TimeoutCount: r.TimeoutCount,
                         LowProgressCount: r.LowProgressCount,
                         PurgedCount: r.PurgedCount,
-                        AvgScorePercent: r.AvgScorePercent
-                    })),
-                    {
-                        updateOnDuplicate: [
-                            'StartedCount',
-                            'FinishedCount',
-                            'AbandonedCount',
-                            'TimeoutCount',
-                            'LowProgressCount',
-                            'PurgedCount',
-                            'AvgScorePercent'
-                        ]
-                    }
-                );
+                        AvgScorePercent: r.AvgScorePercent,
+                        UpdatedAt: new Date()
+                    });
+                }
             } else {
                 // Merge: incrementar valores existentes usando SQL bruto
                 for (const record of chunk) {

@@ -138,6 +138,14 @@
               if (inlineSrc) src = buildSrc(inlineSrc);
             } catch(_) { /* ignore */ }
           }
+          // Fallback 2: parse descricao/text HTML for an <img src="...">
+          if (!src && q) {
+            try {
+              const html = String(q.descricao || q.text || '').trim();
+              const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (m && m[1]) src = buildSrc(m[1]);
+            } catch(_) { /* ignore */ }
+          }
           if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
           const img = document.createElement('img');
           img.src = src; img.alt='Imagem ilustrativa da questão'; img.style.maxWidth='680px'; img.style.width='100%'; img.style.height='auto'; img.style.border='1px solid #e2e8f0'; img.style.background='#fff'; img.style.borderRadius='6px'; img.style.boxShadow='0 1px 2px rgba(0,0,0,0.06)'; img.decoding='async'; img.loading='lazy';

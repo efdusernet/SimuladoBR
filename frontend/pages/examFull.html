@@ -157,6 +157,13 @@
               if (inlineSrc) src = buildSrc(inlineSrc);
             } catch(_) { /* ignore */ }
           }
+          if (!src && q) {
+            try {
+              const html = String(q.descricao || q.text || '').trim();
+              const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (m && m[1]) src = buildSrc(m[1]);
+            } catch(_) { /* ignore */ }
+          }
           // If no image, hide wrapper
           if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
           // (Re)create element (avoid reusing stale <img> after question change)

@@ -62,7 +62,8 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
         // Processar tentativas
         attempts.forEach(att => {
             const userId = att.UserId;
-            const date = att.StartedAt.toISOString().split('T')[0];
+            const startedAt = att.StartedAt instanceof Date ? att.StartedAt : new Date(att.StartedAt);
+            const date = startedAt.toISOString().split('T')[0];
             const key = `${userId}:${date}`;
             
             if (!aggregation[key]) {
@@ -99,7 +100,8 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
         // Processar purgas
         purges.forEach(purge => {
             const userId = purge.UserId;
-            const date = purge.PurgedAt.toISOString().split('T')[0];
+            const purgedAt = purge.PurgedAt instanceof Date ? purge.PurgedAt : new Date(purge.PurgedAt);
+            const date = purgedAt.toISOString().split('T')[0];
             const key = `${userId}:${date}`;
             
             if (!aggregation[key]) {

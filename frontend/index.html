@@ -954,7 +954,7 @@
                             dryRun: dryRun ? 'true' : 'false'
                         });
                         
-                        const resp = await fetch(base + '/api/admin/reconcile-stats?' + params, {
+                        const resp = await fetch(base + '/api/admin/exams/reconcile-stats?' + params, {
                             method: 'POST',
                             headers: {
                                 'Authorization': 'Bearer ' + (localStorage.getItem('jwt') || ''),

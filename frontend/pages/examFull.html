@@ -10,6 +10,7 @@
   <meta name="description" content="Exame completo com 180 questões" />
 </head>
 <body>
+  
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
     <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
   </header>
@@ -143,12 +144,36 @@
         }
         return s; // fallback (may 404)
       }
+      // Adiciona lógica de pré-visualização reutilizada do questionForm
+      function showImagePreview(wrapper, src){
+        if (!wrapper) return;
+        if (!src){ wrapper.innerHTML=''; wrapper.style.display='none'; return; }
+        // Build DOM elements instead of inline onerror HTML to avoid quote parsing issues
+        wrapper.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'Imagem ilustrativa da questão';
+        img.style.maxWidth = '680px';
+        img.style.width = '100%';
+        img.style.height = 'auto';
+        img.style.border = '1px solid #e2e8f0';
+        img.style.background = '#fff';
+        img.style.borderRadius = '6px';
+        img.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+        img.onerror = function(){
+          wrapper.innerHTML = '<div style="max-width:680px;margin:0 auto;padding:12px;border:1px dashed #94a3b8;border-radius:6px;background:#f8fafc;color:#b00020;font-size:13px;">Erro ao carregar imagem</div>';
+        };
+        wrapper.appendChild(img);
+        wrapper.style.display='block';
+      }
       function renderImage(){
         try {
           const wrap = document.getElementById('questionImageWrapper'); if (!wrap) return;
           const qs = resolveQuestions(); const idx = currentIndex(); const q = (idx>=0 && idx < qs.length)? qs[idx] : null;
           const raw = q && (q.imagemUrl || q.imagem_url || q.imageUrl || q.image_url) || '';
+          
           let src = buildSrc(raw);
+          let origin = src ? 'field' : null;
           try { if (q && q.id === 266) console.debug('[examFull] q266 raw value len', raw ? raw.length : 0, 'startsWith(data:)?', /^data:/i.test(raw), 'first50=', raw.slice(0,50)); } catch(_){ }
           if (!src) {
             try {
@@ -156,6 +181,7 @@
               const inlineImg = qt ? qt.querySelector('img') : null;
               const inlineSrc = inlineImg ? inlineImg.getAttribute('src') : null;
               if (inlineSrc) src = buildSrc(inlineSrc);
+              if (src) origin = 'inline-dom';
             } catch(_) { /* ignore */ }
           }
           if (!src && q) {
@@ -163,6 +189,7 @@
               const html = String(q.descricao || q.text || '').trim();
               const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
               if (m && m[1]) src = buildSrc(m[1]);
+              if (src) origin = 'descricao-html';
             } catch(_) { /* ignore */ }
           }
           if (!src && q && q.explicacao) {
@@ -170,35 +197,75 @@
               const html2 = String(q.explicacao || '').trim();
               const m2 = html2.match(/<img[^>]+src=["']([^"']+)["']/i);
               if (m2 && m2[1]) src = buildSrc(m2[1]);
+              if (src) origin = 'explicacao-html';
             } catch(_) { /* ignore */ }
           }
           // Diagnostic
-          try { if (q && q.id === 266) console.debug('[examFull] q266 object', q); } catch(_){ }
-          try { console.debug('[examFull] renderImage idx', idx, 'id', q && q.id, 'resolved src?', !!src); } catch(_){ }
+          try {
+            console.debug('[examFull] renderImage idx', idx, 'id', q && q.id, 'hasRaw?', !!raw, 'srcResolved?', !!src, 'origin', origin);
+            if (q && q.id === 266) console.debug('[examFull] q266 object', q);
+          } catch(_){ }
           // If no image, hide wrapper
-          if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
-          // (Re)create element (avoid reusing stale <img> after question change)
-          const img = document.createElement('img');
-          img.src = src;
-          img.alt = 'Imagem ilustrativa da questão';
-          img.style.maxWidth = '680px';
-          img.style.width = '100%';
-          img.style.height = 'auto';
-          img.style.border = '1px solid #e2e8f0';
-          img.style.background = '#fff';
-          img.style.borderRadius = '6px';
-          img.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
-          img.decoding = 'async';
-          img.loading = 'lazy';
-          wrap.innerHTML='';
-          wrap.appendChild(img);
-          wrap.style.display='block';
+          if (!src){
+            // Heuristic: question text references clicking an image area (hotspot style)
+            let needsHint = false;
+            try {
+              const lower = String(q && (q.descricao || q.text || '')) .toLowerCase();
+              if (lower.includes('clicando na área correta da imagem') || lower.includes('area correta da imagem') || lower.includes('área correta da imagem')) {
+                needsHint = true;
+              }
+            } catch(_){ }
+            if (needsHint && q) {
+              wrap.innerHTML = '<div class="question-image-missing" style="max-width:680px;margin:0 auto;padding:12px;border:1px dashed #94a3b8;border-radius:6px;background:#f8fafc;color:#475569;font-size:13px;line-height:1.4;">Imagem original desta questão não está disponível no banco de dados. Continue respondendo normalmente selecionando a alternativa correta. Se você possuir o arquivo da imagem, associe-o preenchendo <code>imagem_url</code> para a questão ID '+ q.id + '.</div>';
+              wrap.style.display='block';
+              try { console.debug('[examFull] imagem ausente, exibindo placeholder para questão', q.id); } catch(_){ }
+            } else {
+              wrap.style.display='none';
+              wrap.innerHTML='';
+            }
+            return;
+          }
+          // Usa lógica compartilhada para exibir imagem e tratar erros
+          showImagePreview(wrap, src);
         } catch(_) { /* ignore */ }
       }
       // Hook into question index change event
       document.addEventListener('exam:question-index-changed', renderImage);
       // Initial attempt (in case first question already loaded)
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(renderImage,120)); else setTimeout(renderImage,120);
+    })();
+  </script>
+  <!-- Debug helper: auto-jump to questão ID 266 for imagem testing when localStorage.debugQ266 === 'true' (press F9 to toggle) -->
+  <script>
+    (function(){
+      function tryJump266(){
+        try {
+          const qs = (function(){
+            if (Array.isArray(window.QUESTIONS)) return window.QUESTIONS;
+            const sid = window.currentSessionId || null; if (!sid) return [];
+            const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(`questions_${sid}`) : localStorage.getItem(`questions_${sid}`);
+            if (!raw) return [];
+            const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : [];
+          })();
+          const idx = qs.findIndex(q => q && q.id === 266);
+          if (idx < 0){ console.debug('[debug266] Questão 266 não encontrada ainda (len=', qs.length, ')'); return; }
+          const labelEl = document.getElementById('questionNumber');
+          if (labelEl) labelEl.textContent = String(idx + 1);
+          document.dispatchEvent(new CustomEvent('exam:question-index-changed',{ detail:{ index: idx } }));
+          console.debug('[debug266] Jump realizado para idx', idx, 'questão', qs[idx]);
+        } catch(e){ console.debug('[debug266] Falha ao tentar pular para 266:', e); }
+      }
+      function scheduleJump(){ setTimeout(tryJump266, 800); setTimeout(tryJump266, 1600); setTimeout(tryJump266, 4000); }
+      if (localStorage.getItem('debugQ266') === 'true') scheduleJump();
+      // Toggle via F9
+      window.addEventListener('keydown', (ev)=>{
+        if (ev.key === 'F9') {
+          const cur = localStorage.getItem('debugQ266') === 'true';
+          localStorage.setItem('debugQ266', cur ? 'false' : 'true');
+          console.debug('[debug266] debugQ266 agora =', !cur);
+          if (!cur) scheduleJump();
+        }
+      });
     })();
   </script>
 

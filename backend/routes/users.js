@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { User, EmailVerification } = require('../models');
+const db = require('../models');
+const { User, EmailVerification } = db;
+// User daily exam attempt stats service
+const userStatsService = require('../services/UserStatsService')(db);
 const crypto = require('crypto');
 const { generateVerificationCode } = require('../utils/codegen');
 const { sendVerificationEmail } = require('../utils/mailer');
@@ -117,3 +120,57 @@ router.get('/', async (req, res) => {
 });
 
 module.exports = router;
+/**
+ * GET /api/users/me/stats/daily?days=30
+ * Retorna série diária de métricas de tentativas (started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent).
+ * Requer header X-Session-Token (id numérico ou NomeUsuario/Email).
+ */
+router.get('/me/stats/daily', async (req, res) => {
+    try {
+        const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        let user = null;
+        if (/^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        let days = Number(req.query.days) || 30;
+        if (!Number.isFinite(days) || days <= 0) days = 30;
+        days = Math.min(Math.max(days, 1), 180); // clamp 1..180
+        const rows = await userStatsService.getDailyStats(user.Id || user.id, days);
+        return res.json({ days, data: rows });
+    } catch (err) {
+        console.error('Erro user daily stats:', err);
+        return res.status(500).json({ error: 'Internal error' });
+    }
+});
+
+/**
+ * GET /api/users/me/stats/summary?days=30
+ * Retorna resumo agregado do período (totais e rates).
+ */
+router.get('/me/stats/summary', async (req, res) => {
+    try {
+        const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        let user = null;
+        if (/^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        let days = Number(req.query.days) || 30;
+        if (!Number.isFinite(days) || days <= 0) days = 30;
+        days = Math.min(Math.max(days, 1), 180);
+        const summary = await userStatsService.getSummary(user.Id || user.id, days);
+        return res.json(summary);
+    } catch (err) {
+        console.error('Erro user stats summary:', err);
+        return res.status(500).json({ error: 'Internal error' });
+    }
+});

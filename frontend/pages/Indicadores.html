@@ -122,6 +122,7 @@
       <button class="tab-btn" data-tab="topico" role="tab" aria-selected="false">Tópico</button>
         <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
         <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
+        <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false">Estatísticas</button>
     </div>
     <div style="margin-top:8px;">
       <label style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#334155; font-weight:600;">
@@ -208,6 +209,43 @@
           </div>
         </div>
       </section>
+      <section id="sec-dashboard" class="section" aria-labelledby="tab-dashboard">
+        <div id="indicadoresIntro" style="margin:0 0 14px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.66rem; line-height:1.35; color:#334155; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+          <strong style="display:block; font-size:0.7rem; margin-bottom:4px;">Como interpretar estes indicadores</strong>
+          <span style="display:block; margin-bottom:4px;">Exames e quizzes em <em>Visão Geral</em> abrangem tentativas completas ("Exames realizados") e tentativas rápidas/parciais ("Quiz realizados") nos últimos períodos (30d e 60d). Colunas Apr% e Rep%: aprovação / reprovação.</span>
+          <span style="display:block; margin-bottom:4px;">As abas <em>Grupo Processos</em>, <em>Tópico</em> e <em>Abordagem</em> mostram distribuição de acertos/erros. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
+          <span style="display:block; margin-bottom:4px;">Esta aba <em>Estatísticas</em> usa agregação diária persistente (mesmo após expurgos). Fórmulas: Abandono = abandonadas / iniciadas; Conclusão = finalizadas / iniciadas; Expurgo = expurgadas / abandonadas. Score médio é ponderado pelo número de questões respondidas no dia.</span>
+          <span style="display:block; margin-bottom:4px;">Abandono pode ser classificado como <em>Timeout</em> (inatividade excede limite), <em>Baixo progresso</em> (poucas questões após tempo mínimo) ou abandono manual. Expurgo remove tentativas abandonadas antigas preservando métricas.</span>
+          <span style="display:block;">Limites de tempo e janelas são definidos pela política interna e já aplicados nos cálculos exibidos.</span>
+        </div>
+        <div style="margin-bottom:12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+          <label style="font-size:0.75rem; font-weight:600; color:#334155;">Dias:
+            <select id="dashDays" style="margin-left:4px; padding:4px 6px; font-size:0.75rem; border:1px solid #cbd5e1; border-radius:4px;">
+              <option value="15">15</option>
+              <option value="30" selected>30</option>
+              <option value="60">60</option>
+            </select>
+          </label>
+          <button id="dashReload" type="button" style="padding:6px 10px; font-size:0.7rem; font-weight:600; background:#3b82f6; color:#fff; border:none; border-radius:6px; cursor:pointer;">Recarregar</button>
+          <span id="dashLoading" style="display:none; font-size:0.7rem; color:#475569;">Carregando...</span>
+          <span id="dashError" style="display:none; font-size:0.7rem; color:#b91c1c;">Falha ao carregar</span>
+        </div>
+        <div id="dashSummary" class="dash-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:16px;"></div>
+        <div class="chart-panel" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:16px;">
+          <h3 style="margin:0 0 8px; font-size:0.85rem; font-weight:600;">Taxas diárias</h3>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:6px; font-size:0.65rem; font-weight:600; color:#475569;">
+            <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#0b5ed7; border-radius:3px;"></span> Abandono%</span>
+            <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#16a34a; border-radius:3px;"></span> Conclusão%</span>
+            <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#dc2626; border-radius:3px;"></span> Expurgo%</span>
+          </div>
+          <div id="dashRatesChart"></div>
+        </div>
+        <div class="chart-panel" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+          <h3 style="margin:0 0 8px; font-size:0.85rem; font-weight:600;">Média de pontuação diária (%)</h3>
+          <div id="dashScoreChart"></div>
+        </div>
+        <div style="font-size:0.65rem; color:#64748b;">Taxas: abandono = abandonadas / iniciadas; conclusão = finalizadas / iniciadas; expurgo = expurgadas / abandonadas.</div>
+      </section>
   </div>
   <script>
     // Lightweight menu toggle and logout for this page
@@ -242,7 +280,8 @@
       grupos: document.getElementById('sec-grupos'),
       topico: document.getElementById('sec-topico'),
       abordagem: document.getElementById('sec-abordagem'),
-      detalhes: document.getElementById('sec-detalhes')
+      detalhes: document.getElementById('sec-detalhes'),
+      dashboard: document.getElementById('sec-dashboard')
     };
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -761,6 +800,125 @@
       }
     }
 
+    // Dashboard functions (lazy loaded)
+    function dashSetLoading(on){ const el = document.getElementById('dashLoading'); if (el) el.style.display = on ? 'inline' : 'none'; }
+    function dashSetError(on){ const el = document.getElementById('dashError'); if (el) el.style.display = on ? 'inline' : 'none'; }
+
+    function renderDashboardSummary(s){
+      const wrap = document.getElementById('dashSummary');
+      if (!wrap) return; if (!s){ wrap.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b; padding:8px; background:#f1f5f9; border-radius:6px;">Sem dados</div>'; return; }
+      function pct(x){ return x==null? '—' : (x*100).toFixed(1)+'%'; }
+      function score(x){ return x==null? '—' : Number(x).toFixed(1)+'%'; }
+      const items = [
+        { k:'Iniciadas', v:s.started },
+        { k:'Finalizadas', v:s.finished },
+        { k:'Abandonadas', v:s.abandoned },
+        { k:'Timeout', v:s.timeout },
+        { k:'Baixo prog.', v:s.lowProgress },
+        { k:'Expurgadas', v:s.purged },
+        { k:'Abandono%', v:pct(s.abandonRate) },
+        { k:'Conclusão%', v:pct(s.completionRate) },
+        { k:'Expurgo%', v:pct(s.purgeRate) },
+        { k:'Média score', v:score(s.avgScorePercent) }
+      ];
+      wrap.innerHTML = items.map(m => `<div class="dash-metric" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
+        <div style="font-size:0.6rem; font-weight:600; letter-spacing:.5px; color:#475569;">${m.k.toUpperCase()}</div>
+        <div style="font-size:1.05rem; font-weight:600; color:#0f172a;">${m.v}</div>
+      </div>`).join('');
+    }
+
+    function renderRatesChart(rows){
+      const target = document.getElementById('dashRatesChart'); if (!target) return;
+      if (!rows.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem dados diários</div>'; return; }
+      const labels = rows.map(r=> (r.date||'').slice(5));
+      const abandon = rows.map(r=> (r.abandonRate||0)*100);
+      const completion = rows.map(r=> (r.completionRate||0)*100);
+      const purge = rows.map(r=> (r.purgeRate||0)*100);
+      const maxVal = Math.max(10, ...abandon, ...completion, ...purge);
+      const W = target.clientWidth || 800; const H = 260; const pad = 28; const innerW = W - pad*2; const innerH = H - pad*2;
+      function x(i){ return pad + (i/(labels.length-1))*innerW; }
+      function y(v){ return pad + innerH - (v/maxVal)*innerH; }
+      function path(arr){ return arr.map((v,i)=> (i?'L':'M')+x(i)+','+y(v)).join(' '); }
+      const ticks = [0, maxVal/2, maxVal];
+      const tickEls = ticks.map(t=> `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t.toFixed(0)}%</text>`).join('');
+      const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
+      target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
+        <path d="${path(abandon)}" fill="none" stroke="#0b5ed7" stroke-width="2" />
+        <path d="${path(completion)}" fill="none" stroke="#16a34a" stroke-width="2" />
+        <path d="${path(purge)}" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3" />
+        ${tickEls}${xLabs}
+      </svg>`;
+    }
+
+    function renderScoreChartDash(rows){
+      const target = document.getElementById('dashScoreChart'); if (!target) return;
+      if (!rows.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem dados</div>'; return; }
+      const labels = rows.map(r=> (r.date||'').slice(5));
+      const scores = rows.map(r=> r.avgScorePercent==null? null : r.avgScorePercent);
+      const vals = scores.filter(v=> v!=null);
+      if (!vals.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem médias disponíveis</div>'; return; }
+      const maxVal = Math.max(100, ...vals);
+      const W = target.clientWidth || 800; const H = 260; const pad = 28; const innerW = W - pad*2; const innerH = H - pad*2;
+      function x(i){ return pad + (i/(labels.length-1))*innerW; }
+      function y(v){ return pad + innerH - (v/maxVal)*innerH; }
+      const pathScores = vals.map((v,i)=> (i?'L':'M')+x(i)+','+y(v)).join(' ');
+      const ticks = [0, maxVal/2, maxVal];
+      const tickEls = ticks.map(t=> `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t.toFixed(0)}%</text>`).join('');
+      const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
+      target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
+        <path d="${pathScores}" fill="none" stroke="#6366f1" stroke-width="2" />
+        ${tickEls}${xLabs}
+      </svg>`;
+    }
+
+    let _dashLoadedOnce = false;
+    async function loadDashboard(){
+      const sec = document.getElementById('sec-dashboard'); if (!sec) return;
+      const daysSel = document.getElementById('dashDays');
+      const days = daysSel ? Number(daysSel.value) : 30;
+      dashSetLoading(true); dashSetError(false);
+      try {
+        // Derivar session token esperado pelo endpoint (X-Session-Token)
+        let sessionToken = '';
+        try {
+          sessionToken = (localStorage.getItem('sessionToken')
+            || localStorage.getItem('nomeUsuario')
+            || localStorage.getItem('nome')
+            || '').trim();
+        } catch(_){ sessionToken=''; }
+        if (!sessionToken) {
+          dashSetLoading(false);
+          const wrap = document.getElementById('dashSummary');
+          if (wrap) wrap.innerHTML = '<div style="grid-column:1/-1; padding:12px; font-size:0.7rem; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">Sessão não identificada. Faça login para ver estatísticas agregadas.</div>';
+          return;
+        }
+        const headers = { 'Accept':'application/json', 'X-Session-Token': sessionToken, ...getAuthHeadersLocal() };
+        const [summaryResp,dailyResp] = await Promise.all([
+          fetch(`/api/users/me/stats/summary?days=${days}`, { headers }),
+          fetch(`/api/users/me/stats/daily?days=${days}`, { headers })
+        ]);
+        if (!summaryResp.ok || !dailyResp.ok){ throw new Error('Resp inválida'); }
+        const summary = await summaryResp.json();
+        const dailyWrap = await dailyResp.json();
+        const rows = dailyWrap && Array.isArray(dailyWrap.data) ? dailyWrap.data : [];
+        renderDashboardSummary(summary);
+        renderRatesChart(rows);
+        renderScoreChartDash(rows);
+        _dashLoadedOnce = true;
+      } catch(err){ dashSetError(true); }
+      dashSetLoading(false);
+    }
+
+    // Dashboard controls
+    (function initDashboardControls(){
+      const btn = document.getElementById('dashReload');
+      const sel = document.getElementById('dashDays');
+      if (btn) btn.addEventListener('click', ()=> loadDashboard());
+      if (sel) sel.addEventListener('change', ()=> loadDashboard());
+    })();
+
     // Tab switching: load IND8 when Tópico tab is activated
     tabButtons.forEach(btn => {
       btn.addEventListener('click', function(){
@@ -772,6 +930,7 @@
           if (tab === 'topico') loadAreaConhecimentoStats();
           if (tab === 'abordagem') loadAbordagemStats();
           if (tab === 'detalhes') loadDetailsLast();
+          if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
         }
       });
     });

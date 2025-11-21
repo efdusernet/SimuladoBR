@@ -1,5 +1,7 @@
 const db = require('../models');
 const sequelize = require('../config/database');
+// Daily user exam attempt stats service
+const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
 // lightweight session id generator (no external dependency)
 function genSessionId(){
@@ -409,6 +411,8 @@ exports.selectQuestions = async (req, res) => {
           await db.ExamAttemptQuestion.bulkCreate(rows, { transaction: t });
         }
       });
+      // Stats: increment started count
+      try { if (attempt && attempt.Id) await userStatsService.incrementStarted(attempt.UserId || (user && (user.Id || user.id))); } catch(_) {}
     } catch (e) {
       console.warn('selectQuestions: could not persist attempt', e);
     }
@@ -706,6 +710,8 @@ exports.submitAnswers = async (req, res) => {
             StatusReason: 'user_finish',
             LastActivityAt: new Date(),
           }, { where: { Id: attemptId } });
+          // Stats: increment finished count with score percent
+          try { if (attemptId) await userStatsService.incrementFinished(user.Id || user.id, percent); } catch(_) {}
         }
       }
     } catch (e) { console.warn('submitAnswers persistence warning:', e); }
@@ -820,6 +826,9 @@ exports.startOnDemand = async (req, res) => {
         await db.ExamAttemptQuestion.bulkCreate(rows, { transaction: t });
       }
     });
+
+    // Stats: increment started count
+    try { if (attempt && attempt.Id) await userStatsService.incrementStarted(attempt.UserId || (user && (user.Id || user.id))); } catch(_) {}
 
     putSession(sessionId, {
       userId: user.Id || user.id,
@@ -1206,6 +1215,8 @@ exports.resumeSession = async (req, res) => {
         }
         if (reason) {
           await db.ExamAttempt.update({ Status: 'abandoned', StatusReason: reason }, { where: { Id: attempt.Id } });
+          // Stats: increment abandoned count (categorize by reason)
+          try { await userStatsService.incrementAbandoned(attempt.UserId || attempt.UserID || attempt.user_id, reason); } catch(_) {}
         }
       }
       return res.json({ ok: true, processed, markedTimeout, markedLowProgress });
@@ -1257,6 +1268,8 @@ exports.resumeSession = async (req, res) => {
           await db.ExamAttempt.destroy({ where: { Id: attempt.Id }, transaction: t });
         });
         purged++;
+        // Stats: increment purged count
+        try { await userStatsService.incrementPurged(attempt.UserId || attempt.UserID || attempt.user_id); } catch(_) {}
       }
       return res.json({ ok: true, inspected, purged });
     } catch (err) {

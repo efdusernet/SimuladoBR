@@ -154,31 +154,27 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
             
             if (isRebuild) {
                 // Rebuild: INSERT ON CONFLICT DO UPDATE (sobrescreve)
-                await db.sequelize.queryInterface.bulkInsert(
-                    'exam_attempt_user_stats',
+                await ExamAttemptUserStats.bulkCreate(
                     chunk.map(r => ({
-                        user_id: r.UserId,
-                        date: r.Date,
-                        started_count: r.StartedCount,
-                        finished_count: r.FinishedCount,
-                        abandoned_count: r.AbandonedCount,
-                        timeout_count: r.TimeoutCount,
-                        low_progress_count: r.LowProgressCount,
-                        purged_count: r.PurgedCount,
-                        avg_score_percent: r.AvgScorePercent,
-                        created_at: new Date(),
-                        updated_at: new Date()
+                        UserId: r.UserId,
+                        Date: r.Date,
+                        StartedCount: r.StartedCount,
+                        FinishedCount: r.FinishedCount,
+                        AbandonedCount: r.AbandonedCount,
+                        TimeoutCount: r.TimeoutCount,
+                        LowProgressCount: r.LowProgressCount,
+                        PurgedCount: r.PurgedCount,
+                        AvgScorePercent: r.AvgScorePercent
                     })),
                     {
                         updateOnDuplicate: [
-                            'started_count',
-                            'finished_count',
-                            'abandoned_count',
-                            'timeout_count',
-                            'low_progress_count',
-                            'purged_count',
-                            'avg_score_percent',
-                            'updated_at'
+                            'StartedCount',
+                            'FinishedCount',
+                            'AbandonedCount',
+                            'TimeoutCount',
+                            'LowProgressCount',
+                            'PurgedCount',
+                            'AvgScorePercent'
                         ]
                     }
                 );

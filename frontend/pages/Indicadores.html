@@ -26,6 +26,9 @@
     .cell{padding:6px 3px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
     .rowlabel{text-align:left; padding-left:4px; font-size:10px;}
     .head,.subhead,.colhead{font-weight:600; font-size:10px;}
+    /* Marcador via pseudo-elemento (sem spans extras) */
+    body.show-markers .ov-grid .cell::after,
+    body.show-markers .det-grid .cell::after{content:attr(data-cell); position:absolute; top:2px; right:4px; font-size:9px; font-weight:500; color:#94a3b8; letter-spacing:.5px; pointer-events:none; user-select:none;}
     
     @media (min-width: 640px) {
       h1 { font-size:1.1rem; margin:16px; padding-left:35px; }
@@ -120,6 +123,11 @@
         <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
         <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
     </div>
+    <div style="margin-top:8px;">
+      <label style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#334155; font-weight:600;">
+        <input type="checkbox" id="toggleMarkers" style="width:14px; height:14px;"> Mostrar marcadores
+      </label>
+    </div>
   </div>
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
@@ -191,36 +199,12 @@
       <section id="sec-detalhes" class="section" aria-labelledby="tab-detalhes">
         <div class="ov-wrapper">
           <div class="det-grid">
-            <div class="cell head" style="grid-column: span 4;">Última tentativa</div>
-            <div class="cell colhead">Domínio</div>
-            <div class="cell colhead">Corretas %</div>
-            <div class="cell colhead"># Corretas</div>
-            <div class="cell colhead">Performance</div>
-
-            <div class="cell">Iniciação</div>
-            <div class="cell">60%</div>
-            <div class="cell">80</div>
-            <div class="cell">1</div>
-
-            <div class="cell">Planejamento</div>
-            <div class="cell">70%</div>
-            <div class="cell">60</div>
-            <div class="cell">2</div>
-
-            <div class="cell">Execução</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-
-            <div class="cell">Monitoramento e Controle</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-
-            <div class="cell">Encerramento</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
+            <div class="cell head" style="grid-column: span 4;" data-cell="DET-R1C1">Última tentativa</div>
+            <div class="cell colhead" data-cell="DET-R2C1">Domínio</div>
+            <div class="cell colhead" data-cell="DET-R2C2">Corretas %</div>
+            <div class="cell colhead" data-cell="DET-R2C3"># Corretas</div>
+            <div class="cell colhead" data-cell="DET-R2C4">Performance</div>
+            <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/details-last -->
           </div>
         </div>
       </section>
@@ -276,6 +260,80 @@
         const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
         return tok ? { Authorization: `${typ} ${tok}` } : {};
       } catch(_) { return {}; }
+    }
+
+    // Exam type helpers: resolve current slug and map to numeric id via /api/exams/types
+    function getCurrentExamTypeSlug(){
+      try {
+        const qp = new URLSearchParams(window.location.search).get('examType');
+        if (qp) return String(qp).toLowerCase();
+      } catch(_){ }
+      try { return (localStorage.getItem('examType') || 'pmp').toLowerCase(); } catch(_){ return 'pmp'; }
+    }
+    let _examTypeIdCache = null;
+    async function getCurrentExamTypeId(){
+      if (_examTypeIdCache != null) return _examTypeIdCache;
+
+      // 0) Query param examTypeId (num) has highest priority if present
+      try {
+        const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+        const n = Number(qpId);
+        if (Number.isFinite(n) && n > 0) { _examTypeIdCache = Math.floor(n); return _examTypeIdCache; }
+      } catch(_){ }
+
+      const slug = getCurrentExamTypeSlug();
+
+      // 1) Try cache in sessionStorage
+      try {
+        const raw = sessionStorage.getItem('examTypesCache');
+        if (raw) {
+          const arr = JSON.parse(raw);
+          const found = Array.isArray(arr) ? arr.find(t => (t.slug || t.Slug || '').toLowerCase() === slug) : null;
+          if (found && (found.id != null || found.Id != null)) {
+            _examTypeIdCache = Number(found.id != null ? found.id : found.Id);
+            return _examTypeIdCache;
+          }
+        }
+      } catch(_){ }
+
+      // 2) Try localStorage cache (fallback if someone stored it there)
+      try {
+        const rawLocal = localStorage.getItem('examTypesCache');
+        if (rawLocal) {
+          const arr = JSON.parse(rawLocal);
+          const found = Array.isArray(arr) ? arr.find(t => (t.slug || t.Slug || '').toLowerCase() === slug) : null;
+          if (found && (found.id != null || found.Id != null)) {
+            _examTypeIdCache = Number(found.id != null ? found.id : found.Id);
+            return _examTypeIdCache;
+          }
+        }
+      } catch(_){ }
+
+      // 3) Fetch from API with auth headers (endpoint may require auth)
+      try {
+        const headers = { 'Accept':'application/json', ...getAuthHeadersLocal() };
+        const list = await fetch('/api/exams/types', { headers }).then(r => r.ok ? r.json() : null).catch(()=>null);
+        if (Array.isArray(list)) {
+          try { sessionStorage.setItem('examTypesCache', JSON.stringify(list)); } catch(_){ }
+          const found = list.find(t => (t.slug || t.Slug || '').toLowerCase() === slug);
+          if (found && (found.id != null || found.Id != null)) {
+            _examTypeIdCache = Number(found.id != null ? found.id : found.Id);
+            return _examTypeIdCache;
+          }
+        }
+      } catch(_){ }
+
+      // 4) Direct localStorage numeric id if previously saved elsewhere
+      try {
+        const storedId = Number(localStorage.getItem('examTypeId'));
+        if (Number.isFinite(storedId) && storedId > 0) { _examTypeIdCache = Math.floor(storedId); return _examTypeIdCache; }
+      } catch(_){ }
+
+      // 5) Safe minimal fallback mapping to maintain compatibility
+      const fallbackMap = { pmp: 1 };
+      if (fallbackMap[slug]) { _examTypeIdCache = fallbackMap[slug]; return _examTypeIdCache; }
+
+      return null;
     }
 
     // Populate overview grid from /api/indicators/overview (uses JWT if present)
@@ -424,8 +482,10 @@
     async function loadGeneralStats(){
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        // IND4: Total de perguntas do simulador (exam_type=1 para PMP)
-        const res4 = await fetch('/api/indicators/questions-count?exam_type=1', { headers });
+        const examTypeId = await getCurrentExamTypeId();
+        // IND4: Total de perguntas do simulador (por exam_type)
+        const url4 = examTypeId ? `/api/indicators/questions-count?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/questions-count';
+        const res4 = await fetch(url4, { headers });
         if (res4.status === 401 || res4.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res4.ok) {
           const data4 = await res4.json();
@@ -433,8 +493,10 @@
           document.getElementById('ind4-value').textContent = val;
         }
 
-        // IND5: Quantidade de questões respondidas pelo usuário (exam_type=1)
-        const res5 = await fetch('/api/indicators/answered-count?exam_type=1', { headers });
+        // IND5: Quantidade de questões respondidas pelo usuário (por exam_type)
+        const url5 = examTypeId ? `/api/indicators/answered-count?exam_type=${encodeURIComponent(examTypeId)}` : null;
+        if (!url5) return; // este endpoint exige exam_type
+        const res5 = await fetch(url5, { headers });
         if (res5.status === 401 || res5.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res5.ok) {
           const data5 = await res5.json();
@@ -442,8 +504,10 @@
           document.getElementById('ind5-value').textContent = val;
         }
 
-        // IND6: Total de horas no simulador (exam_type=1) - formato horas:minutos:segundos
-        const res6 = await fetch('/api/indicators/total-hours?exam_type=1', { headers });
+        // IND6: Total de horas no simulador (por exam_type)
+        const url6 = examTypeId ? `/api/indicators/total-hours?exam_type=${encodeURIComponent(examTypeId)}` : null;
+        if (!url6) return; // este endpoint exige exam_type
+        const res6 = await fetch(url6, { headers });
         if (res6.status === 401 || res6.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res6.ok) {
           const data6 = await res6.json();
@@ -467,7 +531,10 @@
       if (!container) return;
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        const res = await fetch('/api/indicators/process-group-stats', { headers });
+        // Opcional: filtrar por exam_type selecionado, se id disponível
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId ? `/api/indicators/process-group-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/process-group-stats';
+        const res = await fetch(url, { headers });
         if (res.status === 401 || res.status === 403) {
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
@@ -545,7 +612,9 @@
       container.innerHTML = '';
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        const res = await fetch('/api/indicators/area-knowledge-stats', { headers });
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId ? `/api/indicators/area-knowledge-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/area-knowledge-stats';
+        const res = await fetch(url, { headers });
         if (res.status === 401 || res.status === 403) {
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
@@ -621,7 +690,9 @@
       container.innerHTML = '';
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        const res = await fetch('/api/indicators/approach-stats', { headers });
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId ? `/api/indicators/approach-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/approach-stats';
+        const res = await fetch(url, { headers });
         if (res.status === 401 || res.status === 403) {
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
@@ -700,9 +771,76 @@
           sectionsMap[tab].classList.add('active');
           if (tab === 'topico') loadAreaConhecimentoStats();
           if (tab === 'abordagem') loadAbordagemStats();
+          if (tab === 'detalhes') loadDetailsLast();
         }
       });
     });
+    // Removido script de injeção; marcadores exibidos via CSS ::after usando attr(data-cell)
+    // Toggle de visibilidade dos marcadores via checkbox
+    (function initMarkerToggle(){
+      const cb = document.getElementById('toggleMarkers');
+      if (!cb) return;
+      let saved = null;
+      try { saved = localStorage.getItem('indicatorsShowMarkers'); } catch(_){ }
+      if (saved === '1') {
+        document.body.classList.add('show-markers');
+        cb.checked = true;
+      }
+      cb.addEventListener('change', ()=>{
+        const on = cb.checked;
+        document.body.classList.toggle('show-markers', on);
+        try { localStorage.setItem('indicatorsShowMarkers', on ? '1' : '0'); } catch(_){ }
+      });
+    })();
+
+    // Detalhes: última tentativa por grupo com ranking
+    async function loadDetailsLast(){
+      try {
+        const grid = document.querySelector('#sec-detalhes .det-grid');
+        if (!grid) return;
+        // Remove linhas existentes além do cabeçalho (primeiras 2 linhas = 8 células)
+        const keep = 5 * 1; // 5 cabeçalhos? Na verdade 4 células por linha, manter primeiras 8 células
+        const headerCells = Array.from(grid.children).slice(0, 5); // head + 4 colheads
+        grid.innerHTML = '';
+        headerCells.forEach(n => grid.appendChild(n));
+
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId
+          ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/details-last?exam_mode=full';
+        const res = await fetch(url, { headers });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const itens = Array.isArray(data.itens) ? data.itens.slice() : [];
+        // Ordena pela id do grupo para exibição estável (ranking vai na coluna Performance)
+        itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+        let r = 3; // começa na linha 3
+        for (const it of itens) {
+          const nome = it.descricao || `Grupo ${it.id}`;
+          const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+          const cor = Number(it.corretas || 0);
+          const rank = it.ranking == null ? '—' : String(it.ranking);
+
+          const c1 = document.createElement('div');
+          c1.className = 'cell'; c1.setAttribute('data-cell', `DET-R${r}C1`); c1.textContent = nome;
+          const c2 = document.createElement('div');
+          c2.className = 'cell'; c2.setAttribute('data-cell', `DET-R${r}C2`); c2.textContent = pct;
+          const c3 = document.createElement('div');
+          c3.className = 'cell'; c3.setAttribute('data-cell', `DET-R${r}C3`); c3.textContent = String(cor);
+          const c4 = document.createElement('div');
+          c4.className = 'cell'; c4.setAttribute('data-cell', `DET-R${r}C4`); c4.textContent = rank;
+
+          grid.appendChild(c1); grid.appendChild(c2); grid.appendChild(c3); grid.appendChild(c4);
+          r += 1;
+        }
+      } catch(_) { /* ignore */ }
+    }
   </script>
 </body>
 </html>

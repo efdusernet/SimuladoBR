@@ -153,19 +153,37 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
             const chunk = records.slice(i, i + CHUNK_SIZE);
             
             if (isRebuild) {
-                // Rebuild: sobrescrever completamente (upsert por registro)
+                // Rebuild: sobrescrever completamente via SQL bruto com chave (user_id, date)
                 for (const r of chunk) {
-                    await ExamAttemptUserStats.upsert({
-                        UserId: r.UserId,
-                        Date: r.Date,
-                        StartedCount: r.StartedCount,
-                        FinishedCount: r.FinishedCount,
-                        AbandonedCount: r.AbandonedCount,
-                        TimeoutCount: r.TimeoutCount,
-                        LowProgressCount: r.LowProgressCount,
-                        PurgedCount: r.PurgedCount,
-                        AvgScorePercent: r.AvgScorePercent,
-                        UpdatedAt: new Date()
+                    await db.sequelize.query(`
+                        INSERT INTO exam_attempt_user_stats (
+                            user_id, date, started_count, finished_count, abandoned_count,
+                            timeout_count, low_progress_count, purged_count, avg_score_percent, updated_at
+                        ) VALUES (
+                            :userId, :date, :started, :finished, :abandoned,
+                            :timeout, :lowProgress, :purged, :avgScore, NOW()
+                        )
+                        ON CONFLICT (user_id, date) DO UPDATE SET
+                            started_count = EXCLUDED.started_count,
+                            finished_count = EXCLUDED.finished_count,
+                            abandoned_count = EXCLUDED.abandoned_count,
+                            timeout_count = EXCLUDED.timeout_count,
+                            low_progress_count = EXCLUDED.low_progress_count,
+                            purged_count = EXCLUDED.purged_count,
+                            avg_score_percent = EXCLUDED.avg_score_percent,
+                            updated_at = NOW()
+                    `, {
+                        replacements: {
+                            userId: r.UserId,
+                            date: r.Date,
+                            started: r.StartedCount,
+                            finished: r.FinishedCount,
+                            abandoned: r.AbandonedCount,
+                            timeout: r.TimeoutCount,
+                            lowProgress: r.LowProgressCount,
+                            purged: r.PurgedCount,
+                            avgScore: r.AvgScorePercent
+                        }
                     });
                 }
             } else {

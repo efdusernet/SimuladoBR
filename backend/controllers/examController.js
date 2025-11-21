@@ -212,7 +212,7 @@ exports.selectQuestions = async (req, res) => {
     const REGULAR_TARGET = Math.max(FULL_TOTAL - PRETEST_COUNT_TARGET, 0);
 
     const baseQuestionSelect = (extraWhere, limit) => {
-      return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, eg."Descricao" AS explicacao
+      return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl", eg."Descricao" AS explicacao
         FROM questao q
         LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
         WHERE ${whereSqlUsed} ${extraWhere ? ' AND ' + extraWhere : ''}
@@ -314,7 +314,7 @@ exports.selectQuestions = async (req, res) => {
         } else {
           type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
         }
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, type, options: optsByQ[q.id] || [], _isPreTest: q._isPreTest };
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [], _isPreTest: q._isPreTest };
       });
       ids = allIds;
     } else {
@@ -347,7 +347,7 @@ exports.selectQuestions = async (req, res) => {
         } else {
           type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
         }
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, type, options: optsByQ[q.id] || [] };
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [] };
       });
     }
 

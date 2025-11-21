@@ -164,6 +164,8 @@
               if (m && m[1]) src = buildSrc(m[1]);
             } catch(_) { /* ignore */ }
           }
+          // Diagnostic
+          try { console.debug('[examFull] renderImage idx', idx, 'id', q && q.id, 'resolved src?', !!src); } catch(_){ }
           // If no image, hide wrapper
           if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
           // (Re)create element (avoid reusing stale <img> after question change)
@@ -421,7 +423,9 @@
       } catch(_){ }
     })();
   </script>
-  <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
+  <!-- Prefer non-minified script to ensure image fields & diagnostics are active -->
+  <script src="../script_exam.js"></script>
+  <!-- <script src="../assets/build/script_exam.js"></script> -->
 
   <!-- Ensure question ID label and Continue visibility update regardless of build/non-build script -->
   <script>

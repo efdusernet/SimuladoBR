@@ -361,6 +361,66 @@ Caso precise recalcular estatísticas de um intervalo:
 
 ## 19. Boas Práticas de Evolução
 
+---
+
+## 20. Jobs Recomendados (Agendamentos / Cron)
+
+Embora o sistema seja event-driven, alguns jobs opcionais aumentam confiabilidade:
+
+| Job | Frequência sugerida | Objetivo | Observações |
+|-----|---------------------|----------|-------------|
+| Marcar abandonos (`markAbandonedAttempts`) | Cada 15–30 min | Atualizar tentativas inativas para `abandoned` (gera incrementos) | Evita concentrar abandonos apenas quando usuário volta |
+| Purgar abandonos (`purgeAbandonedAttempts`) | 1x/dia (madrugada) | Remover tentativas antigas preservando métricas | Incrementa `purged` antes de excluir |
+| Reconciliação (`reconcile_user_stats.js`) | 1x/dia ou manual | Garantir que agregados refletem tentativas reais | Usa logs de purga para reconstruir `purged_count` |
+| Integridade | 1x/dia | Alertar anomalias (purged_count > abandoned_count) | Pode enviar para log/monitoramento |
+| Backup tabela stats | 1x/dia | Preservar histórico antes de alterações maiores | Export CSV ou dump SQL |
+
+### 20.1. Script de Reconciliação
+
+Arquivo: `backend/scripts/reconcile_user_stats.js`
+
+Uso básico:
+```bash
+node backend/scripts/reconcile_user_stats.js --from 2025-11-01 --to 2025-11-21 --mode rebuild
+```
+
+Opções:
+- `--from YYYY-MM-DD` / `--to YYYY-MM-DD` (obrigatório): intervalo inclusivo.
+- `--user <id>`: limita a um usuário específico.
+- `--mode rebuild|merge`: `rebuild` apaga linhas existentes no intervalo, `merge` apenas insere/atualiza.
+- `--dry-run`: mostra preview sem persistir.
+
+Regras de reconstrução:
+1. Usa `StartedAt` para definir o dia das tentativas (independentemente de finalização).
+2. Classifica abandono por `Status='abandoned'` + `StatusReason`.
+3. Calcula média de score com tentativas finalizadas (`Status='finished'`).
+4. Recompõe `PurgedCount` usando `exam_attempt_purge_log.PurgedAt`.
+
+Segurança:
+- Rodar preferencialmente em horário de baixa carga.
+- Em caso de falha o script aborta e faz rollback da transação.
+
+Crontab exemplo (Linux):
+```cron
+# Marcar abandonos a cada 20 min
+*/20 * * * * node /app/backend/scripts/mark_abandoned.js >> /var/log/app/cron.log 2>&1
+
+# Purgar abandonos diariamente às 02:10
+10 2 * * * node /app/backend/scripts/purge_abandoned.js >> /var/log/app/cron.log 2>&1
+
+# Reconciliação diária às 02:25 (últimos 30 dias)
+25 2 * * * node /app/backend/scripts/reconcile_user_stats.js --from $(date -d '30 days ago' +\%F) --to $(date +\%F) --mode merge >> /var/log/app/cron.log 2>&1
+```
+
+Windows (Task Scheduler) – ação:
+```
+Program/script: node
+Arguments: backend\scripts\reconcile_user_stats.js --from 2025-11-01 --to 2025-11-21 --mode rebuild
+Start in: C:\Path\Para\Projeto
+```
+
+---
+
 - Adicionar testes unitários para o serviço (verificar média ponderada após várias finalizações).
 - Auditar logs de erro dos incrementos para garantir integridade.
 - Considerar soft-delete lógico para tentativas purgadas se precisar auditoria futura.

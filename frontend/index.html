@@ -108,6 +108,7 @@
     <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">
         <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão</a>
         <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
+        <button id="btnAdminReconcile" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#4f46e5;font-size:.85rem;border-radius:6px;cursor:pointer;">Reconciliar estatísticas</button>
         <button id="btnAdminPurge" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#b91c1c;font-size:.85rem;border-radius:6px;cursor:pointer;">Expurgar tentativas abandonadas</button>
         <button id="btnAdminMarkAbandoned" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#dc2626;font-size:.85rem;border-radius:6px;cursor:pointer;">Marcar abandonadas (inatividade)</button>
     </nav>
@@ -163,12 +164,25 @@
               // Wire admin lifecycle actions
               const purgeBtn = document.getElementById('btnAdminPurge');
               const markBtn = document.getElementById('btnAdminMarkAbandoned');
+              const reconcileBtn = document.getElementById('btnAdminReconcile');
               function getToken(){ return (localStorage.getItem('sessionToken')||'').trim(); }
               async function adminPost(path){
                   const tk = getToken();
                   const resp = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':tk}});
                   const data = await resp.json().catch(()=>({}));
                   return {ok:resp.ok,status:resp.status,data};
+              }
+              if (reconcileBtn){
+                  reconcileBtn.addEventListener('click', ()=>{
+                      close(); // Fecha o menu admin
+                      const adminModal = document.getElementById('adminModal');
+                      if (adminModal) {
+                          adminModal.classList.add('active');
+                          adminModal.setAttribute('aria-hidden', 'false');
+                          const nav = document.querySelector('.bottom-nav');
+                          if (nav) nav.style.display = 'none';
+                      }
+                  });
               }
               if (purgeBtn){
                   purgeBtn.addEventListener('click', async ()=>{

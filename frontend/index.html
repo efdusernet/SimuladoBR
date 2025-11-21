@@ -256,12 +256,18 @@
             <h2 class="title">PERFIL</h2>
             <p class="debug" id="debug-profile">Cliques: 0</p>
             <div class="card-grid">
+                <div id="card-admin" class="card card--simulador" data-card="admin" aria-label="Administração" role="button" tabindex="0" style="display:none">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--primary)">
+                        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span class="card-label">Admin</span>
+                </div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=31" aria-label="Abrir imagem 1" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=32" aria-label="Abrir imagem 2" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=33" aria-label="Abrir imagem 3" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=34" aria-label="Abrir imagem 4" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=35" aria-label="Abrir imagem 5" role="button" tabindex="0"></div>
-                <div class="card" data-full="https://picsum.photos/800/800?random=36" aria-label="Abrir imagem 6" role="button" tabindex="0"></div>
             </div>
         </section>
     </main>
@@ -676,6 +682,54 @@
         })();
         </script>
 
+    <!-- Admin Modal -->
+    <div id="adminModal" class="overlay" aria-hidden="true" style="background:rgba(0,0,0,0.75);align-items:flex-start;padding-top:20px;overflow-y:auto">
+        <div style="background:var(--panel);border-radius:12px;max-width:500px;width:90%;margin:0 auto;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.4);color:var(--text)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                <h2 style="margin:0;font-size:1.4rem;color:var(--text)">Administração</h2>
+                <button id="adminModalClose" style="background:none;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center" aria-label="Fechar">×</button>
+            </div>
+            
+            <!-- Reconciliação de Estatísticas -->
+            <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
+                <h3 style="margin:0 0 12px;font-size:1.1rem;color:var(--primary)">Reconciliação de Estatísticas</h3>
+                <p style="font-size:0.9rem;color:var(--muted);margin:0 0 16px;line-height:1.5">Reconstruir ou corrigir as estatísticas agregadas de tentativas de exames.</p>
+                
+                <div style="display:grid;gap:12px;margin-bottom:16px">
+                    <div>
+                        <label style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Data Inicial</label>
+                        <input type="date" id="reconcileFromDate" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem" />
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Data Final</label>
+                        <input type="date" id="reconcileToDate" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem" />
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Modo</label>
+                        <select id="reconcileMode" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem">
+                            <option value="rebuild">Rebuild (sobrescrever)</option>
+                            <option value="merge">Merge (incrementar)</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="checkbox" id="reconcileDryRun" style="width:18px;height:18px;cursor:pointer" />
+                        <label for="reconcileDryRun" style="font-size:0.9rem;color:var(--text);cursor:pointer">Dry-run (simular sem alterar)</label>
+                    </div>
+                </div>
+                
+                <button id="reconcileBtn" style="width:100%;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Executar Reconciliação</button>
+                
+                <div id="reconcileOutput" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.8rem;color:var(--text);max-height:200px;overflow-y:auto;display:none;white-space:pre-wrap"></div>
+            </div>
+            
+            <!-- Outras opções futuras -->
+            <div style="border:1px solid var(--border);border-radius:8px;padding:16px">
+                <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary)">Outras Ferramentas</h3>
+                <p style="font-size:0.85rem;color:var(--muted);margin:0">Em breve: gestão de usuários, purga de dados, relatórios avançados.</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         (function(){
             const counters = { home: 1, search: 0, favorites: 0, profile: 0 };
@@ -769,6 +823,17 @@
                     window.location.assign('/pages/Indicadores.html');
                     return;
                 }
+                // Abrir modal Admin
+                if (card.id === 'card-admin' || card.getAttribute('data-card') === 'admin') {
+                    try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                    const adminModal = document.getElementById('adminModal');
+                    if (adminModal) {
+                        adminModal.classList.add('active');
+                        adminModal.setAttribute('aria-hidden', 'false');
+                        if (nav) nav.style.display = 'none';
+                    }
+                    return;
+                }
                 const url = card.getAttribute('data-full');
                 if (!url) return;
                 fullImg.src = url;
@@ -791,6 +856,113 @@
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) backBtn.click();
             });
+            
+            // Admin Modal handlers
+            const adminModal = document.getElementById('adminModal');
+            const adminModalClose = document.getElementById('adminModalClose');
+            const reconcileBtn = document.getElementById('reconcileBtn');
+            const reconcileOutput = document.getElementById('reconcileOutput');
+            const reconcileFromDate = document.getElementById('reconcileFromDate');
+            const reconcileToDate = document.getElementById('reconcileToDate');
+            const reconcileMode = document.getElementById('reconcileMode');
+            const reconcileDryRun = document.getElementById('reconcileDryRun');
+            
+            // Set default dates (last 30 days)
+            if (reconcileFromDate && reconcileToDate) {
+                const today = new Date();
+                const thirtyDaysAgo = new Date(today);
+                thirtyDaysAgo.setDate(today.getDate() - 30);
+                reconcileToDate.value = today.toISOString().split('T')[0];
+                reconcileFromDate.value = thirtyDaysAgo.toISOString().split('T')[0];
+            }
+            
+            // Check if user is admin on page load
+            (async function checkAdmin() {
+                try {
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const token = localStorage.getItem('sessionToken');
+                    if (!token) return;
+                    
+                    const resp = await fetch(base + '/api/users/me', {
+                        headers: { 'X-Session-Token': token }
+                    });
+                    
+                    if (resp.ok) {
+                        const user = await resp.json();
+                        if (user && user.TipoUsuario === 'admin') {
+                            const adminCard = document.getElementById('card-admin');
+                            if (adminCard) adminCard.style.display = '';
+                        }
+                    }
+                } catch(e) {
+                    console.warn('Admin check failed:', e);
+                }
+            })();
+            
+            if (adminModalClose && adminModal) {
+                adminModalClose.addEventListener('click', () => {
+                    adminModal.classList.remove('active');
+                    adminModal.setAttribute('aria-hidden', 'true');
+                    if (nav) nav.style.display = '';
+                });
+            }
+            
+            if (reconcileBtn) {
+                reconcileBtn.addEventListener('click', async () => {
+                    const fromDate = reconcileFromDate.value;
+                    const toDate = reconcileToDate.value;
+                    const mode = reconcileMode.value;
+                    const dryRun = reconcileDryRun.checked;
+                    
+                    if (!fromDate || !toDate) {
+                        alert('Por favor, preencha as datas inicial e final.');
+                        return;
+                    }
+                    
+                    if (new Date(fromDate) > new Date(toDate)) {
+                        alert('Data inicial deve ser anterior à data final.');
+                        return;
+                    }
+                    
+                    reconcileOutput.style.display = 'block';
+                    reconcileOutput.textContent = 'Executando reconciliação...\n';
+                    reconcileBtn.disabled = true;
+                    reconcileBtn.textContent = 'Processando...';
+                    
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const token = localStorage.getItem('sessionToken');
+                        
+                        const params = new URLSearchParams({
+                            from: fromDate,
+                            to: toDate,
+                            mode: mode,
+                            dryRun: dryRun ? 'true' : 'false'
+                        });
+                        
+                        const resp = await fetch(base + '/api/admin/reconcile-stats?' + params, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ' + (localStorage.getItem('jwt') || ''),
+                                'X-Session-Token': token
+                            }
+                        });
+                        
+                        const result = await resp.json();
+                        
+                        if (resp.ok) {
+                            reconcileOutput.textContent = 'Reconciliação concluída com sucesso!\n\n' + JSON.stringify(result, null, 2);
+                        } else {
+                            reconcileOutput.textContent = 'Erro na reconciliação:\n' + (result.error || resp.statusText);
+                        }
+                    } catch(e) {
+                        reconcileOutput.textContent = 'Erro ao executar reconciliação:\n' + e.message;
+                    } finally {
+                        reconcileBtn.disabled = false;
+                        reconcileBtn.textContent = 'Executar Reconciliação';
+                    }
+                });
+            }
         })();
     </script>
 </body>

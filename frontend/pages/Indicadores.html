@@ -849,6 +849,7 @@
       if (!wrap) return; if (!s){ wrap.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b; padding:8px; background:#f1f5f9; border-radius:6px;">Sem dados</div>'; return; }
       function pct(x){ return x==null? '—' : (x*100).toFixed(1)+'%'; }
       function score(x){ return x==null? '—' : Number(x).toFixed(1)+'%'; }
+      function time(sec){ if(!sec || sec<=0) return '—'; const m=Math.floor(sec/60); const s=Math.round(sec%60); return m>0 ? `${m}m ${s}s` : `${s}s`; }
       const items = [
         { k:'Iniciadas', v:s.started },
         { k:'Finalizadas', v:s.finished },
@@ -859,7 +860,8 @@
         { k:'Abandono%', v:pct(s.abandonRate) },
         { k:'Conclusão%', v:pct(s.completionRate) },
         { k:'Expurgo%', v:pct(s.purgeRate) },
-        { k:'Média score', v:score(s.avgScorePercent) }
+        { k:'Média score', v:score(s.avgScorePercent) },
+        { k:'Tempo/questão', v:time(s.avgTimePerQuestion) }
       ];
       wrap.innerHTML = items.map(m => `<div class="dash-metric" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
         <div style="font-size:0.6rem; font-weight:600; letter-spacing:.5px; color:#475569;">${m.k.toUpperCase()}</div>
@@ -935,14 +937,18 @@
           return;
         }
         const headers = { 'Accept':'application/json', 'X-Session-Token': sessionToken, ...getAuthHeadersLocal() };
-        const [summaryResp,dailyResp] = await Promise.all([
+        const [summaryResp,dailyResp,avgTimeResp] = await Promise.all([
           fetch(`/api/users/me/stats/summary?days=${days}`, { headers }),
-          fetch(`/api/users/me/stats/daily?days=${days}`, { headers })
+          fetch(`/api/users/me/stats/daily?days=${days}`, { headers }),
+          fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, { headers })
         ]);
         if (!summaryResp.ok || !dailyResp.ok){ throw new Error('Resp inválida'); }
         const summary = await summaryResp.json();
         const dailyWrap = await dailyResp.json();
+        const avgTimeData = avgTimeResp.ok ? await avgTimeResp.json() : {};
         const rows = dailyWrap && Array.isArray(dailyWrap.data) ? dailyWrap.data : [];
+        // Adiciona tempo médio ao summary
+        summary.avgTimePerQuestion = avgTimeData.avgSeconds || 0;
         renderDashboardSummary(summary);
         renderRatesChart(rows);
         renderScoreChartDash(rows);

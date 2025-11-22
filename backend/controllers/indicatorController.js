@@ -870,4 +870,60 @@ async function getPerformancePorDominio(req, res){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio };
+// IND11 - Tempo médio de resposta por questão
+async function getAvgTimePerQuestion(req, res){
+  try {
+    const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
+    const userIdParam = parseInt(req.query.idUsuario, 10);
+    const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
+    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+
+    const raw = parseInt(req.query.days, 10);
+    const days = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 120) : 30;
+
+    // Calcular tempo médio, total de questões e tempo total (filtrar outliers: entre 5seg e 600seg = 10min)
+    const sql = `
+      SELECT 
+        AVG(aq.tempo_gasto_segundos)::numeric(10,2) AS avg_seconds,
+        COUNT(*)::int AS total_questions,
+        SUM(aq.tempo_gasto_segundos)::bigint AS total_seconds
+      FROM exam_attempt a
+      JOIN exam_attempt_question aq ON aq.attempt_id = a.id
+      WHERE a.user_id = :userId
+        AND a.exam_mode = :examMode
+        AND a.finished_at IS NOT NULL
+        AND a.finished_at >= NOW() - (:days || ' days')::interval
+        AND aq.tempo_gasto_segundos IS NOT NULL
+        AND aq.tempo_gasto_segundos > 5
+        AND aq.tempo_gasto_segundos <= 600
+        ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+    `;
+    const replacements = { userId, examMode, days: String(days), ...(hasExamType ? { examTypeId } : {}) };
+    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    const avgSeconds = rows && rows[0] && rows[0].avg_seconds ? Number(rows[0].avg_seconds) : 0;
+    const totalQuestions = rows && rows[0] ? Number(rows[0].total_questions) : 0;
+    const totalSeconds = rows && rows[0] ? Number(rows[0].total_seconds) : 0;
+    const avgMinutes = avgSeconds > 0 ? Number((avgSeconds / 60).toFixed(2)) : 0;
+    const totalTimeHours = totalSeconds > 0 ? Number((totalSeconds / 3600).toFixed(2)) : 0;
+
+    return res.json({ 
+      userId, 
+      examMode, 
+      examTypeId: hasExamType ? examTypeId : null,
+      days,
+      avgSeconds: Number(avgSeconds.toFixed(1)),
+      avgMinutes,
+      totalQuestions,
+      totalSeconds,
+      totalTimeHours
+    });
+  } catch(err){
+    console.error('getAvgTimePerQuestion error:', err);
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion };

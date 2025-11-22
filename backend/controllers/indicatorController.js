@@ -744,51 +744,59 @@ async function getPerformancePorDominio(req, res){
       // Último exame completo finalizado
       selectedExam = exams[0];
     } else if (examMode === 'best') {
-      // Determinar melhor exame com base em % de questões corretas usando mesma lógica de set-equality.
-      let bestExam = null;
-      let bestScore = -1;
-
-      const overallPerformanceSql = `
-        WITH pq AS (
-          SELECT
-            aq.id AS aqid,
-            COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
-            COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
-            COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
-          FROM exam_attempt_question aq
-          LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
-          LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
-          LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
-          WHERE aq.attempt_id = :examId
-          GROUP BY aq.id
-        )
-        SELECT
-          COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count) AS corretas,
-          COUNT(*) AS total
-        FROM pq
-        WHERE correct_count > 0
-      `;
-
-      for (const exam of exams) {
+      // Determinar melhor exame via agregação única (evita N consultas).
+      const examIds = exams.map(e => e.id);
+      if (!examIds.length) {
+        selectedExam = exams[0];
+      } else {
+        const bestSql = `
+          WITH ques AS (
+            SELECT
+              aq.id,
+              aq.attempt_id,
+              COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada) AS chosen_count,
+              COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta") AS correct_count,
+              COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada AND ro_chosen."IsCorreta") AS chosen_correct_count
+            FROM exam_attempt_question aq
+            LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+            LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
+            LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+            WHERE aq.attempt_id IN (:examIds)
+            GROUP BY aq.id, aq.attempt_id
+          ),
+          perf AS (
+            SELECT
+              attempt_id,
+              COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count) AS corretas,
+              COUNT(*) AS total
+            FROM ques
+            WHERE correct_count > 0
+            GROUP BY attempt_id
+          )
+          SELECT attempt_id,
+                 corretas,
+                 total,
+                 CASE WHEN total > 0 THEN (corretas::float / total) * 100 ELSE 0 END AS score
+          FROM perf
+          ORDER BY score DESC, attempt_id DESC
+          LIMIT 1
+        `;
         try {
-          const perfRows = await sequelize.query(overallPerformanceSql, {
-            replacements: { examId: exam.id },
+          const perfRows = await sequelize.query(bestSql, {
+            replacements: { examIds },
             type: sequelize.QueryTypes.SELECT
           });
-          const performance = perfRows && perfRows[0] ? perfRows[0] : { corretas: 0, total: 0 };
-          const corretas = Number(performance.corretas) || 0;
-          const total = Number(performance.total) || 0;
-          const score = total > 0 ? (corretas / total) * 100 : 0;
-          if (score > bestScore) {
-            bestScore = score;
-            bestExam = exam;
-          }
-        } catch (e) {
-          // Ignorar falha pontual em um exame e continuar avaliando os demais
-          console.error('Falha ao calcular performance do exame', exam.id, e.message);
+            const top = perfRows && perfRows[0];
+            if (top) {
+              selectedExam = exams.find(e => e.id === top.attempt_id) || exams[0];
+            } else {
+              selectedExam = exams[0];
+            }
+        } catch(e) {
+          console.error('Falha ao calcular melhor exame (agregado):', e.message);
+          selectedExam = exams[0];
         }
       }
-      selectedExam = bestExam || exams[0]; // fallback para último se nenhum válido
     } else {
       return res.status(400).json({ message: 'examMode inválido. Use "best" ou "last".' });
     }

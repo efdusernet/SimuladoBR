@@ -103,6 +103,16 @@
     </style>
 </head>
 <body>
+    <!-- Auth guard: redirect to login if no session token -->
+    <script>
+    (function authGuard(){
+        const token = (localStorage.getItem('sessionToken') || '').trim();
+        if (!token) {
+            // Redirecionar para login se não houver token
+            window.location.href = '/login.html';
+        }
+    })();
+    </script>
     <!-- Admin quick menu (rendered only if user has admin role) -->
     <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="display:none;position:fixed;top:12px;left:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.10);font-size:.85rem;font-weight:600;">Admin ▾</button>
     <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">

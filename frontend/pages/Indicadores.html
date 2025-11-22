@@ -123,6 +123,7 @@
         <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
         <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
         <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false">Estatísticas</button>
+        <button class="tab-btn" data-tab="dominios" role="tab" aria-selected="false">Domínios</button>
     </div>
     <div style="margin-top:8px;">
       <label style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#334155; font-weight:600;">
@@ -246,6 +247,44 @@
         </div>
         <div style="font-size:0.65rem; color:#64748b;">Taxas: abandono = abandonadas / iniciadas; conclusão = finalizadas / iniciadas; expurgo = expurgadas / abandonadas.</div>
       </section>
+      <section id="sec-dominios" class="section" aria-labelledby="tab-dominios">
+        <div style="max-width:520px;margin:10px auto 24px;background:#fff;padding:20px 32px 24px 44px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06); border:1px solid #e2e8f0;">
+          <h2 style="text-align:center;font-size:1.05rem;margin:0 0 16px;color:#0f172a;">Domínios de Conhecimento</h2>
+          <div style="text-align:center;margin-bottom:14px;">
+            <label for="domSelModo" style="font-size:0.7rem;color:#334155;font-weight:600;margin-right:6px;">Visualizar:</label>
+            <select id="domSelModo" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;font-size:0.7rem;color:#0f172a;">
+              <option value="best">Meu melhor resultado</option>
+              <option value="last" selected>Meu último exame</option>
+            </select>
+          </div>
+          <svg id="domRadar" viewBox="0 0 400 400" style="width:100%;height:auto;max-width:400px;margin:0 auto;display:block;transform:scale(0.85);transform-origin:200px 200px;overflow:visible;">
+            <circle cx="200" cy="200" r="150" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <circle cx="200" cy="200" r="120" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <circle cx="200" cy="200" r="90" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <circle cx="200" cy="200" r="60" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <circle cx="200" cy="200" r="30" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <line x1="200" y1="200" x2="200" y2="50" stroke="#cbd5e1" stroke-width="1"/>
+            <line x1="200" y1="200" x2="329.9" y2="275" stroke="#cbd5e1" stroke-width="1"/>
+            <line x1="200" y1="200" x2="70.1" y2="275" stroke="#cbd5e1" stroke-width="1"/>
+            <polygon id="domPoly" points="200,50 329.9,275 70.1,275" fill="rgba(59,130,246,0.20)" stroke="#3b82f6" stroke-width="2"/>
+            <circle id="domP1" cx="200" cy="50" r="5" fill="#3b82f6"/>
+            <circle id="domP2" cx="329.9" cy="275" r="5" fill="#3b82f6"/>
+            <circle id="domP3" cx="70.1" cy="275" r="5" fill="#3b82f6"/>
+            <text x="200" y="35" text-anchor="middle" font-size="13" font-weight="600" fill="#0f172a">Pessoas</text>
+            <text id="domV1" x="200" y="20" text-anchor="middle" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+            <text x="345" y="290" text-anchor="start" font-size="13" font-weight="600" fill="#0f172a">Processos</text>
+            <text id="domV2" x="345" y="305" text-anchor="start" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+            <text x="70" y="290" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Ambiente de</text>
+            <text x="70" y="305" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Negócios</text>
+            <text id="domV3" x="70" y="320" text-anchor="end" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+          </svg>
+          <div style="margin-top:16px;padding:10px;background:#f1f5f9;border-radius:8px;font-size:0.65rem;color:#475569;">
+            <strong style="display:block;margin-bottom:4px;font-size:0.66rem;">Legenda</strong>
+            <span style="display:block;">Os valores refletem a % de questões corretas por domínio no exame selecionado (melhor ou último).</span>
+            <span id="domInfoExam" style="display:block;margin-top:6px;color:#64748b;">Exame: —</span>
+          </div>
+        </div>
+      </section>
   </div>
   <script>
     // Lightweight menu toggle and logout for this page
@@ -281,15 +320,16 @@
       topico: document.getElementById('sec-topico'),
       abordagem: document.getElementById('sec-abordagem'),
       detalhes: document.getElementById('sec-detalhes'),
-      dashboard: document.getElementById('sec-dashboard')
+      dashboard: document.getElementById('sec-dashboard'),
+      dominios: document.getElementById('sec-dominios')
     };
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const tab = btn.getAttribute('data-tab');
         tabButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
         btn.classList.add('active'); btn.setAttribute('aria-selected','true');
-        Object.keys(sectionsMap).forEach(k => sectionsMap[k].classList.remove('active'));
-        sectionsMap[tab].classList.add('active');
+        Object.keys(sectionsMap).forEach(k => sectionsMap[k] && sectionsMap[k].classList.remove('active'));
+        if (sectionsMap[tab]) sectionsMap[tab].classList.add('active');
       });
     });
     // Simple helper to build Authorization header from localStorage (JWT)
@@ -924,13 +964,14 @@
       btn.addEventListener('click', function(){
         const tab = btn.getAttribute('data-tab');
         tabButtons.forEach(b => b.classList.toggle('active', b === btn));
-        Object.values(sectionsMap).forEach(sec => sec.classList.remove('active'));
+        Object.values(sectionsMap).forEach(sec => sec && sec.classList.remove('active'));
         if (sectionsMap[tab]) {
           sectionsMap[tab].classList.add('active');
           if (tab === 'topico') loadAreaConhecimentoStats();
           if (tab === 'abordagem') loadAbordagemStats();
           if (tab === 'detalhes') loadDetailsLast();
           if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
+          if (tab === 'dominios') loadDominiosLazy();
         }
       });
     });
@@ -1000,6 +1041,52 @@
         }
       } catch(_) { /* ignore */ }
     }
+
+    // Domínios (IND10) - Lazy
+    let _domLoadedOnce = false;
+    function domGetPoint(angleDeg, percent){
+      const maxR = 150; const r = (percent/100)*maxR; const rad = (angleDeg - 90) * Math.PI/180; return { x:200 + r*Math.cos(rad), y:200 + r*Math.sin(rad) };
+    }
+    function domRenderPolygon(values){
+      const p1 = domGetPoint(0, values.pessoas);
+      const p2 = domGetPoint(120, values.processos);
+      const p3 = domGetPoint(240, values.ambienteNegocios);
+      const poly = document.getElementById('domPoly');
+      if (poly) poly.setAttribute('points', `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`);
+      const el1 = document.getElementById('domP1'); if (el1){ el1.setAttribute('cx', p1.x); el1.setAttribute('cy', p1.y); }
+      const el2 = document.getElementById('domP2'); if (el2){ el2.setAttribute('cx', p2.x); el2.setAttribute('cy', p2.y); }
+      const el3 = document.getElementById('domP3'); if (el3){ el3.setAttribute('cx', p3.x); el3.setAttribute('cy', p3.y); }
+      const v1 = document.getElementById('domV1'); if (v1) v1.textContent = `${values.pessoas.toFixed(1)}%`;
+      const v2 = document.getElementById('domV2'); if (v2) v2.textContent = `${values.processos.toFixed(1)}%`;
+      const v3 = document.getElementById('domV3'); if (v3) v3.textContent = `${values.ambienteNegocios.toFixed(1)}%`;
+    }
+    function domNormalize(domains){
+      const out = { pessoas:0, processos:0, ambienteNegocios:0 };
+      domains.forEach(d => {
+        const nm = String(d.name||'').toLowerCase(); const pct = Number(d.percentage||0);
+        if (nm.includes('pessoa')) out.pessoas = pct;
+        else if (nm.includes('processo')) out.processos = pct;
+        else if (nm.includes('ambiente') || nm.includes('negó') || nm.includes('negócio')) out.ambienteNegocios = pct;
+      });
+      return out;
+    }
+    async function loadDominios(){
+      const sel = document.getElementById('domSelModo'); if (!sel) return;
+      const examMode = sel.value;
+      let sessionToken = '';
+      try { sessionToken = (localStorage.getItem('sessionToken')||'').trim(); } catch(_){ }
+      if (!sessionToken){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+      try {
+        const resp = await fetch(`/api/indicators/IND10?examMode=${encodeURIComponent(examMode)}`, { headers: { 'X-Session-Token': sessionToken } });
+        if (!resp.ok){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+        const data = await resp.json();
+        const domains = Array.isArray(data.domains) ? data.domains : [];
+        domRenderPolygon(domNormalize(domains));
+        const info = document.getElementById('domInfoExam');
+        if (info) info.textContent = `Exame: ${data.examAttemptId ? (data.examAttemptId + (data.examDate ? ' - ' + (data.examDate||'').slice(0,10) : '')) : 'nenhum'} (${examMode})`;
+      } catch(_){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); }
+    }
+    function loadDominiosLazy(){ if (!_domLoadedOnce){ _domLoadedOnce = true; loadDominios(); const sel = document.getElementById('domSelModo'); if (sel) sel.addEventListener('change', ()=> loadDominios()); } }
   </script>
 </body>
 </html>

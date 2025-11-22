@@ -278,6 +278,12 @@
             <text x="70" y="305" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Negócios</text>
             <text id="domV3" x="70" y="320" text-anchor="end" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
           </svg>
+          <div id="domAnalysis" style="margin-top:18px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; font-size:0.68rem; color:#334155; line-height:1.25;">
+            <strong style="display:block; font-size:0.70rem; margin-bottom:6px; color:#0f172a;">Análise automática</strong>
+            <div class="dom-analysis-body" style="display:flex; flex-direction:column; gap:4px;">
+              <span style="color:#64748b;">Carregando análise…</span>
+            </div>
+          </div>
           <div style="margin-top:16px;padding:10px;background:#f1f5f9;border-radius:8px;font-size:0.65rem;color:#475569;">
             <strong style="display:block;margin-bottom:4px;font-size:0.66rem;">Legenda</strong>
             <span style="display:block;">Os valores refletem a % de questões corretas por domínio no exame selecionado (melhor ou último).</span>
@@ -1076,6 +1082,78 @@
       });
       return out;
     }
+    function domGenerateInsights(domains){
+      const norm = domNormalize(domains);
+      const vals = [norm.pessoas, norm.processos, norm.ambienteNegocios];
+      const namesMap = {
+        pessoas: 'Pessoas',
+        processos: 'Processos',
+        ambienteNegocios: 'Ambiente de Negócios'
+      };
+      const classifications = {};
+      function classify(p){
+        if (p < 60) return 'Crítico';
+        if (p < 75) return 'Atenção';
+        if (p < 85) return 'Regular';
+        if (p < 95) return 'Bom';
+        return 'Excelente';
+      }
+      Object.entries(norm).forEach(([k,v])=> classifications[k] = classify(v));
+      const max = Math.max(...vals);
+      const min = Math.min(...vals);
+      const amplitude = max - min;
+      const allBelow75 = vals.every(v => v < 75);
+      const allAbove85 = vals.every(v => v >= 85);
+      const anyCritical = vals.some(v => v < 60);
+      const weakerKeys = Object.entries(norm).filter(([k,v]) => v < 75);
+      const strongerKeys = Object.entries(norm).filter(([k,v]) => v >= 75);
+      const insights = [];
+      if (domains.length === 0){ insights.push('Nenhum exame disponível para análise de domínios.'); }
+      else if (allBelow75){ insights.push('⚠️ Desempenho geral abaixo de 75% nos três domínios. Foque em revisão ampla dos conceitos fundamentais.'); }
+      else {
+        if (anyCritical){
+          Object.entries(norm).filter(([k,v])=> v < 60).forEach(([k,v])=>{
+            insights.push(`🎯 Prioridade: ${namesMap[k]} está em nível crítico (${v.toFixed(1)}%). Reforce estudo direcionado neste domínio.`);
+          });
+        }
+        if (!anyCritical && weakerKeys.length === 1 && strongerKeys.length === 2){
+          const [k,v] = weakerKeys[0];
+          const strongerAvg = strongerKeys.reduce((a,b)=> a + b[1], 0) / strongerKeys.length;
+          insights.push(`📊 Foco sugerido: ${namesMap[k]} (${v.toFixed(1)}%) está abaixo dos demais (${strongerAvg.toFixed(1)}% média). Ajustar este domínio trará ganho rápido de equilíbrio.`);
+        }
+        if (amplitude >= 25){
+          const weakest = Object.entries(norm).reduce((a,b)=> a[1] <= b[1] ? a : b);
+          const strongest = Object.entries(norm).reduce((a,b)=> a[1] >= b[1] ? a : b);
+          insights.push(`⚖️ Desequilíbrio: diferença de ${amplitude.toFixed(1)} p.p. entre ${namesMap[strongest[0]]} (${strongest[1].toFixed(1)}%) e ${namesMap[weakest[0]]} (${weakest[1].toFixed(1)}%). Busque nivelar para aumentar consistência.`);
+        }
+        if (allAbove85){ insights.push('✅ Excelente equilíbrio: todos os domínios acima de 85%. Mantenha ritmo e considere aprofundar questões mais complexas.'); }
+        // Near approval suggestions
+        Object.entries(norm).filter(([k,v])=> v >= 70 && v < 75).forEach(([k,v])=>{
+          insights.push(`🔜 Quase lá: ${namesMap[k]} em ${v.toFixed(1)}%. Pequenas revisões podem ultrapassar 75%.`);
+        });
+      }
+      // Fallback if no insight produced
+      if (!insights.length){
+        insights.push('Sem pontos críticos identificados. Continue acompanhando para detectar tendências.');
+      }
+      const container = document.getElementById('domAnalysis');
+      if (container){
+        const body = container.querySelector('.dom-analysis-body');
+        if (body){
+          body.innerHTML = '';
+          insights.slice(0,5).forEach(msg => {
+            const line = document.createElement('div');
+            line.textContent = msg;
+            body.appendChild(line);
+          });
+          // Resumo rápido das classificações
+          const summary = document.createElement('div');
+          summary.style.marginTop = '6px'; summary.style.color = '#64748b';
+          summary.textContent = `Classificação: Pessoas ${classifications.pessoas}, Processos ${classifications.processos}, Ambiente de Negócios ${classifications.ambienteNegocios}.`;
+          body.appendChild(summary);
+        }
+      }
+    }
     async function loadDominios(){
       const sel = document.getElementById('domSelModo'); if (!sel) return;
       const examMode = sel.value;
@@ -1087,7 +1165,9 @@
         if (!resp.ok){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
         const data = await resp.json();
         const domains = Array.isArray(data.domains) ? data.domains : [];
-        domRenderPolygon(domNormalize(domains));
+        const normVals = domNormalize(domains);
+        domRenderPolygon(normVals);
+        domGenerateInsights(domains);
         const info = document.getElementById('domInfoExam');
         if (info) info.textContent = `Exame: ${data.examAttemptId ? (data.examAttemptId + (data.examDate ? ' - ' + (data.examDate||'').slice(0,10) : '')) : 'nenhum'} (${examMode})`;
       } catch(_){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); }

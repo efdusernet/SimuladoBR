@@ -248,16 +248,16 @@
         <div style="font-size:0.65rem; color:#64748b;">Taxas: abandono = abandonadas / iniciadas; conclusão = finalizadas / iniciadas; expurgo = expurgadas / abandonadas.</div>
       </section>
       <section id="sec-dominios" class="section" aria-labelledby="tab-dominios">
-        <div style="max-width:520px;margin:10px auto 24px;background:#fff;padding:20px 32px 24px 44px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06); border:1px solid #e2e8f0;">
-          <h2 style="text-align:center;font-size:1.05rem;margin:0 0 16px;color:#0f172a;">Domínios de Conhecimento</h2>
-          <div style="text-align:center;margin-bottom:14px;">
-            <label for="domSelModo" style="font-size:0.7rem;color:#334155;font-weight:600;margin-right:6px;">Visualizar:</label>
-            <select id="domSelModo" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;font-size:0.7rem;color:#0f172a;">
+        <div style="max-width:364px;margin:10px auto 20px;background:#fff;padding:14px 22px 18px 30px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.06); border:1px solid #e2e8f0;">
+          <h2 style="text-align:center;font-size:0.92rem;margin:0 0 12px;color:#0f172a;">Domínios de Conhecimento</h2>
+          <div style="text-align:center;margin-bottom:10px;">
+            <label for="domSelModo" style="font-size:0.65rem;color:#334155;font-weight:600;margin-right:5px;">Visualizar:</label>
+            <select id="domSelModo" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;background:#ffffff;font-size:0.65rem;color:#0f172a;">
               <option value="best">Meu melhor resultado</option>
               <option value="last" selected>Meu último exame</option>
             </select>
           </div>
-          <svg id="domRadar" viewBox="0 0 400 400" style="width:100%;height:auto;max-width:400px;margin:0 auto;display:block;transform:scale(0.85);transform-origin:200px 200px;overflow:visible;">
+          <svg id="domRadar" viewBox="0 0 400 400" style="width:100%;height:auto;max-width:280px;margin:0 auto;display:block;transform:scale(0.60);transform-origin:200px 200px;overflow:visible;">
             <circle cx="200" cy="200" r="150" fill="none" stroke="#e2e8f0" stroke-width="1"/>
             <circle cx="200" cy="200" r="120" fill="none" stroke="#e2e8f0" stroke-width="1"/>
             <circle cx="200" cy="200" r="90" fill="none" stroke="#e2e8f0" stroke-width="1"/>
@@ -278,16 +278,16 @@
             <text x="70" y="305" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Negócios</text>
             <text id="domV3" x="70" y="320" text-anchor="end" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
           </svg>
-          <div id="domAnalysis" style="margin-top:18px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; font-size:0.68rem; color:#334155; line-height:1.25;">
-            <strong style="display:block; font-size:0.70rem; margin-bottom:6px; color:#0f172a;">Análise automática</strong>
-            <div class="dom-analysis-body" style="display:flex; flex-direction:column; gap:4px;">
+          <div id="domAnalysis" style="margin-top:12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:10px 12px; font-size:0.62rem; color:#334155; line-height:1.2;">
+            <strong style="display:block; font-size:0.65rem; margin-bottom:5px; color:#0f172a;">Análise automática</strong>
+            <div class="dom-analysis-body" style="display:flex; flex-direction:column; gap:3px;">
               <span style="color:#64748b;">Carregando análise…</span>
             </div>
           </div>
-          <div style="margin-top:16px;padding:10px;background:#f1f5f9;border-radius:8px;font-size:0.65rem;color:#475569;">
-            <strong style="display:block;margin-bottom:4px;font-size:0.66rem;">Legenda</strong>
+          <div style="margin-top:12px;padding:8px;background:#f1f5f9;border-radius:6px;font-size:0.60rem;color:#475569;">
+            <strong style="display:block;margin-bottom:3px;font-size:0.62rem;">Legenda</strong>
             <span style="display:block;">Os valores refletem a % de questões corretas por domínio no exame selecionado (melhor ou último).</span>
-            <span id="domInfoExam" style="display:block;margin-top:6px;color:#64748b;">Exame: —</span>
+            <span id="domInfoExam" style="display:block;margin-top:5px;color:#64748b;">Exame: —</span>
           </div>
         </div>
       </section>

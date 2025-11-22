@@ -694,4 +694,172 @@ async function getDetailsLast(req, res){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast };
+// IND10 - Performance por Domínio
+async function getPerformancePorDominio(req, res){
+  try {
+    // Modo de seleção do exame: 'best' ou 'last'. Aceita examMode ou exam_mode para flexibilidade.
+    const examMode = req.query.examMode || req.query.exam_mode || 'last';
+    const userIdParam = parseInt(req.query.idUsuario, 10);
+    // Fallback em ordem: idUsuario query, req.user.sub (padronizado nos outros controles), req.user.id.
+    const userId = Number.isFinite(userIdParam) && userIdParam > 0
+      ? userIdParam
+      : (req.user && Number.isFinite(parseInt(req.user?.sub, 10))
+          ? parseInt(req.user.sub, 10)
+          : (req.user && Number.isFinite(parseInt(req.user?.id, 10))
+              ? parseInt(req.user.id, 10)
+              : null));
+    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+
+    // SQL para buscar exames finalizados do usuário
+    const examsSql = `
+      SELECT 
+        a.id, 
+        a.finished_at,
+        a.exam_mode
+      FROM exam_attempt a
+      WHERE a.user_id = :userId
+        AND a.finished_at IS NOT NULL
+        AND a.exam_mode = 'full'
+      ORDER BY a.finished_at DESC
+    `;
+    
+    const exams = await sequelize.query(examsSql, { 
+      replacements: { userId }, 
+      type: sequelize.QueryTypes.SELECT 
+    });
+
+    if (!exams || exams.length === 0) {
+      return res.json({ 
+        userId, 
+        examMode, 
+        examAttemptId: null, 
+        examDate: null, 
+        domains: [] 
+      });
+    }
+
+    let selectedExam = null;
+
+    if (examMode === 'last') {
+      // Último exame completo finalizado
+      selectedExam = exams[0];
+    } else if (examMode === 'best') {
+      // Determinar melhor exame com base em % de questões corretas usando mesma lógica de set-equality.
+      let bestExam = null;
+      let bestScore = -1;
+
+      const overallPerformanceSql = `
+        WITH pq AS (
+          SELECT
+            aq.id AS aqid,
+            COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+            COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
+            COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
+          FROM exam_attempt_question aq
+          LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+          LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
+          LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+          WHERE aq.attempt_id = :examId
+          GROUP BY aq.id
+        )
+        SELECT
+          COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count) AS corretas,
+          COUNT(*) AS total
+        FROM pq
+        WHERE correct_count > 0
+      `;
+
+      for (const exam of exams) {
+        try {
+          const perfRows = await sequelize.query(overallPerformanceSql, {
+            replacements: { examId: exam.id },
+            type: sequelize.QueryTypes.SELECT
+          });
+          const performance = perfRows && perfRows[0] ? perfRows[0] : { corretas: 0, total: 0 };
+          const corretas = Number(performance.corretas) || 0;
+          const total = Number(performance.total) || 0;
+          const score = total > 0 ? (corretas / total) * 100 : 0;
+          if (score > bestScore) {
+            bestScore = score;
+            bestExam = exam;
+          }
+        } catch (e) {
+          // Ignorar falha pontual em um exame e continuar avaliando os demais
+          console.error('Falha ao calcular performance do exame', exam.id, e.message);
+        }
+      }
+      selectedExam = bestExam || exams[0]; // fallback para último se nenhum válido
+    } else {
+      return res.status(400).json({ message: 'examMode inválido. Use "best" ou "last".' });
+    }
+
+    if (!selectedExam) {
+      return res.json({ 
+        userId, 
+        examMode, 
+        examAttemptId: null, 
+        examDate: null, 
+        domains: [] 
+      });
+    }
+
+    // Calcular performance por domínio para o exame selecionado
+    // Usa mesma lógica dos outros indicadores: questão correta quando conjunto de opções escolhidas == conjunto de opções corretas
+    const domainSql = `
+      WITH pq AS (
+        SELECT
+          aq.id AS aqid,
+          q.iddominiogeral AS domain_id,
+          dg.descricao AS domain_name,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+          COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
+        FROM exam_attempt_question aq
+        LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+        JOIN questao q ON q.id = aq.question_id
+        JOIN dominiogeral dg ON dg.id = q.iddominiogeral
+        LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+        WHERE aq.attempt_id = :examId
+          AND q.iddominiogeral IS NOT NULL
+        GROUP BY aq.id, q.iddominiogeral, dg.descricao
+      )
+      SELECT
+        domain_id,
+        domain_name,
+        COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS corretas,
+        COUNT(*)::int AS total
+      FROM pq
+      WHERE correct_count > 0
+      GROUP BY domain_id, domain_name
+      ORDER BY domain_id
+    `;
+
+    const domainStats = await sequelize.query(domainSql, {
+      replacements: { examId: selectedExam.id },
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    const domains = domainStats.map(d => ({
+      id: d.domain_id,
+      name: d.domain_name,
+      corretas: parseInt(d.corretas, 10) || 0,
+      total: parseInt(d.total, 10) || 0,
+      percentage: d.total > 0 ? parseFloat(((d.corretas / d.total) * 100).toFixed(2)) : 0
+    }));
+
+    return res.json({
+      userId,
+      examMode,
+      examAttemptId: selectedExam.id,
+      examDate: selectedExam.finished_at,
+      domains
+    });
+
+  } catch(err) {
+    console.error('getPerformancePorDominio error:', err);
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio };

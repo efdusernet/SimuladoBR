@@ -305,4 +305,37 @@ Entradas semeadas na tabela `indicator` (idempotentes por código):
   - Fórmula (descr.): Para cada abordagem: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
   - Resultado: array de `{abordagem, acertos, erros, total, percentAcertos, percentErros}` ordenado por id
 
+- **IND10** - `Performance por Domínio`
+  - Endpoint: `GET /api/indicators/IND10`
+  - Descrição: `Mostra a % de pontuação (acertos) por domínio geral (Pessoas, Processos, Ambiente de Negócios). Pode retornar os dados do melhor exame ou do último exame do usuário, dependendo do parâmetro examMode.`
+  - Parâmetros: 
+    - `idUsuario` (opcional, extraído do token se não fornecido)
+    - `examMode` (obrigatório): `"best"` | `"last"`
+      - `"last"`: Retorna estatísticas do último exame finalizado
+      - `"best"`: Calcula performance de todos os exames e retorna o exame com melhor desempenho geral
+  - Headers: `X-Session-Token: <sessionToken>` (obrigatório)
+  - Fórmula (descr.): 
+    - Para cada domínio: `corretas = COUNT(exam_attempt_answer WHERE correta=true)`, `total = COUNT(exam_attempt_question)`, `percentage = (corretas / total) × 100`
+    - Apenas exames com `exam_mode='full'` e `finished_at IS NOT NULL` são considerados
+    - Domínios são obtidos de `dominiogeral` via FK `questao.iddominiogeral`
+  - Response:
+    ```json
+    {
+      "userId": number,
+      "examMode": "best" | "last",
+      "examAttemptId": number | null,
+      "examDate": string | null,
+      "domains": [
+        {
+          "id": number,
+          "name": string,
+          "corretas": number,
+          "total": number,
+          "percentage": number
+        }
+      ]
+    }
+    ```
+  - Usado por: `frontend/pages/progressoGeral.html` (gráfico radar de domínios)
+
 

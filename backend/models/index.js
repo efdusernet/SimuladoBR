@@ -20,6 +20,8 @@ db.ExamAttemptQuestion = require('./ExamAttemptQuestion')(sequelize, DataTypes);
 db.ExamAttemptAnswer = require('./ExamAttemptAnswer')(sequelize, DataTypes);
 db.QuestionType = require('./QuestionType')(sequelize, DataTypes);
 db.Indicator = require('./Indicator')(sequelize, DataTypes);
+db.ExamAttemptPurgeLog = require('./ExamAttemptPurgeLog')(sequelize, DataTypes);
+db.ExamAttemptUserStats = require('./ExamAttemptUserStats')(sequelize, DataTypes);
 
 
 // Associations

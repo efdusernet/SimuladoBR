@@ -148,7 +148,7 @@
         const probeUrl = '/api/questions?page=1&pageSize=1&order=id%20asc';
         fetch(probeUrl, { headers: { 'X-Session-Token': token }, method: 'GET' })
           .then(r => {
-              if (!r.ok) return; // not admin
+              if (!r.ok) return Promise.reject('Not admin'); // not admin
               // Success => show menu
               btn.style.display = 'inline-flex';
               // Provide fallback token if cookies absent
@@ -230,13 +230,12 @@
                 <div id="card-indicadores" class="card" data-card="indicadores" aria-label="Indicadores de desempenho" role="button" tabindex="0">
                     <span class="card-label">Indicadores</span>
                 </div>
-                <div class="card" data-full="https://picsum.photos/800/800?random=5" aria-label="Abrir imagem 5" role="button" tabindex="0">
-                    <span class="card-label">Indique um amigo</span>
+                <div id="card-progresso-geral" class="card" data-card="progresso-geral" aria-label="Progresso geral" role="button" tabindex="0">
+                    <span class="card-label">Progresso geral</span>
                 </div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=6" aria-label="Abrir imagem 6" role="button" tabindex="0">
                     <span class="card-label">Estou pronto?</span>
                 </div>
-                
             </div>
         </section>
 
@@ -835,6 +834,12 @@
                 if (card.id === 'card-indicadores' || card.getAttribute('data-card') === 'indicadores') {
                     try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
                     window.location.assign('/pages/Indicadores.html');
+                    return;
+                }
+                // Navegar para página de Progresso Geral
+                if (card.id === 'card-progresso-geral' || card.getAttribute('data-card') === 'progresso-geral') {
+                    try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                    window.location.assign('/pages/progressoGeral.html');
                     return;
                 }
                 // Abrir modal Admin

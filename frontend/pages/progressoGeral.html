@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Progresso Geral - SimuladosBR</title>
+    <style>
+        :root{
+            --bg: #0f172a;
+            --panel: #111827;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --primary: #4f46e5;
+            --primary-press: #4338ca;
+            --border: #1f2937;
+            --shadow: 0 8px 20px rgba(0,0,0,.35);
+        }
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{
+            margin:0; padding:0;
+            display:flex; flex-direction:column; min-height:100vh;
+            background:#ffffff; color:#111827;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, 'Helvetica Neue', Arial, 'Apple Color Emoji','Segoe UI Emoji';
+            touch-action: manipulation;
+        }
+        .content{ flex:1 1 auto; overflow-y:auto; padding:16px; }
+        .container{ max-width:800px; margin:0 auto; padding:20px; }
+        h1{ font-size:1.8rem; text-align:center; margin:0 0 24px; color:#111827; }
+        .menu-toggle{ position:fixed; top:12px; left:12px; z-index:2300; padding:8px 10px; border-radius:8px; border:1px solid rgba(0,0,0,0.08); background:#fff; color:#111827; cursor:pointer; box-shadow:0 6px 14px rgba(0,0,0,0.10); font-size:.85rem; font-weight:600; }
+        .nav-menu{ position:fixed; top:52px; left:12px; z-index:2299; min-width:200px; background:#ffffff; border:1px solid #d6d9e0; border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,0.18); padding:6px; display:none; }
+        .nav-menu.active{ display:block; }
+        .nav-menu a{ display:block; padding:8px 10px; border-radius:6px; color:#111827; text-decoration:none; font-size:.9rem; transition:background .15s; }
+        .nav-menu a:hover{ background:#f1f5f9; }
+    </style>
+    <!-- Admin menu logic removido para evitar 403 em usuários comuns. -->
+    
+    <!-- Menu toggle logic -->
+    <script>
+    (function(){
+        const menuToggle = document.getElementById('menuToggle');
+        const navMenu = document.getElementById('navMenu');
+        
+        if (menuToggle && navMenu) {
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                navMenu.classList.toggle('active');
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!navMenu.contains(e.target) && e.target !== menuToggle) {
+                    navMenu.classList.remove('active');
+                }
+            });
+        }
+    })();
+    </script>
+    
+    <!-- Radar Chart Logic -->
+    <script>
+    (function initRadarChart(){
+        const dataSelector = document.getElementById('dataSelector');
+        const centerX = 200;
+        const centerY = 200;
+        
+        // Function to calculate point coordinates on radar
+        function getRadarPoint(centerX, centerY, angle, percentage) {
+            const maxRadius = 150; // Maximum radius from center
+            const radius = (percentage / 100) * maxRadius;
+            const radians = (angle - 90) * (Math.PI / 180);
+            return {
+                x: centerX + radius * Math.cos(radians),
+                y: centerY + radius * Math.sin(radians)
+            };
+        }
+        
+        // Update chart with data
+        function updateChart(domains) {
+            // Map domain names to positions (0°, 120°, 240°)
+            const domainMap = {};
+            
+            domains.forEach(d => {
+                const name = d.name.toLowerCase();
+                if (name.includes('pessoa')) domainMap.pessoas = d.percentage;
+                else if (name.includes('processo')) domainMap.processos = d.percentage;
+                else if (name.includes('ambiente') || name.includes('negócio')) domainMap.ambienteNegocios = d.percentage;
+            });
+            
+            // Default to 0 if not found
+            const data = {
+                pessoas: domainMap.pessoas || 0,
+                processos: domainMap.processos || 0,
+                ambienteNegocios: domainMap.ambienteNegocios || 0
+            };
+            
+            // Calculate points (angles: 0°, 120°, 240° for equilateral triangle)
+            const point1 = getRadarPoint(centerX, centerY, 0, data.pessoas);
+            const point2 = getRadarPoint(centerX, centerY, 120, data.processos);
+            const point3 = getRadarPoint(centerX, centerY, 240, data.ambienteNegocios);
+            
+            // Update polygon
+            const polygon = document.getElementById('dataPolygon');
+            if (polygon) {
+                polygon.setAttribute('points', `${point1.x},${point1.y} ${point2.x},${point2.y} ${point3.x},${point3.y}`);
+            }
+            
+            // Update points
+            const p1 = document.getElementById('point1');
+            const p2 = document.getElementById('point2');
+            const p3 = document.getElementById('point3');
+            if (p1) { p1.setAttribute('cx', point1.x); p1.setAttribute('cy', point1.y); }
+            if (p2) { p2.setAttribute('cx', point2.x); p2.setAttribute('cy', point2.y); }
+            if (p3) { p3.setAttribute('cx', point3.x); p3.setAttribute('cy', point3.y); }
+            
+            // Update value labels
+            const v1 = document.getElementById('value1');
+            const v2 = document.getElementById('value2');
+            const v3 = document.getElementById('value3');
+            if (v1) v1.textContent = `${data.pessoas.toFixed(1)}%`;
+            if (v2) v2.textContent = `${data.processos.toFixed(1)}%`;
+            if (v3) v3.textContent = `${data.ambienteNegocios.toFixed(1)}%`;
+        }
+        
+        // Fetch data from API
+        async function loadData(examMode) {
+            try {
+                const token = (localStorage.getItem('sessionToken') || '').trim();
+                if (!token) {
+                    console.warn('Sem token de sessão');
+                    return;
+                }
+                
+                const response = await fetch(`/api/indicators/IND10?examMode=${examMode}`, {
+                    headers: {
+                        'X-Session-Token': token
+                    }
+                });
+                
+                if (!response.ok) {
+                    console.error('Erro ao buscar dados:', response.status);
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.domains && data.domains.length > 0) {
+                    updateChart(data.domains);
+                } else {
+                    console.warn('Nenhum dado de domínio encontrado');
+                    // Set chart to 0
+                    updateChart([]);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados do radar:', error);
+            }
+        }
+        
+        // Listen to selector changes
+        if (dataSelector) {
+            dataSelector.addEventListener('change', () => {
+                loadData(dataSelector.value);
+            });
+        }
+        
+        // Load initial data (default: last)
+        loadData('last');
+    })();
+    </script>
+    <!-- Navegação básica -->
+    <button id="menuToggle" class="menu-toggle" aria-label="Menu">☰ Menu</button>
+    <nav id="navMenu" class="nav-menu" aria-label="Menu de navegação">
+        <a href="/">Início</a>
+        <a href="/pages/Indicadores.html">Indicadores</a>
+        <a href="/pages/progressoGeral.html">Progresso Geral</a>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <h1>Progresso Geral</h1>
+            <p style="text-align:center;color:#666;">Acompanhe sua evolução nos simulados.</p>
+
+            <!-- Seletor de modo -->
+            <div style="max-width:500px;margin:20px auto;text-align:center;">
+                <label for="dataSelector" style="font-size:0.9rem;color:#111827;margin-right:8px;font-weight:500;">Visualizar:</label>
+                <select id="dataSelector" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;font-size:0.9rem;cursor:pointer;min-width:200px;">
+                    <option value="best">Meu melhor resultado</option>
+                    <option value="last" selected>Meu último exame</option>
+                </select>
+            </div>
+
+            <!-- Radar Chart Container -->
+            <div style="max-width:520px;margin:40px auto;background:#fff;padding:24px 36px 28px 48px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                <h2 style="text-align:center;font-size:1.2rem;margin:0 0 20px;color:#111827;">Domínios de Conhecimento</h2>
+                <svg id="radarChart" viewBox="0 0 400 400" style="width:100%;height:auto;max-width:400px;margin:0 auto;display:block;transform:scale(0.85);transform-origin:200px 200px;overflow:visible;">
+                    <!-- Grid -->
+                    <circle cx="200" cy="200" r="150" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+                    <circle cx="200" cy="200" r="120" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+                    <circle cx="200" cy="200" r="90" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+                    <circle cx="200" cy="200" r="60" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+                    <circle cx="200" cy="200" r="30" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+                    <!-- Eixos -->
+                    <line x1="200" y1="200" x2="200" y2="50" stroke="#d1d5db" stroke-width="1"/>
+                    <line x1="200" y1="200" x2="329.9" y2="275" stroke="#d1d5db" stroke-width="1"/>
+                    <line x1="200" y1="200" x2="70.1" y2="275" stroke="#d1d5db" stroke-width="1"/>
+                    <!-- Polígono dados -->
+                    <polygon id="dataPolygon" points="200,50 329.9,275 70.1,275" fill="rgba(79,70,229,0.2)" stroke="#4f46e5" stroke-width="2"/>
+                    <!-- Pontos -->
+                    <circle id="point1" cx="200" cy="50" r="5" fill="#4f46e5"/>
+                    <circle id="point2" cx="329.9" cy="275" r="5" fill="#4f46e5"/>
+                    <circle id="point3" cx="70.1" cy="275" r="5" fill="#4f46e5"/>
+                    <!-- Rótulos -->
+                    <text x="200" y="35" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">Pessoas</text>
+                    <text id="value1" x="200" y="20" text-anchor="middle" font-size="12" fill="#4f46e5" font-weight="600">0%</text>
+                    <text x="345" y="290" text-anchor="start" font-size="14" font-weight="600" fill="#111827">Processos</text>
+                    <text id="value2" x="345" y="305" text-anchor="start" font-size="12" fill="#4f46e5" font-weight="600">0%</text>
+                    <text x="70" y="290" text-anchor="end" font-size="14" font-weight="600" fill="#111827">Ambiente de</text>
+                    <text x="70" y="305" text-anchor="end" font-size="14" font-weight="600" fill="#111827">Negócios</text>
+                    <text id="value3" x="70" y="320" text-anchor="end" font-size="12" fill="#4f46e5" font-weight="600">0%</text>
+                </svg>
+                <div style="margin-top:20px;padding:12px;background:#f8fafc;border-radius:8px;font-size:0.85rem;color:#64748b;">
+                    <p style="margin:0 0 8px;"><strong>Legenda:</strong></p>
+                    <p style="margin:0;">Os valores serão atualizados conforme seu desempenho por domínio.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

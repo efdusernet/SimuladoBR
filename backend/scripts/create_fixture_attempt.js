@@ -5,6 +5,7 @@
 
 const path = require('path');
 const db = require('../models');
+const userStatsService = require('../services/UserStatsService')(db);
 
 function argVal(name, def=null){
   const idx = process.argv.findIndex(a => a === `--${name}`);
@@ -36,6 +37,15 @@ async function main(){
   const totalQuestionsRaw = argVal('totalQuestions','180');
   const totalQuestions = Math.max(1, Math.min(500, Number(totalQuestionsRaw)));
   const examTypeSlug = (argVal('examType','pmp') || 'pmp').toString().trim();
+  // Domain percent args
+  const peoplePctRaw = argVal('peoplePct', null);
+  const processPctRaw = argVal('processPct', null);
+  const businessPctRaw = argVal('businessPct', null);
+  function parseDom(v){ if(v==null) return null; const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null; }
+  const peoplePct = parseDom(peoplePctRaw);
+  const processPct = parseDom(processPctRaw);
+  const businessPct = parseDom(businessPctRaw);
+  function labelFromPct(p){ if(p==null) return '—'; if(p<=25) return 'Needs Improvement'; if(p<=50) return 'Below Target'; if(p<=75) return 'Target'; return 'Above Target'; }
 
   // Obter exam type
   const examType = await db.ExamType.findOne({ where: { Slug: examTypeSlug } });
@@ -97,7 +107,7 @@ async function main(){
         pontuacaoMinima: aprovMin
       },
       FiltrosUsados: { fixture: true },
-      Meta: { origin: 'fixture-script' },
+      Meta: { origin: 'fixture-script', domainPercents: { people: peoplePct, process: processPct, business: businessPct }, domainLabels: { people: labelFromPct(peoplePct), process: labelFromPct(processPct), business: labelFromPct(businessPct) } },
       StatusReason: 'fixture-generated'
     }, { transaction: t });
     attemptId = attempt.Id;
@@ -123,6 +133,9 @@ async function main(){
     const finishedAt = new Date(startedAt.getTime() + cumulativeSec*1000 + 5000); // +5s buffer
     await db.ExamAttempt.update({ FinishedAt: finishedAt, LastActivityAt: finishedAt }, { where: { Id: attemptId }, transaction: t });
   });
+
+  // Atualizar estatísticas (finished)
+  try { await userStatsService.incrementFinished(userId, overallPct); } catch(err){ console.warn('Falha incrementFinished:', err.message); }
 
   console.log(JSON.stringify({ attemptId, userId, totalQuestions: questionIds.length, corretas, scorePercent: scorePercent.toFixed(2) }, null, 2));
 }

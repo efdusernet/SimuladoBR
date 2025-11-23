@@ -11,11 +11,11 @@ router.post('/mark-abandoned', requireAdmin, examController.markAbandonedAttempt
 router.post('/purge-abandoned', requireAdmin, examController.purgeAbandonedAttempts);
 
 // POST /api/admin/exams/fixture-attempt
-// Body: { userId, overallPct, totalQuestions, examTypeSlug }
+// Body: { userId, overallPct, totalQuestions, examTypeSlug, peoplePct?, processPct?, businessPct? }
 // Cria tentativa finalizada diretamente (fixture) para testes sem percorrer questões.
 router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
     try {
-        const { userId, overallPct = 65, totalQuestions = 180, examTypeSlug = 'pmp' } = req.body || {};
+        const { userId, overallPct = 65, totalQuestions = 180, examTypeSlug = 'pmp', peoplePct, processPct, businessPct } = req.body || {};
         if(!userId) return res.status(400).json({ error: 'userId obrigatório' });
         const uid = Number(userId);
         if(!Number.isFinite(uid) || uid <= 0) return res.status(400).json({ error: 'userId inválido' });
@@ -26,6 +26,11 @@ router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
         const qt = Math.max(1, Math.min(500, Number(totalQuestions)));
         const pct = Math.max(0, Math.min(100, Number(overallPct)));
         const corretas = Math.round(qt * (pct/100));
+        function parseDom(v){ if(v==null || v==='') return null; const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null; }
+        const peopleVal = parseDom(peoplePct);
+        const processVal = parseDom(processPct);
+        const businessVal = parseDom(businessPct);
+        function labelFromPct(p){ if(p==null) return '—'; if(p<=25) return 'Needs Improvement'; if(p<=50) return 'Below Target'; if(p<=75) return 'Target'; return 'Above Target'; }
         // Selecionar questões
         const whereClauses = ["excluido = false","idstatus = 1",`exam_type_id = ${Number(examType.Id)}`];
         const whereSql = whereClauses.join(' AND ');
@@ -66,7 +71,7 @@ router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
                     pontuacaoMinima: aprovMin
                 },
                 FiltrosUsados: { fixture: true },
-                Meta: { origin: 'fixture-endpoint' },
+                Meta: { origin: 'fixture-endpoint', domainPercents: { people: peopleVal, process: processVal, business: businessVal }, domainLabels: { people: labelFromPct(peopleVal), process: labelFromPct(processVal), business: labelFromPct(businessVal) } },
                 StatusReason: 'fixture-generated'
             }, { transaction: t });
             attemptId = attempt.Id;
@@ -88,7 +93,10 @@ router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
             await db.ExamAttempt.update({ FinishedAt: finishedAt, LastActivityAt: finishedAt }, { where: { Id: attemptId }, transaction: t });
         });
 
-        return res.json({ attemptId, userId: uid, totalQuestions: questionIds.length, corretas, scorePercent: scorePercent.toFixed(2) });
+        // Atualiza estatísticas (finished)
+        try { const userStatsService = require('../services/UserStatsService')(db); await userStatsService.incrementFinished(uid, pct); } catch(err){ console.warn('incrementFinished falhou:', err.message); }
+
+        return res.json({ attemptId, userId: uid, totalQuestions: questionIds.length, corretas, scorePercent: scorePercent.toFixed(2), domainPercents: { people: peopleVal, process: processVal, business: businessVal } });
     } catch (err) {
         console.error('Erro fixture-attempt:', err);
         return res.status(500).json({ error: 'Internal error' });

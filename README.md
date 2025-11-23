@@ -75,6 +75,21 @@ Base: `http://localhost:3000`
 - `POST /api/exams/resume`
 	- Reconstrói a sessão em memória a partir do banco, usando `sessionId` (Meta) ou `attemptId`.
 
+### Endpoint admin para geração de fixtures
+
+Para testes rápidos e ajustes estatísticos existe o endpoint protegido `POST /api/admin/exams/fixture-attempt` que cria uma tentativa finalizada artificial ("fixture") sem percorrer questões manualmente.
+
+Resumo:
+- Auth: usuário com papel `admin` (header `X-Session-Token`).
+- Body mínimo: `{ userId, overallPct }` (opcionais: `totalQuestions`, `examTypeSlug`).
+- Domínios (`peoplePct`, `processPct`, `businessPct`): ou envia todos ou nenhum. Se enviados, a média deve ficar dentro da tolerância (default 2) de `overallPct`.
+- Query param opcional: `tolerance=<n>` para ajustar coerência.
+- Resposta inclui contagem de questões por domínio e corretas distribuídas. Metadados detalhados (percentuais solicitados, gerados e diferenças) ficam em `exam_attempt.Meta`.
+ - As respostas salvas simulam seleção real de opções: para cada questão correta, todas as opções corretas são marcadas; para questões incorretas, é marcada uma opção incorreta (fallback para uma única correta se não houver incorreta). Isso torna indicadores que dependem da comparação de opções (ex.: radar de domínios IND10) coerentes com os percentuais solicitados.
+ - Meta inclui `fixtureVersion` (ex.: 1.1.0) e `answerStrategy` (ex.: `all-correct-options`) para rastrear evolução da simulação e permitir auditoria/fallback futuro.
+
+Documentação completa em `docs/api-endpoints.md`.
+
 ## Bulk de questões — formatos aceitos (JSON e XML)
 
 Endpoint: `POST /api/questions/bulk` (requer papel admin).

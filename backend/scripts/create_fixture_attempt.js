@@ -61,19 +61,153 @@ async function main(){
     process.exit(1);
   }
 
-  // Selecionar IDs de questões
+  // Selecionar questões (id + iddominiogeral para distribuição por domínio)
   const sequelize = db.sequelize;
   const whereClauses = ["excluido = false","idstatus = 1",`exam_type_id = ${Number(examType.Id)}`];
   const whereSql = whereClauses.join(' AND ');
-  const selectIdsQ = `SELECT id FROM questao WHERE ${whereSql} ORDER BY random() LIMIT :limit`;
-  const questRows = await sequelize.query(selectIdsQ, { replacements: { limit: totalQuestions }, type: sequelize.QueryTypes.SELECT });
+  const selectRowsQ = `SELECT id, iddominiogeral FROM questao WHERE ${whereSql} ORDER BY random() LIMIT :limit`;
+  const questRows = await sequelize.query(selectRowsQ, { replacements: { limit: totalQuestions }, type: sequelize.QueryTypes.SELECT });
   const questionIds = questRows.map(r => Number(r.id)).filter(n => Number.isFinite(n));
   if(questionIds.length < totalQuestions){
     console.error(`Não há questões suficientes (${questionIds.length}) para total solicitado (${totalQuestions}).`);
     process.exit(1);
   }
+  // Preparar dados de domínio
+  const domainMap = {}; // key domainId -> { questions: [indices], count }
+  questRows.forEach((r, idx) => {
+    const dId = (r.iddominiogeral != null ? Number(r.iddominiogeral) : null);
+    const key = dId != null && Number.isFinite(dId) ? dId : 'null';
+    if(!domainMap[key]) domainMap[key] = { questions: [], count: 0 };
+    domainMap[key].questions.push(idx); // armazenar índice em questionIds
+    domainMap[key].count++;
+  });
 
-  const corretas = Math.round(questionIds.length * (overallPct/100));
+  // Obter descrições dos domínios (quando existirem IDs válidos)
+  const validDomainIds = Object.keys(domainMap).filter(k => k !== 'null').map(k => Number(k));
+  let domainDescMap = {}; // id -> descricao
+  if(validDomainIds.length){
+    try {
+      const domRows = await sequelize.query(`SELECT id, descricao FROM dominiogeral WHERE id IN (${validDomainIds.join(',')})`, { type: sequelize.QueryTypes.SELECT });
+      domRows.forEach(dr => { domainDescMap[Number(dr.id)] = dr.descricao; });
+    } catch(e){ console.warn('Aviso: falha ao carregar dominiogeral:', e.message); }
+  }
+
+  // Função heurística para mapear descrição para chave semântica
+  function keyFromDesc(desc){
+    if(!desc || typeof desc !== 'string') return null;
+    const d = desc.toLowerCase();
+    if(/people|pessoa/.test(d)) return 'people';
+    if(/process/.test(d)) return 'process';
+    if(/business|negoci|ambiente/.test(d)) return 'business';
+    return null;
+  }
+
+  // Construir agregação semântica
+  const semanticDomains = { people: [], process: [], business: [] };
+  const unmappedDomainIds = [];
+  validDomainIds.forEach(did => {
+    const semKey = keyFromDesc(domainDescMap[did]);
+    if(semKey){
+      // Adicionar índices das questões deste domínio
+      domainMap[did].questions.forEach(idx => semanticDomains[semKey].push(idx));
+    } else {
+      unmappedDomainIds.push(did);
+    }
+  });
+  // Fallback de ordenação para quaisquer domínios não mapeados (atribui por ordem às chaves vazias)
+  const fallbackKeys = ['people','process','business'].filter(k => semanticDomains[k].length === 0);
+  let fkPtr = 0;
+  unmappedDomainIds.forEach(did => {
+    const assignKey = fallbackKeys[fkPtr] || 'process';
+    domainMap[did].questions.forEach(idx => semanticDomains[assignKey].push(idx));
+    if(fkPtr < fallbackKeys.length - 1) fkPtr++;
+  });
+
+  // Tentar distribuir corretas respeitando percepções de domínio quando percentuais fornecidos
+  const overallCorrectTarget = Math.round(questionIds.length * (overallPct/100));
+  let perDomainTargets = { people: 0, process: 0, business: 0 };
+  const requested = { people: peoplePct, process: processPct, business: businessPct };
+
+  const domainCounts = {
+    people: semanticDomains.people.length,
+    process: semanticDomains.process.length,
+    business: semanticDomains.business.length
+  };
+
+  const hasRequested = [peoplePct, processPct, businessPct].some(v => v != null);
+  if(hasRequested){
+    // Calcular alvo inicial (floor) e frações
+    const fractional = [];
+    Object.keys(perDomainTargets).forEach(k => {
+      const cnt = domainCounts[k];
+      const reqPct = requested[k];
+      if(cnt === 0 || reqPct == null){ perDomainTargets[k] = 0; return; }
+      const ideal = reqPct/100 * cnt;
+      const base = Math.floor(ideal);
+      perDomainTargets[k] = base;
+      fractional.push({ k, frac: ideal - base, cap: cnt });
+    });
+    let currentSum = Object.values(perDomainTargets).reduce((a,b)=>a+b,0);
+    let remaining = overallCorrectTarget - currentSum;
+    if(remaining > 0){
+      // adicionar corretas extras seguindo frações decrescentes
+      fractional.sort((a,b)=>b.frac - a.frac);
+      for(const f of fractional){
+        if(remaining <= 0) break;
+        if(perDomainTargets[f.k] < f.cap){ perDomainTargets[f.k]++; remaining--; }
+      }
+    } else if(remaining < 0){
+      // remover seguindo frações crescentes
+      fractional.sort((a,b)=>a.frac - b.frac);
+      for(const f of fractional){
+        if(remaining >= 0) break;
+        if(perDomainTargets[f.k] > 0){ perDomainTargets[f.k]--; remaining++; }
+      }
+    }
+    // Se ainda não zerou diferença, distribuir arbitrariamente
+    if(remaining !== 0){
+      const order = ['people','process','business'];
+      for(const k of order){
+        if(remaining === 0) break;
+        const cap = domainCounts[k];
+        if(remaining > 0 && perDomainTargets[k] < cap){ perDomainTargets[k]++; remaining--; }
+        else if(remaining < 0 && perDomainTargets[k] > 0){ perDomainTargets[k]--; remaining++; }
+      }
+    }
+  } else {
+    // Sem percentuais solicitados: distribuição simples sequencial
+    perDomainTargets.people = Math.round(domainCounts.people * (overallPct/100));
+    perDomainTargets.process = Math.round(domainCounts.process * (overallPct/100));
+    perDomainTargets.business = Math.round(domainCounts.business * (overallPct/100));
+  }
+
+  // Ajustar soma final para não exceder target (se passou por arredondamentos)
+  let sumDomainCorrects = Object.values(perDomainTargets).reduce((a,b)=>a+b,0);
+  if(sumDomainCorrects > overallCorrectTarget){
+    // remover excessos das maiores diferenças
+    const ordered = Object.keys(perDomainTargets).sort((a,b)=>perDomainTargets[b]-perDomainTargets[a]);
+    for(const k of ordered){
+      if(sumDomainCorrects <= overallCorrectTarget) break;
+      if(perDomainTargets[k] > 0){ perDomainTargets[k]--; sumDomainCorrects--; }
+    }
+  } else if(sumDomainCorrects < overallCorrectTarget){
+    // adicionar faltantes onde houver espaço
+    const ordered = Object.keys(perDomainTargets).sort((a,b)=>(domainCounts[b]-perDomainTargets[b]) - (domainCounts[a]-perDomainTargets[a]));
+    for(const k of ordered){
+      if(sumDomainCorrects >= overallCorrectTarget) break;
+      if(perDomainTargets[k] < domainCounts[k]){ perDomainTargets[k]++; sumDomainCorrects++; }
+    }
+  }
+
+  // Preparar set de índices corretos
+  const correctIndexSet = new Set();
+  ['people','process','business'].forEach(k => {
+    const list = semanticDomains[k];
+    const need = perDomainTargets[k];
+    for(let i=0; i<list.length && i<need; i++) correctIndexSet.add(list[i]);
+  });
+
+  const corretas = correctIndexSet.size; // final real
   const startedAt = new Date(Date.now() - questionIds.length * 45000); // 45s médio por questão
   let cumulativeSec = 0;
 
@@ -83,6 +217,7 @@ async function main(){
 
   let attemptId = null;
   await sequelize.transaction(async (t) => {
+    const fixtureSpec = require('../config/fixtureSpec');
     const attempt = await db.ExamAttempt.create({
       UserId: user.Id,
       ExamTypeId: examType.Id,
@@ -107,27 +242,78 @@ async function main(){
         pontuacaoMinima: aprovMin
       },
       FiltrosUsados: { fixture: true },
-      Meta: { origin: 'fixture-script', domainPercents: { people: peoplePct, process: processPct, business: businessPct }, domainLabels: { people: labelFromPct(peoplePct), process: labelFromPct(processPct), business: labelFromPct(businessPct) } },
+      Meta: {
+        origin: 'fixture-script',
+        domainPercentsRequested: { people: peoplePct, process: processPct, business: businessPct },
+        domainPercentsActual: {
+          people: domainCounts.people ? (perDomainTargets.people / domainCounts.people * 100).toFixed(2) : null,
+          process: domainCounts.process ? (perDomainTargets.process / domainCounts.process * 100).toFixed(2) : null,
+          business: domainCounts.business ? (perDomainTargets.business / domainCounts.business * 100).toFixed(2) : null
+        },
+        domainCounts,
+        domainCorrects: perDomainTargets,
+        domainPercentsDiff: {
+          people: (peoplePct!=null && domainCounts.people) ? ( (perDomainTargets.people / domainCounts.people * 100) - peoplePct ).toFixed(2) : null,
+          process: (processPct!=null && domainCounts.process) ? ( (perDomainTargets.process / domainCounts.process * 100) - processPct ).toFixed(2) : null,
+          business: (businessPct!=null && domainCounts.business) ? ( (perDomainTargets.business / domainCounts.business * 100) - businessPct ).toFixed(2) : null
+        },
+        fixtureVersion: fixtureSpec.fixtureVersion,
+        answerStrategy: fixtureSpec.answerStrategy
+      },
       StatusReason: 'fixture-generated'
     }, { transaction: t });
     attemptId = attempt.Id;
 
-    // Insert attempt questions & answers
+    // Precarregar opções para cada questão selecionada
+    let optionMap = new Map();
+    try {
+      if (questionIds.length) {
+        const optRows = await db.sequelize.query(
+          `SELECT "Id" as id, "IdQuestao" as qid, "IsCorreta" as correta FROM respostaopcao WHERE "IdQuestao" IN (${questionIds.join(',')})`,
+          { type: db.Sequelize.QueryTypes.SELECT, transaction: t }
+        );
+        optRows.forEach(r => {
+          const arr = optionMap.get(r.qid) || [];
+            arr.push(r); optionMap.set(r.qid, arr);
+        });
+      }
+    } catch(e){ console.warn('Falha carregar opções (script fixture):', e.message); }
+
+    // Insert attempt questions & answers with realistic option selection
     const aqRows = [];
     const ansRows = [];
     questionIds.forEach((qid, idx) => {
-      const isCorrect = idx < corretas; // primeiros corretos
+      const isCorrect = correctIndexSet.has(idx);
       const tempo = 30 + Math.floor(Math.random()*60); // 30-90s
       cumulativeSec += tempo;
       const qUpdated = new Date(startedAt.getTime() + cumulativeSec*1000);
       aqRows.push({ AttemptId: attemptId, QuestionId: qid, Ordem: idx+1, TempoGastoSegundos: tempo, Correta: isCorrect, Meta: null, CreatedAt: startedAt, UpdatedAt: qUpdated });
     });
     const insertedQuestions = await db.ExamAttemptQuestion.bulkCreate(aqRows, { transaction: t, returning: true });
-    // Create answers with incremental updated_at; OptionId fica null para evitar FK inválida
+
     insertedQuestions.forEach(q => {
-      ansRows.push({ AttemptQuestionId: q.Id, OptionId: null, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+      const qOpts = optionMap.get(q.QuestionId) || [];
+      const correctOpts = qOpts.filter(o => o.correta);
+      const incorrectOpts = qOpts.filter(o => !o.correta);
+      const isCorrect = q.Correta;
+      if (isCorrect && correctOpts.length){
+        // Seleciona todas as corretas
+        correctOpts.forEach(opt => {
+          ansRows.push({ AttemptQuestionId: q.Id, OptionId: opt.id, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+        });
+      } else {
+        if (incorrectOpts.length){
+          ansRows.push({ AttemptQuestionId: q.Id, OptionId: incorrectOpts[0].id, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+        } else if (correctOpts.length){
+          // fallback: selecionar somente uma correta (multi corretas → continuará incorreta)
+          ansRows.push({ AttemptQuestionId: q.Id, OptionId: correctOpts[0].id, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+        } else {
+          // sem opções carregadas
+          ansRows.push({ AttemptQuestionId: q.Id, OptionId: null, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+        }
+      }
     });
-    await db.ExamAttemptAnswer.bulkCreate(ansRows, { transaction: t });
+    if (ansRows.length) await db.ExamAttemptAnswer.bulkCreate(ansRows, { transaction: t });
 
     // Finalizar attempt com FinishedAt = último updated
     const finishedAt = new Date(startedAt.getTime() + cumulativeSec*1000 + 5000); // +5s buffer
@@ -137,7 +323,7 @@ async function main(){
   // Atualizar estatísticas (finished)
   try { await userStatsService.incrementFinished(userId, overallPct); } catch(err){ console.warn('Falha incrementFinished:', err.message); }
 
-  console.log(JSON.stringify({ attemptId, userId, totalQuestions: questionIds.length, corretas, scorePercent: scorePercent.toFixed(2) }, null, 2));
+  console.log(JSON.stringify({ attemptId, userId, totalQuestions: questionIds.length, corretas, scorePercent: scorePercent.toFixed(2), domainCounts, domainCorrects: perDomainTargets }, null, 2));
 }
 
 main().catch(err => { console.error('Erro fixture attempt:', err); process.exit(1); });

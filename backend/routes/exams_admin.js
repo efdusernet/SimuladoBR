@@ -13,7 +13,8 @@ router.post('/purge-abandoned', requireAdmin, examController.purgeAbandonedAttem
 // POST /api/admin/exams/fixture-attempt
 // Body: { userId, overallPct, totalQuestions, examTypeSlug, peoplePct?, processPct?, businessPct? }
 // Cria tentativa finalizada diretamente (fixture) para testes sem percorrer questões.
-router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
+// NOTE: Mounted at /api/admin/exams, so path here must NOT repeat '/exams'
+router.post('/fixture-attempt', requireAdmin, async (req, res) => {
     try {
         const { userId, overallPct = 65, totalQuestions = 180, examTypeSlug = 'pmp', peoplePct, processPct, businessPct } = req.body || {};
         if(!userId) return res.status(400).json({ error: 'userId obrigatório' });
@@ -30,22 +31,131 @@ router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
         const peopleVal = parseDom(peoplePct);
         const processVal = parseDom(processPct);
         const businessVal = parseDom(businessPct);
+        // Validação de coerência server-side: ou informa todos os domínios ou nenhum
+        const domVals = [peopleVal, processVal, businessVal];
+        const anyProvided = domVals.some(v => v != null);
+        const allProvided = domVals.every(v => v != null);
+        if(anyProvided && !allProvided){
+            return res.status(400).json({ error: 'Forneça todos os percentuais de domínio (people, process, business) ou nenhum.' });
+        }
+        if(allProvided){
+            const meanDom = (peopleVal + processVal + businessVal) / 3;
+            const tolerance = Number(req.query.tolerance != null ? req.query.tolerance : 2);
+            if(!Number.isFinite(tolerance) || tolerance < 0) return res.status(400).json({ error: 'Tolerance inválida' });
+            const diff = Math.abs(meanDom - pct);
+            if(diff > tolerance){
+                return res.status(400).json({ error: `Incoerência: média domínios (${meanDom.toFixed(2)}%) difere de overallPct (${pct.toFixed(2)}%) além da tolerância (${tolerance}).`, details: { meanDom: meanDom.toFixed(2), overall: pct.toFixed(2), diff: diff.toFixed(2), tolerance } });
+            }
+        }
         function labelFromPct(p){ if(p==null) return '—'; if(p<=25) return 'Needs Improvement'; if(p<=50) return 'Below Target'; if(p<=75) return 'Target'; return 'Above Target'; }
         // Selecionar questões
         const whereClauses = ["excluido = false","idstatus = 1",`exam_type_id = ${Number(examType.Id)}`];
         const whereSql = whereClauses.join(' AND ');
-        const selectIdsQ = `SELECT id FROM questao WHERE ${whereSql} ORDER BY random() LIMIT :limit`;
-        const questRows = await db.sequelize.query(selectIdsQ, { replacements: { limit: qt }, type: db.Sequelize.QueryTypes.SELECT });
+        // Selecionar questões com iddominiogeral para permitir distribuição por domínio
+        const selectRowsQ = `SELECT id, iddominiogeral FROM questao WHERE ${whereSql} ORDER BY random() LIMIT :limit`;
+        const questRows = await db.sequelize.query(selectRowsQ, { replacements: { limit: qt }, type: db.Sequelize.QueryTypes.SELECT });
         const questionIds = questRows.map(r => Number(r.id)).filter(n => Number.isFinite(n));
         if(questionIds.length < qt) return res.status(400).json({ error: 'Quantidade de questões insuficiente', available: questionIds.length });
-
+        // Mapear domínios brutos
+        const domainMap = {};
+        questRows.forEach((r, idx) => {
+            const dId = (r.iddominiogeral != null ? Number(r.iddominiogeral) : null);
+            const key = dId != null && Number.isFinite(dId) ? dId : 'null';
+            if(!domainMap[key]) domainMap[key] = { questions: [], count: 0 };
+            domainMap[key].questions.push(idx);
+            domainMap[key].count++;
+        });
+        const validDomainIds = Object.keys(domainMap).filter(k => k !== 'null').map(k => Number(k));
+        let domainDescMap = {};
+        if(validDomainIds.length){
+            try {
+                const domRows = await db.sequelize.query(`SELECT id, descricao FROM dominiogeral WHERE id IN (${validDomainIds.join(',')})`, { type: db.Sequelize.QueryTypes.SELECT });
+                domRows.forEach(dr => { domainDescMap[Number(dr.id)] = dr.descricao; });
+            } catch(e){ console.warn('Falha carregar dominiogeral:', e.message); }
+        }
+        function keyFromDesc(desc){
+            if(!desc || typeof desc !== 'string') return null;
+            const d = desc.toLowerCase();
+            if(/people|pessoa/.test(d)) return 'people';
+            if(/process/.test(d)) return 'process';
+            if(/business|negoci|ambiente/.test(d)) return 'business';
+            return null;
+        }
+        const semanticDomains = { people: [], process: [], business: [] };
+        const unmappedDomainIds = [];
+        validDomainIds.forEach(did => {
+            const semKey = keyFromDesc(domainDescMap[did]);
+            if(semKey){ domainMap[did].questions.forEach(idx => semanticDomains[semKey].push(idx)); }
+            else { unmappedDomainIds.push(did); }
+        });
+        const fallbackKeys = ['people','process','business'].filter(k => semanticDomains[k].length === 0);
+        let fkPtr = 0;
+        unmappedDomainIds.forEach(did => {
+            const assignKey = fallbackKeys[fkPtr] || 'process';
+            domainMap[did].questions.forEach(idx => semanticDomains[assignKey].push(idx));
+            if(fkPtr < fallbackKeys.length - 1) fkPtr++;
+        });
+        const overallCorrectTarget = corretas;
+        let perDomainTargets = { people: 0, process: 0, business: 0 };
+        const requested = { people: peopleVal, process: processVal, business: businessVal };
+        const domainCounts = { people: semanticDomains.people.length, process: semanticDomains.process.length, business: semanticDomains.business.length };
+        const hasRequested = [peopleVal, processVal, businessVal].some(v => v != null);
+        if(hasRequested){
+            const fractional = [];
+            Object.keys(perDomainTargets).forEach(k => {
+                const cnt = domainCounts[k];
+                const reqPct = requested[k];
+                if(cnt === 0 || reqPct == null){ perDomainTargets[k] = 0; return; }
+                const ideal = reqPct/100 * cnt;
+                const base = Math.floor(ideal);
+                perDomainTargets[k] = base;
+                fractional.push({ k, frac: ideal - base, cap: cnt });
+            });
+            let currentSum = Object.values(perDomainTargets).reduce((a,b)=>a+b,0);
+            let remaining = overallCorrectTarget - currentSum;
+            if(remaining > 0){
+                fractional.sort((a,b)=>b.frac - a.frac);
+                for(const f of fractional){ if(remaining <= 0) break; if(perDomainTargets[f.k] < f.cap){ perDomainTargets[f.k]++; remaining--; } }
+            } else if(remaining < 0){
+                fractional.sort((a,b)=>a.frac - b.frac);
+                for(const f of fractional){ if(remaining >= 0) break; if(perDomainTargets[f.k] > 0){ perDomainTargets[f.k]--; remaining++; } }
+            }
+            if(remaining !== 0){
+                const order = ['people','process','business'];
+                for(const k of order){
+                    if(remaining === 0) break;
+                    const cap = domainCounts[k];
+                    if(remaining > 0 && perDomainTargets[k] < cap){ perDomainTargets[k]++; remaining--; }
+                    else if(remaining < 0 && perDomainTargets[k] > 0){ perDomainTargets[k]--; remaining++; }
+                }
+            }
+        } else {
+            perDomainTargets.people = Math.round(domainCounts.people * (pct/100));
+            perDomainTargets.process = Math.round(domainCounts.process * (pct/100));
+            perDomainTargets.business = Math.round(domainCounts.business * (pct/100));
+        }
+        let sumDomainCorrects = Object.values(perDomainTargets).reduce((a,b)=>a+b,0);
+        if(sumDomainCorrects > overallCorrectTarget){
+            const ordered = Object.keys(perDomainTargets).sort((a,b)=>perDomainTargets[b]-perDomainTargets[a]);
+            for(const k of ordered){ if(sumDomainCorrects <= overallCorrectTarget) break; if(perDomainTargets[k] > 0){ perDomainTargets[k]--; sumDomainCorrects--; } }
+        } else if(sumDomainCorrects < overallCorrectTarget){
+            const ordered = Object.keys(perDomainTargets).sort((a,b)=>(domainCounts[b]-perDomainTargets[b]) - (domainCounts[a]-perDomainTargets[a]));
+            for(const k of ordered){ if(sumDomainCorrects >= overallCorrectTarget) break; if(perDomainTargets[k] < domainCounts[k]){ perDomainTargets[k]++; sumDomainCorrects++; } }
+        }
+        const correctIndexSet = new Set();
+        ['people','process','business'].forEach(k => {
+            const list = semanticDomains[k];
+            const need = perDomainTargets[k];
+            for(let i=0; i<list.length && i<need; i++) correctIndexSet.add(list[i]);
+        });
         const startedAt = new Date(Date.now() - questionIds.length * 40000); // 40s médio
         let cumulativeSec = 0;
         const aprovMin = examType.PontuacaoMinimaPercent != null ? Number(examType.PontuacaoMinimaPercent) : null;
-        const scorePercent = (corretas / questionIds.length * 100);
+        const scorePercent = (correctIndexSet.size / questionIds.length * 100);
         const aprovado = aprovMin != null ? scorePercent >= aprovMin : null;
         let attemptId = null;
 
+        const fixtureSpec = require('../config/fixtureSpec');
         await db.sequelize.transaction(async (t) => {
             const attempt = await db.ExamAttempt.create({
                 UserId: uid,
@@ -56,7 +166,7 @@ router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
                 StartedAt: startedAt,
                 LastActivityAt: startedAt,
                 Status: 'finished',
-                Corretas: corretas,
+                Corretas: correctIndexSet.size,
                 Total: questionIds.length,
                 ScorePercent: scorePercent.toFixed(2),
                 Aprovado: aprovado,
@@ -71,24 +181,79 @@ router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
                     pontuacaoMinima: aprovMin
                 },
                 FiltrosUsados: { fixture: true },
-                Meta: { origin: 'fixture-endpoint', domainPercents: { people: peopleVal, process: processVal, business: businessVal }, domainLabels: { people: labelFromPct(peopleVal), process: labelFromPct(processVal), business: labelFromPct(businessVal) } },
+                Meta: {
+                    origin: 'fixture-endpoint',
+                    domainPercentsRequested: { people: peopleVal, process: processVal, business: businessVal },
+                    domainCounts,
+                    domainCorrects: perDomainTargets,
+                    domainPercentsActual: {
+                        people: domainCounts.people ? (perDomainTargets.people / domainCounts.people * 100).toFixed(2) : null,
+                        process: domainCounts.process ? (perDomainTargets.process / domainCounts.process * 100).toFixed(2) : null,
+                        business: domainCounts.business ? (perDomainTargets.business / domainCounts.business * 100).toFixed(2) : null
+                    },
+                    domainPercentsDiff: {
+                        people: (peopleVal!=null && domainCounts.people) ? ((perDomainTargets.people / domainCounts.people * 100) - peopleVal).toFixed(2) : null,
+                        process: (processVal!=null && domainCounts.process) ? ((perDomainTargets.process / domainCounts.process * 100) - processVal).toFixed(2) : null,
+                        business: (businessVal!=null && domainCounts.business) ? ((perDomainTargets.business / domainCounts.business * 100) - businessVal).toFixed(2) : null
+                    },
+                    fixtureVersion: fixtureSpec.fixtureVersion,
+                    answerStrategy: fixtureSpec.answerStrategy
+                },
                 StatusReason: 'fixture-generated'
             }, { transaction: t });
             attemptId = attempt.Id;
+            // Precarregar opções das questões para simular seleção real
+            let optionMap = new Map();
+            try {
+                if (questionIds.length) {
+                    const optRows = await db.sequelize.query(
+                        `SELECT "Id" as id, "IdQuestao" as qid, "IsCorreta" as correta FROM respostaopcao WHERE "IdQuestao" IN (${questionIds.join(',')})`,
+                        { type: db.Sequelize.QueryTypes.SELECT, transaction: t }
+                    );
+                    optRows.forEach(r => {
+                        const arr = optionMap.get(r.qid) || [];
+                        arr.push(r);
+                        optionMap.set(r.qid, arr);
+                    });
+                }
+            } catch(e){ console.warn('Falha carregar opções para fixture:', e.message); }
+
             const aqRows = [];
             const ansRows = [];
             questionIds.forEach((qid, idx) => {
-                const isCorrect = idx < corretas;
+                const isCorrect = correctIndexSet.has(idx);
                 const tempo = 25 + Math.floor(Math.random()*55); // 25-80s
                 cumulativeSec += tempo;
                 const qUpdated = new Date(startedAt.getTime() + cumulativeSec*1000);
                 aqRows.push({ AttemptId: attemptId, QuestionId: qid, Ordem: idx+1, TempoGastoSegundos: tempo, Correta: isCorrect, Meta: null, CreatedAt: startedAt, UpdatedAt: qUpdated });
             });
             const insertedQuestions = await db.ExamAttemptQuestion.bulkCreate(aqRows, { transaction: t, returning: true });
+
+            // Criar respostas simulando seleção das opções corretas (ou uma incorreta) para refletir domínio no indicador IND10
             insertedQuestions.forEach(q => {
-                ansRows.push({ AttemptQuestionId: q.Id, OptionId: null, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+                const qOpts = optionMap.get(q.QuestionId) || [];
+                const correctOpts = qOpts.filter(o => o.correta);
+                const incorrectOpts = qOpts.filter(o => !o.correta);
+                const isCorrect = q.Correta;
+                if (isCorrect && correctOpts.length) {
+                    // Seleciona todas as corretas para que chosen_count == correct_count
+                    correctOpts.forEach(opt => {
+                        ansRows.push({ AttemptQuestionId: q.Id, OptionId: opt.id, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+                    });
+                } else {
+                    // Seleciona uma incorreta (ou nada se não houver) para marcar incorreta
+                    if (incorrectOpts.length) {
+                        ansRows.push({ AttemptQuestionId: q.Id, OptionId: incorrectOpts[0].id, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+                    } else if (correctOpts.length) {
+                        // fallback: escolher somente uma correta (não marcará correta se houver múltiplas corretas)
+                        ansRows.push({ AttemptQuestionId: q.Id, OptionId: correctOpts[0].id, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+                    } else {
+                        // Sem opções carregadas: linha placeholder (OptionId null) para não deixar vazio
+                        ansRows.push({ AttemptQuestionId: q.Id, OptionId: null, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+                    }
+                }
             });
-            await db.ExamAttemptAnswer.bulkCreate(ansRows, { transaction: t });
+            if (ansRows.length) await db.ExamAttemptAnswer.bulkCreate(ansRows, { transaction: t });
             const finishedAt = new Date(startedAt.getTime() + cumulativeSec*1000 + 3000);
             await db.ExamAttempt.update({ FinishedAt: finishedAt, LastActivityAt: finishedAt }, { where: { Id: attemptId }, transaction: t });
         });
@@ -96,7 +261,7 @@ router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
         // Atualiza estatísticas (finished)
         try { const userStatsService = require('../services/UserStatsService')(db); await userStatsService.incrementFinished(uid, pct); } catch(err){ console.warn('incrementFinished falhou:', err.message); }
 
-        return res.json({ attemptId, userId: uid, totalQuestions: questionIds.length, corretas, scorePercent: scorePercent.toFixed(2), domainPercents: { people: peopleVal, process: processVal, business: businessVal } });
+        return res.json({ attemptId, userId: uid, totalQuestions: questionIds.length, corretas: correctIndexSet.size, scorePercent: scorePercent.toFixed(2), domainCounts, domainCorrects: perDomainTargets });
     } catch (err) {
         console.error('Erro fixture-attempt:', err);
         return res.status(500).json({ error: 'Internal error' });

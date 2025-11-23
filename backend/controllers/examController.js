@@ -148,9 +148,10 @@ exports.selectQuestions = async (req, res) => {
   const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
   const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
+  const categorias = Array.isArray(req.body.categorias) && req.body.categorias.length ? req.body.categorias.map(Number) : null;
   // Flag premium: somente questões inéditas
   const onlyNew = (!bloqueio) && (req.body.onlyNew === true || req.body.onlyNew === 'true');
-  const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
+  const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length) || (categorias && categorias.length));
 
   // Build WHERE clause
   const whereClauses = [`excluido = false`, `idstatus = 1`];
@@ -164,6 +165,7 @@ exports.selectQuestions = async (req, res) => {
   if (dominios && dominios.length) whereClauses.push(`iddominio IN (${dominios.join(',')})`);
   if (areas && areas.length) whereClauses.push(`codareaconhecimento IN (${areas.join(',')})`);
   if (grupos && grupos.length) whereClauses.push(`codgrupoprocesso IN (${grupos.join(',')})`);
+  if (categorias && categorias.length) whereClauses.push(`codigocategoria IN (${categorias.join(',')})`);
   // Excluir questões já respondidas se onlyNew ativo (premium)
   if (onlyNew) {
     try {
@@ -198,7 +200,7 @@ exports.selectQuestions = async (req, res) => {
       if (wantDebugSql) {
         out.where = whereSqlUsed;
         out.query = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSqlUsed}`;
-        out.filters = { dominios, areas, grupos, bloqueio, examType };
+        out.filters = { dominios, areas, grupos, categorias, bloqueio, examType };
       }
       return res.json(out);
     }

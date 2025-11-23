@@ -134,8 +134,9 @@
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
       <div style="margin-bottom:12px; padding:8px; background:#f1f5f9; border-radius:6px; font-size:0.85rem; line-height:1.6;">
-        <div style="margin-bottom:6px;"><strong>Total de perguntas do simulador:</strong> <span id="ind4-value">—</span></div>
-        <div style="margin-bottom:6px;"><strong>Respondidas por você:</strong> <span id="ind5-value">—</span></div>
+        <div style="margin-bottom:6px;"><strong>Total de perguntas ativas do simulador:</strong> <span id="ind4-value">—</span></div>
+        <div style="margin-bottom:6px;"><strong>Respondidas (histórico distinto):</strong> <span id="ind5-hist">—</span></div>
+        <div style="margin-bottom:6px;"><strong>Respondidas (questões ainda ativas):</strong> <span id="ind5-active">—</span></div>
         <div><strong>Você passou <span id="ind6-value">—</span> respondendo questões no simulador.</strong></div>
       </div>
       
@@ -187,6 +188,38 @@
           <div class="cell" data-cell="OV-R5C10" data-format="percent" data-key="last30.others.aprovado">&nbsp;</div>
           <div class="cell" data-cell="OV-R5C11" data-format="percent" data-key="last30.others.reprovado">&nbsp;</div>
         </div>
+      </div>
+      <div style="margin:14px 0 6px; font-size:0.75rem; font-weight:600; color:#0f172a;">Histórico de Simulados</div>
+      <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; background:#fff;">
+        <table id="attemptsHistoryTable" style="width:100%; border-collapse:collapse; font-size:0.62rem;">
+          <thead style="background:#f8fafc;">
+            <tr style="text-align:left;">
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Data</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Título</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Tipo</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Acertos</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Score</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="attemptsHistoryBody">
+            <tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#64748b;">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="attemptsPager" style="margin:6px 2px 4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:0.6rem;">
+        <button type="button" id="attemptsPrev" style="padding:4px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; font-weight:600;">◀</button>
+        <div id="attemptsPageInfo" style="font-weight:600; color:#334155;">Página 1</div>
+        <button type="button" id="attemptsNext" style="padding:4px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; font-weight:600;">▶</button>
+        <div id="attemptsTotalInfo" style="margin-left:8px; color:#64748b;">0 tentativas</div>
+        <label for="attemptsFilter" style="display:inline-flex; align-items:center; gap:4px; margin-left:8px; font-weight:600; color:#334155;">Filtro:
+          <select id="attemptsFilter" style="padding:4px 6px; border:1px solid #cbd5e1; background:#fff; border-radius:5px; font-size:0.6rem; font-weight:600; color:#0f172a;">
+            <option value="all">Todos</option>
+            <option value="completo" selected>Completos</option>
+            <option value="incompleto">Incompletos</option>
+          </select>
+        </label>
+        <button type="button" id="attemptsExportCsv" style="margin-left:auto; padding:4px 10px; border:1px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:6px; cursor:pointer; font-weight:600;">Exportar CSV</button>
       </div>
     </section>
     <section id="sec-grupos" class="section" aria-labelledby="tab-grupos">
@@ -578,15 +611,19 @@
           document.getElementById('ind4-value').textContent = val;
         }
 
-        // IND5: Quantidade de questões respondidas pelo usuário (por exam_type)
+        // IND5 (agora combinado): Quantidade de questões respondidas (histórico e ativas)
         const url5 = examTypeId ? `/api/indicators/answered-count?exam_type=${encodeURIComponent(examTypeId)}` : null;
-        if (!url5) return; // este endpoint exige exam_type
+        if (!url5) return; // exige exam_type
         const res5 = await fetch(url5, { headers });
         if (res5.status === 401 || res5.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res5.ok) {
           const data5 = await res5.json();
-          const val = data5 && data5.total !== undefined ? data5.total : 0;
-          document.getElementById('ind5-value').textContent = val;
+          const hist = data5 && data5.historicalDistinct !== undefined ? data5.historicalDistinct : 0;
+          const act = data5 && data5.activeDistinct !== undefined ? data5.activeDistinct : 0;
+          const elHist = document.getElementById('ind5-hist');
+          const elAct = document.getElementById('ind5-active');
+          if (elHist) elHist.textContent = hist;
+          if (elAct) elAct.textContent = act;
         }
 
         // IND6: Total de horas no simulador (por exam_type)
@@ -608,7 +645,169 @@
 
     loadGeneralStats();
 
-    
+    // Carrega histórico de simulados (exames completos e quizzes, incluindo incompletos)
+    let _attemptsItems = [];
+    let _attemptsCurrentPage = 1;
+    const _attemptsPageSize = 15;
+    let _attemptsFilter = 'completo'; // default mostrar completos
+
+    function renderAttemptsPage(page){
+      const tbody = document.getElementById('attemptsHistoryBody');
+      const pageInfo = document.getElementById('attemptsPageInfo');
+      const totalInfo = document.getElementById('attemptsTotalInfo');
+      const btnPrev = document.getElementById('attemptsPrev');
+      const btnNext = document.getElementById('attemptsNext');
+      if (!tbody) return;
+      // Apply filter
+      const filtered = _attemptsItems.filter(it => {
+        if (_attemptsFilter === 'completo') return it.status === 'Completo';
+        if (_attemptsFilter === 'incompleto') return it.status !== 'Completo';
+        return true;
+      });
+      const total = filtered.length;
+      if (!total){
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#64748b;">Nenhuma tentativa registrada</td></tr>';
+        if(pageInfo) pageInfo.textContent='Página 0';
+        if(totalInfo) totalInfo.textContent='0 tentativas';
+        if(btnPrev) btnPrev.disabled=true; if(btnNext) btnNext.disabled=true;
+        return;
+      }
+      const maxPage = Math.ceil(total / _attemptsPageSize);
+      if (page < 1) page = 1; if (page > maxPage) page = maxPage;
+      _attemptsCurrentPage = page;
+      const start = (page - 1) * _attemptsPageSize;
+      const end = start + _attemptsPageSize;
+      const slice = filtered.slice(start, end);
+      tbody.innerHTML = '';
+      slice.forEach(it => {
+        const tr = document.createElement('tr');
+        let scoreColor = '#334155';
+        if (it.score && it.score !== '---') {
+          const num = parseFloat(String(it.score).replace('%','').trim());
+          if (!isNaN(num)) {
+            scoreColor = num >= 75 ? '#065f46' : '#b91c1c';
+          }
+        }
+        let scoreDisplay = it.score;
+        if (it.score && it.score !== '---') {
+          const num = parseFloat(String(it.score).replace('%','').trim());
+          if (!isNaN(num)) {
+            if (num >= 99) {
+              scoreDisplay = `${it.score} <span title="Excepcional" aria-label="Excepcional" style="display:inline-block; margin-left:4px; color:#f59e0b; font-size:0.7rem; letter-spacing:1px;">★★★★★</span>`;
+            } else if (num >= 91 && num <= 98) {
+              scoreDisplay = `${it.score} <span title="Muito Alto" aria-label="Muito Alto" style="display:inline-block; margin-left:4px; color:#f59e0b; font-size:0.7rem; letter-spacing:1px;">★★★★</span>`;
+            } else if (num >= 81 && num <= 90) {
+              scoreDisplay = `${it.score} <span title="Alto" aria-label="Alto" style="display:inline-block; margin-left:4px; color:#d97706; font-size:0.7rem; letter-spacing:1px;">★★★</span>`;
+            } else if (num >= 75 && num <= 80) {
+              scoreDisplay = `${it.score} <span title="Aprovado" aria-label="Aprovado" style="display:inline-block; margin-left:4px; color:#065f46; font-size:0.65rem;">✔</span>`;
+            }
+          }
+        }
+        const tipoDisplay = it.tipo === 'Completo' ? 'Simulado Completo' : it.tipo;
+        const statusDisplay = it.status === 'Completo' ? 'Finalizado' : it.status;
+        tr.innerHTML = `
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap;">${(it.date||'').slice(0,10)}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${it.titulo}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${tipoDisplay}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${it.acertos}/${it.total}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${scoreColor};">${scoreDisplay}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${it.status==='Completo' ? '#16a34a' : '#dc2626'};">${statusDisplay}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (pageInfo) pageInfo.textContent = `Página ${page} / ${maxPage}`;
+      if (totalInfo) totalInfo.textContent = `${total} tentativa${total===1?'':'s'}`;
+      if (btnPrev) btnPrev.disabled = page <= 1;
+      if (btnNext) btnNext.disabled = page >= maxPage;
+    }
+
+    async function loadAttemptsHistoryExtended(){
+      const tbody = document.getElementById('attemptsHistoryBody');
+      if (!tbody) return;
+      try {
+        const headers = { 'Accept':'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/attempts-history-extended', { headers });
+        if (res.status === 401 || res.status === 403){
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!res.ok){ tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b91c1c;">Falha ao carregar histórico</td></tr>'; return; }
+        const data = await res.json();
+        _attemptsItems = Array.isArray(data.items) ? data.items : [];
+        // Garantir que select reflita filtro padrão
+        const selFilter = document.getElementById('attemptsFilter');
+        if (selFilter) selFilter.value = _attemptsFilter;
+        renderAttemptsPage(1);
+      } catch(e){
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b91c1c;">Erro inesperado</td></tr>';
+      }
+    }
+
+    (function initAttemptsPager(){
+      const btnPrev = document.getElementById('attemptsPrev');
+      const btnNext = document.getElementById('attemptsNext');
+      const btnCsv = document.getElementById('attemptsExportCsv');
+      const selFilter = document.getElementById('attemptsFilter');
+      // Restore saved filter from localStorage if present
+      try {
+        const saved = localStorage.getItem('attemptsHistoryFilter');
+        if (saved && ['all','completo','incompleto'].includes(saved)) {
+          _attemptsFilter = saved;
+          if (selFilter) selFilter.value = saved;
+        }
+      } catch(_){ }
+      if (btnPrev) btnPrev.addEventListener('click', ()=> renderAttemptsPage(_attemptsCurrentPage - 1));
+      if (btnNext) btnNext.addEventListener('click', ()=> renderAttemptsPage(_attemptsCurrentPage + 1));
+      if (btnCsv) btnCsv.addEventListener('click', exportAttemptsCsv);
+      if (selFilter) selFilter.addEventListener('change', ()=>{ _attemptsFilter = selFilter.value; try { localStorage.setItem('attemptsHistoryFilter', _attemptsFilter); } catch(_){ } renderAttemptsPage(1); });
+    })();
+
+    loadAttemptsHistoryExtended();
+
+    function exportAttemptsCsv(){
+      if (!_attemptsItems || !_attemptsItems.length){
+        alert('Nenhuma tentativa para exportar.');
+        return;
+      }
+      // Export respects current filter
+      const filtered = _attemptsItems.filter(it => {
+        if (_attemptsFilter === 'completo') return it.status === 'Completo';
+        if (_attemptsFilter === 'incompleto') return it.status !== 'Completo';
+        return true;
+      });
+      if (!filtered.length){ alert('Nenhum registro para exportar neste filtro.'); return; }
+      const header = ['Data','Titulo','Tipo','Acertos','Total','Score','Status'];
+      const lines = [header.join(',')];
+      filtered.forEach(it => {
+        const cells = [
+          (it.date||'').slice(0,10),
+          sanitizeCsv(it.titulo),
+          sanitizeCsv(it.tipo),
+          String(it.acertos),
+          String(it.total),
+          String(it.score),
+          sanitizeCsv(it.status)
+        ];
+        lines.push(cells.join(','));
+      });
+      const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0,10);
+      a.download = `historico_simulados_${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 200);
+    }
+    function sanitizeCsv(value){
+      if (value == null) return '';
+      let v = String(value);
+      if (v.includes('"')) v = v.replace(/"/g,'""');
+      if (/[",\n]/.test(v)) v = '"' + v + '"';
+      return v;
+    }
 
     // Load IND7: Process Group Stats
     async function loadProcessGroupStats(){

@@ -190,7 +190,7 @@
                 }
               } catch(e){}
               if (cnt === 180 && body) {
-                delete body.areas; delete body.grupos; delete body.dominios;
+                delete body.areas; delete body.grupos; delete body.dominios; delete body.categorias;
                 init.body = JSON.stringify(body);
               }
               const resp = await origFetch(input, init);

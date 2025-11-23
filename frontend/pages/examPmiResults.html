@@ -230,11 +230,12 @@
         return 'target';
       };
 
-      const activeKey = overallPct != null ? keyFromPct(overallPct) : normalize(overall);
+      // Apenas aplica cor se houver overallPct válido; sem fallback para texto geral
+      const activeKey = overallPct != null ? keyFromPct(overallPct) : null;
       const colorMap = { needs:'#FF6347', below:'#FF8C00', target:'#40E0D0', above:'#20B2AA' };
       document.querySelectorAll('.rating-seg').forEach(seg => {
         const k = seg.dataset.key;
-        if (k === activeKey && activeKey){
+        if (activeKey && k === activeKey){
           seg.classList.add('active');
           seg.style.background = colorMap[k] || '';
         } else {

@@ -10,6 +10,91 @@ const { Op } = require('sequelize');
 router.post('/mark-abandoned', requireAdmin, examController.markAbandonedAttempts);
 router.post('/purge-abandoned', requireAdmin, examController.purgeAbandonedAttempts);
 
+// POST /api/admin/exams/fixture-attempt
+// Body: { userId, overallPct, totalQuestions, examTypeSlug }
+// Cria tentativa finalizada diretamente (fixture) para testes sem percorrer questões.
+router.post('/exams/fixture-attempt', requireAdmin, async (req, res) => {
+    try {
+        const { userId, overallPct = 65, totalQuestions = 180, examTypeSlug = 'pmp' } = req.body || {};
+        if(!userId) return res.status(400).json({ error: 'userId obrigatório' });
+        const uid = Number(userId);
+        if(!Number.isFinite(uid) || uid <= 0) return res.status(400).json({ error: 'userId inválido' });
+        const user = await db.User.findByPk(uid);
+        if(!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+        const examType = await db.ExamType.findOne({ where: { Slug: examTypeSlug } });
+        if(!examType) return res.status(404).json({ error: 'ExamType não encontrado' });
+        const qt = Math.max(1, Math.min(500, Number(totalQuestions)));
+        const pct = Math.max(0, Math.min(100, Number(overallPct)));
+        const corretas = Math.round(qt * (pct/100));
+        // Selecionar questões
+        const whereClauses = ["excluido = false","idstatus = 1",`exam_type_id = ${Number(examType.Id)}`];
+        const whereSql = whereClauses.join(' AND ');
+        const selectIdsQ = `SELECT id FROM questao WHERE ${whereSql} ORDER BY random() LIMIT :limit`;
+        const questRows = await db.sequelize.query(selectIdsQ, { replacements: { limit: qt }, type: db.Sequelize.QueryTypes.SELECT });
+        const questionIds = questRows.map(r => Number(r.id)).filter(n => Number.isFinite(n));
+        if(questionIds.length < qt) return res.status(400).json({ error: 'Quantidade de questões insuficiente', available: questionIds.length });
+
+        const startedAt = new Date(Date.now() - questionIds.length * 40000); // 40s médio
+        let cumulativeSec = 0;
+        const aprovMin = examType.PontuacaoMinimaPercent != null ? Number(examType.PontuacaoMinimaPercent) : null;
+        const scorePercent = (corretas / questionIds.length * 100);
+        const aprovado = aprovMin != null ? scorePercent >= aprovMin : null;
+        let attemptId = null;
+
+        await db.sequelize.transaction(async (t) => {
+            const attempt = await db.ExamAttempt.create({
+                UserId: uid,
+                ExamTypeId: examType.Id,
+                Modo: 'fixture',
+                QuantidadeQuestoes: questionIds.length,
+                ExamMode: 'full',
+                StartedAt: startedAt,
+                LastActivityAt: startedAt,
+                Status: 'finished',
+                Corretas: corretas,
+                Total: questionIds.length,
+                ScorePercent: scorePercent.toFixed(2),
+                Aprovado: aprovado,
+                PauseState: null,
+                BlueprintSnapshot: {
+                    id: examType.Slug,
+                    nome: examType.Nome,
+                    numeroQuestoes: examType.NumeroQuestoes,
+                    duracaoMinutos: examType.DuracaoMinutos,
+                    opcoesPorQuestao: examType.OpcoesPorQuestao,
+                    multiplaSelecao: examType.MultiplaSelecao,
+                    pontuacaoMinima: aprovMin
+                },
+                FiltrosUsados: { fixture: true },
+                Meta: { origin: 'fixture-endpoint' },
+                StatusReason: 'fixture-generated'
+            }, { transaction: t });
+            attemptId = attempt.Id;
+            const aqRows = [];
+            const ansRows = [];
+            questionIds.forEach((qid, idx) => {
+                const isCorrect = idx < corretas;
+                const tempo = 25 + Math.floor(Math.random()*55); // 25-80s
+                cumulativeSec += tempo;
+                const qUpdated = new Date(startedAt.getTime() + cumulativeSec*1000);
+                aqRows.push({ AttemptId: attemptId, QuestionId: qid, Ordem: idx+1, TempoGastoSegundos: tempo, Correta: isCorrect, Meta: null, CreatedAt: startedAt, UpdatedAt: qUpdated });
+            });
+            const insertedQuestions = await db.ExamAttemptQuestion.bulkCreate(aqRows, { transaction: t, returning: true });
+            insertedQuestions.forEach(q => {
+                ansRows.push({ AttemptQuestionId: q.Id, OptionId: null, Resposta: { auto: true }, Selecionada: true, CreatedAt: startedAt, UpdatedAt: q.UpdatedAt });
+            });
+            await db.ExamAttemptAnswer.bulkCreate(ansRows, { transaction: t });
+            const finishedAt = new Date(startedAt.getTime() + cumulativeSec*1000 + 3000);
+            await db.ExamAttempt.update({ FinishedAt: finishedAt, LastActivityAt: finishedAt }, { where: { Id: attemptId }, transaction: t });
+        });
+
+        return res.json({ attemptId, userId: uid, totalQuestions: questionIds.length, corretas, scorePercent: scorePercent.toFixed(2) });
+    } catch (err) {
+        console.error('Erro fixture-attempt:', err);
+        return res.status(500).json({ error: 'Internal error' });
+    }
+});
+
 /**
  * POST /api/admin/reconcile-stats
  * Reconciliação de estatísticas de usuários

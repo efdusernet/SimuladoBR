@@ -61,6 +61,10 @@
     .next h2{font-size:16px;font-weight:700;margin:0 0 14px}
     .next p{margin:0 0 10px;font-size:13px;color:var(--muted);line-height:1.5}
     .foot-note{font-size:11px;color:var(--muted);margin-top:24px;text-align:center}
+    .end-action{margin:36px 0 8px;text-align:center}
+    .end-action button{background:#2563eb;color:#fff;font-weight:600;border:none;padding:12px 30px;border-radius:8px;font-size:14px;cursor:pointer;letter-spacing:.4px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+    .end-action button:hover{background:#1d4ed8}
+    .end-action button:active{background:#1e40af}
     @media print{
       @page{size:A4;margin:14mm}
       body{background:#fff}
@@ -137,6 +141,10 @@
       <h2>What can I do next?</h2>
       <p id="nextText">Celebrate your accomplishment and reward yourself for all your hard work!</p>
     </div>
+
+    <div class="end-action">
+      <button id="btnEnd" type="button">Encerrar</button>
+    </div>
     <div>Este relatório é fictício e usado somente para melhorar a experiência do estudante, simulando o ambinte que deverá ser experimentado pelo candidato.</div>
   </div>
 
@@ -172,9 +180,39 @@
       const dateRaw = get('date'); // still used if needed elsewhere
       const tcId = get('tcId');
       const overall = get('overall').trim();
-      const people = get('people','');
-      const process = get('process','');
-      const business = get('business','');
+      // Percent parameters (overall and domains)
+      const overallPctRaw = get('overallPct','');
+      const peoplePctRaw = get('peoplePct','');
+      const processPctRaw = get('processPct','');
+      const businessPctRaw = get('businessPct','');
+
+      function parsePercent(v){
+        if(!v) return null;
+        const cleaned = v.toString().replace(/%/g,'').trim();
+        if(!cleaned) return null;
+        const n = parseFloat(cleaned.replace(/,/g,''));
+        if(Number.isNaN(n) || n < 0 || n > 100) return null;
+        return n;
+      }
+      const overallPct = parsePercent(overallPctRaw);
+      const peoplePct = parsePercent(peoplePctRaw);
+      const processPct = parsePercent(processPctRaw);
+      const businessPct = parsePercent(businessPctRaw);
+
+      function labelFromPct(p){
+        if(p == null) return '—';
+        if(p <= 25) return 'Needs Improvement';
+        if(p <= 50) return 'Below Target';
+        if(p <= 75) return 'Target';
+        return 'Above Target';
+      }
+      function keyFromPct(p){
+        if(p == null) return null;
+        if(p <= 25) return 'needs';
+        if(p <= 50) return 'below';
+        if(p <= 75) return 'target';
+        return 'above';
+      }
 
       // Fill candidate name and other dynamic segments
       $('#candName').textContent = name;
@@ -192,19 +230,36 @@
         return 'target';
       };
 
-      const activeKey = normalize(overall);
+      const activeKey = overallPct != null ? keyFromPct(overallPct) : normalize(overall);
+      const colorMap = { needs:'#FF6347', below:'#FF8C00', target:'#40E0D0', above:'#20B2AA' };
       document.querySelectorAll('.rating-seg').forEach(seg => {
-        if (seg.dataset.key === activeKey) seg.classList.add('active'); else seg.classList.remove('active');
+        const k = seg.dataset.key;
+        if (k === activeKey && activeKey){
+          seg.classList.add('active');
+          seg.style.background = colorMap[k] || '';
+        } else {
+          seg.classList.remove('active');
+          seg.style.background = '';
+        }
       });
 
-      // Preencher resultados nas três células (segunda linha)
-      $('#Result1').textContent = people;
-      $('#Result2').textContent = process;
-      $('#Result3').textContent = business;
+      // Preencher resultados nas três células (segunda linha) usando percentuais
+      $('#Result1').textContent = labelFromPct(peoplePct);
+      $('#Result2').textContent = labelFromPct(processPct);
+      $('#Result3').textContent = labelFromPct(businessPct);
 
       // Optional overwrite of next text
       const nextOverride = get('next');
       if (nextOverride && nextOverride !== '—') $('#nextText').textContent = nextOverride;
+
+      // Botão Encerrar: tenta fechar a aba (se permitido) e sempre navega para index
+      const endBtn = $('#btnEnd');
+      if(endBtn){
+        endBtn.addEventListener('click', () => {
+          try { window.close(); } catch(_) {}
+          window.location.href = '../index.html';
+        });
+      }
     })();
   </script>
 </body>

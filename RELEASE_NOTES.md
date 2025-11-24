@@ -35,3 +35,25 @@ Patch release for repository version alignment.
 ## Links
 - Tag: v1.0.1
 - Compare: v1.0.0..v1.0.1
+
+---
+
+# v1.1.0
+
+Date: 2025-11-23
+
+## Highlights
+- Fixture exam generation now produces realistic answer option selections: correct questions include all correct options, incorrect questions include one incorrect option (fallback to single correct if none incorrect). This makes domain performance (IND10 radar) align with intended fixture domain percentages.
+- Added `fixtureVersion` (1.1.0) and `answerStrategy` (`all-correct-options`) to `ExamAttempt.Meta` for traceability and evolution.
+- Central configuration in `backend/config/fixtureSpec.js` for version/strategy constants.
+
+## Developer Notes
+- Older fixtures (pre-1.1.0) lacked option-level answers; regenerate to use indicators dependent on option comparison.
+- Future refinements (e.g., simulated partial multi-select accuracy) should bump `fixtureVersion` and set a new `answerStrategy` value.
+
+## Docs
+- Updated `README.md` and `docs/api-endpoints.md` with new Meta fields and behavior description.
+
+## Links
+- Tag: v1.1.0
+- Compare: v1.0.1..v1.1.0

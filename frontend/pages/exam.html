@@ -61,6 +61,7 @@
 
       <article class="question-content" id="questionContent">
         <p id="questionText" class="question-text">Carregando pergunta...</p>
+        <div id="questionImageWrapper" style="display:none; margin:12px 0 16px; text-align:center;"></div>
 
         <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
           <div id="answersContainer"></div>
@@ -97,6 +98,73 @@
       console.warn('Falha ao definir variáveis de sessão:', e);
     }
   </script>
+  <!-- Exibir imagem da questão (campo imagem_url / imagemUrl) abaixo do enunciado -->
+  <script>
+    (function(){
+      function resolveQuestions(){
+        try {
+          if (Array.isArray(window.QUESTIONS)) return window.QUESTIONS;
+          const sid = window.currentSessionId || null; if (!sid) return [];
+          const raw = localStorage.getItem(`questions_${sid}`);
+          if (!raw) return [];
+          const arr = JSON.parse(raw); return Array.isArray(arr)? arr : [];
+        } catch(_) { return []; }
+      }
+      function currentIndex(){
+        try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : 0; } catch(_) { return 0; }
+      }
+      function buildSrc(str){
+        if (!str) return null;
+        const s = String(str).trim();
+        if (!s) return null;
+        if (/^data:image\//i.test(s)) return s;
+        if (/^https?:\/\//i.test(s) || s.startsWith('/')) return s;
+        if (/^data:/i.test(s)) return s;
+        if (/^[A-Za-z0-9+/=]+$/.test(s) && s.length > 100) return 'data:image/png;base64,' + s;
+        return s;
+      }
+      function renderImage(){
+        try {
+          const wrap = document.getElementById('questionImageWrapper'); if (!wrap) return;
+          const qs = resolveQuestions(); const idx = currentIndex(); const q = (idx>=0 && idx < qs.length)? qs[idx] : null;
+          const raw = q && (q.imagemUrl || q.imagem_url || q.imageUrl || q.image_url) || '';
+          let src = buildSrc(raw);
+          // Fallback: if image field is empty, try to find inline <img> inside the question text
+          if (!src) {
+            try {
+              const qt = document.getElementById('questionText');
+              const inlineImg = qt ? qt.querySelector('img') : null;
+              const inlineSrc = inlineImg ? inlineImg.getAttribute('src') : null;
+              if (inlineSrc) src = buildSrc(inlineSrc);
+            } catch(_) { /* ignore */ }
+          }
+          // Fallback 2: parse descricao/text HTML for an <img src="...">
+          if (!src && q) {
+            try {
+              const html = String(q.descricao || q.text || '').trim();
+              const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (m && m[1]) src = buildSrc(m[1]);
+            } catch(_) { /* ignore */ }
+          }
+          // Fallback 3: parse explicacao HTML for an <img src="...">
+          if (!src && q && q.explicacao) {
+            try {
+              const html2 = String(q.explicacao || '').trim();
+              const m2 = html2.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (m2 && m2[1]) src = buildSrc(m2[1]);
+            } catch(_) { /* ignore */ }
+          }
+          try { console.debug('[examSingle] renderImage idx', idx, 'id', q && q.id, 'resolved src?', !!src); } catch(_){ }
+          if (!src){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+          const img = document.createElement('img');
+          img.src = src; img.alt='Imagem ilustrativa da questão'; img.style.maxWidth='680px'; img.style.width='100%'; img.style.height='auto'; img.style.border='1px solid #e2e8f0'; img.style.background='#fff'; img.style.borderRadius='6px'; img.style.boxShadow='0 1px 2px rgba(0,0,0,0.06)'; img.decoding='async'; img.loading='lazy';
+          wrap.innerHTML=''; wrap.appendChild(img); wrap.style.display='block';
+        } catch(_){}
+      }
+      document.addEventListener('exam:question-index-changed', renderImage);
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(renderImage,120)); else setTimeout(renderImage,120);
+    })();
+  </script>
 
   <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->
   <script src="../script.js"></script>
@@ -122,7 +190,7 @@
                 }
               } catch(e){}
               if (cnt === 180 && body) {
-                delete body.areas; delete body.grupos; delete body.dominios;
+                delete body.areas; delete body.grupos; delete body.dominios; delete body.categorias;
                 init.body = JSON.stringify(body);
               }
               const resp = await origFetch(input, init);
@@ -143,7 +211,10 @@
       } catch(_){ }
     })();
   </script>
-  <script src="../assets/build/script_exam.js" onerror="(function(){var s=document.createElement('script');s.src='../script_exam.js';document.body.appendChild(s);}())"></script>
+  <!-- Prefer non-minified script for image field support and diagnostics -->
+  <script src="../script_exam.js"></script>
+  <!-- (Optional) Keep build script disabled for now; uncomment if needed -->
+  <!-- <script src="../assets/build/script_exam.js"></script> -->
 
   <!-- initialize global QtdQuestoes and timer behavior -->
   <script>

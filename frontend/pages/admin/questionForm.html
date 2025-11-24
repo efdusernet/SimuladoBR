@@ -153,6 +153,11 @@
         <label for="codniveldificuldade">Nível de Dificuldade</label>
         <select id="codniveldificuldade"></select>
       </div>
+      <div>
+        <label for="idtask">Task (opcional)</label>
+        <input type="text" id="idtaskFilter" placeholder="Filtrar tasks..." style="margin-bottom:6px;" />
+        <select id="idtask"></select>
+      </div>
     </div>
 
     <div class="row">
@@ -254,6 +259,11 @@
           <label for="codniveldificuldadeNav">Nível de Dificuldade</label>
           <select id="codniveldificuldadeNav"></select>
         </div>
+        <div>
+          <label for="idtaskNav">Task (opcional)</label>
+          <input type="text" id="idtaskNavFilter" placeholder="Filtrar tasks..." style="margin-bottom:6px;" />
+          <select id="idtaskNav"></select>
+        </div>
       </div>
 
       <div class="row">
@@ -287,6 +297,27 @@
   <script>
     const $ = (id)=> document.getElementById(id);
     const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+
+    // Simple cache to avoid spamming meta endpoints and hitting 429
+    const metaCache = Object.create(null);
+    const metaInflight = Object.create(null);
+    async function fetchMetaOnce(key, path){
+      if (metaCache[key]) return metaCache[key];
+      if (metaInflight[key]) return metaInflight[key];
+      const url = (BACKEND_BASE || '').replace(/\/$/, '') + path;
+      metaInflight[key] = (async ()=>{
+        const resp = await fetch(url);
+        if (!resp.ok){
+          // propagate textual error for debugging
+          const txt = await resp.text().catch(()=> '');
+          throw new Error(`GET ${path} failed: ${resp.status} ${txt}`);
+        }
+        const data = await resp.json();
+        metaCache[key] = data;
+        return data;
+      })().finally(()=>{ delete metaInflight[key]; });
+      return metaInflight[key];
+    }
 
     // Image upload handlers
     function setupImageUpload(fileInputId, urlInputId, previewId) {
@@ -456,8 +487,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/exams/types');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('examTypes', '/api/exams/types');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -480,8 +510,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/dominios-geral');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('dominiogeral', '/api/meta/dominios-geral');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -503,8 +532,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/dominios');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('dominios', '/api/meta/dominios');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -525,8 +553,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/areas');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('areas', '/api/meta/areas');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -547,8 +574,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/grupos');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('grupos', '/api/meta/grupos');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -569,8 +595,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/principios');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('principios', '/api/meta/principios');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -591,8 +616,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/categorias');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('categorias', '/api/meta/categorias');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -613,8 +637,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const resp = await fetch((BACKEND_BASE || '').replace(/\/$/, '') + '/api/meta/niveis-dificuldade');
-        const list = await resp.json();
+        const list = await fetchMetaOnce('niveis', '/api/meta/niveis-dificuldade');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -631,6 +654,53 @@
       }
     }
 
+    async function loadTasks(targetId = 'idtask'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('tasks', '/api/meta/tasks');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(t => {
+          const o = document.createElement('option');
+          o.value = t.id;
+          // Backend already sends formatted string: "Task <numero> <dominio> <descricao>"
+          // So we just use t.descricao directly
+          o.textContent = t.descricao || 'N/A';
+          sel.appendChild(o);
+        });
+        // Attach filter if matching filter input exists
+        attachTaskFilter(targetId, targetId === 'idtask' ? 'idtaskFilter' : (targetId === 'idtaskNav' ? 'idtaskNavFilter' : null));
+      } catch(e) {
+        console.error('[loadTasks] error:', e);
+      }
+    }
+
+    function attachTaskFilter(selectId, filterId){
+      if (!filterId) return;
+      const sel = $(selectId);
+      const inp = $(filterId);
+      if (!sel || !inp) return;
+      let debounceTimer = null;
+      const apply = ()=>{
+        const term = inp.value.trim().toLowerCase();
+        Array.from(sel.options).forEach(opt => {
+          if (!opt.value) { opt.hidden = false; return; }
+          const txt = (opt.textContent || '').toLowerCase();
+          opt.hidden = term && !txt.includes(term);
+        });
+        // If current selection is hidden, reset to placeholder
+        if (sel.selectedOptions.length && sel.selectedOptions[0].hidden){ sel.selectedIndex = 0; }
+      };
+      inp.addEventListener('input', ()=>{
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(apply, 120);
+      });
+    }
+
     $('save').onclick = async function(){
       const descricao = $('descricao').value.trim();
       const tiposlug = $('tipo').value;
@@ -642,6 +712,7 @@
       const idprincipio = ($('idprincipio').value || '').trim();
       const codigocategoria = ($('codigocategoria').value || '').trim();
       const codniveldificuldade = ($('codniveldificuldade').value || '').trim();
+      const id_task = ($('idtask').value || '').trim();
       const dica = $('dica').value.trim();
       const imagemUrl = ($('imagemUrl').value || '').trim();
       const explicacao = $('explicacao').value.trim();
@@ -666,6 +737,7 @@
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
         codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
         codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
+        id_task: id_task ? Number(id_task) : undefined,
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
@@ -777,7 +849,8 @@
           loadGrupos('grupoNav'),
           loadPrincipios('idprincipioNav'),
           loadCategorias('codigocategoriaNav'),
-          loadNiveisDificuldade('codniveldificuldadeNav')
+          loadNiveisDificuldade('codniveldificuldadeNav'),
+          loadTasks('idtaskNav')
         ]);
         
         $('iddominioNav').value = q.iddominio != null ? String(q.iddominio) : '';
@@ -787,6 +860,7 @@
         $('idprincipioNav').value = q.idprincipio != null ? String(q.idprincipio) : '';
         $('codigocategoriaNav').value = q.codigocategoria != null ? String(q.codigocategoria) : '';
         $('codniveldificuldadeNav').value = q.codniveldificuldade != null ? String(q.codniveldificuldade) : '';
+        $('idtaskNav').value = q.id_task != null ? String(q.id_task) : '';
         $('dicaNav').value = q.dica || '';
         $('imagemUrlNav').value = q.imagemUrl || '';
         if (q.imagemUrl) showImagePreview('imagemPreviewNav', q.imagemUrl);
@@ -927,6 +1001,7 @@
       const idprincipio = ($('idprincipioNav').value || '').trim();
       const codigocategoria = ($('codigocategoriaNav').value || '').trim();
       const codniveldificuldade = ($('codniveldificuldadeNav').value || '').trim();
+      const id_task = ($('idtaskNav').value || '').trim();
       const dica = $('dicaNav').value.trim();
       const imagemUrl = ($('imagemUrlNav').value || '').trim();
       const explicacao = $('explicacaoNav').value.trim();
@@ -946,6 +1021,7 @@
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
         codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
         codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
+        id_task: id_task ? Number(id_task) : undefined,
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
@@ -982,6 +1058,7 @@
     loadPrincipios('idprincipio');
     loadCategorias('codigocategoria');
     loadNiveisDificuldade('codniveldificuldade');
+    loadTasks('idtask');
     ensureAtLeastTwo();
     setupImageUpload('imagemFile', 'imagemUrl', 'imagemPreview');
     initTabs();
@@ -995,6 +1072,7 @@
     loadPrincipios('idprincipioNav');
     loadCategorias('codigocategoriaNav');
     loadNiveisDificuldade('codniveldificuldadeNav');
+    loadTasks('idtaskNav');
     setupImageUpload('imagemFileNav', 'imagemUrlNav', 'imagemPreviewNav');
     ensureAtLeastTwoNav();
 

@@ -103,6 +103,27 @@
     </style>
 </head>
 <body>
+    <!-- Auth guard: redirect to login if no session token -->
+    <script>
+    (function authGuard(){
+        const token = (localStorage.getItem('sessionToken') || '').trim();
+        if (!token) {
+            // Redirecionar para login se não houver token
+            window.location.href = '/login.html';
+        }
+    })();
+    </script>
+    <!-- Admin quick menu (rendered only if user has admin role) -->
+    <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="display:none;position:fixed;top:12px;left:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.10);font-size:.85rem;font-weight:600;">Admin ▾</button>
+    <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">
+        <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão</a>
+        <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
+        <button id="btnAdminFixture" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#0d9488;font-size:.85rem;border-radius:6px;cursor:pointer;">Gerar tentativa fixture</button>
+        <button id="btnAdminReconcile" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#4f46e5;font-size:.85rem;border-radius:6px;cursor:pointer;">Reconciliar estatísticas</button>
+        <button id="btnAdminPurge" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#b91c1c;font-size:.85rem;border-radius:6px;cursor:pointer;">Expurgar tentativas abandonadas</button>
+        <button id="btnAdminMarkAbandoned" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#dc2626;font-size:.85rem;border-radius:6px;cursor:pointer;">Marcar abandonadas (inatividade)</button>
+        <button id="btnAdminLogout" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f1f5f9;color:#334155;font-size:.85rem;border-radius:6px;cursor:pointer;">Sair</button>
+    </nav>
     <!-- i18n constants (can be extended or replaced per locale) -->
     <script>
         window.SIMULADOS_I18N = Object.assign({
@@ -113,6 +134,137 @@
             LABEL_FINISHED_AT: 'Finalizado em',
             LABEL_DURATION: 'Duração'
         }, window.SIMULADOS_I18N || {});
+    </script>
+    <!-- Admin menu logic: detect admin by probing an admin-only endpoint -->
+    <script>
+    (function initAdminMenu(){
+        const btn = document.getElementById('adminMenuBtn');
+        const panel = document.getElementById('adminMenuPanel');
+        if (!btn || !panel) return;
+        const token = (localStorage.getItem('sessionToken') || '').trim();
+        if (!token) return; // no session => skip
+        // Helper: append ?sessionToken= fallback if cookies not set
+        function applyTokenFallback(){
+            try {
+                const q = encodeURIComponent(token);
+                ['lnkAdminCadastrar','lnkAdminBulk'].forEach(id => {
+                    const a = document.getElementById(id); if (!a) return;
+                    const href = a.getAttribute('href') || '';
+                    if (href.includes('sessionToken=')) return;
+                    const sep = href.includes('?') ? '&' : '?';
+                    a.setAttribute('href', href + sep + 'sessionToken=' + q);
+                });
+            } catch(_){}
+        }
+        // Probe a lightweight admin-only endpoint to confirm role
+        const probeUrl = '/api/questions?page=1&pageSize=1&order=id%20asc';
+        fetch(probeUrl, { headers: { 'X-Session-Token': token }, method: 'GET' })
+          .then(r => {
+              if (!r.ok) return Promise.reject('Not admin'); // not admin
+              // Success => show menu
+              btn.style.display = 'inline-flex';
+              // Provide fallback token if cookies absent
+              applyTokenFallback();
+              function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+              function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+              btn.addEventListener('click', e => {
+                  e.stopPropagation();
+                  if (panel.style.display === 'block') close(); else open();
+              });
+              document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) close(); });
+
+              // Wire admin lifecycle actions
+              const purgeBtn = document.getElementById('btnAdminPurge');
+              const markBtn = document.getElementById('btnAdminMarkAbandoned');
+              const reconcileBtn = document.getElementById('btnAdminReconcile');
+              const fixtureBtn = document.getElementById('btnAdminFixture');
+              const logoutBtn = document.getElementById('btnAdminLogout');
+              function getToken(){ return (localStorage.getItem('sessionToken')||'').trim(); }
+              async function adminPost(path){
+                  const tk = getToken();
+                  const resp = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':tk}});
+                  const data = await resp.json().catch(()=>({}));
+                  return {ok:resp.ok,status:resp.status,data};
+              }
+              if (reconcileBtn){
+                  reconcileBtn.addEventListener('click', ()=>{
+                      close(); // Fecha o menu admin
+                      const adminModal = document.getElementById('adminModal');
+                      if (adminModal) {
+                          adminModal.classList.add('active');
+                          adminModal.setAttribute('aria-hidden', 'false');
+                          const nav = document.querySelector('.bottom-nav');
+                          if (nav) nav.style.display = 'none';
+                          // scroll to reconcile section (first panel)
+                          try { adminModal.querySelector('h3')?.scrollIntoView({behavior:'smooth'}); } catch(_){}
+                      }
+                  });
+              }
+              if (fixtureBtn){
+                  fixtureBtn.addEventListener('click', ()=>{
+                      close();
+                      const adminModal = document.getElementById('adminModal');
+                      if (adminModal){
+                          adminModal.classList.add('active');
+                          adminModal.setAttribute('aria-hidden','false');
+                          const nav = document.querySelector('.bottom-nav'); if (nav) nav.style.display='none';
+                          // Focus userId field & highlight fixture box
+                          try {
+                              const userField = document.getElementById('fxUserId');
+                              if (userField){ userField.focus(); userField.scrollIntoView({behavior:'smooth', block:'center'}); }
+                              const fixtureBox = userField?.closest('div[style*="Gerar Tentativa Fixture"]');
+                              // fallback: select by heading text
+                              const heading = Array.from(adminModal.querySelectorAll('h3')).find(h => /Gerar Tentativa Fixture/i.test(h.textContent||''));
+                              const panel = heading ? heading.parentElement : null;
+                              if (panel){
+                                  panel.style.outline='2px solid #0d9488';
+                                  setTimeout(()=>{ panel.style.outline=''; }, 2400);
+                              }
+                          } catch(_){}
+                      }
+                  });
+              }
+              if (purgeBtn){
+                  purgeBtn.addEventListener('click', async ()=>{
+                      if (!confirm('Confirma expurgo de tentativas abandonadas conforme política? Esta ação é permanente.')) return;
+                      purgeBtn.disabled = true; purgeBtn.textContent = 'Expurgando...';
+                      try {
+                          const r = await adminPost('/api/admin/exams/purge-abandoned');
+                          alert(r.ok ? `Expurgo: ${r.data.purged} purgadas (inspecionadas ${r.data.inspected}).` : `Falhou (${r.status}).`);
+                      } catch(e){ alert('Erro ao expurgar: '+ e); }
+                      purgeBtn.disabled = false; purgeBtn.textContent = 'Expurgar tentativas abandonadas';
+                  });
+              }
+              if (markBtn){
+                  markBtn.addEventListener('click', async ()=>{
+                      if (!confirm('Executar marcação de tentativas abandonadas por inatividade?')) return;
+                      markBtn.disabled = true; markBtn.textContent = 'Marcando...';
+                      try {
+                          const r = await adminPost('/api/admin/exams/mark-abandoned');
+                          alert(r.ok ? `Marcadas: timeout=${r.data.markedTimeout}, lowProgress=${r.data.markedLowProgress} (processadas ${r.data.processed}).` : `Falhou (${r.status}).`);
+                      } catch(e){ alert('Erro ao marcar: ' + e); }
+                      markBtn.disabled = false; markBtn.textContent = 'Marcar abandonadas (inatividade)';
+                  });
+              }
+              // Logout button handler relocated from misplaced inline block
+              if (logoutBtn){
+                  logoutBtn.addEventListener('click', ()=>{
+                      close();
+                      try { localStorage.clear(); } catch(_){ }
+                      try { sessionStorage.clear(); } catch(_){ }
+                      try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
+                      try {
+                          const n = document.createElement('div');
+                          n.textContent='Sessão encerrada';
+                          n.style.cssText='position:fixed;top:14px;right:14px;background:#334155;color:#fff;padding:8px 12px;border-radius:6px;font-size:.75rem;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.25)';
+                          document.body.appendChild(n); setTimeout(()=>{ try{ n.remove(); }catch(_){ } },1200);
+                      } catch(_){ }
+                      setTimeout(()=>{ window.location.href='/login'; }, 300);
+                  });
+              }
+          })
+          .catch(()=>{});
+    })();
     </script>
     <!-- Test button for lastExamResults (cycles through performance levels) -->
     <button id="lastExamTestBtn" aria-label="Testar últimos exames" title="Clicar para simular próximos níveis" style="position:fixed;right:12px;top:12px;z-index:2200;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.08);">Simular: OFF</button>
@@ -134,13 +286,12 @@
                 <div id="card-indicadores" class="card" data-card="indicadores" aria-label="Indicadores de desempenho" role="button" tabindex="0">
                     <span class="card-label">Indicadores</span>
                 </div>
-                <div class="card" data-full="https://picsum.photos/800/800?random=5" aria-label="Abrir imagem 5" role="button" tabindex="0">
-                    <span class="card-label">Indique um amigo</span>
+                <div id="card-progresso-geral" class="card" data-card="progresso-geral" aria-label="Progresso geral" role="button" tabindex="0">
+                    <span class="card-label">Progresso geral</span>
                 </div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=6" aria-label="Abrir imagem 6" role="button" tabindex="0">
                     <span class="card-label">Estou pronto?</span>
                 </div>
-                
             </div>
         </section>
 
@@ -174,12 +325,18 @@
             <h2 class="title">PERFIL</h2>
             <p class="debug" id="debug-profile">Cliques: 0</p>
             <div class="card-grid">
+                <div id="card-admin" class="card card--simulador" data-card="admin" aria-label="Administração" role="button" tabindex="0" style="display:none">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--primary)">
+                        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span class="card-label">Admin</span>
+                </div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=31" aria-label="Abrir imagem 1" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=32" aria-label="Abrir imagem 2" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=33" aria-label="Abrir imagem 3" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=34" aria-label="Abrir imagem 4" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=35" aria-label="Abrir imagem 5" role="button" tabindex="0"></div>
-                <div class="card" data-full="https://picsum.photos/800/800?random=36" aria-label="Abrir imagem 6" role="button" tabindex="0"></div>
             </div>
         </section>
     </main>
@@ -594,6 +751,92 @@
         })();
         </script>
 
+    <!-- Admin Modal -->
+    <div id="adminModal" class="overlay" aria-hidden="true" style="background:rgba(0,0,0,0.75);align-items:flex-start;padding-top:20px;overflow-y:auto">
+        <div style="background:var(--panel);border-radius:12px;max-width:500px;width:90%;margin:0 auto;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.4);color:var(--text)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                <h2 style="margin:0;font-size:1.4rem;color:var(--text)">Administração</h2>
+                <button id="adminModalClose" style="background:none;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center" aria-label="Fechar">×</button>
+            </div>
+            
+            <!-- Reconciliação de Estatísticas -->
+            <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
+                <h3 style="margin:0 0 12px;font-size:1.1rem;color:var(--primary)">Reconciliação de Estatísticas</h3>
+                <p style="font-size:0.9rem;color:var(--muted);margin:0 0 16px;line-height:1.5">Reconstruir ou corrigir as estatísticas agregadas de tentativas de exames.</p>
+                
+                <div style="display:grid;gap:12px;margin-bottom:16px">
+                    <div>
+                        <label style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Data Inicial</label>
+                        <input type="date" id="reconcileFromDate" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem" />
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Data Final</label>
+                        <input type="date" id="reconcileToDate" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem" />
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Modo</label>
+                        <select id="reconcileMode" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem">
+                            <option value="rebuild">Rebuild (sobrescrever)</option>
+                            <option value="merge">Merge (incrementar)</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="checkbox" id="reconcileDryRun" style="width:18px;height:18px;cursor:pointer" />
+                        <label for="reconcileDryRun" style="font-size:0.9rem;color:var(--text);cursor:pointer">Dry-run (simular sem alterar)</label>
+                    </div>
+                </div>
+                
+                <button id="reconcileBtn" style="width:100%;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Executar Reconciliação</button>
+                
+                <div id="reconcileOutput" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.8rem;color:var(--text);max-height:200px;overflow-y:auto;display:none;white-space:pre-wrap"></div>
+            </div>
+
+            <!-- Fixture Attempt (Distribuição por Domínio) -->
+            <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
+                <h3 style="margin:0 0 12px;font-size:1.1rem;color:var(--primary)">Gerar Tentativa Fixture</h3>
+                <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">Cria uma tentativa finalizada diretamente no banco para testes. Pode especificar percentuais de desempenho por domínio (People, Process, Business). Os valores reais podem divergir levemente devido à disponibilidade de questões por domínio.</p>
+                <form id="fixtureForm" style="display:grid;gap:10px;margin-bottom:12px">
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="fxUserId" style="font-size:0.75rem;color:var(--muted)">User ID *</label>
+                        <input id="fxUserId" name="userId" type="number" min="1" required placeholder="ex: 123" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="fxExamType" style="font-size:0.75rem;color:var(--muted)">Exam Type Slug</label>
+                        <input id="fxExamType" name="examTypeSlug" type="text" value="pmp" placeholder="pmp" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="fxTotal" style="font-size:0.75rem;color:var(--muted)">Total Questões</label>
+                        <input id="fxTotal" name="totalQuestions" type="number" min="1" max="500" value="180" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="fxOverall" style="font-size:0.75rem;color:var(--muted)">% Geral *</label>
+                        <input id="fxOverall" name="overallPct" type="number" min="0" max="100" value="65" required style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="fxPeople" style="font-size:0.75rem;color:var(--muted)">% People</label>
+                        <input id="fxPeople" name="peoplePct" type="number" min="0" max="100" placeholder="opcional" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="fxProcess" style="font-size:0.75rem;color:var(--muted)">% Process</label>
+                        <input id="fxProcess" name="processPct" type="number" min="0" max="100" placeholder="opcional" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="fxBusiness" style="font-size:0.75rem;color:var(--muted)">% Business</label>
+                        <input id="fxBusiness" name="businessPct" type="number" min="0" max="100" placeholder="opcional" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <button type="submit" style="margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Gerar Fixture</button>
+                </form>
+                <div id="fixtureOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+            </div>
+            
+            <!-- Outras opções futuras -->
+            <div style="border:1px solid var(--border);border-radius:8px;padding:16px">
+                <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary)">Outras Ferramentas</h3>
+                <p style="font-size:0.85rem;color:var(--muted);margin:0">Em breve: gestão de usuários, purga de dados, relatórios avançados.</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         (function(){
             const counters = { home: 1, search: 0, favorites: 0, profile: 0 };
@@ -687,6 +930,23 @@
                     window.location.assign('/pages/Indicadores.html');
                     return;
                 }
+                // Navegar para página de Progresso Geral
+                if (card.id === 'card-progresso-geral' || card.getAttribute('data-card') === 'progresso-geral') {
+                    try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                    window.location.assign('/pages/progressoGeral.html');
+                    return;
+                }
+                // Abrir modal Admin
+                if (card.id === 'card-admin' || card.getAttribute('data-card') === 'admin') {
+                    try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                    const adminModal = document.getElementById('adminModal');
+                    if (adminModal) {
+                        adminModal.classList.add('active');
+                        adminModal.setAttribute('aria-hidden', 'false');
+                        if (nav) nav.style.display = 'none';
+                    }
+                    return;
+                }
                 const url = card.getAttribute('data-full');
                 if (!url) return;
                 fullImg.src = url;
@@ -709,6 +969,234 @@
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) backBtn.click();
             });
+            
+            // Admin Modal handlers
+            const adminModal = document.getElementById('adminModal');
+            const adminModalClose = document.getElementById('adminModalClose');
+            const reconcileBtn = document.getElementById('reconcileBtn');
+            const reconcileOutput = document.getElementById('reconcileOutput');
+            const reconcileFromDate = document.getElementById('reconcileFromDate');
+            const reconcileToDate = document.getElementById('reconcileToDate');
+            const reconcileMode = document.getElementById('reconcileMode');
+            const reconcileDryRun = document.getElementById('reconcileDryRun');
+            
+            // Set default dates (last 30 days)
+            if (reconcileFromDate && reconcileToDate) {
+                const today = new Date();
+                const thirtyDaysAgo = new Date(today);
+                thirtyDaysAgo.setDate(today.getDate() - 30);
+                reconcileToDate.value = today.toISOString().split('T')[0];
+                reconcileFromDate.value = thirtyDaysAgo.toISOString().split('T')[0];
+            }
+            
+            // Check if user is admin on page load
+            (async function checkAdmin() {
+                try {
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const token = localStorage.getItem('sessionToken');
+                    if (!token) return;
+                    
+                    const resp = await fetch(base + '/api/users/me', {
+                        headers: { 'X-Session-Token': token }
+                    });
+                    
+                    if (resp.ok) {
+                        const user = await resp.json();
+                        if (user && user.TipoUsuario === 'admin') {
+                            const adminCard = document.getElementById('card-admin');
+                            if (adminCard) adminCard.style.display = '';
+                        }
+                    }
+                } catch(e) {
+                    console.warn('Admin check failed:', e);
+                }
+            })();
+            
+            if (adminModalClose && adminModal) {
+                adminModalClose.addEventListener('click', () => {
+                    adminModal.classList.remove('active');
+                    adminModal.setAttribute('aria-hidden', 'true');
+                    if (nav) nav.style.display = '';
+                });
+            }
+            
+            if (reconcileBtn) {
+                reconcileBtn.addEventListener('click', async () => {
+                    const fromDate = reconcileFromDate.value;
+                    const toDate = reconcileToDate.value;
+                    const mode = reconcileMode.value;
+                    const dryRun = reconcileDryRun.checked;
+                    
+                    if (!fromDate || !toDate) {
+                        alert('Por favor, preencha as datas inicial e final.');
+                        return;
+                    }
+                    
+                    if (new Date(fromDate) > new Date(toDate)) {
+                        alert('Data inicial deve ser anterior à data final.');
+                        return;
+                    }
+                    
+                    reconcileOutput.style.display = 'block';
+                    reconcileOutput.textContent = 'Executando reconciliação...\n';
+                    reconcileBtn.disabled = true;
+                    reconcileBtn.textContent = 'Processando...';
+                    
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const token = localStorage.getItem('sessionToken');
+                        
+                        const params = new URLSearchParams({
+                            from: fromDate,
+                            to: toDate,
+                            mode: mode,
+                            dryRun: dryRun ? 'true' : 'false'
+                        });
+                        
+                        const resp = await fetch(base + '/api/admin/exams/reconcile-stats?' + params, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ' + (localStorage.getItem('jwt') || ''),
+                                'X-Session-Token': token
+                            }
+                        });
+                        
+                        const result = await resp.json();
+                        
+                        if (resp.ok) {
+                            reconcileOutput.textContent = 'Reconciliação concluída com sucesso!\n\n' + JSON.stringify(result, null, 2);
+                        } else {
+                            reconcileOutput.textContent = 'Erro na reconciliação:\n' + (result.error || resp.statusText);
+                        }
+                    } catch(e) {
+                        reconcileOutput.textContent = 'Erro ao executar reconciliação:\n' + e.message;
+                    } finally {
+                        reconcileBtn.disabled = false;
+                        reconcileBtn.textContent = 'Executar Reconciliação';
+                    }
+                });
+            }
+
+            // Fixture form submission
+            const fixtureForm = document.getElementById('fixtureForm');
+            const fixtureOutput = document.getElementById('fixtureOutput');
+            if (fixtureForm) {
+                // References
+                const fxOverall = document.getElementById('fxOverall');
+                const fxPeople = document.getElementById('fxPeople');
+                const fxProcess = document.getElementById('fxProcess');
+                const fxBusiness = document.getElementById('fxBusiness');
+                // Add spread control UI (variation magnitude)
+                if(fxOverall && !document.getElementById('fxSpreadControl')){
+                    const wrap = fxOverall.parentElement;
+                    if(wrap){
+                        const spreadBox = document.createElement('div');
+                        spreadBox.style.cssText='margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+                        spreadBox.innerHTML = '<label style="font-size:.65rem;color:#64748b;display:flex;align-items:center;gap:4px">Variação máx.<input id="fxSpreadControl" type="range" min="0" max="30" value="12" style="width:110px"></label><span id="fxSpreadValue" style="font-size:.65rem;color:#334155">±12%</span><label style="font-size:.65rem;color:#64748b;display:flex;align-items:center;gap:4px"><input id="fxLockDomains" type="checkbox"> Manter valores manualmente</label>';
+                        wrap.appendChild(spreadBox);
+                        const rng = spreadBox.querySelector('#fxSpreadControl');
+                        const out = spreadBox.querySelector('#fxSpreadValue');
+                        if(rng && out){ rng.addEventListener('input',()=>{ out.textContent='±'+rng.value+'%'; }); }
+                    }
+                }
+                // Helper clamp
+                function clampPct(v){ v = Math.round(Number(v)||0); if(v<0) v=0; if(v>100) v=100; return v; }
+                function randomizeDomains(){
+                    if(!fxOverall || !fxPeople || !fxProcess || !fxBusiness) return;
+                    const lock = document.getElementById('fxLockDomains');
+                    if(lock && lock.checked) return; // user locked manual values
+                    const overall = clampPct(fxOverall.value);
+                    const spreadEl = document.getElementById('fxSpreadControl');
+                    const maxDev = spreadEl ? Number(spreadEl.value) : 12;
+                    // Attempt random deviations ensuring bounds & mean constraint
+                    let attempt=0; let chosen=null;
+                    while(attempt<100){
+                        attempt++;
+                        // pick d1,d2 uniformly in [-maxDev,maxDev]
+                        const d1 = (Math.random()*2-1)*maxDev;
+                        const d2 = (Math.random()*2-1)*maxDev;
+                        const d3 = -(d1+d2);
+                        const a = clampPct(overall + d1);
+                        const b = clampPct(overall + d2);
+                        const c = clampPct(overall + d3);
+                        const avg = (a+b+c)/3;
+                        if(Math.abs(avg - overall) <= 0.75){ // tolerance
+                            // ensure some variation (not all equal)
+                            const distinct = (new Set([a,b,c])).size > 1;
+                            if(distinct){ chosen=[a,b,c]; break; }
+                        }
+                    }
+                    if(!chosen){ chosen=[overall,overall,overall]; }
+                    fxPeople.value = String(chosen[0]);
+                    fxProcess.value = String(chosen[1]);
+                    fxBusiness.value = String(chosen[2]);
+                }
+                if(fxOverall){ fxOverall.addEventListener('input', randomizeDomains); }
+                // Manual balance button & hint
+                const overallWrapper = fxOverall && fxOverall.parentElement;
+                if(overallWrapper){
+                    const btn = document.createElement('button'); btn.type='button'; btn.textContent='Randomizar';
+                    btn.style.cssText='margin-top:6px;padding:6px 8px;background:#0d9488;color:#fff;border:none;border-radius:4px;font-size:.7rem;cursor:pointer;';
+                    btn.addEventListener('click', randomizeDomains); overallWrapper.appendChild(btn);
+                    const hint = document.createElement('div');
+                    hint.textContent='Geramos percentuais aleatórios por domínio com média = % Geral. Use "Manter valores" para congelar.';
+                    hint.style.cssText='margin-top:6px;font-size:.65rem;line-height:1.2;color:#64748b;'; overallWrapper.appendChild(hint);
+                }
+                // Initial random fill if empty
+                randomizeDomains();
+                fixtureForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const userId = document.getElementById('fxUserId').value.trim();
+                    const examTypeSlug = document.getElementById('fxExamType').value.trim();
+                    const totalQuestions = document.getElementById('fxTotal').value.trim();
+                    const overallPct = document.getElementById('fxOverall').value.trim();
+                    const peoplePct = document.getElementById('fxPeople').value.trim();
+                    const processPct = document.getElementById('fxProcess').value.trim();
+                    const businessPct = document.getElementById('fxBusiness').value.trim();
+                    if (!userId || !overallPct) { alert('Preencha User ID e % Geral.'); return; }
+                    const o = clampPct(overallPct);
+                    const p = clampPct(peoplePct === '' ? o : peoplePct);
+                    const pr = clampPct(processPct === '' ? o : processPct);
+                    const b = clampPct(businessPct === '' ? o : businessPct);
+                    const mean = (p+pr+b)/3;
+                    if(Math.abs(mean - o) > 2){
+                        alert(`Inconsistência: média domínios (${mean.toFixed(2)}%) difere de % Geral (${o}%). Ajuste ou clique em Randomizar.`);
+                        return;
+                    }
+                    fixtureOutput.style.display='block';
+                    const startedAt = new Date();
+                    fixtureOutput.textContent='Gerando fixture...\n';
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const token = localStorage.getItem('sessionToken');
+                        const payload = { userId: Number(userId), overallPct: Number(overallPct), totalQuestions: Number(totalQuestions), examTypeSlug: examTypeSlug || 'pmp' };
+                        if (peoplePct !== '') payload.peoplePct = Number(peoplePct);
+                        if (processPct !== '') payload.processPct = Number(processPct);
+                        if (businessPct !== '') payload.businessPct = Number(businessPct);
+                        const url = base + '/api/admin/exams/fixture-attempt';
+                        const resp = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json','X-Session-Token': token }, body: JSON.stringify(payload) });
+                        const rawText = await resp.text();
+                        let parsed; try { parsed = JSON.parse(rawText); } catch(_) { parsed = null; }
+                        const ms = new Date() - startedAt;
+                        if (resp.ok) {
+                            fixtureOutput.textContent = 'Fixture criada com sucesso!\n' +
+                              `Status: ${resp.status} ${resp.statusText}\n` +
+                              `Tempo: ${ms}ms\n` +
+                              'Payload enviado:\n' + JSON.stringify(payload,null,2) + '\n\n' +
+                              'Resposta:\n' + (parsed ? JSON.stringify(parsed,null,2) : rawText);
+                        } else {
+                            fixtureOutput.textContent = 'Falha ao criar fixture\n' +
+                              `Status: ${resp.status} ${resp.statusText}\n` +
+                              `Tempo: ${ms}ms\n` +
+                              'Endpoint: ' + url + '\n' +
+                              'Payload enviado:\n' + JSON.stringify(payload,null,2) + '\n\n' +
+                              'Corpo bruto:\n' + rawText.slice(0,4000);
+                        }
+                    } catch(err){
+                        fixtureOutput.textContent='Erro de rede/execução:\n' + (err && err.stack ? err.stack : err.message || String(err));
+                    }
+                });
+            }
         })();
     </script>
 </body>

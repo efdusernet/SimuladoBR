@@ -1,0 +1,1855 @@
+[
+  {
+    "id": "63",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-12T01:31:36.643Z",
+    "finished_at": "2025-11-12T01:31:39.928Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 180,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhvbqzwh-ce0bjdj8"
+    },
+    "created_at": "2025-11-12T01:31:36.644Z",
+    "updated_at": "2025-11-12T01:31:36.644Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "64",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-12T01:33:23.543Z",
+    "finished_at": "2025-11-12T01:33:27.236Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 180,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhvbtadv-skfb32bw"
+    },
+    "created_at": "2025-11-12T01:33:23.549Z",
+    "updated_at": "2025-11-12T01:33:23.549Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "59",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-06T19:08:35.907Z",
+    "finished_at": "2025-11-06T19:09:24.027Z",
+    "status": "finished",
+    "corretas": 4,
+    "total": 180,
+    "score_percent": "2.22",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhnsv6in-8v4r7vf2"
+    },
+    "created_at": "2025-11-06T19:08:35.908Z",
+    "updated_at": "2025-11-06T19:08:35.908Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "60",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-06T20:34:25.322Z",
+    "finished_at": "2025-11-06T20:35:21.667Z",
+    "status": "finished",
+    "corretas": 6,
+    "total": 180,
+    "score_percent": "3.33",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhnvxjsz-iwp1fwt2"
+    },
+    "created_at": "2025-11-06T20:34:25.324Z",
+    "updated_at": "2025-11-06T20:34:25.325Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "61",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-06T20:35:34.301Z",
+    "finished_at": "2025-11-06T20:35:51.570Z",
+    "status": "finished",
+    "corretas": 2,
+    "total": 180,
+    "score_percent": "1.11",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhnvz124-nbnu6s44"
+    },
+    "created_at": "2025-11-06T20:35:34.301Z",
+    "updated_at": "2025-11-06T20:35:34.301Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "62",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-12T01:29:26.315Z",
+    "finished_at": "2025-11-12T01:29:43.662Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 180,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhvbo7c8-uoro4zjk"
+    },
+    "created_at": "2025-11-12T01:29:26.316Z",
+    "updated_at": "2025-11-12T01:29:26.318Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "65",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-12T01:35:39.389Z",
+    "finished_at": "2025-11-12T01:35:41.630Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 180,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhvbw77g-dg4i7wak"
+    },
+    "created_at": "2025-11-12T01:35:39.389Z",
+    "updated_at": "2025-11-12T01:35:39.390Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "66",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 75,
+    "started_at": "2025-11-12T11:16:03.392Z",
+    "finished_at": "2025-11-12T11:16:08.886Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 75,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": [
+        1,
+        2
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhvwmlkq-yewowafe"
+    },
+    "created_at": "2025-11-12T11:16:03.393Z",
+    "updated_at": "2025-11-15T12:29:42.804Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "67",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-12T11:29:51.294Z",
+    "finished_at": "2025-11-12T11:31:46.426Z",
+    "status": "finished",
+    "corretas": 1,
+    "total": 180,
+    "score_percent": "0.56",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhvx4ce2-cc4xwjq6"
+    },
+    "created_at": "2025-11-12T11:29:51.294Z",
+    "updated_at": "2025-11-12T11:29:51.294Z",
+    "exam_mode": null
+  },
+  {
+    "id": "68",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-12T11:32:40.224Z",
+    "finished_at": "2025-11-12T11:33:36.213Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 180,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examType": "pmp",
+      "sessionId": "s-mhvx7yqj-9lsz3mtb"
+    },
+    "created_at": "2025-11-12T11:32:40.228Z",
+    "updated_at": "2025-11-12T11:32:40.228Z",
+    "exam_mode": null
+  },
+  {
+    "id": "69",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-15T14:20:14.302Z",
+    "finished_at": "2025-11-15T14:20:16.692Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 180,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "full",
+      "examType": "pmp",
+      "sessionId": "s-mi0dj0i9-d55lx5bw"
+    },
+    "created_at": "2025-11-15T14:20:14.305Z",
+    "updated_at": "2025-11-15T14:20:14.307Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "70",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-15T14:30:09.533Z",
+    "finished_at": "2025-11-15T14:35:35.140Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 180,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "full",
+      "examType": "pmp",
+      "sessionId": "s-mi0dvrli-41y4v0rg"
+    },
+    "created_at": "2025-11-15T14:30:09.576Z",
+    "updated_at": "2025-11-15T14:30:09.669Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "71",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T14:35:42.014Z",
+    "finished_at": "2025-11-15T14:35:48.602Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 37,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0e2wcc-kntwn643"
+    },
+    "created_at": "2025-11-15T14:35:42.014Z",
+    "updated_at": "2025-11-15T14:35:42.014Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "72",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T14:41:34.255Z",
+    "finished_at": "2025-11-15T14:42:13.160Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 37,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0eag4h-o430xk5b"
+    },
+    "created_at": "2025-11-15T14:41:34.258Z",
+    "updated_at": "2025-11-15T14:41:34.259Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "73",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T14:45:42.273Z",
+    "finished_at": "2025-11-15T14:45:50.268Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 37,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0efrhq-iy2bxxve"
+    },
+    "created_at": "2025-11-15T14:45:42.274Z",
+    "updated_at": "2025-11-15T14:45:42.274Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "74",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-15T14:46:41.918Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "full",
+      "examType": "pmp",
+      "sessionId": "s-mi0eh1ip-weobx7fb"
+    },
+    "created_at": "2025-11-15T14:46:41.918Z",
+    "updated_at": "2025-11-15T14:46:41.918Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "75",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T14:47:49.281Z",
+    "finished_at": "2025-11-15T14:47:52.589Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 37,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0eihi5-bd0iazdf"
+    },
+    "created_at": "2025-11-15T14:47:49.282Z",
+    "updated_at": "2025-11-15T14:47:49.282Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "76",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T14:49:51.392Z",
+    "finished_at": "2025-11-15T14:58:34.974Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 37,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0el3os-y0jyf6e9"
+    },
+    "created_at": "2025-11-15T14:49:51.395Z",
+    "updated_at": "2025-11-15T14:49:51.396Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "77",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-15T14:58:49.912Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "full",
+      "examType": "pmp",
+      "sessionId": "s-mi0ewn81-h3ayks3y"
+    },
+    "created_at": "2025-11-15T14:58:49.912Z",
+    "updated_at": "2025-11-15T14:58:49.912Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "78",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T15:02:16.558Z",
+    "finished_at": "2025-11-15T15:02:20.836Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 37,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0f12ov-7ev0trqb"
+    },
+    "created_at": "2025-11-15T15:02:16.559Z",
+    "updated_at": "2025-11-15T15:02:16.559Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "79",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T15:02:49.868Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0f1sej-vs61ll3r"
+    },
+    "created_at": "2025-11-15T15:02:49.868Z",
+    "updated_at": "2025-11-15T15:02:49.868Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "80",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T15:06:22.165Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0f6c7n-todl2ybe"
+    },
+    "created_at": "2025-11-15T15:06:22.165Z",
+    "updated_at": "2025-11-15T15:06:22.165Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "81",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T15:09:05.379Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0f9u5c-f5iakzaq"
+    },
+    "created_at": "2025-11-15T15:09:05.379Z",
+    "updated_at": "2025-11-15T15:09:05.379Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "82",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T15:11:30.415Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0fcy21-gvi8bxdg"
+    },
+    "created_at": "2025-11-15T15:11:30.416Z",
+    "updated_at": "2025-11-15T15:11:30.416Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "83",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T15:14:20.449Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0fgl9b-luwu5plf"
+    },
+    "created_at": "2025-11-15T15:14:20.450Z",
+    "updated_at": "2025-11-15T15:14:20.450Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "84",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 32,
+    "started_at": "2025-11-15T15:18:53.981Z",
+    "finished_at": "2025-11-15T16:15:05.560Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 32,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        5
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0fmgbg-3u5njiga"
+    },
+    "created_at": "2025-11-15T15:18:53.981Z",
+    "updated_at": "2025-11-15T15:18:53.981Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "85",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T16:17:09.587Z",
+    "finished_at": "2025-11-15T16:18:17.626Z",
+    "status": "finished",
+    "corretas": 0,
+    "total": 37,
+    "score_percent": "0.00",
+    "aprovado": false,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0hpdjj-eq1md35j"
+    },
+    "created_at": "2025-11-15T16:17:09.588Z",
+    "updated_at": "2025-11-15T16:17:09.588Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "86",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T16:20:22.153Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0hti4n-vn2n4pgu"
+    },
+    "created_at": "2025-11-15T16:20:22.153Z",
+    "updated_at": "2025-11-15T16:20:22.153Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "87",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 37,
+    "started_at": "2025-11-15T16:32:18.238Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0i8und-3jtijtwx"
+    },
+    "created_at": "2025-11-15T16:32:18.248Z",
+    "updated_at": "2025-11-15T16:32:18.249Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "88",
+    "user_id": 21,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 92,
+    "started_at": "2025-11-15T20:40:08.431Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": [
+        1,
+        5,
+        3
+      ],
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "quiz",
+      "examType": "pmp",
+      "sessionId": "s-mi0r3kk6-dcg7mylc"
+    },
+    "created_at": "2025-11-15T20:40:08.436Z",
+    "updated_at": "2025-11-15T20:40:08.437Z",
+    "exam_mode": "quiz"
+  },
+  {
+    "id": "89",
+    "user_id": 24,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 175,
+    "started_at": "2025-11-19T19:57:08.366Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "full",
+      "examType": "pmp",
+      "sessionId": "s-mi6fbog8-ywts894f"
+    },
+    "created_at": "2025-11-19T19:57:08.368Z",
+    "updated_at": "2025-11-19T19:57:08.370Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "90",
+    "user_id": 24,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 175,
+    "started_at": "2025-11-19T20:28:48.908Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "full",
+      "examType": "pmp",
+      "sessionId": "s-mi6ggex6-ntswckir"
+    },
+    "created_at": "2025-11-19T20:28:48.908Z",
+    "updated_at": "2025-11-19T20:28:48.908Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "91",
+    "user_id": 24,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 175,
+    "started_at": "2025-11-19T20:33:25.132Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "full",
+      "examType": "pmp",
+      "sessionId": "s-mi6gmc1z-4t1lx6ig"
+    },
+    "created_at": "2025-11-19T20:33:25.133Z",
+    "updated_at": "2025-11-19T20:33:25.134Z",
+    "exam_mode": "full"
+  },
+  {
+    "id": "92",
+    "user_id": 24,
+    "exam_type_id": 1,
+    "modo": "select",
+    "quantidade_questoes": 180,
+    "started_at": "2025-11-19T20:36:01.879Z",
+    "finished_at": null,
+    "status": "in_progress",
+    "corretas": null,
+    "total": null,
+    "score_percent": null,
+    "aprovado": null,
+    "pause_state": {
+      "consumed": {
+        "60": false,
+        "120": false
+      },
+      "pauseUntil": 0
+    },
+    "blueprint_snapshot": {
+      "id": "pmp",
+      "nome": "PMP",
+      "pausas": {
+        "permitido": true,
+        "checkpoints": [
+          60,
+          120
+        ],
+        "duracaoMinutosPorPausa": 10
+      },
+      "duracaoMinutos": 230,
+      "numeroQuestoes": 180,
+      "multiplaSelecao": false,
+      "pontuacaoMinima": 75,
+      "opcoesPorQuestao": 4
+    },
+    "filtros_usados": {
+      "areas": null,
+      "grupos": null,
+      "onlyNew": false,
+      "dominios": null,
+      "fallbackIgnoreExamType": false
+    },
+    "meta": {
+      "source": "select",
+      "examMode": "full",
+      "examType": "pmp",
+      "sessionId": "s-mi6gpp06-n7y8e061"
+    },
+    "created_at": "2025-11-19T20:36:01.880Z",
+    "updated_at": "2025-11-19T20:36:01.880Z",
+    "exam_mode": "full"
+  }
+]

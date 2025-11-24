@@ -489,7 +489,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Start polling /api/auth/me periodically to detect purchase state changes
-    let _bloqueioPollId = null;
+    // Usar var para evitar TDZ quando startBloqueioPolling é chamado antes da declaração
+    var _bloqueioPollId = null;
     function startBloqueioPolling(token, intervalMs = 20000) {
         try {
             if (!token || token.endsWith('#')) return;

@@ -293,14 +293,8 @@
       <div class="tab" data-aba="abordagem">Abordagem</div>
     </div>
 
-  <!-- CHECKLIST -->
+  <!-- CHECKLIST (renderiza itens de todas as abas, incluindo Abordagem) -->
   <div id="checklist" class="checklist"></div>
-  <div id="abordagem-wrapper" style="display:none; margin:8px 0 12px;">
-    <label for="abordagemSelect" style="display:block; font-weight:600; margin-bottom:6px;">Selecionar Abordagem:</label>
-    <select id="abordagemSelect" style="width:100%; max-width:320px; padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:0.9rem;">
-      <option value="">-- Nenhuma selecionada --</option>
-    </select>
-  </div>
 
     <!-- RESUMO -->
     <div class="resumo">
@@ -617,25 +611,17 @@
       } catch(e) {}
     }
 
-    // Tab switching (inclui Abordagem)
+    // Tab switching (Abordagem usa mesma checklist multi-seleção)
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         abaAtual = tab.dataset.aba;
         salvarSelecoes();
-        const abordagemWrapper = document.getElementById('abordagem-wrapper');
-        if (abaAtual === 'abordagem') {
-          checklistDiv.style.display = 'none';
-          if (abordagemWrapper) abordagemWrapper.style.display = '';
-        } else {
-          checklistDiv.style.display = '';
-          if (abordagemWrapper) abordagemWrapper.style.display = 'none';
-        }
         if (abaAtual === 'dominios') renderChecklist(meta.dominios);
-        if (abaAtual === 'grupos') renderChecklist(meta.grupos);
-        if (abaAtual === 'areas') renderChecklist(meta.areas);
-        // Ao trocar de aba, reprocessar o resumo e contagem
+        else if (abaAtual === 'grupos') renderChecklist(meta.grupos);
+        else if (abaAtual === 'areas') renderChecklist(meta.areas);
+        else if (abaAtual === 'abordagem') renderChecklist(meta.categorias);
         atualizarResumo();
       });
     });
@@ -887,46 +873,17 @@
         meta.areas = meta.areas || [];
         meta.categorias = meta.categorias || [];
       }
-      // restore quantity only if user saved previously; não definir valor automaticamente
       try {
         const saved = localStorage.getItem('examQuestionCount');
-        if (saved) {
-          quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));
-        }
+        if (saved) quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));
       } catch(e) {}
-      // activate tab per saved state
       tabs.forEach(t => t.classList.remove('active'));
       const tabEl = document.querySelector(`.tab[data-aba="${abaAtual}"]`) || document.querySelector('.tab[data-aba="dominios"]');
       if (tabEl) tabEl.classList.add('active');
-      // render current tab
       if (abaAtual === 'dominios') renderChecklist(meta.dominios);
-      if (abaAtual === 'grupos') renderChecklist(meta.grupos);
-      if (abaAtual === 'areas') renderChecklist(meta.areas);
-      if (abaAtual === 'abordagem') {
-        const abordagemWrapper = document.getElementById('abordagem-wrapper');
-        if (abordagemWrapper) abordagemWrapper.style.display = '';
-        checklistDiv.style.display = 'none';
-      }
-      // Popular select de abordagem
-      try {
-        const select = document.getElementById('abordagemSelect');
-        if (select) {
-          select.innerHTML = '';
-          const baseOpt = document.createElement('option');
-          baseOpt.value = '';
-          baseOpt.textContent = '-- Nenhuma selecionada --';
-          select.appendChild(baseOpt);
-          meta.categorias.forEach(cat => {
-            const opt = document.createElement('option');
-            opt.value = String(cat.id);
-            opt.textContent = cat.descricao || String(cat.id);
-            select.appendChild(opt);
-          });
-          if (selecionados.categorias.length === 1) {
-            select.value = String(selecionados.categorias[0]);
-          }
-        }
-      } catch(e){ console.warn('Falha ao popular categorias', e); }
+      else if (abaAtual === 'grupos') renderChecklist(meta.grupos);
+      else if (abaAtual === 'areas') renderChecklist(meta.areas);
+      else if (abaAtual === 'abordagem') renderChecklist(meta.categorias);
       atualizarResumo();
     }
 
@@ -980,18 +937,7 @@
 
     // Kick off
     loadExamTypes();
-    // Inicializa listener do select de abordagem
-    (function initAbordagemSelect(){
-      const sel = document.getElementById('abordagemSelect');
-      if (!sel) return;
-      sel.addEventListener('change', () => {
-        const v = sel.value.trim();
-        selecionados.categorias = v ? [Number(v)] : [];
-        if (selecionados.categorias.length) quantidadeInput.value = '';
-        atualizarResumo();
-        salvarSelecoes();
-      });
-    })();
+    // Abordagem agora usa mesma lógica de checklist multi-seleção (nenhum listener adicional necessário)
     loadMeta().then(() => {
       // Faça uma contagem inicial se já houver filtros salvos
       scheduleAtualizarDisponiveis();

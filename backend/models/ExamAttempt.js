@@ -17,6 +17,8 @@ module.exports = (sequelize, DataTypes) => {
     BlueprintSnapshot: { type: DataTypes.JSONB, allowNull: true, field: 'blueprint_snapshot' },
     FiltrosUsados: { type: DataTypes.JSONB, allowNull: true, field: 'filtros_usados' },
     Meta: { type: DataTypes.JSONB, allowNull: true, field: 'meta' },
+    LastActivityAt: { type: DataTypes.DATE, allowNull: true, field: 'last_activity_at' },
+    StatusReason: { type: DataTypes.TEXT, allowNull: true, field: 'status_reason' },
     CreatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW, field: 'created_at' },
     UpdatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW, field: 'updated_at' },
   }, {

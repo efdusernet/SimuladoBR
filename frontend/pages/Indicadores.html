@@ -26,6 +26,9 @@
     .cell{padding:6px 3px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
     .rowlabel{text-align:left; padding-left:4px; font-size:10px;}
     .head,.subhead,.colhead{font-weight:600; font-size:10px;}
+    /* Marcador via pseudo-elemento (sem spans extras) */
+    body.show-markers .ov-grid .cell::after,
+    body.show-markers .det-grid .cell::after{content:attr(data-cell); position:absolute; top:2px; right:4px; font-size:9px; font-weight:500; color:#94a3b8; letter-spacing:.5px; pointer-events:none; user-select:none;}
     
     @media (min-width: 640px) {
       h1 { font-size:1.1rem; margin:16px; padding-left:35px; }
@@ -119,13 +122,21 @@
       <button class="tab-btn" data-tab="topico" role="tab" aria-selected="false">Tópico</button>
         <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
         <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
+        <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false">Estatísticas</button>
+        <button class="tab-btn" data-tab="dominios" role="tab" aria-selected="false">Domínios</button>
+    </div>
+    <div style="margin-top:8px;">
+      <label style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#334155; font-weight:600;">
+        <input type="checkbox" id="toggleMarkers" style="width:14px; height:14px;"> Mostrar marcadores
+      </label>
     </div>
   </div>
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
       <div style="margin-bottom:12px; padding:8px; background:#f1f5f9; border-radius:6px; font-size:0.85rem; line-height:1.6;">
-        <div style="margin-bottom:6px;"><strong>Total de perguntas do simulador:</strong> <span id="ind4-value">—</span></div>
-        <div style="margin-bottom:6px;"><strong>Respondidas por você:</strong> <span id="ind5-value">—</span></div>
+        <div style="margin-bottom:6px;"><strong>Total de perguntas ativas do simulador:</strong> <span id="ind4-value">—</span></div>
+        <div style="margin-bottom:6px;"><strong>Respondidas (histórico distinto):</strong> <span id="ind5-hist">—</span></div>
+        <div style="margin-bottom:6px;"><strong>Respondidas (questões ainda ativas):</strong> <span id="ind5-active">—</span></div>
         <div><strong>Você passou <span id="ind6-value">—</span> respondendo questões no simulador.</strong></div>
       </div>
       
@@ -178,6 +189,38 @@
           <div class="cell" data-cell="OV-R5C11" data-format="percent" data-key="last30.others.reprovado">&nbsp;</div>
         </div>
       </div>
+      <div style="margin:14px 0 6px; font-size:0.75rem; font-weight:600; color:#0f172a;">Histórico de Simulados</div>
+      <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; background:#fff;">
+        <table id="attemptsHistoryTable" style="width:100%; border-collapse:collapse; font-size:0.62rem;">
+          <thead style="background:#f8fafc;">
+            <tr style="text-align:left;">
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Data</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Título</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Tipo</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Acertos</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Score</th>
+              <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="attemptsHistoryBody">
+            <tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#64748b;">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="attemptsPager" style="margin:6px 2px 4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:0.6rem;">
+        <button type="button" id="attemptsPrev" style="padding:4px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; font-weight:600;">◀</button>
+        <div id="attemptsPageInfo" style="font-weight:600; color:#334155;">Página 1</div>
+        <button type="button" id="attemptsNext" style="padding:4px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; font-weight:600;">▶</button>
+        <div id="attemptsTotalInfo" style="margin-left:8px; color:#64748b;">0 tentativas</div>
+        <label for="attemptsFilter" style="display:inline-flex; align-items:center; gap:4px; margin-left:8px; font-weight:600; color:#334155;">Filtro:
+          <select id="attemptsFilter" style="padding:4px 6px; border:1px solid #cbd5e1; background:#fff; border-radius:5px; font-size:0.6rem; font-weight:600; color:#0f172a;">
+            <option value="all">Todos</option>
+            <option value="completo" selected>Completos</option>
+            <option value="incompleto">Incompletos</option>
+          </select>
+        </label>
+        <button type="button" id="attemptsExportCsv" style="margin-left:auto; padding:4px 10px; border:1px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:6px; cursor:pointer; font-weight:600;">Exportar CSV</button>
+      </div>
     </section>
     <section id="sec-grupos" class="section" aria-labelledby="tab-grupos">
       <div id="processGroupsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
@@ -191,36 +234,93 @@
       <section id="sec-detalhes" class="section" aria-labelledby="tab-detalhes">
         <div class="ov-wrapper">
           <div class="det-grid">
-            <div class="cell head" style="grid-column: span 4;">Última tentativa</div>
-            <div class="cell colhead">Domínio</div>
-            <div class="cell colhead">Corretas %</div>
-            <div class="cell colhead"># Corretas</div>
-            <div class="cell colhead">Performance</div>
-
-            <div class="cell">Iniciação</div>
-            <div class="cell">60%</div>
-            <div class="cell">80</div>
-            <div class="cell">1</div>
-
-            <div class="cell">Planejamento</div>
-            <div class="cell">70%</div>
-            <div class="cell">60</div>
-            <div class="cell">2</div>
-
-            <div class="cell">Execução</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-
-            <div class="cell">Monitoramento e Controle</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-
-            <div class="cell">Encerramento</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
-            <div class="cell">&nbsp;</div>
+            <div class="cell head" style="grid-column: span 4;" data-cell="DET-R1C1">Última tentativa</div>
+            <div class="cell colhead" data-cell="DET-R2C1">Domínio</div>
+            <div class="cell colhead" data-cell="DET-R2C2">Corretas %</div>
+            <div class="cell colhead" data-cell="DET-R2C3"># Corretas</div>
+            <div class="cell colhead" data-cell="DET-R2C4">Performance</div>
+            <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/details-last -->
+          </div>
+        </div>
+      </section>
+      <section id="sec-dashboard" class="section" aria-labelledby="tab-dashboard">
+        <div id="indicadoresIntro" style="margin:0 0 14px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.66rem; line-height:1.35; color:#334155; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+          <strong style="display:block; font-size:0.7rem; margin-bottom:4px;">Como interpretar estes indicadores</strong>
+          <span style="display:block; margin-bottom:4px;">Exames e quizzes em <em>Visão Geral</em> abrangem tentativas completas ("Exames realizados") e tentativas rápidas/parciais ("Quiz realizados") nos últimos períodos (30d e 60d). Colunas Apr% e Rep%: aprovação / reprovação.</span>
+          <span style="display:block; margin-bottom:4px;">As abas <em>Grupo Processos</em>, <em>Tópico</em> e <em>Abordagem</em> mostram distribuição de acertos/erros. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
+          <span style="display:block; margin-bottom:4px;">Esta aba <em>Estatísticas</em> usa agregação diária persistente (mesmo após expurgos). Fórmulas: Abandono = abandonadas / iniciadas; Conclusão = finalizadas / iniciadas; Expurgo = expurgadas / abandonadas. Score médio é ponderado pelo número de questões respondidas no dia.</span>
+          <span style="display:block; margin-bottom:4px;">Abandono pode ser classificado como <em>Timeout</em> (inatividade excede limite), <em>Baixo progresso</em> (poucas questões após tempo mínimo) ou abandono manual. Expurgo remove tentativas abandonadas antigas preservando métricas.</span>
+          <span style="display:block;">Limites de tempo e janelas são definidos pela política interna e já aplicados nos cálculos exibidos.</span>
+        </div>
+        <div style="margin-bottom:12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+          <label style="font-size:0.75rem; font-weight:600; color:#334155;">Dias:
+            <select id="dashDays" style="margin-left:4px; padding:4px 6px; font-size:0.75rem; border:1px solid #cbd5e1; border-radius:4px;">
+              <option value="15">15</option>
+              <option value="30" selected>30</option>
+              <option value="60">60</option>
+            </select>
+          </label>
+          <button id="dashReload" type="button" style="padding:6px 10px; font-size:0.7rem; font-weight:600; background:#3b82f6; color:#fff; border:none; border-radius:6px; cursor:pointer;">Recarregar</button>
+          <span id="dashLoading" style="display:none; font-size:0.7rem; color:#475569;">Carregando...</span>
+          <span id="dashError" style="display:none; font-size:0.7rem; color:#b91c1c;">Falha ao carregar</span>
+        </div>
+        <div id="dashSummary" class="dash-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:16px;"></div>
+        <div class="chart-panel" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:16px;">
+          <h3 style="margin:0 0 8px; font-size:0.85rem; font-weight:600;">Taxas diárias</h3>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:6px; font-size:0.65rem; font-weight:600; color:#475569;">
+            <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#0b5ed7; border-radius:3px;"></span> Abandono%</span>
+            <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#16a34a; border-radius:3px;"></span> Conclusão%</span>
+            <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#dc2626; border-radius:3px;"></span> Expurgo%</span>
+          </div>
+          <div id="dashRatesChart"></div>
+        </div>
+        <div class="chart-panel" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+          <h3 style="margin:0 0 8px; font-size:0.85rem; font-weight:600;">Média de pontuação diária (%)</h3>
+          <div id="dashScoreChart"></div>
+        </div>
+        <div style="font-size:0.65rem; color:#64748b;">Taxas: abandono = abandonadas / iniciadas; conclusão = finalizadas / iniciadas; expurgo = expurgadas / abandonadas.</div>
+      </section>
+      <section id="sec-dominios" class="section" aria-labelledby="tab-dominios">
+        <div style="max-width:364px;margin:10px auto 20px;background:#fff;padding:14px 22px 18px 30px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.06); border:1px solid #e2e8f0;">
+          <h2 style="text-align:center;font-size:0.92rem;margin:0 0 12px;color:#0f172a;">Domínios de Conhecimento</h2>
+          <div style="text-align:center;margin-bottom:10px;">
+            <label for="domSelModo" style="font-size:0.65rem;color:#334155;font-weight:600;margin-right:5px;">Visualizar:</label>
+            <select id="domSelModo" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;background:#ffffff;font-size:0.65rem;color:#0f172a;">
+              <option value="best">Meu melhor resultado</option>
+              <option value="last" selected>Meu último exame</option>
+            </select>
+          </div>
+          <svg id="domRadar" viewBox="0 0 400 400" style="width:100%;height:auto;max-width:280px;margin:0 auto;display:block;transform:scale(0.90);transform-origin:200px 200px;overflow:visible;">
+            <circle cx="200" cy="200" r="150" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <circle cx="200" cy="200" r="120" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <circle cx="200" cy="200" r="90" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <circle cx="200" cy="200" r="60" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <circle cx="200" cy="200" r="30" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            <line x1="200" y1="200" x2="200" y2="50" stroke="#cbd5e1" stroke-width="1"/>
+            <line x1="200" y1="200" x2="329.9" y2="275" stroke="#cbd5e1" stroke-width="1"/>
+            <line x1="200" y1="200" x2="70.1" y2="275" stroke="#cbd5e1" stroke-width="1"/>
+            <polygon id="domPoly" points="200,50 329.9,275 70.1,275" fill="rgba(59,130,246,0.20)" stroke="#3b82f6" stroke-width="2"/>
+            <circle id="domP1" cx="200" cy="50" r="5" fill="#3b82f6"/>
+            <circle id="domP2" cx="329.9" cy="275" r="5" fill="#3b82f6"/>
+            <circle id="domP3" cx="70.1" cy="275" r="5" fill="#3b82f6"/>
+            <text x="200" y="35" text-anchor="middle" font-size="13" font-weight="600" fill="#0f172a">Pessoas</text>
+            <text id="domV1" x="200" y="20" text-anchor="middle" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+            <text x="345" y="290" text-anchor="start" font-size="13" font-weight="600" fill="#0f172a">Processos</text>
+            <text id="domV2" x="345" y="305" text-anchor="start" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+            <text x="70" y="290" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Ambiente de</text>
+            <text x="70" y="305" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Negócios</text>
+            <text id="domV3" x="70" y="320" text-anchor="end" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+          </svg>
+          <div id="domAnalysis" style="margin-top:12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:10px 12px; font-size:0.62rem; color:#334155; line-height:1.2;">
+            <strong style="display:block; font-size:0.65rem; margin-bottom:5px; color:#0f172a;">Análise automática</strong>
+            <div class="dom-analysis-body" style="display:flex; flex-direction:column; gap:3px;">
+              <span style="color:#64748b;">Carregando análise…</span>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:8px;background:#f1f5f9;border-radius:6px;font-size:0.60rem;color:#475569;">
+            <strong style="display:block;margin-bottom:3px;font-size:0.62rem;">Legenda</strong>
+            <span style="display:block;">Os valores refletem a % de questões corretas por domínio no exame selecionado (melhor ou último).</span>
+            <span id="domInfoExam" style="display:block;margin-top:5px;color:#64748b;">Exame: —</span>
           </div>
         </div>
       </section>
@@ -258,15 +358,17 @@
       grupos: document.getElementById('sec-grupos'),
       topico: document.getElementById('sec-topico'),
       abordagem: document.getElementById('sec-abordagem'),
-      detalhes: document.getElementById('sec-detalhes')
+      detalhes: document.getElementById('sec-detalhes'),
+      dashboard: document.getElementById('sec-dashboard'),
+      dominios: document.getElementById('sec-dominios')
     };
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const tab = btn.getAttribute('data-tab');
         tabButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
         btn.classList.add('active'); btn.setAttribute('aria-selected','true');
-        Object.keys(sectionsMap).forEach(k => sectionsMap[k].classList.remove('active'));
-        sectionsMap[tab].classList.add('active');
+        Object.keys(sectionsMap).forEach(k => sectionsMap[k] && sectionsMap[k].classList.remove('active'));
+        if (sectionsMap[tab]) sectionsMap[tab].classList.add('active');
       });
     });
     // Simple helper to build Authorization header from localStorage (JWT)
@@ -276,6 +378,80 @@
         const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
         return tok ? { Authorization: `${typ} ${tok}` } : {};
       } catch(_) { return {}; }
+    }
+
+    // Exam type helpers: resolve current slug and map to numeric id via /api/exams/types
+    function getCurrentExamTypeSlug(){
+      try {
+        const qp = new URLSearchParams(window.location.search).get('examType');
+        if (qp) return String(qp).toLowerCase();
+      } catch(_){ }
+      try { return (localStorage.getItem('examType') || 'pmp').toLowerCase(); } catch(_){ return 'pmp'; }
+    }
+    let _examTypeIdCache = null;
+    async function getCurrentExamTypeId(){
+      if (_examTypeIdCache != null) return _examTypeIdCache;
+
+      // 0) Query param examTypeId (num) has highest priority if present
+      try {
+        const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+        const n = Number(qpId);
+        if (Number.isFinite(n) && n > 0) { _examTypeIdCache = Math.floor(n); return _examTypeIdCache; }
+      } catch(_){ }
+
+      const slug = getCurrentExamTypeSlug();
+
+      // 1) Try cache in sessionStorage
+      try {
+        const raw = sessionStorage.getItem('examTypesCache');
+        if (raw) {
+          const arr = JSON.parse(raw);
+          const found = Array.isArray(arr) ? arr.find(t => (t.slug || t.Slug || '').toLowerCase() === slug) : null;
+          if (found && (found.id != null || found.Id != null)) {
+            _examTypeIdCache = Number(found.id != null ? found.id : found.Id);
+            return _examTypeIdCache;
+          }
+        }
+      } catch(_){ }
+
+      // 2) Try localStorage cache (fallback if someone stored it there)
+      try {
+        const rawLocal = localStorage.getItem('examTypesCache');
+        if (rawLocal) {
+          const arr = JSON.parse(rawLocal);
+          const found = Array.isArray(arr) ? arr.find(t => (t.slug || t.Slug || '').toLowerCase() === slug) : null;
+          if (found && (found.id != null || found.Id != null)) {
+            _examTypeIdCache = Number(found.id != null ? found.id : found.Id);
+            return _examTypeIdCache;
+          }
+        }
+      } catch(_){ }
+
+      // 3) Fetch from API with auth headers (endpoint may require auth)
+      try {
+        const headers = { 'Accept':'application/json', ...getAuthHeadersLocal() };
+        const list = await fetch('/api/exams/types', { headers }).then(r => r.ok ? r.json() : null).catch(()=>null);
+        if (Array.isArray(list)) {
+          try { sessionStorage.setItem('examTypesCache', JSON.stringify(list)); } catch(_){ }
+          const found = list.find(t => (t.slug || t.Slug || '').toLowerCase() === slug);
+          if (found && (found.id != null || found.Id != null)) {
+            _examTypeIdCache = Number(found.id != null ? found.id : found.Id);
+            return _examTypeIdCache;
+          }
+        }
+      } catch(_){ }
+
+      // 4) Direct localStorage numeric id if previously saved elsewhere
+      try {
+        const storedId = Number(localStorage.getItem('examTypeId'));
+        if (Number.isFinite(storedId) && storedId > 0) { _examTypeIdCache = Math.floor(storedId); return _examTypeIdCache; }
+      } catch(_){ }
+
+      // 5) Safe minimal fallback mapping to maintain compatibility
+      const fallbackMap = { pmp: 1 };
+      if (fallbackMap[slug]) { _examTypeIdCache = fallbackMap[slug]; return _examTypeIdCache; }
+
+      return null;
     }
 
     // Populate overview grid from /api/indicators/overview (uses JWT if present)
@@ -424,8 +600,10 @@
     async function loadGeneralStats(){
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        // IND4: Total de perguntas do simulador (exam_type=1 para PMP)
-        const res4 = await fetch('/api/indicators/questions-count?exam_type=1', { headers });
+        const examTypeId = await getCurrentExamTypeId();
+        // IND4: Total de perguntas do simulador (por exam_type)
+        const url4 = examTypeId ? `/api/indicators/questions-count?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/questions-count';
+        const res4 = await fetch(url4, { headers });
         if (res4.status === 401 || res4.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res4.ok) {
           const data4 = await res4.json();
@@ -433,17 +611,25 @@
           document.getElementById('ind4-value').textContent = val;
         }
 
-        // IND5: Quantidade de questões respondidas pelo usuário (exam_type=1)
-        const res5 = await fetch('/api/indicators/answered-count?exam_type=1', { headers });
+        // IND5 (agora combinado): Quantidade de questões respondidas (histórico e ativas)
+        const url5 = examTypeId ? `/api/indicators/answered-count?exam_type=${encodeURIComponent(examTypeId)}` : null;
+        if (!url5) return; // exige exam_type
+        const res5 = await fetch(url5, { headers });
         if (res5.status === 401 || res5.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res5.ok) {
           const data5 = await res5.json();
-          const val = data5 && data5.total !== undefined ? data5.total : 0;
-          document.getElementById('ind5-value').textContent = val;
+          const hist = data5 && data5.historicalDistinct !== undefined ? data5.historicalDistinct : 0;
+          const act = data5 && data5.activeDistinct !== undefined ? data5.activeDistinct : 0;
+          const elHist = document.getElementById('ind5-hist');
+          const elAct = document.getElementById('ind5-active');
+          if (elHist) elHist.textContent = hist;
+          if (elAct) elAct.textContent = act;
         }
 
-        // IND6: Total de horas no simulador (exam_type=1) - formato horas:minutos:segundos
-        const res6 = await fetch('/api/indicators/total-hours?exam_type=1', { headers });
+        // IND6: Total de horas no simulador (por exam_type)
+        const url6 = examTypeId ? `/api/indicators/total-hours?exam_type=${encodeURIComponent(examTypeId)}` : null;
+        if (!url6) return; // este endpoint exige exam_type
+        const res6 = await fetch(url6, { headers });
         if (res6.status === 401 || res6.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
         if (res6.ok) {
           const data6 = await res6.json();
@@ -459,7 +645,169 @@
 
     loadGeneralStats();
 
-    
+    // Carrega histórico de simulados (exames completos e quizzes, incluindo incompletos)
+    let _attemptsItems = [];
+    let _attemptsCurrentPage = 1;
+    const _attemptsPageSize = 15;
+    let _attemptsFilter = 'completo'; // default mostrar completos
+
+    function renderAttemptsPage(page){
+      const tbody = document.getElementById('attemptsHistoryBody');
+      const pageInfo = document.getElementById('attemptsPageInfo');
+      const totalInfo = document.getElementById('attemptsTotalInfo');
+      const btnPrev = document.getElementById('attemptsPrev');
+      const btnNext = document.getElementById('attemptsNext');
+      if (!tbody) return;
+      // Apply filter
+      const filtered = _attemptsItems.filter(it => {
+        if (_attemptsFilter === 'completo') return it.status === 'Completo';
+        if (_attemptsFilter === 'incompleto') return it.status !== 'Completo';
+        return true;
+      });
+      const total = filtered.length;
+      if (!total){
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#64748b;">Nenhuma tentativa registrada</td></tr>';
+        if(pageInfo) pageInfo.textContent='Página 0';
+        if(totalInfo) totalInfo.textContent='0 tentativas';
+        if(btnPrev) btnPrev.disabled=true; if(btnNext) btnNext.disabled=true;
+        return;
+      }
+      const maxPage = Math.ceil(total / _attemptsPageSize);
+      if (page < 1) page = 1; if (page > maxPage) page = maxPage;
+      _attemptsCurrentPage = page;
+      const start = (page - 1) * _attemptsPageSize;
+      const end = start + _attemptsPageSize;
+      const slice = filtered.slice(start, end);
+      tbody.innerHTML = '';
+      slice.forEach(it => {
+        const tr = document.createElement('tr');
+        let scoreColor = '#334155';
+        if (it.score && it.score !== '---') {
+          const num = parseFloat(String(it.score).replace('%','').trim());
+          if (!isNaN(num)) {
+            scoreColor = num >= 75 ? '#065f46' : '#b91c1c';
+          }
+        }
+        let scoreDisplay = it.score;
+        if (it.score && it.score !== '---') {
+          const num = parseFloat(String(it.score).replace('%','').trim());
+          if (!isNaN(num)) {
+            if (num >= 99) {
+              scoreDisplay = `${it.score} <span title="Excepcional" aria-label="Excepcional" style="display:inline-block; margin-left:4px; color:#f59e0b; font-size:0.7rem; letter-spacing:1px;">★★★★★</span>`;
+            } else if (num >= 91 && num <= 98) {
+              scoreDisplay = `${it.score} <span title="Muito Alto" aria-label="Muito Alto" style="display:inline-block; margin-left:4px; color:#f59e0b; font-size:0.7rem; letter-spacing:1px;">★★★★</span>`;
+            } else if (num >= 81 && num <= 90) {
+              scoreDisplay = `${it.score} <span title="Alto" aria-label="Alto" style="display:inline-block; margin-left:4px; color:#d97706; font-size:0.7rem; letter-spacing:1px;">★★★</span>`;
+            } else if (num >= 75 && num <= 80) {
+              scoreDisplay = `${it.score} <span title="Aprovado" aria-label="Aprovado" style="display:inline-block; margin-left:4px; color:#065f46; font-size:0.65rem;">✔</span>`;
+            }
+          }
+        }
+        const tipoDisplay = it.tipo === 'Completo' ? 'Simulado Completo' : it.tipo;
+        const statusDisplay = it.status === 'Completo' ? 'Finalizado' : it.status;
+        tr.innerHTML = `
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap;">${(it.date||'').slice(0,10)}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${it.titulo}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${tipoDisplay}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${it.acertos}/${it.total}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${scoreColor};">${scoreDisplay}</td>
+          <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${it.status==='Completo' ? '#16a34a' : '#dc2626'};">${statusDisplay}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (pageInfo) pageInfo.textContent = `Página ${page} / ${maxPage}`;
+      if (totalInfo) totalInfo.textContent = `${total} tentativa${total===1?'':'s'}`;
+      if (btnPrev) btnPrev.disabled = page <= 1;
+      if (btnNext) btnNext.disabled = page >= maxPage;
+    }
+
+    async function loadAttemptsHistoryExtended(){
+      const tbody = document.getElementById('attemptsHistoryBody');
+      if (!tbody) return;
+      try {
+        const headers = { 'Accept':'application/json', ...getAuthHeadersLocal() };
+        const res = await fetch('/api/indicators/attempts-history-extended', { headers });
+        if (res.status === 401 || res.status === 403){
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!res.ok){ tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b91c1c;">Falha ao carregar histórico</td></tr>'; return; }
+        const data = await res.json();
+        _attemptsItems = Array.isArray(data.items) ? data.items : [];
+        // Garantir que select reflita filtro padrão
+        const selFilter = document.getElementById('attemptsFilter');
+        if (selFilter) selFilter.value = _attemptsFilter;
+        renderAttemptsPage(1);
+      } catch(e){
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b91c1c;">Erro inesperado</td></tr>';
+      }
+    }
+
+    (function initAttemptsPager(){
+      const btnPrev = document.getElementById('attemptsPrev');
+      const btnNext = document.getElementById('attemptsNext');
+      const btnCsv = document.getElementById('attemptsExportCsv');
+      const selFilter = document.getElementById('attemptsFilter');
+      // Restore saved filter from localStorage if present
+      try {
+        const saved = localStorage.getItem('attemptsHistoryFilter');
+        if (saved && ['all','completo','incompleto'].includes(saved)) {
+          _attemptsFilter = saved;
+          if (selFilter) selFilter.value = saved;
+        }
+      } catch(_){ }
+      if (btnPrev) btnPrev.addEventListener('click', ()=> renderAttemptsPage(_attemptsCurrentPage - 1));
+      if (btnNext) btnNext.addEventListener('click', ()=> renderAttemptsPage(_attemptsCurrentPage + 1));
+      if (btnCsv) btnCsv.addEventListener('click', exportAttemptsCsv);
+      if (selFilter) selFilter.addEventListener('change', ()=>{ _attemptsFilter = selFilter.value; try { localStorage.setItem('attemptsHistoryFilter', _attemptsFilter); } catch(_){ } renderAttemptsPage(1); });
+    })();
+
+    loadAttemptsHistoryExtended();
+
+    function exportAttemptsCsv(){
+      if (!_attemptsItems || !_attemptsItems.length){
+        alert('Nenhuma tentativa para exportar.');
+        return;
+      }
+      // Export respects current filter
+      const filtered = _attemptsItems.filter(it => {
+        if (_attemptsFilter === 'completo') return it.status === 'Completo';
+        if (_attemptsFilter === 'incompleto') return it.status !== 'Completo';
+        return true;
+      });
+      if (!filtered.length){ alert('Nenhum registro para exportar neste filtro.'); return; }
+      const header = ['Data','Titulo','Tipo','Acertos','Total','Score','Status'];
+      const lines = [header.join(',')];
+      filtered.forEach(it => {
+        const cells = [
+          (it.date||'').slice(0,10),
+          sanitizeCsv(it.titulo),
+          sanitizeCsv(it.tipo),
+          String(it.acertos),
+          String(it.total),
+          String(it.score),
+          sanitizeCsv(it.status)
+        ];
+        lines.push(cells.join(','));
+      });
+      const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0,10);
+      a.download = `historico_simulados_${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 200);
+    }
+    function sanitizeCsv(value){
+      if (value == null) return '';
+      let v = String(value);
+      if (v.includes('"')) v = v.replace(/"/g,'""');
+      if (/[",\n]/.test(v)) v = '"' + v + '"';
+      return v;
+    }
 
     // Load IND7: Process Group Stats
     async function loadProcessGroupStats(){
@@ -467,7 +815,10 @@
       if (!container) return;
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        const res = await fetch('/api/indicators/process-group-stats', { headers });
+        // Opcional: filtrar por exam_type selecionado, se id disponível
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId ? `/api/indicators/process-group-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/process-group-stats';
+        const res = await fetch(url, { headers });
         if (res.status === 401 || res.status === 403) {
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
@@ -545,7 +896,9 @@
       container.innerHTML = '';
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        const res = await fetch('/api/indicators/area-knowledge-stats', { headers });
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId ? `/api/indicators/area-knowledge-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/area-knowledge-stats';
+        const res = await fetch(url, { headers });
         if (res.status === 401 || res.status === 403) {
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
@@ -621,7 +974,9 @@
       container.innerHTML = '';
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        const res = await fetch('/api/indicators/approach-stats', { headers });
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId ? `/api/indicators/approach-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/approach-stats';
+        const res = await fetch(url, { headers });
         if (res.status === 401 || res.status === 403) {
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
@@ -690,19 +1045,333 @@
       }
     }
 
+    // Dashboard functions (lazy loaded)
+    function dashSetLoading(on){ const el = document.getElementById('dashLoading'); if (el) el.style.display = on ? 'inline' : 'none'; }
+    function dashSetError(on){ const el = document.getElementById('dashError'); if (el) el.style.display = on ? 'inline' : 'none'; }
+
+    function renderDashboardSummary(s){
+      const wrap = document.getElementById('dashSummary');
+      if (!wrap) return; if (!s){ wrap.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b; padding:8px; background:#f1f5f9; border-radius:6px;">Sem dados</div>'; return; }
+      function pct(x){ return x==null? '—' : (x*100).toFixed(1)+'%'; }
+      function score(x){ return x==null? '—' : Number(x).toFixed(1)+'%'; }
+      function time(sec){ if(!sec || sec<=0) return '—'; const m=Math.floor(sec/60); const s=Math.round(sec%60); return m>0 ? `${m}m ${s}s` : `${s}s`; }
+      const items = [
+        { k:'Iniciadas', v:s.started },
+        { k:'Finalizadas', v:s.finished },
+        { k:'Abandonadas', v:s.abandoned },
+        { k:'Timeout', v:s.timeout },
+        { k:'Baixo prog.', v:s.lowProgress },
+        { k:'Expurgadas', v:s.purged },
+        { k:'Abandono%', v:pct(s.abandonRate) },
+        { k:'Conclusão%', v:pct(s.completionRate) },
+        { k:'Expurgo%', v:pct(s.purgeRate) },
+        { k:'Média score', v:score(s.avgScorePercent) },
+        { k:'Tempo/questão', v:time(s.avgTimePerQuestion) }
+      ];
+      wrap.innerHTML = items.map(m => `<div class="dash-metric" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
+        <div style="font-size:0.6rem; font-weight:600; letter-spacing:.5px; color:#475569;">${m.k.toUpperCase()}</div>
+        <div style="font-size:1.05rem; font-weight:600; color:#0f172a;">${m.v}</div>
+      </div>`).join('');
+    }
+
+    function renderRatesChart(rows){
+      const target = document.getElementById('dashRatesChart'); if (!target) return;
+      if (!rows.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem dados diários</div>'; return; }
+      const labels = rows.map(r=> (r.date||'').slice(5));
+      const abandon = rows.map(r=> (r.abandonRate||0)*100);
+      const completion = rows.map(r=> (r.completionRate||0)*100);
+      const purge = rows.map(r=> (r.purgeRate||0)*100);
+      const maxVal = Math.max(10, ...abandon, ...completion, ...purge);
+      const W = target.clientWidth || 800; const H = 260; const pad = 28; const innerW = W - pad*2; const innerH = H - pad*2;
+      function x(i){ return pad + (i/(labels.length-1))*innerW; }
+      function y(v){ return pad + innerH - (v/maxVal)*innerH; }
+      function path(arr){ return arr.map((v,i)=> (i?'L':'M')+x(i)+','+y(v)).join(' '); }
+      const ticks = [0, maxVal/2, maxVal];
+      const tickEls = ticks.map(t=> `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t.toFixed(0)}%</text>`).join('');
+      const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
+      target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
+        <path d="${path(abandon)}" fill="none" stroke="#0b5ed7" stroke-width="2" />
+        <path d="${path(completion)}" fill="none" stroke="#16a34a" stroke-width="2" />
+        <path d="${path(purge)}" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3" />
+        ${tickEls}${xLabs}
+      </svg>`;
+    }
+
+    function renderScoreChartDash(rows){
+      const target = document.getElementById('dashScoreChart'); if (!target) return;
+      if (!rows.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem dados</div>'; return; }
+      const labels = rows.map(r=> (r.date||'').slice(5));
+      const scores = rows.map(r=> r.avgScorePercent==null? null : r.avgScorePercent);
+      const vals = scores.filter(v=> v!=null);
+      if (!vals.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem médias disponíveis</div>'; return; }
+      const maxVal = Math.max(100, ...vals);
+      const W = target.clientWidth || 800; const H = 260; const pad = 28; const innerW = W - pad*2; const innerH = H - pad*2;
+      function x(i){ return pad + (i/(labels.length-1))*innerW; }
+      function y(v){ return pad + innerH - (v/maxVal)*innerH; }
+      const pathScores = vals.map((v,i)=> (i?'L':'M')+x(i)+','+y(v)).join(' ');
+      const ticks = [0, maxVal/2, maxVal];
+      const tickEls = ticks.map(t=> `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t.toFixed(0)}%</text>`).join('');
+      const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
+      target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
+        <path d="${pathScores}" fill="none" stroke="#6366f1" stroke-width="2" />
+        ${tickEls}${xLabs}
+      </svg>`;
+    }
+
+    let _dashLoadedOnce = false;
+    async function loadDashboard(){
+      const sec = document.getElementById('sec-dashboard'); if (!sec) return;
+      const daysSel = document.getElementById('dashDays');
+      const days = daysSel ? Number(daysSel.value) : 30;
+      dashSetLoading(true); dashSetError(false);
+      try {
+        // Derivar session token esperado pelo endpoint (X-Session-Token)
+        let sessionToken = '';
+        try {
+          sessionToken = (localStorage.getItem('sessionToken')
+            || localStorage.getItem('nomeUsuario')
+            || localStorage.getItem('nome')
+            || '').trim();
+        } catch(_){ sessionToken=''; }
+        if (!sessionToken) {
+          dashSetLoading(false);
+          const wrap = document.getElementById('dashSummary');
+          if (wrap) wrap.innerHTML = '<div style="grid-column:1/-1; padding:12px; font-size:0.7rem; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">Sessão não identificada. Faça login para ver estatísticas agregadas.</div>';
+          return;
+        }
+        const headers = { 'Accept':'application/json', 'X-Session-Token': sessionToken, ...getAuthHeadersLocal() };
+        const [summaryResp,dailyResp,avgTimeResp] = await Promise.all([
+          fetch(`/api/users/me/stats/summary?days=${days}`, { headers }),
+          fetch(`/api/users/me/stats/daily?days=${days}`, { headers }),
+          fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, { headers })
+        ]);
+        if (!summaryResp.ok || !dailyResp.ok){ throw new Error('Resp inválida'); }
+        const summary = await summaryResp.json();
+        const dailyWrap = await dailyResp.json();
+        const avgTimeData = avgTimeResp.ok ? await avgTimeResp.json() : {};
+        const rows = dailyWrap && Array.isArray(dailyWrap.data) ? dailyWrap.data : [];
+        // Adiciona tempo médio ao summary
+        summary.avgTimePerQuestion = avgTimeData.avgSeconds || 0;
+        renderDashboardSummary(summary);
+        renderRatesChart(rows);
+        renderScoreChartDash(rows);
+        _dashLoadedOnce = true;
+      } catch(err){ dashSetError(true); }
+      dashSetLoading(false);
+    }
+
+    // Dashboard controls
+    (function initDashboardControls(){
+      const btn = document.getElementById('dashReload');
+      const sel = document.getElementById('dashDays');
+      if (btn) btn.addEventListener('click', ()=> loadDashboard());
+      if (sel) sel.addEventListener('change', ()=> loadDashboard());
+    })();
+
     // Tab switching: load IND8 when Tópico tab is activated
     tabButtons.forEach(btn => {
       btn.addEventListener('click', function(){
         const tab = btn.getAttribute('data-tab');
         tabButtons.forEach(b => b.classList.toggle('active', b === btn));
-        Object.values(sectionsMap).forEach(sec => sec.classList.remove('active'));
+        Object.values(sectionsMap).forEach(sec => sec && sec.classList.remove('active'));
         if (sectionsMap[tab]) {
           sectionsMap[tab].classList.add('active');
           if (tab === 'topico') loadAreaConhecimentoStats();
           if (tab === 'abordagem') loadAbordagemStats();
+          if (tab === 'detalhes') loadDetailsLast();
+          if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
+          if (tab === 'dominios') loadDominiosLazy();
         }
       });
     });
+    // Removido script de injeção; marcadores exibidos via CSS ::after usando attr(data-cell)
+    // Toggle de visibilidade dos marcadores via checkbox
+    (function initMarkerToggle(){
+      const cb = document.getElementById('toggleMarkers');
+      if (!cb) return;
+      let saved = null;
+      try { saved = localStorage.getItem('indicatorsShowMarkers'); } catch(_){ }
+      if (saved === '1') {
+        document.body.classList.add('show-markers');
+        cb.checked = true;
+      }
+      cb.addEventListener('change', ()=>{
+        const on = cb.checked;
+        document.body.classList.toggle('show-markers', on);
+        try { localStorage.setItem('indicatorsShowMarkers', on ? '1' : '0'); } catch(_){ }
+      });
+    })();
+
+    // Detalhes: última tentativa por grupo com ranking
+    async function loadDetailsLast(){
+      try {
+        const grid = document.querySelector('#sec-detalhes .det-grid');
+        if (!grid) return;
+        // Remove linhas existentes além do cabeçalho (primeiras 2 linhas = 8 células)
+        const keep = 5 * 1; // 5 cabeçalhos? Na verdade 4 células por linha, manter primeiras 8 células
+        const headerCells = Array.from(grid.children).slice(0, 5); // head + 4 colheads
+        grid.innerHTML = '';
+        headerCells.forEach(n => grid.appendChild(n));
+
+        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId
+          ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/details-last?exam_mode=full';
+        const res = await fetch(url, { headers });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const itens = Array.isArray(data.itens) ? data.itens.slice() : [];
+        // Ordena pela id do grupo para exibição estável (ranking vai na coluna Performance)
+        itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+        let r = 3; // começa na linha 3
+        for (const it of itens) {
+          const nome = it.descricao || `Grupo ${it.id}`;
+          const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+          const cor = Number(it.corretas || 0);
+          const rank = it.ranking == null ? '—' : String(it.ranking);
+
+          const c1 = document.createElement('div');
+          c1.className = 'cell'; c1.setAttribute('data-cell', `DET-R${r}C1`); c1.textContent = nome;
+          const c2 = document.createElement('div');
+          c2.className = 'cell'; c2.setAttribute('data-cell', `DET-R${r}C2`); c2.textContent = pct;
+          const c3 = document.createElement('div');
+          c3.className = 'cell'; c3.setAttribute('data-cell', `DET-R${r}C3`); c3.textContent = String(cor);
+          const c4 = document.createElement('div');
+          c4.className = 'cell'; c4.setAttribute('data-cell', `DET-R${r}C4`); c4.textContent = rank;
+
+          grid.appendChild(c1); grid.appendChild(c2); grid.appendChild(c3); grid.appendChild(c4);
+          r += 1;
+        }
+      } catch(_) { /* ignore */ }
+    }
+
+    // Domínios (IND10) - Lazy
+    let _domLoadedOnce = false;
+    function domGetPoint(angleDeg, percent){
+      const maxR = 150; const r = (percent/100)*maxR; const rad = (angleDeg - 90) * Math.PI/180; return { x:200 + r*Math.cos(rad), y:200 + r*Math.sin(rad) };
+    }
+    function domRenderPolygon(values){
+      const p1 = domGetPoint(0, values.pessoas);
+      const p2 = domGetPoint(120, values.processos);
+      const p3 = domGetPoint(240, values.ambienteNegocios);
+      const poly = document.getElementById('domPoly');
+      if (poly) poly.setAttribute('points', `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`);
+      const el1 = document.getElementById('domP1'); if (el1){ el1.setAttribute('cx', p1.x); el1.setAttribute('cy', p1.y); }
+      const el2 = document.getElementById('domP2'); if (el2){ el2.setAttribute('cx', p2.x); el2.setAttribute('cy', p2.y); }
+      const el3 = document.getElementById('domP3'); if (el3){ el3.setAttribute('cx', p3.x); el3.setAttribute('cy', p3.y); }
+      const v1 = document.getElementById('domV1'); if (v1) v1.textContent = `${values.pessoas.toFixed(1)}%`;
+      const v2 = document.getElementById('domV2'); if (v2) v2.textContent = `${values.processos.toFixed(1)}%`;
+      const v3 = document.getElementById('domV3'); if (v3) v3.textContent = `${values.ambienteNegocios.toFixed(1)}%`;
+    }
+    function domNormalize(domains){
+      const out = { pessoas:0, processos:0, ambienteNegocios:0 };
+      domains.forEach(d => {
+        const nm = String(d.name||'').toLowerCase(); const pct = Number(d.percentage||0);
+        if (nm.includes('pessoa')) out.pessoas = pct;
+        else if (nm.includes('processo')) out.processos = pct;
+        else if (nm.includes('ambiente') || nm.includes('negó') || nm.includes('negócio')) out.ambienteNegocios = pct;
+      });
+      return out;
+    }
+    function domGenerateInsights(domains){
+      const norm = domNormalize(domains);
+      const vals = [norm.pessoas, norm.processos, norm.ambienteNegocios];
+      const namesMap = {
+        pessoas: 'Pessoas',
+        processos: 'Processos',
+        ambienteNegocios: 'Ambiente de Negócios'
+      };
+      const classifications = {};
+      function classify(p){
+        if (p < 60) return 'Crítico';
+        if (p < 75) return 'Atenção';
+        if (p < 85) return 'Regular';
+        if (p < 95) return 'Bom';
+        return 'Excelente';
+      }
+      Object.entries(norm).forEach(([k,v])=> classifications[k] = classify(v));
+      const max = Math.max(...vals);
+      const min = Math.min(...vals);
+      const amplitude = max - min;
+      const allBelow75 = vals.every(v => v < 75);
+      const allAbove85 = vals.every(v => v >= 85);
+      const anyCritical = vals.some(v => v < 60);
+      const weakerKeys = Object.entries(norm).filter(([k,v]) => v < 75);
+      const strongerKeys = Object.entries(norm).filter(([k,v]) => v >= 75);
+      const insights = [];
+      if (domains.length === 0){ insights.push('Nenhum exame disponível para análise de domínios.'); }
+      else if (allBelow75){ insights.push('⚠️ Desempenho geral abaixo de 75% nos três domínios. Foque em revisão ampla dos conceitos fundamentais.'); }
+      else {
+        if (anyCritical){
+          Object.entries(norm).filter(([k,v])=> v < 60).forEach(([k,v])=>{
+            insights.push(`🎯 Prioridade: ${namesMap[k]} está em nível crítico (${v.toFixed(1)}%). Reforce estudo direcionado neste domínio.`);
+          });
+        }
+        if (!anyCritical && weakerKeys.length === 1 && strongerKeys.length === 2){
+          const [k,v] = weakerKeys[0];
+          const strongerAvg = strongerKeys.reduce((a,b)=> a + b[1], 0) / strongerKeys.length;
+          insights.push(`📊 Foco sugerido: ${namesMap[k]} (${v.toFixed(1)}%) está abaixo dos demais (${strongerAvg.toFixed(1)}% média). Ajustar este domínio trará ganho rápido de equilíbrio.`);
+        }
+        if (amplitude >= 25){
+          const weakest = Object.entries(norm).reduce((a,b)=> a[1] <= b[1] ? a : b);
+          const strongest = Object.entries(norm).reduce((a,b)=> a[1] >= b[1] ? a : b);
+          insights.push(`⚖️ Desequilíbrio: diferença de ${amplitude.toFixed(1)} p.p. entre ${namesMap[strongest[0]]} (${strongest[1].toFixed(1)}%) e ${namesMap[weakest[0]]} (${weakest[1].toFixed(1)}%). Busque nivelar para aumentar consistência.`);
+        }
+        if (allAbove85){ insights.push('✅ Excelente equilíbrio: todos os domínios acima de 85%. Mantenha ritmo e considere aprofundar questões mais complexas.'); }
+        // Near approval suggestions
+        Object.entries(norm).filter(([k,v])=> v >= 70 && v < 75).forEach(([k,v])=>{
+          insights.push(`🔜 Quase lá: ${namesMap[k]} em ${v.toFixed(1)}%. Pequenas revisões podem ultrapassar 75%.`);
+        });
+      }
+      // Fallback if no insight produced
+      if (!insights.length){
+        insights.push('Sem pontos críticos identificados. Continue acompanhando para detectar tendências.');
+      }
+      const container = document.getElementById('domAnalysis');
+      if (container){
+        const body = container.querySelector('.dom-analysis-body');
+        if (body){
+          body.innerHTML = '';
+          insights.slice(0,5).forEach(msg => {
+            const line = document.createElement('div');
+            line.textContent = msg;
+            body.appendChild(line);
+          });
+          // Resumo rápido das classificações
+          const summary = document.createElement('div');
+          summary.style.marginTop = '6px'; summary.style.color = '#64748b';
+          summary.textContent = `Classificação: Pessoas ${classifications.pessoas}, Processos ${classifications.processos}, Ambiente de Negócios ${classifications.ambienteNegocios}.`;
+          body.appendChild(summary);
+        }
+      }
+    }
+    async function loadDominios(){
+      const sel = document.getElementById('domSelModo'); if (!sel) return;
+      const examMode = sel.value;
+      let sessionToken = '';
+      try { sessionToken = (localStorage.getItem('sessionToken')||'').trim(); } catch(_){ }
+      if (!sessionToken){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+      try {
+        const resp = await fetch(`/api/indicators/IND10?examMode=${encodeURIComponent(examMode)}`, { headers: { 'X-Session-Token': sessionToken } });
+        if (!resp.ok){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+        const data = await resp.json();
+        const domains = Array.isArray(data.domains) ? data.domains : [];
+        const normVals = domNormalize(domains);
+        domRenderPolygon(normVals);
+        domGenerateInsights(domains);
+        const info = document.getElementById('domInfoExam');
+        if (info) info.textContent = `Exame: ${data.examAttemptId ? (data.examAttemptId + (data.examDate ? ' - ' + (data.examDate||'').slice(0,10) : '')) : 'nenhum'} (${examMode})`;
+      } catch(_){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); }
+    }
+    function loadDominiosLazy(){ if (!_domLoadedOnce){ _domLoadedOnce = true; loadDominios(); const sel = document.getElementById('domSelModo'); if (sel) sel.addEventListener('change', ()=> loadDominios()); } }
   </script>
 </body>
 </html>

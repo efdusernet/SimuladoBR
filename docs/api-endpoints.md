@@ -1,10 +1,91 @@
 # API de Exames — Endpoints e Uso Rápido
 
+> Documentação complementar: ver `docs/estatisticas-tentativas.md` para detalhes completos do sistema de estatísticas diárias (iniciadas, finalizadas, abandonadas, expurgadas, médias de score e fórmulas de taxas) e da aba "Estatísticas" no frontend.
+
 Este documento resume os endpoints principais sob `/api/exams`, com propósito, payloads e onde são chamados no frontend.
 
 Observações gerais
 - Autorização por token de sessão do app: header `X-Session-Token: <sessionToken>` quando indicado.
 - Responses em JSON; erros comuns: 400 (payload inválido), 404 (não encontrado), 500 (erro interno).
+
+## POST /api/admin/exams/fixture-attempt
+Cria uma tentativa finalizada artificial ("fixture") para testes e estatísticas sem processo de resposta manual.
+
+- Auth: `X-Session-Token` (usuário admin — ver middleware `requireAdmin`)
+- Body campos principais:
+  - `userId: number` (obrigatório)
+  - `overallPct: number` (% geral desejada; default 65)
+  - `totalQuestions?: number` (default 180, limite 1–500)
+  - `examTypeSlug?: string` (default `pmp`)
+  - `peoplePct?`, `processPct?`, `businessPct?` (percentuais por domínio — ou todos ou nenhum)
+- Query param opcional: `tolerance` (default 2) — diferença máxima permitida entre média dos domínios e `overallPct`.
+
+### Regras de validação server-side
+1. Se qualquer percentual de domínio for enviado, todos (`peoplePct`, `processPct`, `businessPct`) devem estar presentes.
+2. Calcula-se a média `(peoplePct + processPct + businessPct) / 3`. Diferença absoluta para `overallPct` não pode exceder `tolerance`.
+3. Percentuais ficam automaticamente dentro de 0–100.
+4. Se inválido: resposta `400` com `{ error, details }`.
+
+Exemplo de request coerente:
+```jsonc
+POST /api/admin/exams/fixture-attempt?tolerance=2
+{
+  "userId": 42,
+  "overallPct": 70,
+  "totalQuestions": 60,
+  "examTypeSlug": "pmp",
+  "peoplePct": 68,
+  "processPct": 72,
+  "businessPct": 70
+}
+```
+Média domínios = 70.00 (aceita).
+
+Exemplo incoerente (retorna 400):
+```jsonc
+{
+  "userId": 42,
+  "overallPct": 70,
+  "peoplePct": 55,
+  "processPct": 90,
+  "businessPct": 90
+}
+```
+Média = 78.33 → diff 8.33 > tolerance (2).
+
+### Response (sucesso)
+```json
+{
+  "attemptId": 1234,
+  "userId": 42,
+  "totalQuestions": 180,
+  "corretas": 126,
+  "scorePercent": "70.00",
+  "domainCounts": { "people": 60, "process": 60, "business": 60 },
+  "domainCorrects": { "people": 41, "process": 42, "business": 43 }
+}
+```
+Metadados adicionais (percentuais solicitados/gerados, diferenças) estão em `exam_attempt.Meta`.
+
+Campos novos em `Meta` (versão >= 1.1.0):
+- `fixtureVersion`: versão da especificação usada para gerar a fixture (`1.1.0` atual: respostas com opções reais)
+- `answerStrategy`: estratégia de resposta (`all-correct-options` para questões corretas; uma incorreta para erradas)
+
+### Observações de implementação
+- Distribuição de corretas por domínio tenta aproximar cada percentual solicitado, ajustando para somar o total de corretas globais calculado via `overallPct`.
+- Se nenhum domínio for informado, usa-se `overallPct` para estimar corretas em cada domínio proporcionalmente ao total de questões do domínio.
+- Tempo gasto sintético é gerado (25–80s por questão) para realismo em estatísticas.
+- A partir de versão X (fixture aprimorado), respostas são inseridas com seleção de opções reais: questões marcadas corretas recebem TODAS as opções corretas selecionadas; questões incorretas recebem uma opção incorreta (ou fallback de uma única correta se não houver incorreta). Isso garante que indicadores que recalculam correção comparando opções (ex.: IND10 radar de domínios) reflitam os mesmos percentuais.
+- Atualiza estatísticas diárias do usuário (`exam_attempt_user_stats`) com `finished_count` e média incremental.
+- Metadados em `Meta.domainPercentsActual` e `Meta.domainCorrects` permanecem fonte auxiliar para auditoria.
+
+### Erros comuns
+- `400 userId obrigatório` — campo ausente.
+- `400 Forneça todos os percentuais ...` — domínios parciais.
+- `400 Incoerência: média domínios ...` — violação de tolerância.
+- `404 Usuário não encontrado` ou `ExamType não encontrado`.
+- `500 Internal error` — falha inesperada.
+
 
 ## GET /api/exams
 Lista tipos de exame disponíveis (fonte DB; fallback opcional via registry).
@@ -302,5 +383,38 @@ Entradas semeadas na tabela `indicator` (idempotentes por código):
   - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
   - Fórmula (descr.): Para cada abordagem: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
   - Resultado: array de `{abordagem, acertos, erros, total, percentAcertos, percentErros}` ordenado por id
+
+- **IND10** - `Performance por Domínio`
+  - Endpoint: `GET /api/indicators/IND10`
+  - Descrição: `Mostra a % de pontuação (acertos) por domínio geral (Pessoas, Processos, Ambiente de Negócios). Pode retornar os dados do melhor exame ou do último exame do usuário, dependendo do parâmetro examMode.`
+  - Parâmetros: 
+    - `idUsuario` (opcional, extraído do token se não fornecido)
+    - `examMode` (obrigatório): `"best"` | `"last"`
+      - `"last"`: Retorna estatísticas do último exame finalizado
+      - `"best"`: Calcula performance de todos os exames e retorna o exame com melhor desempenho geral
+  - Headers: `X-Session-Token: <sessionToken>` (obrigatório)
+  - Fórmula (descr.): 
+    - Para cada domínio: `corretas = COUNT(exam_attempt_answer WHERE correta=true)`, `total = COUNT(exam_attempt_question)`, `percentage = (corretas / total) × 100`
+    - Apenas exames com `exam_mode='full'` e `finished_at IS NOT NULL` são considerados
+    - Domínios são obtidos de `dominiogeral` via FK `questao.iddominiogeral`
+  - Response:
+    ```json
+    {
+      "userId": number,
+      "examMode": "best" | "last",
+      "examAttemptId": number | null,
+      "examDate": string | null,
+      "domains": [
+        {
+          "id": number,
+          "name": string,
+          "corretas": number,
+          "total": number,
+          "percentage": number
+        }
+      ]
+    }
+    ```
+  - Usado por: `frontend/pages/progressoGeral.html` (gráfico radar de domínios)
 
 

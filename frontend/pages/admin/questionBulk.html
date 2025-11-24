@@ -40,6 +40,14 @@
       </div>
     </div>
 
+    <div class="row inline">
+      <div>
+        <label for="idtask">Task (padrão opcional do lote)</label>
+        <select id="idtask"></select>
+        <div class="hint">Aplicado a todas questões que não especificarem <code>id_task</code> próprio.</div>
+      </div>
+    </div>
+
     <div class="row" id="fileRow" style="display:none;">
       <label for="file">Arquivo</label>
       <input type="file" id="file" accept=".json,.xml" />
@@ -66,6 +74,7 @@
   "codareaconhecimento": 1,          // opcional padrão do lote
   "codgrupoprocesso": 1,             // opcional padrão do lote
   "iddominiogeral": 1,               // opcional padrão do lote
+  "id_task": 1,                      // opcional padrão do lote
   "dica": "opcional",
   "questions": [
     {
@@ -80,6 +89,7 @@
       "codareaconhecimento": 2,
       "codgrupoprocesso": 3,
       "iddominiogeral": 1,
+      "id_task": 2,                 // opcional, override do lote
       "dica": "opcional",
       "explicacao": "opcional"
     }
@@ -126,6 +136,19 @@
       }
     }
 
+    async function loadTasks(){
+      try {
+        const sel = $('idtask');
+        const resp = await fetch((BACKEND_BASE||'').replace(/\/$/,'') + '/api/meta/tasks');
+        const list = await resp.json();
+        sel.innerHTML = '';
+        const none = document.createElement('option'); none.value = ''; none.textContent = '— Selecione —'; sel.appendChild(none);
+        (list||[]).forEach(t=>{ const o = document.createElement('option'); o.value = t.id; o.textContent = t.descricao; sel.appendChild(o); });
+      } catch(e) {
+        console.error('[loadTasks] error:', e);
+      }
+    }
+
     $('send').onclick = async function(){
       const token = localStorage.getItem('sessionToken') || '';
       const base = (BACKEND_BASE||'');
@@ -138,9 +161,11 @@
         if (mode === 'json') {
           let data;
           try { data = JSON.parse($('json').value || ''); } catch(e){ $('status').textContent = 'JSON inválido'; return; }
-          // If batch-level not present, apply from selector
+          // If batch-level not present, apply from selectors
           if (data && !Array.isArray(data)) {
             if (!data.examType && examTypeSlug) data.examType = examTypeSlug;
+            const idtask = ($('idtask').value||'').trim();
+            if (idtask && !data.id_task) data.id_task = Number(idtask);
           }
           resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(data) });
         } else {
@@ -161,6 +186,7 @@
     };
 
     loadExamTypes();
+    loadTasks();
     toggleMode();
   </script>
 </body>

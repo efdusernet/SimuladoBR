@@ -66,6 +66,8 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
 // Exams (select questions)
 app.use('/api/exams', require('./routes/exams'));
+// Exams admin lifecycle endpoints
+app.use('/api/admin/exams', require('./routes/exams_admin'));
 // Questions (admin)
 app.use('/api/questions', require('./routes/questions'));
 // Meta lists for exam setup

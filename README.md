@@ -75,6 +75,21 @@ Base: `http://localhost:3000`
 - `POST /api/exams/resume`
 	- Reconstrói a sessão em memória a partir do banco, usando `sessionId` (Meta) ou `attemptId`.
 
+### Endpoint admin para geração de fixtures
+
+Para testes rápidos e ajustes estatísticos existe o endpoint protegido `POST /api/admin/exams/fixture-attempt` que cria uma tentativa finalizada artificial ("fixture") sem percorrer questões manualmente.
+
+Resumo:
+- Auth: usuário com papel `admin` (header `X-Session-Token`).
+- Body mínimo: `{ userId, overallPct }` (opcionais: `totalQuestions`, `examTypeSlug`).
+- Domínios (`peoplePct`, `processPct`, `businessPct`): ou envia todos ou nenhum. Se enviados, a média deve ficar dentro da tolerância (default 2) de `overallPct`.
+- Query param opcional: `tolerance=<n>` para ajustar coerência.
+- Resposta inclui contagem de questões por domínio e corretas distribuídas. Metadados detalhados (percentuais solicitados, gerados e diferenças) ficam em `exam_attempt.Meta`.
+ - As respostas salvas simulam seleção real de opções: para cada questão correta, todas as opções corretas são marcadas; para questões incorretas, é marcada uma opção incorreta (fallback para uma única correta se não houver incorreta). Isso torna indicadores que dependem da comparação de opções (ex.: radar de domínios IND10) coerentes com os percentuais solicitados.
+ - Meta inclui `fixtureVersion` (ex.: 1.1.0) e `answerStrategy` (ex.: `all-correct-options`) para rastrear evolução da simulação e permitir auditoria/fallback futuro.
+
+Documentação completa em `docs/api-endpoints.md`.
+
 ## Bulk de questões — formatos aceitos (JSON e XML)
 
 Endpoint: `POST /api/questions/bulk` (requer papel admin).
@@ -195,6 +210,53 @@ Coleção e instruções em: `postman/README.md`
 ---
 
 Se algo não estiver claro ou faltar um exemplo específico, abra uma issue ou peça que eu amplie a seção correspondente.
+
+## Melhorias de Interface Recentes (Nov 2025)
+
+### Indicadores de Desempenho (Indicadores.html)
+
+Implementado histórico de tentativas completo com paginação, filtros e exportação:
+- **Tabela de Histórico**: Exibe todas as tentativas do usuário com detalhes (tipo de exame, quantidade de questões, score, status).
+- **Paginação**: 15 tentativas por página com navegação intuitiva.
+- **Filtro por Status**: Permite filtrar entre "Todos", "Completos" (finalizados) e "Incompletos".
+- **Exportação CSV**: Botão para exportar histórico respeitando filtro ativo.
+- **Persistência**: Último filtro selecionado salvo em localStorage.
+- **Indicadores Visuais de Score**:
+  - Scores ≥75% em verde, <75% em vermelho.
+  - Ícones de aprovação por faixa: ✔ (75-80%), ★★★ (81-90%), ★★★★ (91-98%), ★★★★★ (99-100%).
+- **Renomeação de Labels**: Status "Completo" → "Finalizado", Tipo "Completo" → "Simulado Completo".
+
+Arquivos modificados:
+- `frontend/pages/Indicadores.html`
+- `backend/controllers/indicatorController.js` (endpoint `/api/indicators/attempts-history-extended`)
+- `backend/routes/indicators.js`
+
+### Filtros de Personalização (examSetup.html)
+
+Nova aba "Abordagem" para filtrar por categoria de questão:
+- **UI**: Checklist multi-seleção (consistente com abas Domínios/Grupos/Áreas).
+- **Backend**: Endpoint `/api/meta/categorias` reutilizado para listar categorias.
+- **Persistência**: Seleções salvas em `localStorage.examFilters.categorias`.
+- **Integração Completa**:
+  - Contagem dinâmica de questões disponíveis.
+  - Filtro aplicado em `/api/exams/select` via `WHERE codigocategoria IN (...)`.
+  - Bypass automático em exames completos (180 questões).
+- **Correções**: Mapeamento correto de `abaAtual === 'abordagem'` para `selecionados.categorias` em `renderChecklist`.
+
+Arquivos modificados:
+- `frontend/pages/examSetup.html`
+- `backend/controllers/examController.js` (suporte a filtro `categorias`)
+- `frontend/pages/exam.html`, `examFull.html` (bypass de categorias em exames completos)
+
+Commits principais (branch `melhorias_adicionais-interface`):
+- `69452af`: feat(exam-setup): adicionar aba Abordagem (categorias)
+- `a65bc42`: refactor: substituir select por checklist multi-seleção
+- `b2f24e1`: fix: corrigir seleção na aba Abordagem
+
+### Próximos Passos Sugeridos
+- Validar fluxo end-to-end: iniciar simulado com filtro de categoria selecionado.
+- Considerar limitar Abordagem a seleção única se desejado (atualmente permite múltiplas).
+- Expandir indicadores com gráfico de evolução temporal (histórico de scores).
 
 ## Componentes UI
 

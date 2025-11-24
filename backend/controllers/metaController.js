@@ -64,6 +64,27 @@ exports.listNiveisDificuldade = async (req, res) => {
   }
 };
 
+// List tasks from task table (only active)
+exports.listTasks = async (req, res) => {
+  try {
+    // Join dominiogeral to compose label: dominiogeral.descricao - Tasks.numero - Tasks.descricao
+    // Return as id, descricao (formatted) to keep frontend compatibility
+    const rows = await sequelize.query(
+      `SELECT t.id,
+              (COALESCE(dg.descricao,'') ||' - Task ' || t.numero || ' | - ' || t.descricao) AS descricao
+         FROM public."Tasks" t
+         LEFT JOIN public.dominiogeral dg ON dg.id = t.id_dominio
+        WHERE t.ativo = TRUE
+        ORDER BY t.id_dominio`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.json(rows || []);
+  } catch (e) {
+    console.error('[meta] listTasks error', e);
+    return res.status(500).json({ error: 'internal error' });
+  }
+};
+
 // GET /api/meta/config -> expose server-side config relevant to frontend
 exports.getConfig = (_req, res) => {
   try {

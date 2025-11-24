@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
+## [1.1.0] - 2025-11-23
+
+### Added
+- Fixture attempts enhanced: realistic option selection now stored for generated fixture exams.
+  - Correct questions: all correct options persisted as selected answers.
+  - Incorrect questions: one incorrect option (fallback: single correct if none incorrect) persisted.
+  - Ensures domain performance indicator (IND10 radar) matches target domain percentages.
+- Metadata flags in `ExamAttempt.Meta` for fixtures:
+  - `fixtureVersion` (`1.1.0`): versioned spec for fixture generation behavior.
+  - `answerStrategy` (`all-correct-options`): documents how answers were simulated.
+- Shared config module `backend/config/fixtureSpec.js` centralizes these constants.
+
+### Changed
+- Documentation (`README.md`, `docs/api-endpoints.md`) expanded with fixtureVersion / answerStrategy fields and explanation of improved domain fidelity.
+
+### Notes
+- Older fixture attempts (≤ 1.0.x) without real option selections will show zero domain performance under IND10; regenerate if analytical accuracy is required.
+- Future strategies (e.g., partial selection for multi-select realism) can increment `fixtureVersion` without breaking existing indicators.
+
+
 ## [1.0.1] - 2025-11-12
 
 ### Notes
@@ -40,3 +60,4 @@ This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
 [1.0.0]: https://github.com/efdusernet/SimuladoBR/releases/tag/v1.0.0
 [1.0.1]: https://github.com/efdusernet/SimuladoBR/releases/tag/v1.0.1
+[1.1.0]: https://github.com/efdusernet/SimuladoBR/releases/tag/v1.1.0

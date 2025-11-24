@@ -538,7 +538,8 @@
 
     function renderChecklist(items) {
       checklistDiv.innerHTML = '';
-      const sel = selecionados[abaAtual] || [];
+      const key = (abaAtual === 'abordagem') ? 'categorias' : abaAtual;
+      const sel = selecionados[key] || [];
       items.forEach(item => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -548,7 +549,7 @@
         if (sel.includes(Number(item.id))) btn.classList.add('active');
         btn.addEventListener('click', () => {
           const id = Number(btn.getAttribute('data-id'));
-          const arr = selecionados[abaAtual];
+          const arr = selecionados[key] || (selecionados[key] = []);
           const idx = arr.indexOf(id);
           if (idx >= 0) { arr.splice(idx, 1); btn.classList.remove('active'); }
           else { arr.push(id); btn.classList.add('active'); }

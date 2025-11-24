@@ -4,6 +4,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>SimuladosBR</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Simulados completos para certificação PMP com questões reais e indicadores detalhados">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SimuladosBR">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/assets/icon-512.png">
     <style>
         :root{
             --bg: #0f172a;         /* slate-900 */
@@ -1198,6 +1212,30 @@
                 });
             }
         })();
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('[SW] Registered successfully:', registration.scope);
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            console.log('[SW] Update found');
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('[SW] New version available, reload to update');
+                                    // Opcional: notificar usuário que há atualização
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => console.error('[SW] Registration failed:', err));
+            });
+        }
     </script>
 </body>
 </html>

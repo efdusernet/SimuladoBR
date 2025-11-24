@@ -396,15 +396,20 @@ async function getAnsweredQuestionsCount(req, res){
     const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
     if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
 
-    const sql = `SELECT COUNT(DISTINCT aq.question_id)::int AS respondidas
-                 FROM exam_attempt a
-                 JOIN exam_attempt_question aq ON aq.attempt_id = a.id
-                 JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
-                 WHERE a.user_id = :userId
-                   AND a.exam_type_id = :examTypeId`;
+    const sql = `
+      SELECT 
+        COUNT(DISTINCT aq.question_id)::int AS historico_distinto,
+        COUNT(DISTINCT CASE WHEN q.excluido = false AND q.idstatus = 1 THEN aq.question_id END)::int AS ativos_distintos
+      FROM exam_attempt a
+      JOIN exam_attempt_question aq ON aq.attempt_id = a.id
+      JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+      LEFT JOIN questao q ON q.id = aq.question_id
+      WHERE a.user_id = :userId
+        AND a.exam_type_id = :examTypeId`;
     const rows = await sequelize.query(sql, { replacements: { userId, examTypeId }, type: sequelize.QueryTypes.SELECT });
-    const total = rows && rows[0] ? Number(rows[0].respondidas) : 0;
-    return res.json({ examTypeId, userId, total });
+    const historico = rows && rows[0] ? Number(rows[0].historico_distinto) : 0;
+    const ativos = rows && rows[0] ? Number(rows[0].ativos_distintos) : 0;
+    return res.json({ examTypeId, userId, historicalDistinct: historico, activeDistinct: ativos });
   } catch(err){
     return res.status(500).json({ message: 'Erro interno' });
   }
@@ -926,4 +931,86 @@ async function getAvgTimePerQuestion(req, res){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion };
+// New: Extended history (up to 50 attempts) including full & quiz with completion status logic
+async function getAttemptsHistoryExtended(req, res){
+  try {
+    const limit = 50;
+    const userIdParam = parseInt(req.query.idUsuario, 10);
+    const userId = Number.isFinite(userIdParam) && userIdParam > 0
+      ? userIdParam
+      : (req.user && Number.isFinite(parseInt(req.user?.sub, 10))
+          ? parseInt(req.user.sub, 10)
+          : (req.user && Number.isFinite(parseInt(req.user?.id, 10))
+              ? parseInt(req.user.id, 10)
+              : null));
+    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+
+    const sql = `
+      WITH base AS (
+        SELECT 
+          a.id,
+          a.user_id,
+          a.exam_mode,
+          a.quantidade_questoes,
+          a.started_at,
+          a.finished_at,
+          a.corretas,
+          a.total,
+          a.score_percent,
+          a.status
+        FROM exam_attempt a
+        WHERE a.user_id = :userId
+        ORDER BY a.started_at DESC
+        LIMIT ${limit}
+      ), responded AS (
+        SELECT aq.attempt_id, COUNT(DISTINCT aq.id) AS responded
+        FROM exam_attempt_question aq
+        JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+        WHERE aq.attempt_id IN (SELECT id FROM base)
+        GROUP BY aq.attempt_id
+      )
+      SELECT b.*, COALESCE(r.responded,0) AS responded
+      FROM base b
+      LEFT JOIN responded r ON r.attempt_id = b.id
+      ORDER BY b.started_at DESC;
+    `;
+    const rows = await sequelize.query(sql, { replacements: { userId }, type: sequelize.QueryTypes.SELECT });
+
+    const items = (rows || []).map(r => {
+      const total = Number(r.total) || 0;
+      const responded = Number(r.responded) || 0;
+      const corretas = Number(r.corretas) || 0;
+      const examMode = r.exam_mode || null;
+      const isFull = examMode === 'full';
+      const respondedPct = total > 0 ? (responded / total * 100) : 0;
+      const fullComplete = isFull && respondedPct >= 95;
+      const quizComplete = !isFull && responded === total && total > 0;
+      const status = isFull ? (fullComplete ? 'Completo' : 'Incompleto') : (quizComplete ? 'Completo' : 'Incompleto');
+      const scorePercentRaw = r.score_percent != null ? Number(r.score_percent) : null;
+      const showScore = status === 'Completo' && scorePercentRaw != null;
+      const scoreDisplay = showScore ? `${scorePercentRaw.toFixed(2)}%` : '---';
+      const titulo = isFull
+        ? `Simulado completo ${total} questões`
+        : `Quiz com ${total} questões`;
+      return {
+        id: r.id,
+        date: r.started_at, // usar StartedAt conforme requisito
+        titulo,
+        tipo: isFull ? 'Completo' : 'Quiz',
+        acertos: corretas,
+        total,
+        score: scoreDisplay,
+        status,
+        responded,
+        respondedPercent: Number(respondedPct.toFixed(2))
+      };
+    });
+
+    return res.json({ userId, limit, items });
+  } catch(err){
+    console.error('getAttemptsHistoryExtended error:', err);
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion, getAttemptsHistoryExtended };

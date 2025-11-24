@@ -119,7 +119,41 @@ router.get('/', async (req, res) => {
     }
 });
 
-module.exports = router;
+// GET /api/users/me
+// Retorna dados básicos do usuário autenticado (deduzido pelo X-Session-Token ou query sessionToken)
+// Inclui flag TipoUsuario derivada (admin|user) baseada em lista de e-mails configurada ou nome de usuário.
+router.get('/me', async (req, res) => {
+    try {
+        const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        let user = null;
+        if (/^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+        const emailLower = String(user.Email || '').toLowerCase();
+        const nomeLower = String(user.NomeUsuario || '').toLowerCase();
+        const isAdmin = adminEmails.includes(emailLower) || nomeLower === 'admin' || nomeLower.startsWith('admin_');
+        return res.json({
+            Id: user.Id,
+            NomeUsuario: user.NomeUsuario,
+            Email: user.Email,
+            EmailConfirmado: user.EmailConfirmado,
+            BloqueioAtivado: user.BloqueioAtivado,
+            DataCadastro: user.DataCadastro ? new Date(user.DataCadastro).toISOString() : null,
+            DataAlteracao: user.DataAlteracao ? new Date(user.DataAlteracao).toISOString() : null,
+            TipoUsuario: isAdmin ? 'admin' : 'user'
+        });
+    } catch (err) {
+        console.error('Erro /users/me:', err);
+        return res.status(500).json({ error: 'Internal error' });
+    }
+});
+
 /**
  * GET /api/users/me/stats/daily?days=30
  * Retorna série diária de métricas de tentativas (started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent).
@@ -174,3 +208,5 @@ router.get('/me/stats/summary', async (req, res) => {
         return res.status(500).json({ error: 'Internal error' });
     }
 });
+
+module.exports = router;

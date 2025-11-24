@@ -27,7 +27,7 @@ module.exports = function buildUserStatsService(db) {
       // Use CASE for null avg.
       const scoreVal = Number(patch.scorePercent);
       const incFinished = Number(patch.finished || 0);
-      avgScoreExpr = `avg_score_percent = CASE WHEN exam_attempt_user_stats.finished_count + ${incFinished} = 0 THEN NULL ELSE \n        ROUND(((COALESCE(avg_score_percent,0) * exam_attempt_user_stats.finished_count) + ${scoreVal}) / (exam_attempt_user_stats.finished_count + ${incFinished}), 3) END`;
+      avgScoreExpr = `avg_score_percent = CASE WHEN exam_attempt_user_stats.finished_count + ${incFinished} = 0 THEN NULL ELSE \n        ROUND(((COALESCE(exam_attempt_user_stats.avg_score_percent,0) * exam_attempt_user_stats.finished_count) + ${scoreVal}) / (exam_attempt_user_stats.finished_count + ${incFinished}), 3) END`;
     }
     if (!sets.length && !avgScoreExpr) return; // nothing to update
     if (avgScoreExpr) sets.push(avgScoreExpr);

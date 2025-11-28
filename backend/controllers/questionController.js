@@ -356,8 +356,9 @@ exports.existsQuestion = async (req, res) => {
 			if (row && row[0] && row[0].id != null) examTypeId = Number(row[0].id);
 		}
 		if (!examTypeId) {
+			// Em vez de 400, retornar 200 com exists:false para evitar ruído no frontend
 			logQuestionSubmission({ route: 'existsQuestion:notResolved', descricao: rawDesc, examType: examTypeRaw });
-			return res.status(400).json({ error: 'examType not resolved' });
+			return res.json({ exists: false, reason: 'examType not resolved' });
 		}
 		const rows = await sequelize.query('SELECT id FROM public.questao WHERE exam_type_id = :examTypeId AND LOWER(TRIM(descricao)) = LOWER(TRIM(:descricao)) AND (excluido = FALSE OR excluido IS NULL) LIMIT 1', { replacements: { examTypeId, descricao: rawDesc }, type: sequelize.QueryTypes.SELECT });
 		if (rows && rows[0] && rows[0].id != null) {

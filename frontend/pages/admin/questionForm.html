@@ -846,6 +846,9 @@
       try { $('codigocategoria').value = ''; } catch{}
       try { $('codniveldificuldade').value = ''; } catch{}
       try { $('imagemFile').value = ''; } catch{}
+      // Limpar filtro de tasks e textarea de colagem de alternativas
+      try { $('idtaskFilter').value = ''; $('idtaskFilter').dispatchEvent(new Event('input')); } catch{}
+      try { $('optsPaste').value = ''; } catch{}
       $('opts').innerHTML = '';
       ensureAtLeastTwo();
       // Reativar distribuição após recriar inputs

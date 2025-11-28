@@ -747,6 +747,22 @@
         if (!iddominio){ alert('Selecione o domínio'); return; }
         if (!codigocategoria){ alert('Selecione a categoria'); return; }
         if (!codniveldificuldade){ alert('Selecione o nível de dificuldade'); return; }
+      // Verifica duplicata antes de prosseguir
+      if (descricao && examTypeId) {
+        try {
+          const dupUrl = (BACKEND_BASE||'') + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
+          const tokenDup = localStorage.getItem('sessionToken') || '';
+          const dupResp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
+          if (dupResp.ok) {
+            const dj = await dupResp.json().catch(()=>({}));
+            if (dj && dj.exists) {
+              $('status').textContent = 'Duplicada: já existe (ID ' + dj.id + ')';
+              try { $('statusNovaQuestao').textContent = 'Questão existente (ID ' + dj.id + ')'; } catch(_){ }
+              return; // aborta criação
+            }
+          }
+        } catch(_){ /* ignora erros de verificação duplicata */ }
+      }
       // Sanitiza alternativas diretamente antes de ler (remove numeração, rótulos A/B/C, pontos). Também interpreta prefixo * para marcar correta.
       (function(){
         try {
@@ -1069,6 +1085,21 @@
       const imagemUrl = ($('imagemUrlNav').value || '').trim();
       const explicacao = $('explicacaoNav').value.trim();
       if (!descricao){ alert('Informe o enunciado'); return; }
+      // Checa duplicata (ignora se id atual é o mesmo retornado)
+      if (descricao && examTypeId) {
+        try {
+          const dupUrl = (BACKEND_BASE||'') + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
+          const tokenDup = localStorage.getItem('sessionToken') || '';
+          const dupResp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
+          if (dupResp.ok) {
+            const dj = await dupResp.json().catch(()=>({}));
+            if (dj && dj.exists && dj.id !== id) {
+              navSetStatus('Duplicada: já existe (ID ' + dj.id + ')');
+              return; // aborta update para evitar convergir em duplicata
+            }
+          }
+        } catch(_){ /* ignora */ }
+      }
       const options = readOptionsNav();
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }

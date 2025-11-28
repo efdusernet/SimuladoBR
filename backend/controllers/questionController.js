@@ -254,6 +254,32 @@ exports.updateQuestion = async (req, res) => {
 	}
 };
 
+// Check if a question exists by exact descricao (case-insensitive, trimmed) and exam type (id or slug)
+exports.existsQuestion = async (req, res) => {
+	try {
+		const rawDesc = (req.query.descricao || '').trim();
+		if (!rawDesc) return res.status(400).json({ error: 'descricao required' });
+		const examTypeRaw = (req.query.examType || '').trim();
+		if (!examTypeRaw) return res.status(400).json({ error: 'examType required' });
+		let examTypeId = null;
+		if (/^\d+$/.test(examTypeRaw)) {
+			examTypeId = Number(examTypeRaw);
+		} else {
+			const row = await sequelize.query('SELECT id FROM public.exam_type WHERE slug = :slug AND (ativo = TRUE OR ativo IS NULL) LIMIT 1', { replacements: { slug: examTypeRaw.toLowerCase() }, type: sequelize.QueryTypes.SELECT });
+			if (row && row[0] && row[0].id != null) examTypeId = Number(row[0].id);
+		}
+		if (!examTypeId) return res.status(400).json({ error: 'examType not resolved' });
+		const rows = await sequelize.query('SELECT id FROM public.questao WHERE exam_type_id = :examTypeId AND LOWER(TRIM(descricao)) = LOWER(TRIM(:descricao)) AND (excluido = FALSE OR excluido IS NULL) LIMIT 1', { replacements: { examTypeId, descricao: rawDesc }, type: sequelize.QueryTypes.SELECT });
+		if (rows && rows[0] && rows[0].id != null) {
+			return res.json({ exists: true, id: Number(rows[0].id) });
+		}
+		return res.json({ exists: false });
+	} catch (e) {
+		console.error('existsQuestion error:', e);
+		return res.status(500).json({ error: 'internal error' });
+	}
+};
+
 // Helper: normalize one question record from JSON
 function normalizeQuestionJson(item, defaults){
 	const o = item || {};

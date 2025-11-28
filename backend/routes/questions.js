@@ -26,6 +26,7 @@ router.get('/view/:id', requireUserSession, questionController.getQuestionById);
 
 router.get('/', requireAdmin, questionController.listQuestions);
 router.get('/:id', requireAdmin, questionController.getQuestionById);
+router.get('/exists', requireAdmin, questionController.existsQuestion);
 
 // Update question
 router.put('/:id', requireAdmin, questionController.updateQuestion);

@@ -417,7 +417,7 @@
     }
 
     $('addOpt').onclick = function(e){ e.preventDefault(); $('opts').appendChild(makeOptRow()); };
-    $('clearOpts').onclick = function(e){ e.preventDefault(); $('opts').innerHTML=''; ensureAtLeastTwo(); };
+    $('clearOpts').onclick = function(e){ e.preventDefault(); $('opts').innerHTML=''; ensureAtLeastTwo(); setTimeout(()=>{ if (window.initAlternativesDistribution) window.initAlternativesDistribution(); },0); };
     $('tipo').addEventListener('change', ()=>{
       // Rebuild checks to correct control type
       const list = $('opts');
@@ -848,6 +848,8 @@
       try { $('imagemFile').value = ''; } catch{}
       $('opts').innerHTML = '';
       ensureAtLeastTwo();
+      // Reativar distribuição após recriar inputs
+      setTimeout(()=>{ if (window.initAlternativesDistribution) window.initAlternativesDistribution(); },0);
     };
 
     // init
@@ -1173,46 +1175,33 @@
     })();
   </script>
 <script>
-// Distribute alternatives when the first input in #opts loses focus
-(function(){
+// Distribuição dinâmica de alternativas (reativa após cada reset)
+window.initAlternativesDistribution = function(){
   try {
     const opts = document.getElementById('opts');
     if (!opts) return;
-    const altInputs = Array.from(opts.querySelectorAll('.opt input[type="text"][placeholder="Texto da alternativa"]'));
-    if (altInputs.length < 2) return;
-    const first = altInputs[0];
-
+    function getAltInputs(){
+      return Array.from(opts.querySelectorAll('.opt input[type="text"][placeholder="Texto da alternativa"]'));
+    }
     function sanitizeLine(raw){
       try {
         let s = String(raw || '').trim();
         if (!s) return '';
-        // Keep leading * marker for correctness but strip for sanitation phase
         const hasStar = s.startsWith('*');
         if (hasStar) s = s.slice(1).trim();
-
-        // Remove leading numbering like "1)", "1.", "(1)", "1 -", "1:"
         s = s.replace(/^(\(?\s*\d+\)?\s*[\.)\-:])\s*/, '');
-        // Also plain number followed by whitespace
         s = s.replace(/^\s*\d+\s+/, '');
-
-        // Remove single-letter labels like "A)", "B.", "C:", "D -", "(E)"
         s = s.replace(/^(\(?\s*[A-Za-z]\)?\s*[\.)\-:])\s*/, '');
-        // Bare single letter followed by space (common in pasted lists)
         s = s.replace(/^\s*[A-Za-z]\s+/, '');
-
-        // Remove leading dots
         s = s.replace(/^\s*\.+\s*/, '');
-
-        // Collapse multiple spaces
         s = s.replace(/\s{2,}/g, ' ').trim();
-
         return hasStar ? ('* ' + s) : s;
       } catch(_) { return String(raw||'').trim(); }
     }
-
     function distributeFromText(raw){
       if (typeof raw !== 'string') return;
-      // Split primarily by newline; also support semicolons or pipes when no newline present
+      const altInputs = getAltInputs();
+      if (!altInputs.length) return;
       let parts = raw.split(/\r?\n/);
       if (parts.length <= 1) parts = raw.split(/[;|]/);
       const lines = parts.map(sanitizeLine).map(s => s.trim()).filter(s => s.length > 0);
@@ -1221,51 +1210,40 @@
       let firstMarkedSeen = false;
       for (let i = 0; i < altInputs.length; i++){
         const line = lines[i];
-        if (line == null) break; // preserve existing values if lines run out
+        if (line == null) break;
         let text = line;
         let mark = false;
         if (text.startsWith('*')){ mark = true; text = text.replace(/^\*+\s*/, ''); }
         altInputs[i].value = text;
-        // Toggle correta if prefixed with *
         const row = altInputs[i].closest('.opt');
         const check = row ? row.querySelector('input[type="checkbox"],input[type="radio"]') : null;
         if (check){
           if (isMulti){
             check.checked = !!mark;
-          } else {
-            // single: only one correct allowed; use first marked, else leave as is
-            if (mark && !firstMarkedSeen){
-              firstMarkedSeen = true;
-              check.checked = true;
-              // uncheck others
-              try {
-                document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(r=>{ if (r !== check) r.checked = false; });
-              } catch(_){ }
-            }
+          } else if (mark && !firstMarkedSeen){
+            firstMarkedSeen = true;
+            check.checked = true;
+            try { document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(r=>{ if (r !== check) r.checked = false; }); } catch(_){ }
           }
         }
       }
     }
-
-    // Trigger distribution on blur of the first input in the group
-    first.addEventListener('blur', () => {
-      const val = first.value || '';
-      // Always attempt distribution on blur; distribution function will decide based on content
-      distributeFromText(val);
-    });
-
-    // Paste textarea helper: distribute on click or blur
+    // Rebind first input blur
+    const altInputs = getAltInputs();
+    if (altInputs.length){
+      const first = altInputs[0];
+      first.onblur = ()=>{ distributeFromText(first.value || ''); };
+    }
+    // Paste helpers
     const pasteEl = document.getElementById('optsPaste');
     const pasteBtn = document.getElementById('optsPasteApply');
-    function distributeFromTextarea(){
-      if (!pasteEl) return;
-      const raw = pasteEl.value || '';
-      distributeFromText(raw);
-    }
-    if (pasteBtn) pasteBtn.addEventListener('click', distributeFromTextarea);
-    if (pasteEl) pasteEl.addEventListener('blur', distributeFromTextarea);
-  } catch(_){}
-})();
+    function distributeFromTextarea(){ if (pasteEl) distributeFromText(pasteEl.value || ''); }
+    if (pasteBtn) pasteBtn.onclick = distributeFromTextarea;
+    if (pasteEl) pasteEl.onblur = distributeFromTextarea;
+  } catch(e){ /* ignore */ }
+};
+// Inicialização imediata
+window.initAlternativesDistribution();
 </script>
 </body>
 </html>

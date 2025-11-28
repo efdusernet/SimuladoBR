@@ -508,8 +508,20 @@
           o.textContent = t.nome || t.id;
           sel.appendChild(o);
         });
-        // auto-select first concrete type if available
-        try { if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1; } catch(e){}
+        // Prefer default value = 1 when available for questionForm
+        try {
+          if (targetId === 'examType') {
+            const hasOne = Array.from(sel.options).some(opt => String(opt.value) === '1');
+            if (hasOne) {
+              sel.value = '1';
+            } else if (!sel.value && sel.options.length > 1) {
+              sel.selectedIndex = 1;
+            }
+          } else {
+            // For other selects, keep previous behavior
+            if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1;
+          }
+        } catch(e){}
       } catch (e) {
         console.error('[loadExamTypes] error:', e);
       }

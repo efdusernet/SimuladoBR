@@ -276,6 +276,26 @@
                       setTimeout(()=>{ window.location.href='/login'; }, 300);
                   });
               }
+              // Logout via perfil section span#quit
+              const quitEl = document.getElementById('quit');
+              if (quitEl){
+                  quitEl.style.cursor='pointer';
+                  quitEl.setAttribute('role','button');
+                  quitEl.setAttribute('aria-label','Encerrar sessão');
+                  quitEl.addEventListener('click', (e)=>{
+                      e.preventDefault();
+                      try { localStorage.clear(); } catch(_){ }
+                      try { sessionStorage.clear(); } catch(_){ }
+                      try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
+                      try {
+                          const n = document.createElement('div');
+                          n.textContent='Sessão encerrada';
+                          n.style.cssText='position:fixed;top:14px;right:14px;background:#334155;color:#fff;padding:8px 12px;border-radius:6px;font-size:.75rem;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.25)';
+                          document.body.appendChild(n); setTimeout(()=>{ try{ n.remove(); }catch(_){ } },1200);
+                      } catch(_){ }
+                      setTimeout(()=>{ window.location.href='/login'; }, 300);
+                  });
+              }
           })
           .catch(()=>{});
     })();
@@ -350,7 +370,7 @@
                 <div class="card" data-full="https://picsum.photos/800/800?random=32" aria-label="Abrir imagem 2" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=33" aria-label="Abrir imagem 3" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=34" aria-label="Abrir imagem 4" role="button" tabindex="0"></div>
-                <div class="card" data-full="https://picsum.photos/800/800?random=35" aria-label="Abrir imagem 5" role="button" tabindex="0"></div>
+                <div class="card" data-full="https://picsum.photos/800/800?random=35" aria-label="Abrir imagem 5" role="button" tabindex="0"><span id="quit">Sair</span></div>
             </div>
         </section>
     </main>

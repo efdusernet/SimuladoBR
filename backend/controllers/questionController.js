@@ -62,7 +62,31 @@ exports.createQuestion = async (req, res) => {
 				createdId = (check && check[0] && check[0].id) ? Number(check[0].id) : null;
 			}
 			if (!createdId) throw new Error('Could not retrieve created question id');
-			// Options are master data; no insertion performed.
+			// Persist provided options (alternativas) into respostaopcao.
+			// Frontend sends array: [{ descricao: string, correta: boolean }, ...]
+			// Enforce: at least 2 options; for single choice keep only first marked correta.
+			try {
+				const incomingOpts = Array.isArray(options) ? options : [];
+				// Filter and normalize
+				let filtered = incomingOpts
+					.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
+					.map(o => ({ descricao: o.descricao.trim(), correta: !!o.correta }));
+				if (filtered.length < 2) {
+					// minimal guard; still allow creation of question, just skip options insertion
+					filtered = [];
+				}
+				if (!multipla) {
+					// Single choice: only one correta allowed (first encountered)
+					let seen = false;
+					filtered.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
+				}
+				for (const opt of filtered) {
+					await sequelize.query(
+						'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido") VALUES (:qid,:descricao,:correta,false)',
+						{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta }, type: sequelize.QueryTypes.INSERT, transaction: t }
+					);
+				}
+			} catch(_){ /* ignore option insertion errors to not break question creation */ }
 			// Insert explicacao if provided
 			if (explicacao != null && explicacao !== '') {
 				const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")

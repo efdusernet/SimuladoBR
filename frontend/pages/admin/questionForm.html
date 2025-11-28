@@ -1094,3 +1094,15 @@
   </script>
 </body>
 </html>
+<!-- Bottom navigation bar (consistent with index.html) -->
+<nav class="bottom-nav" aria-label="Navegação inferior" style="position:fixed;left:0;right:0;bottom:0;height:44px;background:#111827;border-top:1px solid #1f2937;display:flex;align-items:center;justify-content:center;z-index:1000;gap:14px;padding-bottom: env(safe-area-inset-bottom);">
+  <a class="nav-item" href="/index.html" aria-label="Home" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#94a3b8;text-decoration:none;">
+    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;fill: currentColor"><path d="M12 3.172l8 7V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.828l8-7zM21 10.414l-9-7.875-9 7.875V20a3 3 0 0 0 3 3h4a1 1 0 0 0 1-1v-6h4v6a1 1 0 0 0 1 1h4a3 3 0 0 0 3-3v-9.586z"></path></svg>
+    <span class="nav-text" style="display:none">Home</span>
+  </a>
+  <a class="nav-item active" aria-label="Admin" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#4f46e5;background: rgba(79,70,229,0.08);text-decoration:none;">
+    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;fill: currentColor"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    <span class="nav-text" style="display:none">Admin</span>
+  </a>
+</nav>
+</html>

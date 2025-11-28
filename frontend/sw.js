@@ -58,22 +58,29 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Ignora esquemas não http/https (ex.: chrome-extension:, data:, blob:)
+  if (!/^https?:/.test(request.url)) {
+    return; // deixa o navegador tratar normalmente
+  }
+
   // API requests: Network-first (sempre buscar dados frescos)
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
         .then(response => {
-          // Cacheia responses bem-sucedidas (opcional, para offline parcial)
           if (response.ok && request.method === 'GET') {
-            const responseClone = response.clone();
-            caches.open(API_CACHE).then(cache => {
-              cache.put(request, responseClone);
-            });
+            try {
+              const responseClone = response.clone();
+              caches.open(API_CACHE).then(cache => {
+                cache.put(request, responseClone).catch(err => console.warn('[SW] cache.put API falhou:', err));
+              });
+            } catch (err) {
+              console.warn('[SW] Falha ao cachear API:', err);
+            }
           }
           return response;
         })
         .catch(() => {
-          // Fallback para cache se offline
           return caches.match(request)
             .then(cached => cached || new Response(
               JSON.stringify({ error: 'Sem conexão' }),
@@ -89,24 +96,24 @@ self.addEventListener('fetch', event => {
     caches.match(request)
       .then(cached => {
         if (cached) {
-          // Retorna do cache imediatamente
           return cached;
         }
-        // Busca na rede e cacheia
         return fetch(request)
           .then(response => {
-            // Cacheia apenas respostas OK
             if (response.ok && request.method === 'GET') {
-              const responseClone = response.clone();
-              caches.open(STATIC_CACHE).then(cache => {
-                cache.put(request, responseClone);
-              });
+              try {
+                const responseClone = response.clone();
+                caches.open(STATIC_CACHE).then(cache => {
+                  cache.put(request, responseClone).catch(err => console.warn('[SW] cache.put STATIC falhou:', err));
+                });
+              } catch (err) {
+                console.warn('[SW] Falha ao cachear STATIC:', err);
+              }
             }
             return response;
           })
           .catch(err => {
             console.error('[SW] Fetch failed:', err);
-            // Fallback para página offline (se existir)
             if (request.mode === 'navigate') {
               return caches.match('/index.html');
             }

@@ -7,6 +7,8 @@ const { ExamAttempt, ExamAttemptPurgeLog, ExamAttemptUserStats } = db;
 const { Op } = require('sequelize');
 
 // Admin-only endpoints for lifecycle management
+// Lightweight probe endpoint for front-end admin menu detection (returns 204 if admin)
+router.get('/probe', requireAdmin, (req, res) => res.status(204).end());
 router.post('/mark-abandoned', requireAdmin, examController.markAbandonedAttempts);
 router.post('/purge-abandoned', requireAdmin, examController.purgeAbandonedAttempts);
 

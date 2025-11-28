@@ -1,9 +1,22 @@
 const sequelize = require('../config/database');
 const { XMLParser } = require('fast-xml-parser');
+const fs = require('fs');
+const path = require('path');
+
+function logQuestionSubmission(entry){
+	try {
+		const logDir = path.join(__dirname, '..', 'logs');
+		if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+		const payload = { ts: new Date().toISOString(), ...entry };
+		fs.appendFileSync(path.join(logDir, 'question_submissions.log'), JSON.stringify(payload) + '\n');
+	} catch(e){ console.error('logQuestionSubmission error:', e); }
+}
 
 exports.createQuestion = async (req, res) => {
 	try {
 		const b = req.body || {};
+		// Log entrada bruta antes das validações
+		logQuestionSubmission({ route: 'createQuestion:start', body: b });
 		const descricao = (b.descricao || '').trim();
 		if (!descricao) return res.status(400).json({ error: 'descricao required' });
 		// Decide tipo e multiplaescolha
@@ -95,9 +108,12 @@ exports.createQuestion = async (req, res) => {
 			}
 		});
 
+		// Log resultado da criação
+		logQuestionSubmission({ route: 'createQuestion:done', createdId, descricao, examTypeId: resolvedExamTypeId, optionsCount: Array.isArray(options) ? options.length : 0 });
 		return res.status(201).json({ id: createdId });
 	} catch (err) {
 		console.error('createQuestion error:', err);
+		logQuestionSubmission({ route: 'createQuestion:error', error: err && err.message });
 		return res.status(500).json({ error: 'Internal error' });
 	}
 };
@@ -209,6 +225,7 @@ exports.updateQuestion = async (req, res) => {
 		const id = Number(req.params.id);
 		if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid id' });
 		const b = req.body || {};
+		logQuestionSubmission({ route: 'updateQuestion:start', id, body: b });
 
 		const descricao = (b.descricao || '').trim();
 		if (!descricao) return res.status(400).json({ error: 'descricao required' });
@@ -314,9 +331,11 @@ exports.updateQuestion = async (req, res) => {
 			}
 		});
 
+		logQuestionSubmission({ route: 'updateQuestion:done', id, descricao, optionsCount: Array.isArray(b.options) ? b.options.length : 0 });
 		return res.json({ ok: true, id });
 	} catch (e) {
 		console.error('updateQuestion error:', e);
+		logQuestionSubmission({ route: 'updateQuestion:error', id: Number(req.params.id), error: e && e.message });
 		return res.status(500).json({ error: 'internal error' });
 	}
 };
@@ -328,6 +347,7 @@ exports.existsQuestion = async (req, res) => {
 		if (!rawDesc) return res.status(400).json({ error: 'descricao required' });
 		const examTypeRaw = (req.query.examType || '').trim();
 		if (!examTypeRaw) return res.status(400).json({ error: 'examType required' });
+		logQuestionSubmission({ route: 'existsQuestion:start', descricao: rawDesc, examType: examTypeRaw });
 		let examTypeId = null;
 		if (/^\d+$/.test(examTypeRaw)) {
 			examTypeId = Number(examTypeRaw);
@@ -335,14 +355,20 @@ exports.existsQuestion = async (req, res) => {
 			const row = await sequelize.query('SELECT id FROM public.exam_type WHERE slug = :slug AND (ativo = TRUE OR ativo IS NULL) LIMIT 1', { replacements: { slug: examTypeRaw.toLowerCase() }, type: sequelize.QueryTypes.SELECT });
 			if (row && row[0] && row[0].id != null) examTypeId = Number(row[0].id);
 		}
-		if (!examTypeId) return res.status(400).json({ error: 'examType not resolved' });
+		if (!examTypeId) {
+			logQuestionSubmission({ route: 'existsQuestion:notResolved', descricao: rawDesc, examType: examTypeRaw });
+			return res.status(400).json({ error: 'examType not resolved' });
+		}
 		const rows = await sequelize.query('SELECT id FROM public.questao WHERE exam_type_id = :examTypeId AND LOWER(TRIM(descricao)) = LOWER(TRIM(:descricao)) AND (excluido = FALSE OR excluido IS NULL) LIMIT 1', { replacements: { examTypeId, descricao: rawDesc }, type: sequelize.QueryTypes.SELECT });
 		if (rows && rows[0] && rows[0].id != null) {
+			logQuestionSubmission({ route: 'existsQuestion:found', descricao: rawDesc, examType: examTypeId, id: Number(rows[0].id) });
 			return res.json({ exists: true, id: Number(rows[0].id) });
 		}
+		logQuestionSubmission({ route: 'existsQuestion:notFound', descricao: rawDesc, examType: examTypeId });
 		return res.json({ exists: false });
 	} catch (e) {
 		console.error('existsQuestion error:', e);
+		logQuestionSubmission({ route: 'existsQuestion:error', error: e && e.message });
 		return res.status(500).json({ error: 'internal error' });
 	}
 };

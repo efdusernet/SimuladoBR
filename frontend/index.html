@@ -276,30 +276,34 @@
                       setTimeout(()=>{ window.location.href='/login'; }, 300);
                   });
               }
-              // Logout via perfil section span#quit
-              const quitEl = document.getElementById('quit');
-              if (quitEl){
-                  quitEl.style.cursor='pointer';
-                  quitEl.setAttribute('role','button');
-                  quitEl.setAttribute('aria-label','Encerrar sessão');
-                  quitEl.addEventListener('click', (e)=>{
-                      e.preventDefault();
-                      try { localStorage.clear(); } catch(_){ }
-                      try { sessionStorage.clear(); } catch(_){ }
-                      try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
-                      try {
-                          const n = document.createElement('div');
-                          n.textContent='Sessão encerrada';
-                          n.style.cssText='position:fixed;top:14px;right:14px;background:#334155;color:#fff;padding:8px 12px;border-radius:6px;font-size:.75rem;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.25)';
-                          document.body.appendChild(n); setTimeout(()=>{ try{ n.remove(); }catch(_){ } },1200);
-                      } catch(_){ }
-                      setTimeout(()=>{ window.location.href='/login'; }, 300);
-                  });
-              }
+                            // Note: quit handler moved to global block to work for all users
           })
           .catch(()=>{});
     })();
     </script>
+        <!-- Global logout handler for span#quit (works for admin and non-admin users) -->
+        <script>
+            (function bindGlobalQuit(){
+                const quitEl = document.getElementById('quit');
+                if (!quitEl) return;
+                quitEl.style.cursor='pointer';
+                quitEl.setAttribute('role','button');
+                quitEl.setAttribute('aria-label','Encerrar sessão');
+                quitEl.addEventListener('click', (e)=>{
+                    e.preventDefault();
+                    try { localStorage.clear(); } catch(_){ }
+                    try { sessionStorage.clear(); } catch(_){ }
+                    try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
+                    try {
+                        const n = document.createElement('div');
+                        n.textContent='Sessão encerrada';
+                        n.style.cssText='position:fixed;top:14px;right:14px;background:#334155;color:#fff;padding:8px 12px;border-radius:6px;font-size:.75rem;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.25)';
+                        document.body.appendChild(n); setTimeout(()=>{ try{ n.remove(); }catch(_){ } },1200);
+                    } catch(_){ }
+                    setTimeout(()=>{ window.location.href='/login'; }, 300);
+                });
+            })();
+        </script>
     <!-- Test button for lastExamResults (cycles through performance levels) -->
     <button id="lastExamTestBtn" aria-label="Testar últimos exames" title="Clicar para simular próximos níveis" style="position:fixed;right:12px;top:12px;z-index:2200;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.08);">Simular: OFF</button>
     <main class="content">

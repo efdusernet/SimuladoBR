@@ -851,6 +851,8 @@
       try { $('optsPaste').value = ''; } catch{}
       $('opts').innerHTML = '';
       ensureAtLeastTwo();
+      // Marca para limpeza reforçada em reinit
+      window._afterSaveReset = true;
       // Reativar distribuição após recriar inputs
       setTimeout(()=>{ if (window.initAlternativesDistribution) window.initAlternativesDistribution(); },0);
     };
@@ -1183,6 +1185,11 @@ window.initAlternativesDistribution = function(){
   try {
     const opts = document.getElementById('opts');
     if (!opts) return;
+    // Limpeza reforçada pós-save
+    if (window._afterSaveReset){
+      try { const el = document.getElementById('optsPaste'); if (el) el.value=''; } catch{}
+      delete window._afterSaveReset;
+    }
     function getAltInputs(){
       return Array.from(opts.querySelectorAll('.opt input[type="text"][placeholder="Texto da alternativa"]'));
     }

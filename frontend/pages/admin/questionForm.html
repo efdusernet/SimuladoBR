@@ -743,6 +743,41 @@
         if (!iddominio){ alert('Selecione o domínio'); return; }
         if (!codigocategoria){ alert('Selecione a categoria'); return; }
         if (!codniveldificuldade){ alert('Selecione o nível de dificuldade'); return; }
+      // Sanitiza alternativas diretamente antes de ler (remove numeração, rótulos A/B/C, pontos). Também interpreta prefixo * para marcar correta.
+      (function(){
+        try {
+          const tipoAtual = $('tipo').value;
+          const rows = Array.from(document.querySelectorAll('#opts .opt'));
+          let firstMarkedSeen = false;
+          rows.forEach(r => {
+            const inp = r.querySelector('input[type=text]');
+            const check = r.querySelector('input[type="checkbox"],input[type="radio"]');
+            if (!inp) return;
+            let val = String(inp.value||'').trim();
+            if (!val) return;
+            let mark = false;
+            if (val.startsWith('*')) { mark = true; val = val.replace(/^\*+\s*/, '').trim(); }
+            val = val.replace(/^(\(?\s*\d+\)?\s*[\.\)\-:])\s*/, '');
+            val = val.replace(/^\s*\d+\s+/, '');
+            val = val.replace(/^(\(?\s*[A-Za-z]\)?\s*[\.\)\-:])\s*/, '');
+            val = val.replace(/^\s*[A-Za-z]\s+/, '');
+            val = val.replace(/^\s*\.+\s*/, '');
+            val = val.replace(/\s{2,}/g, ' ').trim();
+            inp.value = val;
+            if (check){
+              if (tipoAtual === 'multi') {
+                if (mark) check.checked = true; // mantém múltiplas
+              } else {
+                if (mark && !firstMarkedSeen){
+                  firstMarkedSeen = true;
+                  check.checked = true;
+                  try { document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(radio=>{ if (radio!==check) radio.checked=false; }); } catch(_){ }
+                }
+              }
+            }
+          });
+        } catch(_){ }
+      })();
       const options = readOptions();
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }

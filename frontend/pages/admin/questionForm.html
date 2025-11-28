@@ -197,6 +197,8 @@
     </div>
 
     <div id="status" class="row"></div>
+    <!-- Exibe ID da questão recém cadastrada (espelhando estilo da aba Navegação) -->
+    <div id="statusNovaQuestao" class="row" aria-live="polite"></div>
     </section>
 
     <section id="sec-nav" class="tab-section">
@@ -808,6 +810,9 @@
       if (!resp.ok){ const t = await resp.text(); $('status').textContent = 'Erro ao salvar: ' + t; return; }
       const data = await resp.json();
       $('status').textContent = 'Criado com sucesso. ID: ' + data.id;
+      try { $('statusNovaQuestao').textContent = 'Questão ID ' + data.id; } catch(_){ }
+      // Atualiza painel de Navegação para refletir novo ID quando usuário trocar de aba
+      try { $('statusNav').textContent = 'Questão ID ' + data.id; } catch(_){ }
       // Limpar formulário
       $('descricao').value = '';
       $('dica').value = '';

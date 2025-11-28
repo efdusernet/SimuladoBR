@@ -261,7 +261,50 @@ exports.updateQuestion = async (req, res) => {
 			WHERE id = :id`;
 			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, exam_type_id: resolvedExamTypeId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
-			// Options are master data; no update or reinsertion performed.
+			// Navegação: atualizar/inserir opções se enviadas (somente esta rota de update usa b.options).
+			try {
+				const incomingOpts = Array.isArray(b.options) ? b.options : [];
+				let normalized = incomingOpts
+					.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
+					.map(o => ({ descricao: o.descricao.trim(), correta: !!o.correta }));
+				// Garantir mínimo de 2 para manipulação; caso contrário ignora.
+				if (normalized.length >= 2) {
+					if (!multipla) {
+						// Apenas uma correta em questões single; mantém primeira marcada.
+						let seen = false;
+						normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
+					}
+					// Carrega opções existentes
+					const existing = await sequelize.query(
+						'SELECT "Id" AS id FROM public.respostaopcao WHERE "IdQuestao" = :qid AND ("Excluido" = FALSE OR "Excluido" IS NULL) ORDER BY "Id"',
+						{ replacements: { qid: id }, type: sequelize.QueryTypes.SELECT, transaction: t }
+					);
+					const existingIds = existing.map(r => Number(r.id)).filter(Number.isFinite);
+					// Atualiza ordem: para cada posição existente atualiza; extras inseridas; sobras marcadas excluídas.
+					for (let i = 0; i < normalized.length; i++) {
+						const opt = normalized[i];
+						if (i < existingIds.length) {
+							await sequelize.query(
+								'UPDATE public.respostaopcao SET "Descricao" = :descricao, "IsCorreta" = :correta WHERE "Id" = :id',
+								{ replacements: { descricao: opt.descricao, correta: opt.correta, id: existingIds[i] }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+							);
+						} else {
+							await sequelize.query(
+								'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido") VALUES (:qid,:descricao,:correta,false)',
+								{ replacements: { qid: id, descricao: opt.descricao, correta: opt.correta }, type: sequelize.QueryTypes.INSERT, transaction: t }
+							);
+						}
+					}
+					// Marcar excedentes como excluídos se quantidade foi reduzida
+					if (existingIds.length > normalized.length) {
+						const toRemove = existingIds.slice(normalized.length);
+						await sequelize.query(
+							'UPDATE public.respostaopcao SET "Excluido" = TRUE WHERE "Id" = ANY(:ids)',
+							{ replacements: { ids: toRemove }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+						);
+					}
+				}
+			} catch(_){ /* ignora erros de opções para não bloquear update principal */ }
 
 			// Replace explanation
 			await sequelize.query(`UPDATE public.explicacaoguia SET "Excluido" = TRUE, "DataAlteracao" = CURRENT_TIMESTAMP WHERE idquestao = :id AND ("Excluido" = FALSE OR "Excluido" IS NULL)`, { replacements: { id }, type: sequelize.QueryTypes.UPDATE, transaction: t });

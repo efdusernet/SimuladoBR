@@ -170,8 +170,8 @@
                 });
             } catch(_){}
         }
-        // Probe a lightweight admin-only endpoint to confirm role
-        const probeUrl = '/api/questions?page=1&pageSize=1&order=id%20asc';
+        // Probe a lightweight admin-only endpoint to confirm role (GET /api/admin/exams/probe => 204 if admin)
+        const probeUrl = '/api/admin/exams/probe';
         fetch(probeUrl, { headers: { 'X-Session-Token': token }, method: 'GET' })
           .then(r => {
               if (!r.ok) return Promise.reject('Not admin'); // not admin

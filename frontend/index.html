@@ -56,13 +56,29 @@
                     background:#1e293b; border:1px solid rgba(255,255,255,0.06);
                     width:84px; height:84px; /* +40px total em relação ao original para caber imagem e texto com folga */
                     display:flex; align-items:center; justify-content:center;
-                    border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
-                    cursor:pointer; transition: transform .18s ease, box-shadow .18s ease;
+                    border-radius:12px;
+                    /* Sombras mais profundas em camadas para sensação de elevação */
+                    box-shadow:
+                        0 2px 4px rgba(0,0,0,.22),
+                        0 6px 14px rgba(0,0,0,.32),
+                        0 12px 28px rgba(0,0,0,.38);
+                    cursor:pointer; transition: transform .18s ease, box-shadow .22s ease;
                     padding:6px 8px; outline:none; color:#ffffff; font-weight:500;
                     position:relative; overflow:hidden;
                 }
-            .card:hover{ transform: scale(1.08) }
-            .card:active{ transform: scale(0.98) }
+            .card:hover{
+                transform: scale(1.08);
+                box-shadow:
+                    0 4px 6px rgba(0,0,0,.28),
+                    0 10px 20px rgba(0,0,0,.40),
+                    0 18px 36px rgba(0,0,0,.46);
+            }
+            .card:active{
+                transform: scale(0.97);
+                box-shadow:
+                    0 2px 3px rgba(0,0,0,.30),
+                    0 6px 12px rgba(0,0,0,.36);
+            }
                 .thumb{ width:44px !important; height:44px !important; border-radius:8px; object-fit:cover !important; display:block; margin:0 auto; }
                     /* Simulador card variant: icon + label */
                     .card--simulador{ flex-direction:column; gap:6px; align-items:center; justify-content:center; overflow:hidden; display:flex; height:100%; }

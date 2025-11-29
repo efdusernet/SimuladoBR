@@ -96,8 +96,28 @@ exports.getConfig = (_req, res) => {
       const n = Number(process.env.FREE_EXAM_QUESTION_LIMIT || 25);
       return Number.isFinite(n) && n > 0 ? Math.floor(n) : 25;
     })();
-    return res.json({ fullExamQuestionCount, freeExamQuestionLimit });
+    const examVersion = (process.env.EXAM_VER || '').trim();
+    return res.json({ fullExamQuestionCount, freeExamQuestionLimit, examVersion });
   } catch (e) {
+    return res.status(500).json({ error: 'internal error' });
+  }
+};
+
+// List distinct versao_exame values from questao for select options
+exports.listVersoesExame = async (_req, res) => {
+  try {
+    const rows = await sequelize.query(
+      `SELECT DISTINCT versao_exame AS descricao
+         FROM public.questao
+        WHERE versao_exame IS NOT NULL AND TRIM(versao_exame) <> ''
+        ORDER BY versao_exame`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    // Map to id/descricao shape using the string as both id and descricao
+    const items = (rows || []).map(r => ({ id: r.descricao, descricao: r.descricao }));
+    return res.json(items);
+  } catch (e) {
+    console.error('[meta] listVersoesExame error', e);
     return res.status(500).json({ error: 'internal error' });
   }
 };

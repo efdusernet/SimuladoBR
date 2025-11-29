@@ -154,24 +154,25 @@ exports.selectQuestions = async (req, res) => {
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length) || (categorias && categorias.length));
 
   // Build WHERE clause
-  const whereClauses = [`excluido = false`, `idstatus = 1`];
+  // Prefix with q. to avoid ambiguity when joining tables that also have 'excluido'
+  const whereClauses = [`q.excluido = false`, `q.idstatus = 1`];
   // Optional exam version filter from environment (EXAM_VER)
   const examVersion = (process.env.EXAM_VER || '').trim();
   if (examVersion) {
     // Use parameter binding to avoid injection; will add to replacements later
-    whereClauses.push(`versao_exame = :examVersion`);
+    whereClauses.push(`q.versao_exame = :examVersion`);
   }
   // Filter by exam type linkage if available in DB (1:N)
   if (examCfg && examCfg._dbId) {
-    whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
+    whereClauses.push(`q.exam_type_id = ${Number(examCfg._dbId)}`);
   }
-  if (bloqueio) whereClauses.push(`seed = true`);
+  if (bloqueio) whereClauses.push(`q.seed = true`);
   // AND semantics across tabs; OR within each list
   // i.e., if user chose dominios AND grupos, a question must match both a selected domínio AND a selected grupo
-  if (dominios && dominios.length) whereClauses.push(`iddominio IN (${dominios.join(',')})`);
-  if (areas && areas.length) whereClauses.push(`codareaconhecimento IN (${areas.join(',')})`);
-  if (grupos && grupos.length) whereClauses.push(`codgrupoprocesso IN (${grupos.join(',')})`);
-  if (categorias && categorias.length) whereClauses.push(`codigocategoria IN (${categorias.join(',')})`);
+  if (dominios && dominios.length) whereClauses.push(`q.iddominio IN (${dominios.join(',')})`);
+  if (areas && areas.length) whereClauses.push(`q.codareaconhecimento IN (${areas.join(',')})`);
+  if (grupos && grupos.length) whereClauses.push(`q.codgrupoprocesso IN (${grupos.join(',')})`);
+  if (categorias && categorias.length) whereClauses.push(`q.codigocategoria IN (${categorias.join(',')})`);
   // Excluir questões já respondidas se onlyNew ativo (premium)
   if (onlyNew) {
     try {
@@ -184,14 +185,14 @@ exports.selectQuestions = async (req, res) => {
       const answeredIds = (answeredRows || []).map(r => Number(r.qid)).filter(n => Number.isFinite(n));
       if (answeredIds.length) {
         const limited = answeredIds.slice(0, 10000); // limite defensivo
-        whereClauses.push(`id NOT IN (${limited.join(',')})`);
+        whereClauses.push(`q.id NOT IN (${limited.join(',')})`);
       }
     } catch(e) { /* ignore */ }
   }
   const whereSql = whereClauses.join(' AND ');
 
     // Count available (with exam_type when applicable)
-  const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;
+  const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao q WHERE ${whereSql}`;
     const countRes = await sequelize.query(countQuery, { replacements: examVersion ? { examVersion } : {}, type: sequelize.QueryTypes.SELECT });
     let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
 
@@ -224,9 +225,9 @@ exports.selectQuestions = async (req, res) => {
     const baseQuestionSelect = (extraWhere, limit) => {
       const replacements = { limit };
       if (examVersion) replacements.examVersion = examVersion;
-      return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl", eg."Descricao" AS explicacao
+      return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl", eg.descricao AS explicacao
         FROM questao q
-        LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
+        LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg.excluido = false OR eg.excluido IS NULL)
         WHERE ${whereSqlUsed} ${extraWhere ? ' AND ' + extraWhere : ''}
         ORDER BY random()
         LIMIT :limit`, { replacements, type: sequelize.QueryTypes.SELECT });

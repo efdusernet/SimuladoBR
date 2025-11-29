@@ -102,6 +102,7 @@
       <div class="row">
       <label for="descricao">Enunciado</label>
       <textarea id="descricao" rows="6" placeholder="Digite o enunciado da questão..."></textarea>
+      <div id="dupStatus" style="margin-top:4px;font-size:.85rem;color:#b91c1c;font-weight:600;" aria-live="polite"></div>
     </div>
 
     <div class="row">
@@ -223,6 +224,7 @@
       <div class="row">
         <label for="descricaoNav">Enunciado</label>
         <textarea id="descricaoNav" rows="6" placeholder="Enunciado da questão..."></textarea>
+        <div id="dupStatusNav" style="margin-top:4px;font-size:.8rem;color:#b45309;font-weight:600;" aria-live="polite"></div>
       </div>
 
       <div class="row">
@@ -773,24 +775,9 @@
         if (!iddominio){ alert('Selecione o domínio'); return; }
         if (!codigocategoria){ alert('Selecione a categoria'); return; }
         if (!codniveldificuldade){ alert('Selecione o nível de dificuldade'); return; }
-      // Verifica duplicata antes de prosseguir
-      if (descricao && examTypeId) {
-        try {
-          const dupUrl = (BACKEND_BASE||'') + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
-          const tokenDup = localStorage.getItem('sessionToken') || '';
-          const dupResp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
-          if (dupResp.ok) {
-            const dj = await dupResp.json().catch(()=>({}));
-            if (dj && dj.exists) {
-              $('status').textContent = 'Duplicada: já existe (ID ' + dj.id + ')';
-              try { $('statusNovaQuestao').textContent = 'Questão existente (ID ' + dj.id + ')'; } catch(_){ }
-              // Limpa textarea de colagem ao detectar duplicata
-              try { $('optsPaste').value = ''; } catch(_){ }
-              return; // aborta criação
-            }
-          }
-        } catch(_){ /* ignora erros de verificação duplicata */ }
-      }
+      // Checagem duplicata (usa função compartilhada; aborta se existir)
+      const dupId = await checkDuplicate(true);
+      if (dupId) { $('status').textContent = 'Duplicada: já existe (ID ' + dupId + ')'; return; }
       // Sanitiza alternativas diretamente antes de ler (remove numeração, rótulos A/B/C, pontos). Também interpreta prefixo * para marcar correta.
       (function(){
         try {
@@ -1134,6 +1121,10 @@
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
 
+      // Checagem duplicata para atualização: se outra questão com mesmo enunciado
+      const dupIdNav = await checkDuplicateNav(true);
+      if (dupIdNav && dupIdNav !== id){ navSetStatus('Duplicada: já existe ID ' + dupIdNav); return; }
+
       const sessionUserIdUpdate = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
       if (!sessionUserIdUpdate){ alert('Sessão sem userId. Faça login novamente.'); return; }
       const payload = {
@@ -1205,6 +1196,79 @@
     loadTasks('idtaskNav');
     setupImageUpload('imagemFileNav', 'imagemUrlNav', 'imagemPreviewNav');
     ensureAtLeastTwoNav();
+
+    // Função duplicata para Navegação (ignora o próprio ID)
+    async function checkDuplicateNav(show){
+      try {
+        const descricao = ($('descricaoNav').value || '').trim();
+        const examTypeId = ($('examTypeNav').value || '').trim();
+        const currentId = navState.currentId;
+        if (!descricao || !examTypeId) { return null; }
+        const dupUrl = (BACKEND_BASE||'') + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
+        const tokenDup = localStorage.getItem('sessionToken') || '';
+        const resp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
+        if (!resp.ok) { return null; }
+        const dj = await resp.json().catch(()=>({}));
+        if (dj && dj.exists && dj.id){
+          if (dj.id !== currentId){
+            if (show){ 
+              const el = $('dupStatusNav'); 
+              if (el) el.textContent = 'QUESTÃO JÁ CADASTRADA (ID ' + dj.id + ')';
+              // limpa conteúdo para evitar edição sobre duplicata
+              try { $('descricaoNav').value = ''; } catch(_){ }
+            }
+            return dj.id;
+          }
+        } else {
+          const el = $('dupStatusNav'); if (el) el.textContent = '';
+        }
+        return null;
+      } catch(_){ return null; }
+    }
+
+    // onblur para descricaoNav
+    try { const dnav = $('descricaoNav'); if (dnav) dnav.addEventListener('blur', ()=>{ checkDuplicateNav(true); }); } catch(_){ }
+
+    // Função compartilhada de verificação de duplicata para criação
+    async function checkDuplicate(showIfFound = true){
+      try {
+        const descricao = ($('descricao').value || '').trim();
+        const examTypeId = ($('examType').value || '').trim();
+        if (!descricao || !examTypeId) { return null; }
+        const dupUrl = (BACKEND_BASE||'') + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
+        const tokenDup = localStorage.getItem('sessionToken') || '';
+        const dupResp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
+        if (!dupResp.ok) return null;
+        const dj = await dupResp.json().catch(()=>({}));
+        if (dj && dj.exists && dj.id){
+          if (showIfFound){
+            const el = $('dupStatus');
+            if (el) el.textContent = 'QUESTÃO JÁ CADASTRADA (ID ' + dj.id + ')';
+            // limpa conteúdo para evitar envio duplicado
+            try { $('descricao').value = ''; } catch(_){ }
+          }
+          return dj.id;
+        } else {
+          // Limpa mensagem se não achou
+          const el = $('dupStatus');
+          if (el) el.textContent = '';
+        }
+        return null;
+      } catch(_){ return null; }
+    }
+
+    // onblur do textarea descricao dispara verificação
+    try {
+      const descEl = $('descricao');
+      if (descEl){
+        descEl.addEventListener('blur', ()=>{ checkDuplicate(true); });
+        // Ao digitar, remover mensagem de duplicata (caso esteja visível)
+        descEl.addEventListener('input', ()=>{
+          const el = $('dupStatus');
+          if (el && el.textContent) el.textContent = '';
+        });
+      }
+    } catch(_){ }
 
     // Menu toggle functionality
     (function initTopMenu(){

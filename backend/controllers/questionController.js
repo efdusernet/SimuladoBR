@@ -63,6 +63,18 @@ exports.createQuestion = async (req, res) => {
 				return res.status(400).json({ error: 'createdByUserId not found' });
 			}
 		} catch(e){ return res.status(500).json({ error: 'user lookup failed' }); }
+
+		// Duplicate check (case-insensitive, trimmed) scoped to exam_type_id, ignoring excluidos
+		try {
+			const dupRows = await sequelize.query(
+				'SELECT id FROM public.questao WHERE exam_type_id = :examTypeId AND LOWER(TRIM(descricao)) = LOWER(TRIM(:descricao)) AND (excluido = FALSE OR excluido IS NULL) LIMIT 1',
+				{ replacements: { examTypeId: resolvedExamTypeId, descricao }, type: sequelize.QueryTypes.SELECT }
+			);
+			if (dupRows && dupRows[0] && dupRows[0].id != null) {
+				logQuestionSubmission({ route: 'createQuestion:duplicate', descricao, examTypeId: resolvedExamTypeId, existingId: Number(dupRows[0].id) });
+				return res.status(409).json({ error: 'duplicate', id: Number(dupRows[0].id) });
+			}
+		} catch(_){ /* silent duplicate lookup failure */ }
 		let createdId = null;
 		await sequelize.transaction(async (t) => {
 		// Insert question

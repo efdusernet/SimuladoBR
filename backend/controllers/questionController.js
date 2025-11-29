@@ -25,7 +25,7 @@ exports.createQuestion = async (req, res) => {
 			if (['multi','multiple','checkbox'].includes(tiposlug)) multipla = true; else if (['single','radio'].includes(tiposlug)) multipla = false;
 		}
 		if (multipla == null) multipla = false;
-		// Audit: usuário criador para respostaopcao (CriadoUsuario)
+		// Audit: usuário criador para respostaopcao (criadousuario / alteradousuario)
 		const createdByUserId = Number.isFinite(Number(b.createdByUserId)) ? Number(b.createdByUserId) : null;
 	const iddominio = Number.isFinite(Number(b.iddominio)) ? Number(b.iddominio) : 1;
 	const codareaconhecimento = (b.codareaconhecimento != null && b.codareaconhecimento !== '') ? Number(b.codareaconhecimento) : null;
@@ -53,6 +53,16 @@ exports.createQuestion = async (req, res) => {
 		}
 			if (!resolvedExamTypeId) return res.status(400).json({ error: 'examType required' });
 
+		// Validate createdByUserId antes de iniciar transação (evita falha tardia na FK)
+		if (!Number.isFinite(createdByUserId) || createdByUserId <= 0) {
+			return res.status(400).json({ error: 'createdByUserId required' });
+		}
+		try {
+			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: createdByUserId }, type: sequelize.QueryTypes.SELECT });
+			if (!urow || !urow[0] || urow[0].Id == null) {
+				return res.status(400).json({ error: 'createdByUserId not found' });
+			}
+		} catch(e){ return res.status(500).json({ error: 'user lookup failed' }); }
 		let createdId = null;
 		await sequelize.transaction(async (t) => {
 		// Insert question
@@ -76,30 +86,28 @@ exports.createQuestion = async (req, res) => {
 				createdId = (check && check[0] && check[0].id) ? Number(check[0].id) : null;
 			}
 			if (!createdId) throw new Error('Could not retrieve created question id');
-			// Inserir opções com audit CriadoUsuario se fornecidas
-			try {
-				const incomingOpts = Array.isArray(options) ? options : [];
-				let normalized = incomingOpts
-					.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
-					.map(o => ({ descricao: o.descricao.trim(), correta: !!o.correta }));
-				if (normalized.length >= 2) {
-					if (!multipla) {
-						let seen = false;
-						normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
-					}
-					for (const opt of normalized) {
-						await sequelize.query(
-							'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario) VALUES (:qid,:descricao,:correta,false,:userId)',
-							{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta, userId: createdByUserId != null ? createdByUserId : 1 }, type: sequelize.QueryTypes.INSERT, transaction: t }
-						);
-					}
+			// Inserir opções com auditoria (sem swallow de erro)
+			const incomingOpts = Array.isArray(options) ? options : [];
+			let normalized = incomingOpts
+				.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
+				.map(o => ({ descricao: o.descricao.trim(), correta: !!o.correta }));
+			if (normalized.length >= 2) {
+				if (!multipla) {
+					let seen = false;
+					normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
 				}
-			} catch(_){ /* não bloquear criação da questão por erro em opções */ }
-			// Insert explicacao if provided
+				for (const opt of normalized) {
+					await sequelize.query(
+						'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario, alteradousuario, datacadastro, dataalteracao) VALUES (:qid,:descricao,:correta,false,:uid,:uid,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)',
+						{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta, uid: createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
+					);
+				}
+			}
+			// Insert explicacao if provided (audit columns)
 			if (explicacao != null && explicacao !== '') {
-				const insertE = `INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido)
-											 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`;
-				await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao, userId: createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				const insertE = `INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido, criadousuario, alteradousuario)
+									 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`;
+				await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao, uid: createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			}
 		});
 
@@ -328,9 +336,9 @@ exports.updateQuestion = async (req, res) => {
 					);
 				} else {
 					await sequelize.query(
-						`INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido)
-						 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`,
-						{ replacements: { id, descricao: explicacao, userId: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
+						`INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido, criadousuario, alteradousuario)
+						 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`,
+						{ replacements: { id, descricao: explicacao, uid: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
 					);
 				}
 			}
@@ -502,6 +510,15 @@ exports.bulkCreateQuestions = async (req, res) => {
 			(rows || []).forEach(r => slugMap.set(String(r.slug).toLowerCase(), Number(r.id)));
 		}
 
+		// Audit user for bulk explanation rows (optional in payload)
+		const bulkCreatedByUserId = Number.isFinite(Number((req.body && req.body.createdByUserId) || (payload && payload.createdByUserId))) ? Number((req.body && req.body.createdByUserId) || (payload && payload.createdByUserId)) : 1;
+		let validBulkUser = 1;
+		if (Number.isFinite(bulkCreatedByUserId) && bulkCreatedByUserId > 0) {
+			try {
+				const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: bulkCreatedByUserId }, type: sequelize.QueryTypes.SELECT });
+				if (urow && urow[0] && urow[0].Id != null) validBulkUser = bulkCreatedByUserId; else validBulkUser = 1;
+			} catch(_) { validBulkUser = 1; }
+		}
 		const results = [];
 		let inserted = 0;
 		await sequelize.transaction(async (t) => {
@@ -542,12 +559,12 @@ exports.bulkCreateQuestions = async (req, res) => {
 
 					// Options are master data; no insertion performed for bulk.
 
-					// Optional explanation
+					// Optional explanation (normalized lowercase + audit)
 					if (q.explicacao) {
 						try {
-							const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "Excluido")
-															 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`;
-							await sequelize.query(insertE, { replacements: { qid, descricao: String(q.explicacao) }, type: sequelize.QueryTypes.INSERT, transaction: t });
+							const insertE = `INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido, criadousuario, alteradousuario)
+											 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`;
+							await sequelize.query(insertE, { replacements: { qid, descricao: String(q.explicacao), uid: validBulkUser }, type: sequelize.QueryTypes.INSERT, transaction: t });
 						} catch(_) { /* ignore optional failure */ }
 					}
 

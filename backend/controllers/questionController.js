@@ -15,8 +15,6 @@ function logQuestionSubmission(entry){
 exports.createQuestion = async (req, res) => {
 	try {
 		const b = req.body || {};
-		// Log entrada bruta antes das validações
-		logQuestionSubmission({ route: 'createQuestion:start', body: b });
 		const descricao = (b.descricao || '').trim();
 		if (!descricao) return res.status(400).json({ error: 'descricao required' });
 		// Decide tipo e multiplaescolha
@@ -39,8 +37,6 @@ exports.createQuestion = async (req, res) => {
 	const imagemUrl = (b.imagemUrl || b.imagem_url || '').trim() || null;
 	const versaoExame = (b.versao_exame || b.versaoExame || '').trim() || null;
 	const explicacao = (b.explicacao != null) ? String(b.explicacao).trim() : null;
-		// Audit: createdByUserId for respostaopcao on creation
-		const createdByUserId = Number.isFinite(Number(b.createdByUserId)) ? Number(b.createdByUserId) : null;
 		const options = Array.isArray(b.options) ? b.options : [];
 		// exam type: accept id or slug
 		const examTypeId = Number.isFinite(Number(b.examTypeId)) ? Number(b.examTypeId) : null;
@@ -57,15 +53,15 @@ exports.createQuestion = async (req, res) => {
 
 		let createdId = null;
 		await sequelize.transaction(async (t) => {
-		// Insert question (no session user write on questao)
+		// Insert question
 		const insertQ = `INSERT INTO public.questao (
 			iddominio, idstatus, descricao, datacadastro, dataalteracao,
 			criadousuario, alteradousuario, excluido, seed, nivel,
-				idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame
+			idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task,versao_exame
 		) VALUES (
 			:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 			1, 1, false, false, 1,
-				:idprincipio, :dica, :multipla, :codigocategoria, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame
+			:idprincipio, :dica, :multipla, :codigocategoria, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task,:versao_exame
 		) RETURNING id`;
 		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
@@ -78,69 +74,18 @@ exports.createQuestion = async (req, res) => {
 				createdId = (check && check[0] && check[0].id) ? Number(check[0].id) : null;
 			}
 			if (!createdId) throw new Error('Could not retrieve created question id');
-			// Persist provided options (alternativas) into respostaopcao.
-			// Frontend sends array: [{ descricao: string, correta: boolean }, ...]
-			// Enforce: at least 2 options; for single choice keep only first marked correta.
-			try {
-				// Detect presence of audit columns to avoid breaking if not migrated yet
-				let hasCriadoUsuarioCol = false;
-				try {
-					const colRows = await sequelize.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='respostaopcao' AND column_name='CriadoUsuario'", { type: sequelize.QueryTypes.SELECT, transaction: t });
-					hasCriadoUsuarioCol = Array.isArray(colRows) && colRows.length > 0;
-				} catch(_) { /* ignore */ }
-				const incomingOpts = Array.isArray(options) ? options : [];
-				// Filter and normalize
-				let filtered = incomingOpts
-					.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
-					.map(o => ({ descricao: o.descricao.trim(), correta: !!o.correta }));
-				if (filtered.length < 2) {
-					// minimal guard; still allow creation of question, just skip options insertion
-					filtered = [];
-				}
-				if (!multipla) {
-					// Single choice: only one correta allowed (first encountered)
-					let seen = false;
-					filtered.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
-				}
-				for (const opt of filtered) {
-					if (hasCriadoUsuarioCol && createdByUserId != null) {
-						await sequelize.query(
-							'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido","CriadoUsuario") VALUES (:qid,:descricao,:correta,false,:createdByUserId)',
-							{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta, createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
-						);
-					} else {
-						await sequelize.query(
-							'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido") VALUES (:qid,:descricao,:correta,false)',
-							{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta }, type: sequelize.QueryTypes.INSERT, transaction: t }
-						);
-					}
-				}
-			} catch(_){ /* ignore option insertion errors to not break question creation */ }
-			// Insert explicacao if provided (adapt to table schema)
+			// Options are master data; no insertion performed.
+			// Insert explicacao if provided
 			if (explicacao != null && explicacao !== '') {
-				let hasCriadoAlteradoCols = false;
-				try {
-					const colRows = await sequelize.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='explicacaoguia' AND column_name IN ('CriadoUsuario','AlteradoUsuario')", { type: sequelize.QueryTypes.SELECT, transaction: t });
-					hasCriadoAlteradoCols = ['CriadoUsuario','AlteradoUsuario'].every(col => colRows.some(r => r.column_name === col));
-				} catch(_) { /* ignore */ }
-				if (hasCriadoAlteradoCols) {
-					const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")
-										 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, false)`;
-					await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
-				} else {
-					const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "Excluido")
-										 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`;
-					await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
-				}
+				const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")
+												 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, false)`;
+				await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			}
 		});
 
-		// Log resultado da criação
-		logQuestionSubmission({ route: 'createQuestion:done', createdId, descricao, examTypeId: resolvedExamTypeId, optionsCount: Array.isArray(options) ? options.length : 0 });
 		return res.status(201).json({ id: createdId });
 	} catch (err) {
 		console.error('createQuestion error:', err);
-		logQuestionSubmission({ route: 'createQuestion:error', error: err && err.message });
 		return res.status(500).json({ error: 'Internal error' });
 	}
 };

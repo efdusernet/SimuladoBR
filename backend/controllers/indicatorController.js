@@ -41,8 +41,8 @@ async function getAreaConhecimentoStats(req, res){
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
         LEFT JOIN areaconhecimento ac ON ac.id = q.codareaconhecimento
-        LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
-        LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
         JOIN exam_attempt a ON a.id = aq.attempt_id
         WHERE aq.attempt_id = :idExame
           AND q.codareaconhecimento IS NOT NULL
@@ -128,8 +128,8 @@ async function getAbordagemStats(req, res){
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
         LEFT JOIN categoriaquestao cq ON cq.id = q.codigocategoria
-        LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
-        LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
         JOIN exam_attempt a ON a.id = aq.attempt_id
         WHERE aq.attempt_id = :idExame
           AND q.codigocategoria IS NOT NULL
@@ -482,8 +482,8 @@ async function getProcessGroupStats(req, res){
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
-        LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
-        LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
         JOIN exam_attempt a ON a.id = aq.attempt_id
         WHERE aq.attempt_id = :idExame
           AND q.codgrupoprocesso IS NOT NULL
@@ -764,8 +764,8 @@ async function getPerformancePorDominio(req, res){
               COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada AND ro_chosen."IsCorreta") AS chosen_correct_count
             FROM exam_attempt_question aq
             LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
-            LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
-            LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+            LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+            LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
             WHERE aq.attempt_id IN (:examIds)
             GROUP BY aq.id, aq.attempt_id
           ),
@@ -831,8 +831,8 @@ async function getPerformancePorDominio(req, res){
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
         JOIN dominiogeral dg ON dg.id = q.iddominiogeral
-        LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
-        LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
         WHERE aq.attempt_id = :examId
           AND q.iddominiogeral IS NOT NULL
         GROUP BY aq.id, q.iddominiogeral, dg.descricao

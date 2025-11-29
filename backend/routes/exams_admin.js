@@ -209,7 +209,7 @@ router.post('/fixture-attempt', requireAdmin, async (req, res) => {
             try {
                 if (questionIds.length) {
                     const optRows = await db.sequelize.query(
-                        `SELECT "Id" as id, "IdQuestao" as qid, "IsCorreta" as correta FROM respostaopcao WHERE "IdQuestao" IN (${questionIds.join(',')})`,
+                        `SELECT id as id, idquestao as qid, iscorreta as correta FROM respostaopcao WHERE idquestao IN (${questionIds.join(',')})`,
                         { type: db.Sequelize.QueryTypes.SELECT, transaction: t }
                     );
                     optRows.forEach(r => {

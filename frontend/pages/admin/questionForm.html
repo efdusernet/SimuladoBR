@@ -78,6 +78,7 @@
     .tab.active{ background:#fff; border:1px solid #eee; border-bottom:none; }
     .tab-section{ display:none; }
     .tab-section.active{ display:block; }
+    .dup-warning{ border-color:#ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
   </style>
 </head>
 <body>
@@ -1214,20 +1215,21 @@
             if (show){ 
               const el = $('dupStatusNav'); 
               if (el) el.textContent = 'QUESTÃO JÁ CADASTRADA (ID ' + dj.id + ')';
-              // limpa conteúdo para evitar edição sobre duplicata
               try { $('descricaoNav').value = ''; } catch(_){ }
+              try { $('descricaoNav').classList.add('dup-warning'); } catch(_){ }
             }
             return dj.id;
           }
         } else {
           const el = $('dupStatusNav'); if (el) el.textContent = '';
+          try { $('descricaoNav').classList.remove('dup-warning'); } catch(_){ }
         }
         return null;
       } catch(_){ return null; }
     }
 
     // onblur para descricaoNav
-    try { const dnav = $('descricaoNav'); if (dnav) dnav.addEventListener('blur', ()=>{ checkDuplicateNav(true); }); } catch(_){ }
+    try { const dnav = $('descricaoNav'); if (dnav){ dnav.addEventListener('blur', ()=>{ checkDuplicateNav(true); }); dnav.addEventListener('input', ()=>{ const el = $('dupStatusNav'); if (el && el.textContent) el.textContent = ''; try { dnav.classList.remove('dup-warning'); } catch(_){ } }); } } catch(_){ }
 
     // Função compartilhada de verificação de duplicata para criação
     async function checkDuplicate(showIfFound = true){
@@ -1244,14 +1246,15 @@
           if (showIfFound){
             const el = $('dupStatus');
             if (el) el.textContent = 'QUESTÃO JÁ CADASTRADA (ID ' + dj.id + ')';
-            // limpa conteúdo para evitar envio duplicado
             try { $('descricao').value = ''; } catch(_){ }
+            try { $('descricao').classList.add('dup-warning'); } catch(_){ }
           }
           return dj.id;
         } else {
           // Limpa mensagem se não achou
           const el = $('dupStatus');
           if (el) el.textContent = '';
+          try { $('descricao').classList.remove('dup-warning'); } catch(_){ }
         }
         return null;
       } catch(_){ return null; }
@@ -1263,10 +1266,7 @@
       if (descEl){
         descEl.addEventListener('blur', ()=>{ checkDuplicate(true); });
         // Ao digitar, remover mensagem de duplicata (caso esteja visível)
-        descEl.addEventListener('input', ()=>{
-          const el = $('dupStatus');
-          if (el && el.textContent) el.textContent = '';
-        });
+        descEl.addEventListener('input', ()=>{ const el = $('dupStatus'); if (el && el.textContent) el.textContent = ''; try { descEl.classList.remove('dup-warning'); } catch(_){ } });
       }
     } catch(_){ }
 

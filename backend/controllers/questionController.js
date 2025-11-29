@@ -315,11 +315,24 @@ exports.updateQuestion = async (req, res) => {
 				}
 			} catch(_){ /* ignora erros de opções */ }
 
-			// Replace explanation
-			await sequelize.query(`UPDATE public.explicacaoguia SET excluido = TRUE, dataalteracao = CURRENT_TIMESTAMP WHERE idquestao = :id AND (excluido = FALSE OR excluido IS NULL)`, { replacements: { id }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+			// Replace explanation: update existing row if present; otherwise insert one
 			if (explicacao != null) {
-				await sequelize.query(`INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, criadousuario, alteradousuario, excluido)
-							 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :userId, :userId, false)`, { replacements: { id, descricao: explicacao, userId: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				const existingExp = await sequelize.query(
+					`SELECT id FROM public.explicacaoguia WHERE idquestao = :id LIMIT 1`,
+					{ replacements: { id }, type: sequelize.QueryTypes.SELECT, transaction: t }
+				);
+				if (existingExp && existingExp[0] && existingExp[0].id != null) {
+					await sequelize.query(
+						`UPDATE public.explicacaoguia SET descricao = :descricao, dataalteracao = CURRENT_TIMESTAMP, alteradousuario = :userId WHERE id = :expId`,
+						{ replacements: { descricao: explicacao, userId: updatedByUserId, expId: Number(existingExp[0].id) }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+					);
+				} else {
+					await sequelize.query(
+						`INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, criadousuario, alteradousuario, excluido)
+						 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :userId, :userId, false)`,
+						{ replacements: { id, descricao: explicacao, userId: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
+					);
+				}
 			}
 		});
 

@@ -53,28 +53,58 @@
         /* Grid of 6 cards (2 x 3) */
             .card-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; width:100%; max-width:320px; margin:0 auto; justify-items:center; }
                 .card{
-                    background:var(--panel); border:1px solid var(--border);
+                    background:#1e293b; border:1px solid rgba(255,255,255,0.06);
                     width:84px; height:84px; /* +40px total em relação ao original para caber imagem e texto com folga */
                     display:flex; align-items:center; justify-content:center;
-                    border-radius:10px; box-shadow: var(--shadow);
-                    cursor:pointer; transition: transform .15s ease, box-shadow .15s ease;
-                    padding:6px 8px; outline:none; color: var(--text); /* garante bom contraste no painel escuro */
+                    border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+                    cursor:pointer; transition: transform .18s ease, box-shadow .18s ease;
+                    padding:6px 8px; outline:none; color:#ffffff; font-weight:500;
+                    position:relative; overflow:hidden;
                 }
             .card:hover{ transform: scale(1.08) }
             .card:active{ transform: scale(0.98) }
-                .thumb{ width:70px; height:70px; border-radius:8px; object-fit:cover; display:block }
+                .thumb{ width:44px !important; height:44px !important; border-radius:8px; object-fit:cover !important; display:block; margin:0 auto; }
                     /* Simulador card variant: icon + label */
-                    .card--simulador{ flex-direction:column; gap:6px }
-                    .card--simulador .thumb{ width:64px; height:64px; border-radius:6px }
+                    .card--simulador{ flex-direction:column; gap:6px; align-items:center; justify-content:center; overflow:hidden; display:flex; height:100%; }
+                    .card--simulador .thumb{ width:44px !important; height:44px !important; border-radius:6px; object-fit:cover !important; display:block; margin:0 auto; }
                     .card-label{ font-size:.75rem; line-height:1.1; color:var(--muted); user-select:none }
                 @media (min-width:480px){
                     .card{ width:104px; height:104px; padding:10px }
-                        .thumb{ width:90px; height:90px }
-                        .card--simulador .thumb{ width:78px; height:78px }
+                        .thumb{ width:54px !important; height:54px !important; }
+                        .card--simulador .thumb{ width:54px !important; height:54px !important; }
                         .card--simulador{ gap:8px }
                         .card-label{ font-size:.90rem }
                 .card-grid{ max-width:340px }
             }
+
+            /* Paleta distinta para cada card dentro de qualquer .card-grid (primeiros 6) */
+            .card-grid .card:nth-child(1){
+                background:linear-gradient(135deg,#6366f1,#4338ca);
+            }
+            .card-grid .card:nth-child(2){
+                background:linear-gradient(135deg,#0ea5e9,#0369a1);
+            }
+            .card-grid .card:nth-child(3){
+                background:linear-gradient(135deg,#ec4899,#be185d);
+            }
+            .card-grid .card:nth-child(4){
+                background:linear-gradient(135deg,#10b981,#047857);
+            }
+            .card-grid .card:nth-child(5){
+                background:linear-gradient(135deg,#f59e0b,#b45309);
+            }
+            .card-grid .card:nth-child(6){
+                background:linear-gradient(135deg,#8b5cf6,#6d28d9);
+            }
+            /* Ajuste de texto e leve overlay para legibilidade */
+            .card-grid .card::after{
+                content:""; position:absolute; inset:0; background:linear-gradient(to bottom,rgba(0,0,0,0.12),rgba(0,0,0,0.35)); mix-blend-mode:overlay; pointer-events:none;
+            }
+            .card-label{color:#fff !important; text-shadow:0 1px 2px rgba(0,0,0,.4);}
+            /* Fonte menor especificamente para labels em cards simulador */
+            .card--simulador .card-label{ font-size:.65rem !important; }
+            /* Acessibilidade foco */
+            .card:focus-visible{ outline:2px solid #fff; outline-offset:3px; }
 
         /* Bottom navigation bar */
                     .bottom-nav{
@@ -315,21 +345,27 @@
             <div id="lastExamResultsMount" aria-live="polite" style="max-width:320px;margin:0 auto 8px auto; box-sizing:border-box; transition: background .25s ease;"></div>
             <div class="card-grid">
                  <div class="card card--simulador" data-full="" aria-label="Simulador" role="button" tabindex="0">
-                    <span class="card-label">Personalizar Exame</span>
+                    <img src="assets/pc.png" alt="Personalizar Exame" class="thumb" />
+                    <span class="card-label">Setup</span>
                 </div>
-                <div id="card-exam-mock" class="card" data-card="exam-mock"  aria-label="Exame Cmpleto (Mock)" role="button" tabindex="0">
-                    <span class="card-label">Exame completo</span>
+                <div id="card-exam-mock" class="card card--simulador" data-card="exam-mock"  aria-label="Exame completo (Mock)" role="button" tabindex="0">
+                    <img src="assets/exame.png" alt="Exame completo" class="thumb" />
+                    <span class="card-label">Simulador</span>
                 </div>
-                <div class="card" data-full="https://picsum.photos/800/800?random=3" aria-label="Abrir imagem 3" role="button" tabindex="0">
+                <div class="card card--simulador" data-full="https://picsum.photos/800/800?random=3" aria-label="Dica do dia" role="button" tabindex="0">
+                    <img src="assets/adendo.png" alt="Dica do dia" class="thumb" />
                     <span class="card-label">Dica do dia</span>
                 </div>
-                <div id="card-indicadores" class="card" data-card="indicadores" aria-label="Indicadores de desempenho" role="button" tabindex="0">
+                <div id="card-indicadores" class="card card--simulador" data-card="indicadores" aria-label="Indicadores de desempenho" role="button" tabindex="0">
+                    <img src="assets/kpi.png" alt="Indicadores" class="thumb" />
                     <span class="card-label">Indicadores</span>
                 </div>
-                <div id="card-progresso-geral" class="card" data-card="progresso-geral" aria-label="Progresso geral" role="button" tabindex="0">
+                <div id="card-progresso-geral" class="card card--simulador" data-card="progresso-geral" aria-label="Progresso geral" role="button" tabindex="0">
+                    <img src="assets/pc.png" alt="Progresso geral" class="thumb" />
                     <span class="card-label">Progresso geral</span>
                 </div>
-                <div class="card" data-full="https://picsum.photos/800/800?random=6" aria-label="Abrir imagem 6" role="button" tabindex="0">
+                <div class="card card--simulador" data-full="https://picsum.photos/800/800?random=6" aria-label="Estou pronto?" role="button" tabindex="0">
+                    <img src="assets/pronto.png" alt="Estou pronto?" class="thumb" />
                     <span class="card-label">Estou pronto?</span>
                 </div>
             </div>

@@ -847,7 +847,7 @@
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
         options,
-        // For backend to set respostaopcao.CriadoUsuario
+        // Audit: backend should use this to set respostaopcao.CriadoUsuario
         createdByUserId: (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : undefined; })()
       };
       const token = localStorage.getItem('sessionToken') || '';
@@ -1149,7 +1149,7 @@
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
         options,
-        // For backend to set respostaopcao.AlteradoUsuario
+        // Audit: backend should use this to set respostaopcao.AlteradoUsuario
         updatedByUserId: (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : undefined; })()
       };
       const token = localStorage.getItem('sessionToken') || '';

@@ -252,6 +252,16 @@ exports.updateQuestion = async (req, res) => {
 		const explicacao = (b.explicacao != null) ? String(b.explicacao) : null;
 		// Audit: updatedByUserId for respostaopcao on update
 		const updatedByUserId = Number.isFinite(Number(b.updatedByUserId)) ? Number(b.updatedByUserId) : null;
+		// Validate updatedByUserId (must exist in Usuario)
+		if (!Number.isFinite(updatedByUserId) || updatedByUserId <= 0) {
+			return res.status(400).json({ error: 'updatedByUserId required' });
+		}
+		try {
+			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: updatedByUserId }, type: sequelize.QueryTypes.SELECT });
+			if (!urow || !urow[0] || urow[0].Id == null) {
+				return res.status(400).json({ error: 'updatedByUserId not found' });
+			}
+		} catch(e){ return res.status(500).json({ error: 'user lookup failed' }); }
 		const examTypeId = Number.isFinite(Number(b.examTypeId)) ? Number(b.examTypeId) : null;
 		const examTypeSlug = (b.examTypeSlug || b.examType || '').trim().toLowerCase() || null;
 		let resolvedExamTypeId = examTypeId || null;
@@ -279,9 +289,10 @@ exports.updateQuestion = async (req, res) => {
 				id_task = :id_task,
 				versao_exame = :versao_exame,
 				exam_type_id = COALESCE(:exam_type_id, exam_type_id),
+				alteradousuario = :updatedByUserId,
 				dataalteracao = CURRENT_TIMESTAMP
 			WHERE id = :id`;
-			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
 			// Navegação: atualizar/inserir opções sem checagem dinâmica de colunas
 			try {

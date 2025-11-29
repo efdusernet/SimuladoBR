@@ -156,6 +156,8 @@
       const examTypeSlug = ($('examType').value||'').trim();
       const url = base + '/api/questions/bulk';
       $('status').textContent = 'Enviando...';
+      const sessionUserId = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
+      if (!sessionUserId){ $('status').textContent = 'Sessão sem userId. Faça login.'; alert('Sessão sem userId. Faça login.'); return; }
       try {
         let resp;
         if (mode === 'json') {
@@ -166,6 +168,11 @@
             if (!data.examType && examTypeSlug) data.examType = examTypeSlug;
             const idtask = ($('idtask').value||'').trim();
             if (idtask && !data.id_task) data.id_task = Number(idtask);
+            if (!data.createdByUserId) data.createdByUserId = sessionUserId;
+          }
+          // If array payload, wrap with top-level createdByUserId
+          if (Array.isArray(data)) {
+            data = { createdByUserId: sessionUserId, questions: data, examType: examTypeSlug || undefined };
           }
           resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(data) });
         } else {
@@ -175,6 +182,7 @@
           fd.append('file', f, f.name);
           // We can optionally include top-level examType when using file
           if (examTypeSlug) fd.append('examType', examTypeSlug);
+          fd.append('createdByUserId', String(sessionUserId));
           resp = await fetch(url, { method: 'POST', headers: { 'X-Session-Token': token }, body: fd });
         }
         const txt = await resp.text(); let data = null; try { data = txt ? JSON.parse(txt) : null; } catch{ data = null; }

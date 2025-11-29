@@ -830,6 +830,8 @@
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
 
+      const sessionUserId = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
+      if (!sessionUserId){ alert('Sessão sem userId. Faça login novamente.'); return; }
       const payload = {
         descricao,
         tiposlug,
@@ -848,7 +850,7 @@
         explicacao: explicacao || undefined,
         options,
         // Audit: backend should use this to set respostaopcao.CriadoUsuario
-        createdByUserId: (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : undefined; })()
+        createdByUserId: sessionUserId
       };
       const token = localStorage.getItem('sessionToken') || '';
       const url = (BACKEND_BASE || '') + '/api/questions';
@@ -1132,6 +1134,8 @@
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
 
+      const sessionUserIdUpdate = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
+      if (!sessionUserIdUpdate){ alert('Sessão sem userId. Faça login novamente.'); return; }
       const payload = {
         descricao,
         tiposlug,
@@ -1150,7 +1154,7 @@
         explicacao: explicacao || undefined,
         options,
         // Audit: backend should use this to set respostaopcao.AlteradoUsuario
-        updatedByUserId: (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : undefined; })()
+        updatedByUserId: sessionUserIdUpdate
       };
       const token = localStorage.getItem('sessionToken') || '';
       const url = (BACKEND_BASE || '') + `/api/questions/${id}`;

@@ -311,10 +311,10 @@ exports.selectQuestions = async (req, res) => {
       let rawOptions = [];
       if (allIds.length) {
         try {
-          const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao
+          const optsQ = `SELECT id, idquestao, descricao
             FROM respostaopcao
-            WHERE ("Excluido" = FALSE OR "Excluido" IS NULL) AND "IdQuestao" IN (:ids)
-            ORDER BY "IdQuestao", "Id"`;
+            WHERE (excluido = FALSE OR excluido IS NULL) AND idquestao IN (:ids)
+            ORDER BY idquestao, id`;
           rawOptions = await sequelize.query(optsQ, { replacements: { ids: allIds }, type: sequelize.QueryTypes.SELECT });
         } catch(_) { rawOptions = []; }
       }
@@ -351,9 +351,9 @@ exports.selectQuestions = async (req, res) => {
       // Fetch options
       let options = [];
       if (ids.length) {
-        const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao, "IsCorreta" AS iscorreta
+        const optsQ = `SELECT id, idquestao, descricao, iscorreta
           FROM respostaopcao
-          WHERE ("Excluido" = false OR "Excluido" IS NULL) AND "IdQuestao" IN (:ids)
+          WHERE (excluido = false OR excluido IS NULL) AND idquestao IN (:ids)
           ORDER BY random()`;
         options = await sequelize.query(optsQ, { replacements: { ids }, type: sequelize.QueryTypes.SELECT });
       }
@@ -570,9 +570,9 @@ exports.submitAnswers = async (req, res) => {
     }
 
     // fetch correct option ids from respostaopcao
-    const correctQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao
+    const correctQ = `SELECT id, idquestao
       FROM respostaopcao
-      WHERE "IsCorreta" = true AND "IdQuestao" IN (:qids)`;
+      WHERE iscorreta = true AND idquestao IN (:qids)`;
     const correctRows = await sequelize.query(correctQ, { replacements: { qids }, type: sequelize.QueryTypes.SELECT });
 
     const correctByQ = {};

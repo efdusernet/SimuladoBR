@@ -89,7 +89,7 @@ exports.createQuestion = async (req, res) => {
 					}
 					for (const opt of normalized) {
 						await sequelize.query(
-							'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido","CriadoUsuario") VALUES (:qid,:descricao,:correta,false,:userId)',
+							'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario) VALUES (:qid,:descricao,:correta,false,:userId)',
 							{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta, userId: createdByUserId != null ? createdByUserId : 1 }, type: sequelize.QueryTypes.INSERT, transaction: t }
 						);
 					}
@@ -97,8 +97,8 @@ exports.createQuestion = async (req, res) => {
 			} catch(_){ /* não bloquear criação da questão por erro em opções */ }
 			// Insert explicacao if provided
 			if (explicacao != null && explicacao !== '') {
-				const insertE = `INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, criadousuario, alteradousuario, excluido)
-											 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :userId, :userId, false)`;
+				const insertE = `INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido)
+											 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`;
 				await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao, userId: createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			}
 		});
@@ -174,9 +174,9 @@ exports.getQuestionById = async (req, res) => {
 		if (!row || !row[0]) return res.status(404).json({ error: 'not found' });
 		const base = row[0];
 
-		const osql = `SELECT "Descricao" AS descricao, "IsCorreta" AS correta
-									FROM public.respostaopcao
-									WHERE "IdQuestao" = :id AND ("Excluido" = FALSE OR "Excluido" IS NULL)`;
+		const osql = `SELECT descricao, iscorreta AS correta
+								FROM public.respostaopcao
+								WHERE idquestao = :id AND (excluido = FALSE OR excluido IS NULL)`;
 		const opts = await sequelize.query(osql, { replacements: { id }, type: sequelize.QueryTypes.SELECT });
 
 		let explicacao = null;
@@ -287,7 +287,7 @@ exports.updateQuestion = async (req, res) => {
 						normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
 					}
 					const existing = await sequelize.query(
-						'SELECT "Id" AS id FROM public.respostaopcao WHERE "IdQuestao" = :qid AND ("Excluido" = FALSE OR "Excluido" IS NULL) ORDER BY "Id"',
+						'SELECT id FROM public.respostaopcao WHERE idquestao = :qid AND (excluido = FALSE OR excluido IS NULL) ORDER BY id',
 						{ replacements: { qid: id }, type: sequelize.QueryTypes.SELECT, transaction: t }
 					);
 					const existingIds = existing.map(r => Number(r.id)).filter(Number.isFinite);
@@ -295,12 +295,12 @@ exports.updateQuestion = async (req, res) => {
 						const opt = normalized[i];
 						if (i < existingIds.length) {
 							await sequelize.query(
-								'UPDATE public.respostaopcao SET "Descricao" = :descricao, "IsCorreta" = :correta, "AlteradoUsuario" = :updatedByUserId WHERE "Id" = :id',
+								'UPDATE public.respostaopcao SET descricao = :descricao, iscorreta = :correta, alteradousuario = :updatedByUserId, dataalteracao = CURRENT_TIMESTAMP WHERE id = :id',
 								{ replacements: { descricao: opt.descricao, correta: opt.correta, id: existingIds[i], updatedByUserId: updatedByUserId != null ? updatedByUserId : 1 }, type: sequelize.QueryTypes.UPDATE, transaction: t }
 							);
 						} else {
 							await sequelize.query(
-								'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido","CriadoUsuario") VALUES (:qid,:descricao,:correta,false,:createdByUserId)',
+								'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario, alteradousuario, datacadastro, dataalteracao) VALUES (:qid,:descricao,:correta,false,:createdByUserId,:createdByUserId,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)',
 								{ replacements: { qid: id, descricao: opt.descricao, correta: opt.correta, createdByUserId: updatedByUserId != null ? updatedByUserId : 1 }, type: sequelize.QueryTypes.INSERT, transaction: t }
 							);
 						}
@@ -308,7 +308,7 @@ exports.updateQuestion = async (req, res) => {
 					if (existingIds.length > normalized.length) {
 						const toRemove = existingIds.slice(normalized.length);
 						await sequelize.query(
-							'UPDATE public.respostaopcao SET "Excluido" = TRUE WHERE "Id" = ANY(:ids)',
+							'UPDATE public.respostaopcao SET excluido = TRUE, dataalteracao = CURRENT_TIMESTAMP WHERE id = ANY(:ids)',
 							{ replacements: { ids: toRemove }, type: sequelize.QueryTypes.UPDATE, transaction: t }
 						);
 					}
@@ -328,8 +328,8 @@ exports.updateQuestion = async (req, res) => {
 					);
 				} else {
 					await sequelize.query(
-						`INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, criadousuario, alteradousuario, excluido)
-						 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :userId, :userId, false)`,
+						`INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido)
+						 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`,
 						{ replacements: { id, descricao: explicacao, userId: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
 					);
 				}
@@ -545,8 +545,8 @@ exports.bulkCreateQuestions = async (req, res) => {
 					// Optional explanation
 					if (q.explicacao) {
 						try {
-							const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")
-															 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, false)`;
+							const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "Excluido")
+															 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`;
 							await sequelize.query(insertE, { replacements: { qid, descricao: String(q.explicacao) }, type: sequelize.QueryTypes.INSERT, transaction: t });
 						} catch(_) { /* ignore optional failure */ }
 					}

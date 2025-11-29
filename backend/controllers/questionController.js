@@ -315,12 +315,12 @@ exports.updateQuestion = async (req, res) => {
 						if (i < existingIds.length) {
 							await sequelize.query(
 								'UPDATE public.respostaopcao SET descricao = :descricao, iscorreta = :correta, alteradousuario = :updatedByUserId, dataalteracao = CURRENT_TIMESTAMP WHERE id = :id',
-								{ replacements: { descricao: opt.descricao, correta: opt.correta, id: existingIds[i], updatedByUserId: updatedByUserId != null ? updatedByUserId : 1 }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+								{ replacements: { descricao: opt.descricao, correta: opt.correta, id: existingIds[i], updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t }
 							);
 						} else {
 							await sequelize.query(
 								'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario, alteradousuario, datacadastro, dataalteracao) VALUES (:qid,:descricao,:correta,false,:createdByUserId,:createdByUserId,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)',
-								{ replacements: { qid: id, descricao: opt.descricao, correta: opt.correta, createdByUserId: updatedByUserId != null ? updatedByUserId : 1 }, type: sequelize.QueryTypes.INSERT, transaction: t }
+								{ replacements: { qid: id, descricao: opt.descricao, correta: opt.correta, createdByUserId: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
 							);
 						}
 					}
@@ -521,15 +521,17 @@ exports.bulkCreateQuestions = async (req, res) => {
 			(rows || []).forEach(r => slugMap.set(String(r.slug).toLowerCase(), Number(r.id)));
 		}
 
-		// Audit user for bulk explanation rows (optional in payload)
-		const bulkCreatedByUserId = Number.isFinite(Number((req.body && req.body.createdByUserId) || (payload && payload.createdByUserId))) ? Number((req.body && req.body.createdByUserId) || (payload && payload.createdByUserId)) : 1;
-		let validBulkUser = 1;
-		if (Number.isFinite(bulkCreatedByUserId) && bulkCreatedByUserId > 0) {
-			try {
-				const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: bulkCreatedByUserId }, type: sequelize.QueryTypes.SELECT });
-				if (urow && urow[0] && urow[0].Id != null) validBulkUser = bulkCreatedByUserId; else validBulkUser = 1;
-			} catch(_) { validBulkUser = 1; }
+		// Audit user for bulk explanation rows (required now)
+		const bulkCreatedByUserId = Number.isFinite(Number((req.body && req.body.createdByUserId) || (payload && payload.createdByUserId))) ? Number((req.body && req.body.createdByUserId) || (payload && payload.createdByUserId)) : null;
+		if (!Number.isFinite(bulkCreatedByUserId) || bulkCreatedByUserId <= 0) {
+			return res.status(400).json({ error: 'createdByUserId required for bulk' });
 		}
+		try {
+			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: bulkCreatedByUserId }, type: sequelize.QueryTypes.SELECT });
+			if (!urow || !urow[0] || urow[0].Id == null) {
+				return res.status(400).json({ error: 'createdByUserId not found' });
+			}
+		} catch(e){ return res.status(500).json({ error: 'user lookup failed' }); }
 		const results = [];
 		let inserted = 0;
 		await sequelize.transaction(async (t) => {
@@ -575,7 +577,7 @@ exports.bulkCreateQuestions = async (req, res) => {
 						try {
 							const insertE = `INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido, criadousuario, alteradousuario)
 											 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`;
-							await sequelize.query(insertE, { replacements: { qid, descricao: String(q.explicacao), uid: validBulkUser }, type: sequelize.QueryTypes.INSERT, transaction: t });
+							await sequelize.query(insertE, { replacements: { qid, descricao: String(q.explicacao), uid: bulkCreatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
 						} catch(_) { /* ignore optional failure */ }
 					}
 

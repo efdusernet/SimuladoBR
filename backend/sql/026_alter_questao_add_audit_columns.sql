@@ -5,8 +5,8 @@ ALTER TABLE public.questao
   ADD COLUMN IF NOT EXISTS alteradousuario INTEGER;
 
 -- Optional: set defaults for existing rows where null
-UPDATE public.questao SET criadousuario = 1 WHERE criadousuario IS NULL;
-UPDATE public.questao SET alteradousuario = 1 WHERE alteradousuario IS NULL;
+-- (Removido preenchimento automático com 1; manter NULL para histórico desconhecido
+--  será preenchido em futuras atualizações ou migrações específicas.)
 
 -- Add foreign keys to Usuario table if not present (case-sensitive table requires quoting)
 DO $$

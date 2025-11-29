@@ -294,15 +294,7 @@ exports.selectQuestions = async (req, res) => {
 
       // Combine, then fetch options once for all selected IDs
       const combined = [...pretestRows.map(r => ({ ...r, _isPreTest: true })), ...regularRows.map(r => ({ ...r, _isPreTest: false }))];
-      // Debug: log imagem_url presence for question 266 before shuffling
-      try {
-        const dbgQ266 = combined.find(q => q && Number(q.id) === 266);
-        if (dbgQ266) {
-          console.debug('[selectQuestions] pre-shuffle Q266 imagem_url raw length=', dbgQ266.imagem_url ? String(dbgQ266.imagem_url).length : 0, 'startsWith(data:)', /^data:/i.test(String(dbgQ266.imagem_url||'')), 'prefix50=', dbgQ266.imagem_url ? String(dbgQ266.imagem_url).slice(0,50) : null);
-        } else {
-          console.debug('[selectQuestions] Q266 not found in combined set (full mode)');
-        }
-      } catch(_) {}
+      // (removed verbose Q266 debug block)
       // Shuffle order
       for (let i = combined.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -338,11 +330,7 @@ exports.selectQuestions = async (req, res) => {
         }
         return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [], _isPreTest: q._isPreTest };
       });
-      // Debug: after initial mapping, log q266 again
-      try {
-        const mappedQ266 = payloadQuestions.find(q => q && Number(q.id) === 266);
-        if (mappedQ266) console.debug('[selectQuestions] mapped Q266 imagem_url length=', mappedQ266.imagem_url ? String(mappedQ266.imagem_url).length : 0);
-      } catch(_) {}
+      // (removed post-mapping Q266 debug)
       ids = allIds;
     } else {
       // Legacy path (quiz or non-full)
@@ -376,10 +364,7 @@ exports.selectQuestions = async (req, res) => {
         }
         return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [] };
       });
-      try {
-        const mappedQ266 = payloadQuestions.find(q => q && Number(q.id) === 266);
-        if (mappedQ266) console.debug('[selectQuestions] (legacy) mapped Q266 imagem_url length=', mappedQ266.imagem_url ? String(mappedQ266.imagem_url).length : 0);
-      } catch(_) {}
+      // (removed legacy Q266 debug)
     }
 
     // generate session id and persist attempt with ordered questions

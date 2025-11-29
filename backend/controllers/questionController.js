@@ -37,7 +37,10 @@ exports.createQuestion = async (req, res) => {
 	const id_task = (b.id_task != null && b.id_task !== '') ? Number(b.id_task) : null;
 	const dica = (b.dica || null);
 	const imagemUrl = (b.imagemUrl || b.imagem_url || '').trim() || null;
+	const versaoExame = (b.versao_exame || b.versaoExame || '').trim() || null;
 	const explicacao = (b.explicacao != null) ? String(b.explicacao).trim() : null;
+		// Audit: createdByUserId for respostaopcao on creation
+		const createdByUserId = Number.isFinite(Number(b.createdByUserId)) ? Number(b.createdByUserId) : null;
 		const options = Array.isArray(b.options) ? b.options : [];
 		// exam type: accept id or slug
 		const examTypeId = Number.isFinite(Number(b.examTypeId)) ? Number(b.examTypeId) : null;
@@ -54,17 +57,17 @@ exports.createQuestion = async (req, res) => {
 
 		let createdId = null;
 		await sequelize.transaction(async (t) => {
-		// Insert question
+		// Insert question (no session user write on questao)
 		const insertQ = `INSERT INTO public.questao (
 			iddominio, idstatus, descricao, datacadastro, dataalteracao,
 			criadousuario, alteradousuario, excluido, seed, nivel,
-			idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task
+				idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame
 		) VALUES (
 			:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 			1, 1, false, false, 1,
-			:idprincipio, :dica, :multipla, :codigocategoria, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task
+				:idprincipio, :dica, :multipla, :codigocategoria, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame
 		) RETURNING id`;
-		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task }, type: sequelize.QueryTypes.INSERT, transaction: t });
+		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
 			// Safer: fetch with SELECT currval... but RETURNING should give us id in r[0][0].id depending on dialect
 			const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
@@ -79,6 +82,12 @@ exports.createQuestion = async (req, res) => {
 			// Frontend sends array: [{ descricao: string, correta: boolean }, ...]
 			// Enforce: at least 2 options; for single choice keep only first marked correta.
 			try {
+				// Detect presence of audit columns to avoid breaking if not migrated yet
+				let hasCriadoUsuarioCol = false;
+				try {
+					const colRows = await sequelize.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='respostaopcao' AND column_name='CriadoUsuario'", { type: sequelize.QueryTypes.SELECT, transaction: t });
+					hasCriadoUsuarioCol = Array.isArray(colRows) && colRows.length > 0;
+				} catch(_) { /* ignore */ }
 				const incomingOpts = Array.isArray(options) ? options : [];
 				// Filter and normalize
 				let filtered = incomingOpts
@@ -94,17 +103,35 @@ exports.createQuestion = async (req, res) => {
 					filtered.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
 				}
 				for (const opt of filtered) {
-					await sequelize.query(
-						'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido") VALUES (:qid,:descricao,:correta,false)',
-						{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta }, type: sequelize.QueryTypes.INSERT, transaction: t }
-					);
+					if (hasCriadoUsuarioCol && createdByUserId != null) {
+						await sequelize.query(
+							'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido","CriadoUsuario") VALUES (:qid,:descricao,:correta,false,:createdByUserId)',
+							{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta, createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
+						);
+					} else {
+						await sequelize.query(
+							'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido") VALUES (:qid,:descricao,:correta,false)',
+							{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta }, type: sequelize.QueryTypes.INSERT, transaction: t }
+						);
+					}
 				}
 			} catch(_){ /* ignore option insertion errors to not break question creation */ }
-			// Insert explicacao if provided
+			// Insert explicacao if provided (adapt to table schema)
 			if (explicacao != null && explicacao !== '') {
-				const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")
-												 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, false)`;
-				await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				let hasCriadoAlteradoCols = false;
+				try {
+					const colRows = await sequelize.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='explicacaoguia' AND column_name IN ('CriadoUsuario','AlteradoUsuario')", { type: sequelize.QueryTypes.SELECT, transaction: t });
+					hasCriadoAlteradoCols = ['CriadoUsuario','AlteradoUsuario'].every(col => colRows.some(r => r.column_name === col));
+				} catch(_) { /* ignore */ }
+				if (hasCriadoAlteradoCols) {
+					const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")
+										 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, false)`;
+					await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				} else {
+					const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "Excluido")
+										 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`;
+					await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				}
 			}
 		});
 
@@ -172,8 +199,9 @@ exports.getQuestionById = async (req, res) => {
 		if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid id' });
 
 	const qsql = `SELECT q.id, q.descricao, q.tiposlug, q.iddominio, q.codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
-											 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
-											 et.slug AS exam_type_slug, et.nome AS exam_type_nome
+												 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
+												 q.versao_exame,
+												 et.slug AS exam_type_slug, et.nome AS exam_type_nome
 								FROM public.questao q
 								LEFT JOIN public.exam_type et ON et.id = q.exam_type_id
 								WHERE q.id = :id`;
@@ -209,6 +237,7 @@ exports.getQuestionById = async (req, res) => {
 			id_task: base.id_task,
 			dica: base.dica,
 			imagemUrl: base.imagem_url,
+			versao_exame: base.versao_exame,
 			explicacao,
 			options: opts || [],
 			examType: { id: base.exam_type_id, slug: base.exam_type_slug, nome: base.exam_type_nome }
@@ -246,7 +275,10 @@ exports.updateQuestion = async (req, res) => {
 	const id_task = (b.id_task != null && b.id_task !== '') ? Number(b.id_task) : null;
 	const dica = (b.dica || null);
 	const imagemUrl = (b.imagemUrl || b.imagem_url || '').trim() || null;
+	const versaoExame = (b.versao_exame || b.versaoExame || '').trim() || null;
 		const explicacao = (b.explicacao != null) ? String(b.explicacao) : null;
+		// Audit: updatedByUserId for respostaopcao on update
+		const updatedByUserId = Number.isFinite(Number(b.updatedByUserId)) ? Number(b.updatedByUserId) : null;
 		const examTypeId = Number.isFinite(Number(b.examTypeId)) ? Number(b.examTypeId) : null;
 		const examTypeSlug = (b.examTypeSlug || b.examType || '').trim().toLowerCase() || null;
 		let resolvedExamTypeId = examTypeId || null;
@@ -272,14 +304,22 @@ exports.updateQuestion = async (req, res) => {
 				imagem_url = :imagem_url,
 				codniveldificuldade = :codniveldificuldade,
 				id_task = :id_task,
+				versao_exame = :versao_exame,
 				exam_type_id = COALESCE(:exam_type_id, exam_type_id),
-				dataalteracao = CURRENT_TIMESTAMP,
-				alteradousuario = 1
+				dataalteracao = CURRENT_TIMESTAMP
 			WHERE id = :id`;
-			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, exam_type_id: resolvedExamTypeId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
 			// Navegação: atualizar/inserir opções se enviadas (somente esta rota de update usa b.options).
 			try {
+					// Detect audit columns once per update to adapt queries safely
+					let hasCriadoUsuarioCol = false;
+					let hasAlteradoUsuarioCol = false;
+					try {
+						const colRows = await sequelize.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='respostaopcao' AND column_name IN ('CriadoUsuario','AlteradoUsuario')", { type: sequelize.QueryTypes.SELECT, transaction: t });
+						(hasCriadoUsuarioCol = colRows.some(r => r.column_name === 'CriadoUsuario'));
+						(hasAlteradoUsuarioCol = colRows.some(r => r.column_name === 'AlteradoUsuario'));
+					} catch(_) { /* ignore */ }
 				const incomingOpts = Array.isArray(b.options) ? b.options : [];
 				let normalized = incomingOpts
 					.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
@@ -301,15 +341,29 @@ exports.updateQuestion = async (req, res) => {
 					for (let i = 0; i < normalized.length; i++) {
 						const opt = normalized[i];
 						if (i < existingIds.length) {
-							await sequelize.query(
-								'UPDATE public.respostaopcao SET "Descricao" = :descricao, "IsCorreta" = :correta WHERE "Id" = :id',
-								{ replacements: { descricao: opt.descricao, correta: opt.correta, id: existingIds[i] }, type: sequelize.QueryTypes.UPDATE, transaction: t }
-							);
+							if (hasAlteradoUsuarioCol && updatedByUserId != null) {
+								await sequelize.query(
+									'UPDATE public.respostaopcao SET "Descricao" = :descricao, "IsCorreta" = :correta, "AlteradoUsuario" = :updatedByUserId WHERE "Id" = :id',
+									{ replacements: { descricao: opt.descricao, correta: opt.correta, id: existingIds[i], updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+								);
+							} else {
+								await sequelize.query(
+									'UPDATE public.respostaopcao SET "Descricao" = :descricao, "IsCorreta" = :correta WHERE "Id" = :id',
+									{ replacements: { descricao: opt.descricao, correta: opt.correta, id: existingIds[i] }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+								);
+							}
 						} else {
-							await sequelize.query(
-								'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido") VALUES (:qid,:descricao,:correta,false)',
-								{ replacements: { qid: id, descricao: opt.descricao, correta: opt.correta }, type: sequelize.QueryTypes.INSERT, transaction: t }
-							);
+							if (hasCriadoUsuarioCol && updatedByUserId != null) {
+								await sequelize.query(
+									'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido","CriadoUsuario") VALUES (:qid,:descricao,:correta,false,:updatedByUserId)',
+									{ replacements: { qid: id, descricao: opt.descricao, correta: opt.correta, updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
+								);
+							} else {
+								await sequelize.query(
+									'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido") VALUES (:qid,:descricao,:correta,false)',
+									{ replacements: { qid: id, descricao: opt.descricao, correta: opt.correta }, type: sequelize.QueryTypes.INSERT, transaction: t }
+								);
+							}
 						}
 					}
 					// Marcar excedentes como excluídos se quantidade foi reduzida
@@ -326,8 +380,18 @@ exports.updateQuestion = async (req, res) => {
 			// Replace explanation
 			await sequelize.query(`UPDATE public.explicacaoguia SET "Excluido" = TRUE, "DataAlteracao" = CURRENT_TIMESTAMP WHERE idquestao = :id AND ("Excluido" = FALSE OR "Excluido" IS NULL)`, { replacements: { id }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 			if (explicacao != null) {
-				await sequelize.query(`INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")
-															 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, false)`, { replacements: { id, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				let hasCriadoAlteradoCols = false;
+				try {
+					const colRows = await sequelize.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='explicacaoguia' AND column_name IN ('CriadoUsuario','AlteradoUsuario')", { type: sequelize.QueryTypes.SELECT, transaction: t });
+					hasCriadoAlteradoCols = ['CriadoUsuario','AlteradoUsuario'].every(col => colRows.some(r => r.column_name === col));
+				} catch(_) { /* ignore */ }
+				if (hasCriadoAlteradoCols) {
+					await sequelize.query(`INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")
+										 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, false)`, { replacements: { id, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				} else {
+					await sequelize.query(`INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "Excluido")
+										 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`, { replacements: { id, descricao: explicacao }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				}
 			}
 		});
 

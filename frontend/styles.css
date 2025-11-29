@@ -1,3 +1,107 @@
+/* Ícone pequeno para card customizado */
+/* Ícone pequeno, nunca maior que o card */
+/* Força o ícone a nunca ultrapassar o card, com !important */
+/* Remove regras antigas e centraliza .thumb corretamente */
+.card--simulador {
+	flex-direction: column;
+	gap: 6px;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	display: flex;
+	height: 100%;
+}
+/* Garante tamanho fixo e impede expansão por outros estilos */
+/* Reduzido mais 10% */
+/* Reduzido mais 25% */
+.card--simulador .thumb {
+	width: 35px !important;
+	height: 35px !important;
+	max-width: 35px !important;
+	max-height: 35px !important;
+	border-radius: 6px;
+	object-fit: cover !important;
+	display: block;
+	margin: 0 auto;
+	box-shadow: none;
+}
+@media (min-width:480px){
+	.card--simulador .thumb {
+		width: 43px !important;
+		height: 43px !important;
+		max-width: 43px !important;
+		max-height: 43px !important;
+	}
+}
+/* Custom exam card visual (faixa branca + imagem) */
+
+.card--custom-exam {
+	position: relative;
+	padding: 0;
+	background: transparent;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	align-items: stretch;
+	width: 84px;
+	height: 84px;
+	box-shadow: var(--shadow);
+	border-radius: 10px;
+	border: 1px solid var(--border);
+	overflow: hidden;
+}
+/* Ajuste para imagem igual aos outros cards */
+
+.card--custom-exam .card-img-wrap {
+	width: 100%;
+	height: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+}
+.card--custom-exam .card-img {
+	width: 32px;
+	height: 32px;
+	object-fit: contain;
+	display: block;
+	margin: 0 auto;
+}
+@media (min-width:480px){
+	.card--custom-exam .card-img-wrap {
+		height: 44px;
+	}
+	.card--custom-exam .card-img {
+		width: 32px;
+		height: 32px;
+	}
+}
+.card--custom-exam .card-bottom-bar {
+	height: 20px;
+	background: #fff;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-bottom-left-radius: 10px;
+	border-bottom-right-radius: 10px;
+	box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+}
+.card--custom-exam .card-label {
+	color: #111827;
+	font-size: .78rem;
+	font-weight: 500;
+	user-select: none;
+}
+@media (min-width:480px){
+	.card--custom-exam {
+	width: 84px; /* unchanged */
+	height: 84px; /* unchanged */
+	}
+	.card--custom-exam .card-img-wrap {
+		height: 84px;
+	}
+}
 :root{
 	--base-font-size: 16px;
 	--bg: #f5f7fb;
@@ -10,11 +114,11 @@
 }
 
 html,body{
-	height:100%;
-	margin:0;
-	font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-	font-size: var(--base-font-size);
-	background: var(--bg);
+	width: 32px; /* unchanged */
+	height: 32px; /* unchanged */
+	object-fit: contain; /* unchanged */
+	display: block; /* unchanged */
+	margin: 0 auto; /* unchanged */
 	color: #111827;
 	-webkit-font-smoothing:antialiased;
 	-moz-osx-font-smoothing:grayscale;

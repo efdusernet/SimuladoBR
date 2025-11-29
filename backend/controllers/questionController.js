@@ -25,6 +25,8 @@ exports.createQuestion = async (req, res) => {
 			if (['multi','multiple','checkbox'].includes(tiposlug)) multipla = true; else if (['single','radio'].includes(tiposlug)) multipla = false;
 		}
 		if (multipla == null) multipla = false;
+		// Audit: usuário criador para respostaopcao (CriadoUsuario)
+		const createdByUserId = Number.isFinite(Number(b.createdByUserId)) ? Number(b.createdByUserId) : null;
 	const iddominio = Number.isFinite(Number(b.iddominio)) ? Number(b.iddominio) : 1;
 	const codareaconhecimento = (b.codareaconhecimento != null && b.codareaconhecimento !== '') ? Number(b.codareaconhecimento) : null;
 	const codgrupoprocesso = (b.codgrupoprocesso != null && b.codgrupoprocesso !== '') ? Number(b.codgrupoprocesso) : null;
@@ -74,7 +76,25 @@ exports.createQuestion = async (req, res) => {
 				createdId = (check && check[0] && check[0].id) ? Number(check[0].id) : null;
 			}
 			if (!createdId) throw new Error('Could not retrieve created question id');
-			// Options are master data; no insertion performed.
+			// Inserir opções com audit CriadoUsuario se fornecidas
+			try {
+				const incomingOpts = Array.isArray(options) ? options : [];
+				let normalized = incomingOpts
+					.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
+					.map(o => ({ descricao: o.descricao.trim(), correta: !!o.correta }));
+				if (normalized.length >= 2) {
+					if (!multipla) {
+						let seen = false;
+						normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
+					}
+					for (const opt of normalized) {
+						await sequelize.query(
+							'INSERT INTO public.respostaopcao ("IdQuestao","Descricao","IsCorreta","Excluido","CriadoUsuario") VALUES (:qid,:descricao,:correta,false,:userId)',
+							{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta, userId: createdByUserId != null ? createdByUserId : 1 }, type: sequelize.QueryTypes.INSERT, transaction: t }
+						);
+					}
+				}
+			} catch(_){ /* não bloquear criação da questão por erro em opções */ }
 			// Insert explicacao if provided
 			if (explicacao != null && explicacao !== '') {
 				const insertE = `INSERT INTO public.explicacaoguia (idquestao, "Descricao", "DataCadastro", "DataAlteracao", "CriadoUsuario", "AlteradoUsuario", "Excluido")

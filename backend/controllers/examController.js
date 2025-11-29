@@ -1255,19 +1255,19 @@ exports.resumeSession = async (req, res) => {
         const progress = await computeAttemptProgress(db, attempt.Id);
         if (progress.respondedPercent >= policies.PURGE_LOW_PROGRESS_PERCENT) continue;
         const snapshot = {
-          attempt_id: attempt.Id,
-          user_id: attempt.UserId || null,
-          exam_type_id: attempt.ExamTypeId || null,
-          exam_mode: attempt.ExamMode || null,
-          quantidade_questoes: attempt.QuantidadeQuestoes || null,
-          responded_count: progress.respondedCount,
-          responded_percent: progress.respondedPercent,
-          status_before: attempt.Status,
-          status_reason_before: attempt.StatusReason || null,
-          started_at: attempt.StartedAt || null,
-          finished_at: attempt.FinishedAt || null,
-          purge_reason: 'policy',
-          meta: attempt.Meta || null,
+          AttemptId: attempt.Id,
+          UserId: attempt.UserId || null,
+          ExamTypeId: attempt.ExamTypeId || null,
+          ExamMode: attempt.ExamMode || null,
+          QuantidadeQuestoes: attempt.QuantidadeQuestoes || null,
+          RespondedCount: progress.respondedCount,
+          RespondedPercent: progress.respondedPercent,
+          StatusBefore: attempt.Status,
+          StatusReasonBefore: attempt.StatusReason || null,
+          StartedAt: attempt.StartedAt || null,
+          FinishedAt: attempt.FinishedAt || null,
+          PurgeReason: 'policy',
+          Meta: attempt.Meta || null,
         };
         await db.sequelize.transaction(async (t) => {
           await db.ExamAttemptPurgeLog.create(snapshot, { transaction: t });

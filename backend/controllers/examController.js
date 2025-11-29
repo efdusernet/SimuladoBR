@@ -155,6 +155,12 @@ exports.selectQuestions = async (req, res) => {
 
   // Build WHERE clause
   const whereClauses = [`excluido = false`, `idstatus = 1`];
+  // Optional exam version filter from environment (EXAM_VER)
+  const examVersion = (process.env.EXAM_VER || '').trim();
+  if (examVersion) {
+    // Use parameter binding to avoid injection; will add to replacements later
+    whereClauses.push(`versao_exame = :examVersion`);
+  }
   // Filter by exam type linkage if available in DB (1:N)
   if (examCfg && examCfg._dbId) {
     whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
@@ -186,7 +192,7 @@ exports.selectQuestions = async (req, res) => {
 
     // Count available (with exam_type when applicable)
   const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;
-    const countRes = await sequelize.query(countQuery, { type: sequelize.QueryTypes.SELECT });
+    const countRes = await sequelize.query(countQuery, { replacements: examVersion ? { examVersion } : {}, type: sequelize.QueryTypes.SELECT });
     let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
 
     // Always respect exam type; no fallback that drops exam_type
@@ -216,12 +222,14 @@ exports.selectQuestions = async (req, res) => {
     const REGULAR_TARGET = Math.max(FULL_TOTAL - PRETEST_COUNT_TARGET, 0);
 
     const baseQuestionSelect = (extraWhere, limit) => {
+      const replacements = { limit };
+      if (examVersion) replacements.examVersion = examVersion;
       return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl", eg."Descricao" AS explicacao
         FROM questao q
         LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
         WHERE ${whereSqlUsed} ${extraWhere ? ' AND ' + extraWhere : ''}
         ORDER BY random()
-        LIMIT :limit`, { replacements: { limit }, type: sequelize.QueryTypes.SELECT });
+        LIMIT :limit`, { replacements, type: sequelize.QueryTypes.SELECT });
     };
 
     if (examMode === 'full') {

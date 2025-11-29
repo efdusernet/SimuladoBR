@@ -25,8 +25,9 @@ router.post('/', requireAdmin, questionController.createQuestion);
 router.get('/view/:id', requireUserSession, questionController.getQuestionById);
 
 router.get('/', requireAdmin, questionController.listQuestions);
-router.get('/:id', requireAdmin, questionController.getQuestionById);
+// Exists MUST come before the generic :id route to avoid shadowing ('exists' being treated as an id)
 router.get('/exists', requireAdmin, questionController.existsQuestion);
+router.get('/:id', requireAdmin, questionController.getQuestionById);
 
 // Update question
 router.put('/:id', requireAdmin, questionController.updateQuestion);

@@ -120,6 +120,10 @@
         <label for="examType">Tipo de exame</label>
         <select id="examType"></select>
       </div>
+        <div>
+          <label for="versaoExame">Versão do exame</label>
+          <select id="versaoExame"></select>
+        </div>
       <div>
         <label for="tipo">Tipo</label>
         <select id="tipo">
@@ -238,6 +242,10 @@
           <select id="examTypeNav"></select>
         </div>
         <div>
+          <label for="versaoExameNav">Versão do exame</label>
+          <select id="versaoExameNav"></select>
+        </div>
+        <div>
           <label for="tipoNav">Tipo</label>
           <select id="tipoNav">
             <option value="single">Opção única (rádio)</option>
@@ -330,6 +338,23 @@
         return data;
       })().finally(()=>{ delete metaInflight[key]; });
       return metaInflight[key];
+    }
+
+    async function loadVersoesExame(selectId){
+      try{
+        const data = await fetchMetaOnce('versoes-exame', '/api/meta/versoes-exame');
+        const sel = $(selectId);
+        if (!sel) return;
+        sel.innerHTML = '<option value="">(opcional)</option>';
+        (Array.isArray(data) ? data : []).forEach(it => {
+          const opt = document.createElement('option');
+          opt.value = String(it.id||'');
+          opt.textContent = String(it.descricao||'');
+          sel.appendChild(opt);
+        });
+        // Ensure first option is selected by default on load
+        sel.value = 'PMBOK 7th Ed. Jan 2021';
+      } catch(e){ console.error('[loadVersoesExame] error:', e); }
     }
 
     // Image upload handlers
@@ -731,6 +756,7 @@
       const tiposlug = $('tipo').value;
       const examTypeId = ($('examType').value || '').trim();
       const iddominio = ($('iddominio').value || '').trim();
+      const versao_exame = ($('versaoExame').value || '').trim();
       const area = ($('area').value || '').trim();
       const grupo = ($('grupo').value || '').trim();
       const iddominiogeral = ($('iddominiogeral').value || '').trim();
@@ -758,6 +784,8 @@
             if (dj && dj.exists) {
               $('status').textContent = 'Duplicada: já existe (ID ' + dj.id + ')';
               try { $('statusNovaQuestao').textContent = 'Questão existente (ID ' + dj.id + ')'; } catch(_){ }
+              // Limpa textarea de colagem ao detectar duplicata
+              try { $('optsPaste').value = ''; } catch(_){ }
               return; // aborta criação
             }
           }
@@ -806,6 +834,7 @@
         descricao,
         tiposlug,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
+        versao_exame: versao_exame || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
         codareaconhecimento: area ? Number(area) : undefined,
         codgrupoprocesso: grupo ? Number(grupo) : undefined,
@@ -817,7 +846,9 @@
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
-        options
+        options,
+        // For backend to set respostaopcao.CriadoUsuario
+        createdByUserId: (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : undefined; })()
       };
       const token = localStorage.getItem('sessionToken') || '';
       const url = (BACKEND_BASE || '') + '/api/questions';
@@ -837,6 +868,7 @@
       $('explicacao').value = '';
       // limpar selects e tipo
       try { $('examType').value = ''; } catch{}
+      try { $('versaoExame').value = ''; } catch{}
       try { $('tipo').value = 'single'; } catch{}
       try { $('iddominiogeral').value = ''; } catch{}
       try { $('iddominio').value = ''; } catch{}
@@ -872,6 +904,7 @@
         // Auto-load first question when Navegação tab is opened for the first time
         if (target === 'sec-nav' && !navInitialized) {
           navInitialized = true;
+          await Promise.all([ loadVersoesExame('versaoExameNav') ]);
           console.log('[initTabs] Loading first question for Navegação tab...');
           const firstId = await navGetFirstId(); 
           console.log('[initTabs] firstId result:', firstId);
@@ -923,7 +956,7 @@
         const q = await resp.json();
 
         // Ensure metadata loaded
-        await Promise.all([ loadExamTypes('examTypeNav'), loadDominioGeral('iddominiogeralNav') ]);
+        await Promise.all([ loadExamTypes('examTypeNav'), loadDominioGeral('iddominiogeralNav'), loadVersoesExame('versaoExameNav') ]);
 
         $('descricaoNav').value = q.descricao || '';
         $('tipoNav').value = (q.tiposlug || 'single');
@@ -952,6 +985,7 @@
         if (q.imagemUrl) showImagePreview('imagemPreviewNav', q.imagemUrl);
         else $('imagemPreviewNav').innerHTML = '';
         $('explicacaoNav').value = q.explicacao || '';
+        $('versaoExameNav').value = (q.versao_exame || '');
         // Use exam_type_id from the question record
         if (q.examType && q.examType.id != null){ 
           $('examTypeNav').value = String(q.examType.id); 
@@ -1081,6 +1115,7 @@
       const tiposlug = $('tipoNav').value;
       const examTypeId = ($('examTypeNav').value || '').trim();
       const iddominio = ($('iddominioNav').value || '').trim();
+      const versao_exame = ($('versaoExameNav').value || '').trim();
       const area = ($('areaNav').value || '').trim();
       const grupo = ($('grupoNav').value || '').trim();
       const iddominiogeral = ($('iddominiogeralNav').value || '').trim();
@@ -1101,6 +1136,7 @@
         descricao,
         tiposlug,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
+        versao_exame: versao_exame || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
         codareaconhecimento: area ? Number(area) : undefined,
         codgrupoprocesso: grupo ? Number(grupo) : undefined,
@@ -1112,7 +1148,9 @@
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
-        options
+        options,
+        // For backend to set respostaopcao.AlteradoUsuario
+        updatedByUserId: (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : undefined; })()
       };
       const token = localStorage.getItem('sessionToken') || '';
       const url = (BACKEND_BASE || '') + `/api/questions/${id}`;
@@ -1138,6 +1176,7 @@
 
     // init
     loadExamTypes();
+    loadVersoesExame('versaoExame');
     loadDominioGeral();
     loadDominios('iddominio');
     loadAreas('area');

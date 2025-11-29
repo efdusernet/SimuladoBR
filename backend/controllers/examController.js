@@ -206,7 +206,7 @@ exports.selectQuestions = async (req, res) => {
       const out = { available };
       if (wantDebugSql) {
         out.where = whereSqlUsed;
-        out.query = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSqlUsed}`;
+        out.query = `SELECT COUNT(*)::int AS cnt FROM questao q WHERE ${whereSqlUsed}`;
         out.filters = { dominios, areas, grupos, categorias, bloqueio, examType };
       }
       return res.json(out);
@@ -234,8 +234,8 @@ exports.selectQuestions = async (req, res) => {
     };
 
     if (examMode === 'full') {
-      // 1) Pretest questions (is_pretest = true)
-      const pretestRows = await baseQuestionSelect(`is_pretest = TRUE`, PRETEST_COUNT_TARGET);
+      // 1) Pretest questions (q.is_pretest = true)
+      const pretestRows = await baseQuestionSelect(`q.is_pretest = TRUE`, PRETEST_COUNT_TARGET);
       const actualPretestCount = pretestRows.length;
 
       // 2) Regular distributed questions via ECO table (iddominiogeral share)
@@ -272,10 +272,10 @@ exports.selectQuestions = async (req, res) => {
       const excludeIds = new Set(pretestRows.map(r => r.id));
       for (const alloc of allocations) {
         if (alloc.count <= 0) continue;
-        const domWhere = alloc.id_dominio != null ? `iddominiogeral = ${Number(alloc.id_dominio)}` : null;
-        const extraWhereParts = [`is_pretest = FALSE`];
+        const domWhere = alloc.id_dominio != null ? `q.iddominiogeral = ${Number(alloc.id_dominio)}` : null;
+        const extraWhereParts = [`q.is_pretest = FALSE`];
         if (domWhere) extraWhereParts.push(domWhere);
-        if (excludeIds.size) extraWhereParts.push(`id NOT IN (${Array.from(excludeIds).join(',')})`);
+        if (excludeIds.size) extraWhereParts.push(`q.id NOT IN (${Array.from(excludeIds).join(',')})`);
         const extraWhere = extraWhereParts.join(' AND ');
         const rows = await baseQuestionSelect(extraWhere, alloc.count);
         rows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });
@@ -285,8 +285,8 @@ exports.selectQuestions = async (req, res) => {
       const currentRegularCount = regularRows.length;
       if (currentRegularCount < REGULAR_TARGET) {
         const needed = REGULAR_TARGET - currentRegularCount;
-        const topUpWhereParts = [`is_pretest = FALSE`];
-        if (excludeIds.size) topUpWhereParts.push(`id NOT IN (${Array.from(excludeIds).join(',')})`);
+        const topUpWhereParts = [`q.is_pretest = FALSE`];
+        if (excludeIds.size) topUpWhereParts.push(`q.id NOT IN (${Array.from(excludeIds).join(',')})`);
         const topUpWhere = topUpWhereParts.join(' AND ');
         const topRows = await baseQuestionSelect(topUpWhere, needed);
         topRows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });

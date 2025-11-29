@@ -35,8 +35,8 @@ async function getAreaConhecimentoStats(req, res){
           q.codareaconhecimento AS area_id,
           ac.descricao AS area_nome,
           COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
-          COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
-          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
@@ -122,8 +122,8 @@ async function getAbordagemStats(req, res){
           q.codigocategoria AS abordagem_id,
           cq.descricao AS abordagem_nome,
           COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
-          COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
-          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
@@ -477,8 +477,8 @@ async function getProcessGroupStats(req, res){
           aq.id AS aqid,
           q.codgrupoprocesso AS grupo,
           COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
-          COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
-          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
@@ -602,13 +602,13 @@ async function getDetailsLast(req, res){
           aq.id AS aqid,
           q.codgrupoprocesso AS grupo,
           COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
-          COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
-          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
-        LEFT JOIN respostaopcao ro_all ON ro_all."IdQuestao" = aq.question_id
-        LEFT JOIN respostaopcao ro_chosen ON ro_chosen."Id" = aa.option_id
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
         JOIN exam_attempt a ON a.id = aq.attempt_id
         WHERE aq.attempt_id = :idExame
           AND q.codgrupoprocesso IS NOT NULL
@@ -760,8 +760,8 @@ async function getPerformancePorDominio(req, res){
               aq.id,
               aq.attempt_id,
               COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada) AS chosen_count,
-              COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta") AS correct_count,
-              COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada AND ro_chosen."IsCorreta") AS chosen_correct_count
+              COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta) AS correct_count,
+              COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada AND ro_chosen.iscorreta) AS chosen_correct_count
             FROM exam_attempt_question aq
             LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
             LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
@@ -825,8 +825,8 @@ async function getPerformancePorDominio(req, res){
           q.iddominiogeral AS domain_id,
           dg.descricao AS domain_name,
           COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
-          COUNT(DISTINCT ro_all."Id") FILTER (WHERE ro_all."IsCorreta" = true) AS correct_count,
-          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen."IsCorreta" = true) AS chosen_correct_count
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id

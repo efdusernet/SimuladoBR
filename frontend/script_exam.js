@@ -2,6 +2,19 @@
   // load questions from backend then initialize exam
             // QUESTIONS will be populated from the backend via /api/exams/select
             let QUESTIONS = [];
+                      try {
+                        const withImg = QUESTIONS.filter(q => q.imagem_url || q.imagemUrl);
+                        if (withImg.length) {
+                          console.debug('[exam] questions with image count', withImg.length);
+                          const q266 = withImg.find(q => q.id === 266);
+                          if (q266) {
+                            const rawImg = q266.imagem_url || q266.imagemUrl;
+                            console.debug('[exam] q266 image len', rawImg ? rawImg.length : 0, 'startsWith(data:)?', /^data:/i.test(rawImg), 'prefix50', rawImg ? rawImg.slice(0,50) : null);
+                          }
+                        } else {
+                          console.debug('[exam] no questions have imagem_url/imagemUrl');
+                        }
+                      } catch(e) {}
 
             // store user selections: key by question id (or index) -> { index, optionId } or { indices:[], optionIds:[] }
             const ANSWERS = {};
@@ -331,13 +344,58 @@
                 $('questionNumber').textContent = 0;
                 $('totalQuestions').textContent = 0;
                 $('questionText').textContent = 'Nenhuma pergunta disponível.';
-                  try { const ac = document.getElementById('answersContainer'); if (ac) ac.innerHTML = ''; } catch(e){}
+                try { const ac = document.getElementById('answersContainer'); if (ac) ac.innerHTML = ''; } catch(e){}
+                try { const idSpan = document.getElementById('questionIdDisplay'); if (idSpan) idSpan.textContent = ''; } catch(_){}
                 return;
               }
               // manter "Exemplo" fixo no header conforme solicitado; apenas atualizamos número e texto
               $('questionNumber').textContent = idx + 1;
               $('totalQuestions').textContent = QUESTIONS.length;
-              $('questionText').textContent = q.text || q.descricao || '';
+              // Preserve possible HTML (e.g., embedded <img>) when descricao contains tags, sanitizing unsafe content.
+              function sanitizeHtml(html){
+                try {
+                  const container = document.createElement('div');
+                  container.innerHTML = String(html || '');
+                  // remove script and style tags entirely
+                  container.querySelectorAll('script, style').forEach(el => el.remove());
+                  // walk and strip unsafe attrs and protocols
+                  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null);
+                  while (walker.nextNode()){
+                    const el = walker.currentNode;
+                    // remove on* handlers
+                    Array.from(el.attributes || []).forEach(attr => {
+                      const name = attr.name.toLowerCase();
+                      if (name.startsWith('on')) el.removeAttribute(attr.name);
+                      if (name === 'href' || name === 'src'){
+                        const val = (attr.value || '').trim();
+                        const safe = /^(https?:|\/|data:image\/)/i.test(val);
+                        if (!safe) el.removeAttribute(attr.name);
+                      }
+                    });
+                  }
+                  return container.innerHTML;
+                } catch(e){ return String(html || ''); }
+              }
+              try {
+                const rawDesc = q.text || q.descricao || '';
+                if (/(<img|<p|<br|<div|<span)/i.test(rawDesc)) {
+                  const qt = document.getElementById('questionText');
+                  if (qt) qt.innerHTML = sanitizeHtml(rawDesc); else $('questionText').textContent = rawDesc;
+                } else {
+                  $('questionText').textContent = rawDesc;
+                }
+              } catch(_) { $('questionText').textContent = q.text || q.descricao || ''; }
+              try { const idSpan = document.getElementById('questionIdDisplay'); if (idSpan) idSpan.textContent = (q && q.id != null) ? `ID: ${q.id}` : ''; } catch(_){}
+
+              // Show/hide Continue button at question 180 (1-based)
+              try {
+                const contBtn = $('continueBtn');
+                if (contBtn) {
+                  const labelNum = idx + 1; // 1-based label
+                  if (labelNum === 180) { contBtn.style.display = 'none'; }
+                  else { contBtn.style.display = ''; }
+                }
+              } catch(_){ }
 
               // Restaurar estado de destaque (vermelho) e rótulo do botão
               try { const qKeyHL = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`; applyHighlightUI(qKeyHL); } catch(e){}
@@ -355,6 +413,11 @@
               const optObjs = Array.isArray(q.shuffledOptions) ? q.shuffledOptions.slice() : (Array.isArray(q.options) ? q.options.slice() : []);
               // determine storage key for this question
               const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`;
+
+              // Diagnostic log for first render of each question (once)
+              try {
+                if (!q.__logged) { console.debug('[exam] renderQuestion idx', idx, 'id', q.id, 'has imagem_url?', !!(q.imagem_url||q.imagemUrl)); q.__logged = true; }
+              } catch(_){}
 
                 // Render dynamic options
                 const ac = document.getElementById('answersContainer');
@@ -1005,6 +1068,7 @@
                             // mimic normal success path by setting data and proceeding
                             const data = data2;
                             console.debug('[exam] fetched data (fallback ignoreExamType)', data && { total: data.total, questions: (data.questions||[]).length });
+                            try { if (data && Array.isArray(data.questions) && data.questions.length) { console.debug('[exam] sample question[0] raw (fallback)', data.questions[0]); } } catch(e){}
                             try {
                               if (data.exam && typeof data.exam === 'object') {
                                 EXAM_BP = data.exam;
@@ -1049,13 +1113,53 @@
                                 explicacao: q.explicacao,
                                 idprocesso: q.idprocesso,
                                 text: q.descricao,
+                                // Preserve image fields so UI can render below the question text
+                                imagem_url: (q.imagem_url || q.imagemUrl || q.image_url || q.imageUrl || null),
+                                imagemUrl: (q.imagemUrl || q.imagem_url || q.image_url || q.imageUrl || null),
                                 options: (q.options || []).map(o => ({ id: o.id || o.Id || null, text: (o.text || o.descricao || o.Descricao || '') }))
                               }));
+                              try {
+                                const withImg = QUESTIONS.filter(q => q.imagem_url || q.imagemUrl);
+                                if (withImg.length) {
+                                  console.debug('[exam] (fallback) questions with image count', withImg.length);
+                                  const q266 = withImg.find(q => q.id === 266);
+                                  if (q266) {
+                                    const rawImg = q266.imagem_url || q266.imagemUrl;
+                                    console.debug('[exam] (fallback) q266 image len', rawImg ? rawImg.length : 0, 'startsWith(data:)?', /^data:/i.test(rawImg), 'prefix50', rawImg ? rawImg.slice(0,50) : null);
+                                  }
+                                } else {
+                                  console.debug('[exam] (fallback) no questions have imagem_url/imagemUrl');
+                                }
+                              } catch(e) {}
                               try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
                               try {
                                 if (window.currentSessionId) {
                                   const qkey = `questions_${window.currentSessionId}`;
-                                  if (!localStorage.getItem(qkey)) {
+                                  const existingRaw = localStorage.getItem(qkey);
+                                  if (existingRaw) {
+                                    // Merge image/explanation fields if newly available
+                                    try {
+                                      const prev = JSON.parse(existingRaw);
+                                      if (Array.isArray(prev)) {
+                                        const byId = new Map(prev.map(p => [p.id, p]));
+                                        let changed = false;
+                                        for (const nq of QUESTIONS) {
+                                          const old = byId.get(nq.id);
+                                          if (old) {
+                                            if (!old.imagem_url && nq.imagem_url) { old.imagem_url = nq.imagem_url; changed = true; }
+                                            if (!old.imagemUrl && nq.imagemUrl) { old.imagemUrl = nq.imagemUrl; changed = true; }
+                                            if (!old.explicacao && nq.explicacao) { old.explicacao = nq.explicacao; changed = true; }
+                                          }
+                                        }
+                                        if (changed) {
+                                          const merged = prev.map(p => byId.get(p.id) || p);
+                                          localStorage.setItem(qkey, JSON.stringify(merged));
+                                          localStorage.setItem(`${qkey}_savedAt`, new Date().toISOString());
+                                          QUESTIONS = merged; // reflect merged set in memory
+                                        }
+                                      }
+                                    } catch(_){}
+                                  } else {
                                     localStorage.setItem(qkey, JSON.stringify(QUESTIONS));
                                     localStorage.setItem(`${qkey}_savedAt`, new Date().toISOString());
                                   }
@@ -1114,6 +1218,7 @@
                   }
                   const data = await resp.json();
                   console.debug('[exam] fetched data', data && { total: data.total, questions: (data.questions||[]).length });
+                  try { if (data && Array.isArray(data.questions) && data.questions.length) { console.debug('[exam] sample question[0] raw', data.questions[0]); } } catch(e){}
                   // if count came from default (user didn't inform), persist the effective quantity now
                   try {
                     const fromDefault = localStorage.getItem('examCountFromDefault');
@@ -1126,6 +1231,12 @@
                     }
                   } catch(e) { /* ignore */ }
                   if (data && Array.isArray(data.questions) && data.questions.length) {
+                    // Debug: log questão 266 antes do mapeamento
+                    try {
+                      const preQ266 = data.questions.find(q => q && q.id === 266);
+                      if (preQ266) console.debug('[exam] pre-map q266 raw', { id: preQ266.id, imagem_url: preQ266.imagem_url, imagemUrl: preQ266.imagemUrl, len_imagem_url: preQ266.imagem_url ? String(preQ266.imagem_url).length : 0 });
+                      else console.debug('[exam] pre-map q266 not found in response');
+                    } catch(_){}
                     // Update blueprint from response if provided
                     try {
                       if (data.exam && typeof data.exam === 'object') {
@@ -1173,17 +1284,57 @@
                       explicacao: q.explicacao,
                       idprocesso: q.idprocesso,
                       text: q.descricao,
+                      // Preserve image fields so UI can render below the question text
+                      imagem_url: (q.imagem_url || q.imagemUrl || q.image_url || q.imageUrl || null),
+                      imagemUrl: (q.imagemUrl || q.imagem_url || q.image_url || q.imageUrl || null),
                       options: (q.options || []).map(o => ({ id: o.id || o.Id || null, text: (o.text || o.descricao || o.Descricao || '') }))
                     }));
+                    // Debug: log questão 266 após mapeamento
+                    try {
+                      const postQ266 = QUESTIONS.find(q => q && q.id === 266);
+                      if (postQ266) console.debug('[exam] post-map q266', { id: postQ266.id, imagem_url: postQ266.imagem_url, imagemUrl: postQ266.imagemUrl, len_imagem_url: postQ266.imagem_url ? String(postQ266.imagem_url).length : 0 });
+                      else console.debug('[exam] post-map q266 not found');
+                    } catch(_){}
                     // ensure each question has a single shuffledOptions array (frozen order)
                     try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
                     // persist the questions for this session so reloads don't change them
                     try {
                       if (window.currentSessionId) {
                         const qkey = `questions_${window.currentSessionId}`;
-                        if (!localStorage.getItem(qkey)) {
+                        const existingRaw = localStorage.getItem(qkey);
+                        if (existingRaw) {
+                          try {
+                            const prev = JSON.parse(existingRaw);
+                            if (Array.isArray(prev)) {
+                              const byId = new Map(prev.map(p => [p.id, p]));
+                              let changed = false;
+                              for (const nq of QUESTIONS) {
+                                const old = byId.get(nq.id);
+                                if (old) {
+                                  if (!old.imagem_url && nq.imagem_url) { old.imagem_url = nq.imagem_url; changed = true; }
+                                  if (!old.imagemUrl && nq.imagemUrl) { old.imagemUrl = nq.imagemUrl; changed = true; }
+                                  if (!old.explicacao && nq.explicacao) { old.explicacao = nq.explicacao; changed = true; }
+                                }
+                              }
+                              if (changed) {
+                                const merged = prev.map(p => byId.get(p.id) || p);
+                                localStorage.setItem(qkey, JSON.stringify(merged));
+                                localStorage.setItem(`${qkey}_savedAt`, new Date().toISOString());
+                                QUESTIONS = merged;
+                                try {
+                                  const mergeQ266 = QUESTIONS.find(q => q && q.id === 266);
+                                  if (mergeQ266) console.debug('[exam] merged q266', { id: mergeQ266.id, imagem_url: mergeQ266.imagem_url, imagemUrl: mergeQ266.imagemUrl, len_imagem_url: mergeQ266.imagem_url ? String(mergeQ266.imagem_url).length : 0 });
+                                } catch(_){}
+                              }
+                            }
+                          } catch(_){}
+                        } else {
                           localStorage.setItem(qkey, JSON.stringify(QUESTIONS));
                           localStorage.setItem(`${qkey}_savedAt`, new Date().toISOString());
+                          try {
+                            const storeQ266 = QUESTIONS.find(q => q && q.id === 266);
+                            if (storeQ266) console.debug('[exam] stored q266', { id: storeQ266.id, imagem_url: storeQ266.imagem_url, imagemUrl: storeQ266.imagemUrl, len_imagem_url: storeQ266.imagem_url ? String(storeQ266.imagem_url).length : 0 });
+                          } catch(_){}
                         }
                       }
                     } catch(e) {}
@@ -1209,6 +1360,8 @@
                     } catch(e) {}
                     // ensure there's at least an answers object persisted for this session (and record savedAt)
                     try { if (window.currentSessionId && !localStorage.getItem(`answers_${window.currentSessionId}`)) saveAnswersForCurrentSession(); } catch(e){}
+                    // Disparar evento para permitir que examFull re-renderize imagem imediatamente
+                    try { document.dispatchEvent(new CustomEvent('exam:question-index-changed', { detail: { index: currentIdx } })); } catch(_){ }
                   } else {
                     // no questions returned - fallback
                     QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];

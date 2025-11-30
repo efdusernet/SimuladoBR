@@ -57,3 +57,25 @@ Date: 2025-11-23
 ## Links
 - Tag: v1.1.0
 - Compare: v1.0.1..v1.1.0
+
+---
+
+# v1.1.1
+
+Date: 2025-11-30
+
+## Highlights
+- Last Exam Results gauge: robust background styling across performance ranges.
+	- Strong >85% lock via component CSS and head-injected rule (high specificity + `!important`).
+	- Component fallback applies `.perf-gt85` and `.dark-perf` when gauge ≥85%.
+	- Added CSS classes with gradients for `perf-75-85`, `perf-70-74`, `perf-lt70` to cover remaining ranges.
+	- Ensured `background-clip` and `background-color` to prevent overlay bleed and style resets.
+- Preserved simulator simplicity while mirroring visual ranges.
+
+## Developer Notes
+- The component now self-applies classes based on computed gauge percent. History-based styling remains, but the component-level fallback guarantees visuals.
+- If extending ranges (e.g., 50–69), add `.perf-50-69` CSS and class assignment parallel to others.
+
+## Links
+- Tag: v1.1.1
+- Compare: v1.1.0..v1.1.1

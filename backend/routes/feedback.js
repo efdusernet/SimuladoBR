@@ -14,10 +14,10 @@ router.get('/categories', requireUserSession, async (req, res) => {
 	}
 });
 
-// POST /api/feedback -> cria feedback { texto, idcategoria, questionId }
+// POST /api/feedback -> cria feedback { texto, idcategoria, idquestao }
 router.post('/', requireUserSession, async (req, res) => {
 	try {
-		const { texto, idcategoria, questionId } = req.body || {};
+		const { texto, idcategoria, idquestao } = req.body || {};
 		if (!texto || typeof texto !== 'string' || !texto.trim()) {
 			return res.status(400).json({ error: 'Texto obrigatório' });
 		}
@@ -29,22 +29,12 @@ router.post('/', requireUserSession, async (req, res) => {
 		const cat = await db.CategoriaFeedback.findByPk(catId);
 		if (!cat) return res.status(404).json({ error: 'Categoria não encontrada' });
 
-		// Tenta incluir questionId; se coluna não existir, sequelize ignorará ou DB lançará erro
-		let payload = { texto: texto.trim(), idcategoria: catId };
-		if (questionId != null) {
-			const qId = Number(questionId);
-			if (Number.isInteger(qId) && qId > 0) payload.questionId = qId;
+		const qId = Number(idquestao);
+		if (!Number.isInteger(qId) || qId <= 0) {
+			return res.status(400).json({ error: 'idquestao inválido' });
 		}
-		const created = await db.Feedback.create(payload).catch(async err => {
-			// Fallback: remove questionId e tenta novamente (caso coluna não exista)
-			console.warn('Feedback create fallback (sem questionId):', err && err.message);
-			if (payload.questionId) {
-				delete payload.questionId;
-				return await db.Feedback.create(payload);
-			}
-			throw err;
-		});
-		res.status(201).json({ id: created.id, idcategoria: created.idcategoria, questionId: created.questionId || null });
+		const created = await db.Feedback.create({ texto: texto.trim(), idcategoria: catId, idquestao: qId });
+		res.status(201).json({ id: created.id, idcategoria: created.idcategoria, idquestao: created.idquestao });
 	} catch (e) {
 		console.error('feedback.create error', e);
 		res.status(500).json({ error: 'Erro ao criar feedback' });

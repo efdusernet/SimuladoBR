@@ -1,10 +1,9 @@
 module.exports = (sequelize, DataTypes) => {
-  // Note: Provided schema lacks questionId; we add it optionally. If column absent, inserts will ignore it.
   const Feedback = sequelize.define('Feedback', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     texto: { type: DataTypes.TEXT, allowNull: false },
     idcategoria: { type: DataTypes.INTEGER, allowNull: false },
-    questionId: { type: DataTypes.INTEGER, allowNull: true },
+    idquestao: { type: DataTypes.INTEGER, allowNull: false },
   }, {
     tableName: 'Feedback',
     freezeTableName: true,

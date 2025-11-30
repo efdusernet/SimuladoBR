@@ -225,7 +225,7 @@
             if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
             if (sessionTok) headers['X-Session-Token'] = sessionTok;
             const body = { texto, idcategoria: Number(catId) };
-            if (/^\d+$/.test(qId)) body.questionId = Number(qId);
+            if (/^\d+$/.test(qId)) body.idquestao = Number(qId);
             const resp = await fetch('/api/feedback', { method:'POST', headers, body: JSON.stringify(body) });
             if (resp.ok){
               if (statusEl) statusEl.textContent = 'Feedback enviado. Obrigado!';

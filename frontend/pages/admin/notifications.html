@@ -97,21 +97,7 @@
     </table>
   </div>
 
-  <!-- Barra de navegação inferior replicada de index.html (versão reduzida) -->
-  <nav class="bottom-nav" aria-label="Navegação inferior" style="position:fixed;left:0;right:0;bottom:0;height:44px;background:#111827;border-top:1px solid #1f2937;display:flex;align-items:center;justify-content:center;z-index:2000;gap:14px;padding-bottom:env(safe-area-inset-bottom)">
-    <button class="nav-item active" data-target="home" aria-label="Home" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#94a3b8;background:none;border:none;cursor:pointer;">
-      <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M12 3.172l8 7V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.828l8-7z"/></svg>
-      <span class="nav-text" style="display:none">Home</span>
-    </button>
-    <button class="nav-item" data-target="notificacoes" aria-label="Notificações" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#94a3b8;background:none;border:none;cursor:pointer;">
-      <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V9a6 6 0 1 0-12 0v7l-2 2v1h16v-1l-2-2z"/></svg>
-      <span class="nav-text" style="display:none">Notifs</span>
-    </button>
-    <button class="nav-item" data-target="perfil" aria-label="Perfil" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#94a3b8;background:none;border:none;cursor:pointer;">
-      <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M12 2a6 6 0 1 1 0 12A6 6 0 0 1 12 2zm0 14c4.42 0 8 2.24 8 5v1H4v-1c0-2.76 3.58-5 8-5z"/></svg>
-      <span class="nav-text" style="display:none">Perfil</span>
-    </button>
-  </nav>
+  <div id="bottomNavMount"></div>
 
   <script>
     (function(){
@@ -311,20 +297,18 @@
   })();
   </script>
   <script>
-  // Comportamento simples da bottom-nav: Home -> /, Perfil -> /#profile
-  (function bottomNav(){
-    const nav = document.querySelector('.bottom-nav');
-    if(!nav) return;
-    nav.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.nav-item');
-      if(!btn) return;
-      nav.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      const tgt = btn.dataset.target;
-      if(tgt === 'home'){ window.location.href = '/'; }
-      else if(tgt === 'perfil'){ window.location.href = '/#profile'; }
-      // 'notificacoes' já está nesta página; nenhuma ação extra
-    });
+  // Carrega componente de navegação inferior reutilizável
+  (function loadBottomNav(){
+    async function mount(){
+      try {
+        const resp = await fetch('/components/bottomNav.html', { cache: 'no-store' });
+        if(!resp.ok) return;
+        const html = await resp.text();
+        const mountEl = document.getElementById('bottomNavMount');
+        if(mountEl){ mountEl.innerHTML = html; }
+      } catch(_){}
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
   })();
   </script>
 </body>

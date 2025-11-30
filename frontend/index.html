@@ -617,24 +617,7 @@
     </main>
 
     <!-- Bottom navigation bar -->
-    <nav class="bottom-nav" aria-label="Navegação inferior">
-        <button class="nav-item active" id="tab-home" data-target="home" aria-label="Home">
-            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.172l8 7V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.828l8-7zM21 10.414l-9-7.875-9 7.875V20a3 3 0 0 0 3 3h4a1 1 0 0 0 1-1v-6h4v6a1 1 0 0 0 1 1h4a3 3 0 0 0 3-3v-9.586z"/></svg>
-            <span class="nav-text">Home</span>
-        </button>
-        <button class="nav-item" id="tab-search" data-target="search" aria-label="Buscar">
-            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2a8 8 0 0 1 6.32 12.9l4.39 4.39a1 1 0 0 1-1.42 1.42l-4.39-4.39A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12A6 6 0 0 0 10 4z"/></svg>
-            <span class="nav-text">Buscar</span>
-        </button>
-        <button class="nav-item" id="tab-favorites" data-target="favorites" aria-label="Favoritos">
-            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C6 15.36 3 12.53 3 9.24 3 6.5 5.24 4.5 7.88 4.5c1.54 0 3.04.73 4.12 1.9a5.9 5.9 0 0 1 4.12-1.9C18.76 4.5 21 6.5 21 9.24c0 3.29-3 6.12-7.55 10.79L12 21.35z"/></svg>
-            <span class="nav-text">Favoritos</span>
-        </button>
-        <button class="nav-item" id="tab-profile" data-target="profile" aria-label="Perfil">
-            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a6 6 0 1 1 0 12A6 6 0 0 1 12 2zm0 14c4.42 0 8 2.24 8 5v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1c0-2.76 3.58-5 8-5z"/></svg>
-            <span class="nav-text">Perfil</span>
-        </button>
-    </nav>
+    <div id="bottomNavMount"></div>
 
     <!-- Fullscreen overlay for image -->
     <div id="fullOverlay" class="overlay" aria-hidden="true">
@@ -1273,8 +1256,9 @@
                 favorites: document.getElementById('debug-favorites'),
                 profile: document.getElementById('debug-profile')
             };
-            const nav = document.querySelector('.bottom-nav');
-            const navItems = Array.from(document.querySelectorAll('.bottom-nav .nav-item'));
+            // bottom nav será carregada dinamicamente via componente
+            const nav = null; // placeholder
+            const navItems = []; // placeholder
             const overlay = document.getElementById('fullOverlay');
             const fullImg = document.getElementById('fullImg');
             const backBtn = document.getElementById('backBtn');
@@ -1295,16 +1279,7 @@
             // Initialize Home debug
             updateDebug('home');
 
-            // Nav click handling
-            navItems.forEach(it => {
-                it.addEventListener('click', () => {
-                    const target = it.dataset.target;
-                    if (!target) return;
-                    counters[target] = (counters[target] || 0) + 1;
-                    updateDebug(target);
-                    setActive(target);
-                });
-            });
+            // Nav será inicializada pelo componente bottomNav.html
 
             // Card click: Simulador abre examSetup; exam-mock abre fluxo completo; histórico abre modal; indicadores abre página dedicada
             document.addEventListener('click', (e) => {
@@ -1473,7 +1448,8 @@
                     if (adminModal) {
                         adminModal.classList.add('active');
                         adminModal.setAttribute('aria-hidden', 'false');
-                        if (nav) nav.style.display = 'none';
+                        const navHide = document.querySelector('.bottom-nav');
+                        if (navHide) navHide.style.display='none';
                     }
                     return;
                 }
@@ -1491,7 +1467,8 @@
                 overlay.classList.remove('active');
                 overlay.setAttribute('aria-hidden', 'true');
                 fullImg.removeAttribute('src');
-                if (nav) nav.style.display = '';
+                const navShow = document.querySelector('.bottom-nav');
+                if (navShow) navShow.style.display='';
                 document.body.style.overflow = '';
             });
 
@@ -1758,5 +1735,20 @@
             } catch(e){ /* ignore in unsupported contexts */ }
         })();
     </script>
+                <!-- Dynamic load of bottom navigation component -->
+                <script>
+                (function loadBottomNav(){
+                    async function mount(){
+                        try {
+                            const resp = await fetch('./components/bottomNav.html', { cache: 'no-store' });
+                            if(!resp.ok) return;
+                            const html = await resp.text();
+                            const mountEl = document.getElementById('bottomNavMount');
+                            if(mountEl){ mountEl.innerHTML = html; }
+                        } catch(_){}
+                    }
+                    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+                })();
+                </script>
 </body>
 </html>

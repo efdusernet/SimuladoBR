@@ -14,6 +14,9 @@
   </style>
 </head>
 <body>
+  <div style="position:fixed; top:8px; right:8px; z-index:1000;">
+    <button id="exitReviewBtn" class="primary-btn" style="background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Encerrar revisão</button>
+  </div>
   <main class="exam-container" role="main" style="margin-top:8px;">
     <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
       <div class="header-center" id="centerHeader">
@@ -37,12 +40,38 @@
 
         <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
           <button id="backBtn" class="primary-btn" style="margin-right:auto;">Voltar</button>
+          <button id="reportQuestionBtn" type="button" class="primary-btn" style="background:#f59e0b;">Reportar questão</button>
           <button id="continueBtn" class="primary-btn">Continuar</button>
         </div>
         <div id="reviewNote" class="review-note"></div>
       </article>
     </section>
   </main>
+
+  <!-- Modal de Feedback -->
+  <div id="feedbackModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:#ffffff; width:92%; max-width:480px; border-radius:12px; padding:20px; box-shadow:0 10px 28px rgba(0,0,0,0.35); font-family:system-ui;">
+      <h2 style="margin:0 0 12px; font-size:1.15rem;">Feedback da Questão</h2>
+      <div style="margin-bottom:12px; font-size:.85rem; color:#334155;">ID da questão: <span id="fbQuestionId" style="font-weight:600;">--</span></div>
+      <form id="feedbackForm" style="display:flex; flex-direction:column; gap:12px;">
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:.8rem; color:#475569;">
+          <span>Categoria</span>
+          <select id="fbCategoria" required style="padding:8px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; font-size:.85rem;">
+            <option value="" disabled selected>Carregando...</option>
+          </select>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:.8rem; color:#475569;">
+          <span>Escreva aqui seu feedback</span>
+          <textarea id="fbTexto" rows="5" required placeholder="Descreva o problema ou sugestão" style="resize:vertical; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:.85rem; line-height:1.4;"></textarea>
+        </label>
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:4px;">
+          <button type="button" id="fbCancelar" style="background:#64748b; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-size:.75rem; cursor:pointer;">Voltar</button>
+          <button type="submit" id="fbEnviar" style="background:#0d9488; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-size:.8rem; cursor:pointer;">Enviar</button>
+        </div>
+        <div id="fbStatus" style="font-size:.7rem; color:#475569; min-height:14px;"></div>
+      </form>
+    </div>
+  </div>
 
   <script>
     (function(){
@@ -56,9 +85,14 @@
 
       async function loadResult(){
         try {
-          const token = (localStorage.getItem('sessionToken')||'').trim();
+          const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
           const url = `/api/exams/result/${encodeURIComponent(examId)}`;
-          const r = await fetch(url, { headers: token ? { 'X-Session-Token': token } : {} });
+          const headers = {};
+          if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionTok) headers['X-Session-Token'] = sessionTok;
+          const r = await fetch(url, { headers });
           if (!r.ok) throw new Error('Falha ao carregar resultado');
           const data = await r.json();
           // Expected shape: { questions: [...], answers: { q_<id>: { optionId|optionIds } }, total }
@@ -114,12 +148,96 @@
         // nav handlers
         const back = document.getElementById('backBtn');
         const fwd = document.getElementById('continueBtn');
+        const reportBtn = document.getElementById('reportQuestionBtn');
         back.onclick = ()=>{ render(Math.max(0, idx-1)); };
         fwd.onclick = ()=>{ render(Math.min(qs.length-1, idx+1)); };
+        if (reportBtn){
+          reportBtn.onclick = ()=>{
+            try {
+              const modal = document.getElementById('feedbackModal');
+              const qIdSpan = document.getElementById('fbQuestionId');
+              const qId = q && q.id != null ? q.id : null;
+              if (qIdSpan) qIdSpan.textContent = qId != null ? qId : '--';
+              if (modal){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); }
+              loadCategorias();
+            } catch(_){ }
+          };
+        }
       }
 
       if (!examId){ document.getElementById('questionText').textContent = 'Exame inválido.'; }
       else { loadResult(); }
+
+      const exitBtn = document.getElementById('exitReviewBtn');
+      if (exitBtn){
+        exitBtn.addEventListener('click', ()=>{
+          try { sessionStorage.removeItem('currentReviewAttemptId'); } catch(_){ }
+          window.location.href = '/';
+        });
+      }
+
+      // Feedback form logic
+      async function loadCategorias(){
+        const sel = document.getElementById('fbCategoria');
+        if (!sel || sel.dataset.loaded) return;
+        try {
+          const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const headers = {};
+          if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionTok) headers['X-Session-Token'] = sessionTok;
+          const r = await fetch('/api/feedback/categories', { headers });
+          sel.innerHTML = '';
+          if (r.ok){
+            const list = await r.json();
+            const frag = document.createDocumentFragment();
+            list.forEach(item => {
+              const opt = document.createElement('option');
+              opt.value = item.id;
+              opt.textContent = item.texto;
+              frag.appendChild(opt);
+            });
+            sel.appendChild(frag);
+            sel.dataset.loaded = 'true';
+          } else {
+            sel.innerHTML = '<option disabled>Falha ao carregar</option>';
+          }
+        } catch(e){ sel.innerHTML = '<option disabled>Erro</option>'; }
+      }
+      const fbCancelar = document.getElementById('fbCancelar');
+      if (fbCancelar){ fbCancelar.onclick = ()=>{ const m=document.getElementById('feedbackModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }; }
+      const fbForm = document.getElementById('feedbackForm');
+      if (fbForm){
+        fbForm.addEventListener('submit', async (e)=>{
+          e.preventDefault();
+          const statusEl = document.getElementById('fbStatus');
+          if (statusEl) statusEl.textContent = 'Enviando...';
+          try {
+            const qId = document.getElementById('fbQuestionId').textContent.trim();
+            const catId = document.getElementById('fbCategoria').value;
+            const texto = document.getElementById('fbTexto').value.trim();
+            if (!catId || !texto){ if(statusEl) statusEl.textContent='Preencha todos os campos.'; return; }
+            const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+            const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+            const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+            const headers = { 'Content-Type':'application/json' };
+            if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+            if (sessionTok) headers['X-Session-Token'] = sessionTok;
+            const body = { texto, idcategoria: Number(catId) };
+            if (/^\d+$/.test(qId)) body.questionId = Number(qId);
+            const resp = await fetch('/api/feedback', { method:'POST', headers, body: JSON.stringify(body) });
+            if (resp.ok){
+              if (statusEl) statusEl.textContent = 'Feedback enviado. Obrigado!';
+              fbForm.reset();
+              setTimeout(()=>{ const m=document.getElementById('feedbackModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } if(statusEl) statusEl.textContent=''; }, 1400);
+            } else {
+              const data = await resp.json().catch(()=>({}));
+              if (statusEl) statusEl.textContent = data.error || 'Falha ao enviar';
+            }
+          } catch(err){ if(statusEl) statusEl.textContent='Erro de rede'; }
+        });
+      }
     })();
   </script>
 </body>

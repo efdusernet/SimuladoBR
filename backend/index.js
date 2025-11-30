@@ -80,6 +80,10 @@ app.use('/api/indicators', require('./routes/indicators'));
 app.use('/api/feedback', require('./routes/feedback'));
 // Admin feedback responses
 app.use('/api/admin/feedback', require('./routes/admin_feedback'));
+// Admin notifications
+app.use('/api/admin/notifications', require('./routes/admin_notifications'));
+// User notifications
+app.use('/api/notifications', require('./routes/notifications'));
 // Admin: roles management (removed)
 // Mount debug routes (development only)
 app.use('/api/debug', require('./routes/debug'));

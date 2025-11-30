@@ -13,6 +13,8 @@ const db = {};
 // Import models
 db.User = require('./User')(sequelize, DataTypes);
 db.EmailVerification = require('./EmailVerification')(sequelize, DataTypes);
+ db.Notification = require('./Notification')(sequelize, DataTypes);
+ db.UserNotification = require('./UserNotification')(sequelize, DataTypes);
 // New exam-related models
 db.ExamType = require('./ExamType')(sequelize, DataTypes);
 db.ExamAttempt = require('./ExamAttempt')(sequelize, DataTypes);

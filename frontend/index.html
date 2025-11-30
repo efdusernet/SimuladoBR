@@ -196,8 +196,27 @@
                 const closeBtn = document.getElementById('examResultsClose');
                 const listEl = document.getElementById('examList');
                 if (!modal || !closeBtn || !listEl) return;
-                function open(){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); }
-                function close(){ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); }
+                function open(){
+                    modal.style.display='flex';
+                    modal.setAttribute('aria-hidden','false');
+                    try { closeBtn.focus(); } catch(_){}
+                    // Prevent background interaction while modal is open
+                    try { document.body.setAttribute('inert',''); } catch(_){}
+                }
+                function close(){
+                    // Move focus away from elements that will become hidden
+                    try {
+                        if (document.activeElement && modal.contains(document.activeElement)) {
+                            document.activeElement.blur();
+                        }
+                    } catch(_){ }
+                    modal.style.display='none';
+                    modal.setAttribute('aria-hidden','true');
+                    // Restore background interaction
+                    try { document.body.removeAttribute('inert'); } catch(_){}
+                    // Return focus to trigger for accessibility
+                    try { if (triggerCard) triggerCard.focus(); } catch(_){}
+                }
                 if (triggerCard) {
                     triggerCard.addEventListener('click', (e)=>{ try{ e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); }catch(_){ } open(); loadHistory(); });
                 }
@@ -208,14 +227,19 @@
                     try {
                         const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000').replace(/\/$/,'');
                         const url = base + '/api/exams/history?limit=50';
-                        const token = (sessionStorage.getItem('X-Session-Token') || localStorage.getItem('sessionToken') || '').trim();
-                        const headers = token ? { 'X-Session-Token': token } : {};
-                        const r = await fetch(url, { headers });
+                        const rawSession = (sessionStorage.getItem('X-Session-Token') || localStorage.getItem('sessionToken') || '').trim();
+                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                        const headers = {};
+                        if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+                        if (rawSession) headers['X-Session-Token'] = rawSession;
+                        const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers, cache: 'no-store' });
                         let list = [];
                         if (r.ok) {
                             list = await r.json();
+                            console.debug('[history] fetched attempts count=', Array.isArray(list)?list.length:'(non-array)', list);
                         } else {
-                            console.warn('[history] HTTP', r.status, 'for', url);
+                            // Silenced debug log for history HTTP status
                         }
                         if (!Array.isArray(list)) list = [];
                         // Sort by finishedAt desc if present
@@ -228,9 +252,9 @@
                         } catch(_){ }
                         listEl.innerHTML = '';
                         if (!list.length){
-                            const isGuest = token && /^guest_/i.test(token);
+                            const isGuest = rawSession && /^guest_/i.test(rawSession);
                             const empty = document.createElement('div');
-                            empty.textContent = token ? (isGuest ? 'Sessão convidado — faça login para ver seu histórico' : 'Nenhum exame encontrado') : 'Faça login para ver seu histórico';
+                            empty.textContent = rawSession ? (isGuest ? 'Sessão convidado — faça login para ver seu histórico' : 'Nenhum exame encontrado') : 'Faça login para ver seu histórico';
                             empty.style.cssText = 'padding:8px;border:1px dashed #cbd5e1;border-radius:8px;color:#64748b;text-align:center';
                             listEl.appendChild(empty);
                             if (isGuest){
@@ -244,7 +268,7 @@
                             return;
                         }
                             for (const item of list){
-                                const id = item && (item.examAttemptId || item.attemptId || item.id || item._id || item.sessionId || item.examId);
+                                const id = item && (item.examAttemptId || item.attemptId || item.id || item.Id || item._id || item.sessionId || item.examId);
                                 if (!id) continue;
                                 const mode = String((item && (item.examMode || item.mode)) || '').toLowerCase();
                             const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
@@ -269,7 +293,7 @@
                             listEl.appendChild(btn);
                         }
                     } catch(e){
-                        console.error('[history] Falha ao carregar', e);
+                        // Silenced debug log for history load failure
                         listEl.innerHTML = '';
                         const errBox = document.createElement('div');
                         errBox.textContent = 'Falha ao carregar';
@@ -310,6 +334,8 @@
         const panel = document.getElementById('adminMenuPanel');
         if (!btn || !panel) return;
         const token = (localStorage.getItem('sessionToken') || '').trim();
+        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+        const sessionForHeader = nomeUsuario || token; // prefer NomeUsuario for admin middleware
         if (!token) return; // no session => skip
         // Helper: append ?sessionToken= fallback if cookies not set
         function applyTokenFallback(){
@@ -325,8 +351,15 @@
             } catch(_){}
         }
         // Probe a lightweight admin-only endpoint to confirm role (GET /api/admin/exams/probe => 204 if admin)
-        const probeUrl = '/api/admin/exams/probe';
-        fetch(probeUrl, { headers: { 'X-Session-Token': token }, method: 'GET' })
+        // Include sessionToken as query fallback for servers expecting it in URL
+        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+        // Build headers using both Session Token and JWT (if present)
+        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+        const probeHeaders = { };
+        if (sessionForHeader) probeHeaders['X-Session-Token'] = sessionForHeader;
+        if (jwtTok) probeHeaders['Authorization'] = `${jwtType} ${jwtTok}`;
+        fetch(probeUrl, { headers: probeHeaders, method: 'GET' })
           .then(r => {
               if (!r.ok) return Promise.reject('Not admin'); // not admin
               // Success => show menu
@@ -348,9 +381,20 @@
               const fixtureBtn = document.getElementById('btnAdminFixture');
               const logoutBtn = document.getElementById('btnAdminLogout');
               function getToken(){ return (localStorage.getItem('sessionToken')||'').trim(); }
+              function getSessionIdentity(){
+                  const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
+                  const sessionToken = getToken();
+                  return nomeUsuario || sessionToken;
+              }
               async function adminPost(path){
-                  const tk = getToken();
-                  const resp = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':tk}});
+                  const identity = getSessionIdentity();
+                  const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                  const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                  const headers = { 'Content-Type':'application/json' };
+                  if (identity) headers['X-Session-Token'] = identity;
+                  if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                  const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity);
+                  const resp = await fetch(url,{method:'POST',headers});
                   const data = await resp.json().catch(()=>({}));
                   return {ok:resp.ok,status:resp.status,data};
               }
@@ -687,20 +731,33 @@
                                 const sessionPresent2 = (localStorage.getItem('sessionToken')||'').trim();
                                 if (sessionPresent2){
                                     const url2 = base.replace(/\/$/, '') + '/api/exams/history?limit=10';
-                                    const r2 = await fetch(url2, { headers: buildHeaders() });
+                                    const r2 = await fetch(url2 + (url2.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers: buildHeaders(), cache: 'no-store' });
                                     if (r2.ok){
                                         const list = await r2.json();
                                         // Consider only FULL attempts for gating and calculations
                                         const full = Array.isArray(list) ? list.filter(x => x && String(x.examMode||'').toLowerCase() === 'full') : [];
+                                        try {
+                                            const dbg = {
+                                                countAll: Array.isArray(list) ? list.length : -1,
+                                                countFull: full.length,
+                                                pctsFullTop3: full.slice(0,3).map(x => x && x.scorePercent),
+                                                modesTop3: full.slice(0,3).map(x => x && x.examMode)
+                                            };
+                                            console.debug('[gauge:lastExamResults] history debug', dbg);
+                                        } catch(_){}
                                         const clearStyle = () => {
                                             try {
+                                                const locked = mount && mount.dataset && mount.dataset.lerLocked;
+                                                if (locked) { return; }
                                                 // remove any previous thumb and clear mount/card backgrounds
                                                 const oldThumb = host.querySelector('.ler-thumb');
                                                 if (oldThumb && oldThumb.parentElement) oldThumb.parentElement.removeChild(oldThumb);
-                                                mount.style.background = '';
-                                                host.style.background = '';
+                                                try { mount.style.removeProperty('background'); } catch(_){ mount.style.background = ''; }
+                                                try { host.style.removeProperty('background'); } catch(_){ host.style.background = ''; }
                                                 mount.classList.remove('dark-perf');
                                                 host.classList.remove('dark-perf');
+                                                mount.classList.remove('perf-gt85');
+                                                host.classList.remove('perf-gt85');
                                             } catch(_){ }
                                         };
                                         if (Array.isArray(full) && full.length >= 3){
@@ -715,6 +772,7 @@
                                                 const allGte70Lt75 = pcts.every(x => x >= 70 && x < 75);
                                                 const allGt85 = pcts.every(x => x > 85);
                                                 const allGt75 = pcts.every(x => x > 75);
+                                                try { console.debug('[gauge:lastExamResults] branch', { pcts, allLt70, allGte70Lt75, allGt75, allGt85 }); } catch(_){}
                                                 // Clear previous thumb if any
                                                 const header = host.querySelector('.ler-header');
                                                 const kpi = host.querySelector('.ler-icon');
@@ -722,10 +780,95 @@
                                                 if (allGt85){
                                                     // Novo: >85% -> verde profundo com degradê (#0A7A0A -> #006400) + rosto feliz verde
                                                     const grad = 'linear-gradient(90deg, #0A7A0A 0%, #006400 100%)';
-                                                    mount.style.background = grad;
-                                                    host.style.background = grad;
+                                                    try { if (mount && mount.dataset) mount.dataset.lerLocked = 'gt85'; } catch(_){}
+                                                    // Global style lock to out-spec any external overrides
+                                                    try {
+                                                        let lock = document.getElementById('ler-style-lock');
+                                                        if (!lock){
+                                                            lock = document.createElement('style');
+                                                            lock.id = 'ler-style-lock';
+                                                            lock.textContent = [
+                                                                '/* Strong lock for >85% state */',
+                                                                '#lastExamResultsMount.perf-gt85,',
+                                                                '#lastExamResultsMount.perf-gt85 .ler-card,',
+                                                                '.ler-card.perf-gt85,',
+                                                                '#home #lastExamResultsMount.perf-gt85,',
+                                                                '#home #lastExamResultsMount.perf-gt85 .ler-card,',
+                                                                '#home .ler-card.perf-gt85 {',
+                                                                '  background-image: linear-gradient(90deg, #0A7A0A 0%, #006400 100%) !important;',
+                                                                '  background-color: #0A7A0A !important;',
+                                                                '  -webkit-background-clip: padding-box !important;',
+                                                                '  background-clip: padding-box !important;',
+                                                                '}',
+                                                                '#lastExamResultsMount.dark-perf .ler-text, .ler-card.dark-perf .ler-text { color: #ECFDF5 !important; }',
+                                                            ].join('\n');
+                                                            document.head.appendChild(lock);
+                                                        }
+                                                    } catch(_){}
+                                                    // Ensure a background layer inside the card to guarantee visibility
+                                                    try {
+                                                        let bg = host.querySelector('.ler-bg');
+                                                        if (!bg) {
+                                                            bg = document.createElement('div');
+                                                            bg.className = 'ler-bg';
+                                                            bg.style.cssText = 'position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:10px;';
+                                                            host.insertBefore(bg, host.firstChild);
+                                                        }
+                                                        bg.style.setProperty('background', grad, 'important');
+                                                        bg.style.setProperty('backgroundImage', grad, 'important');
+                                                    } catch(_){}
+                                                    try { mount.style.setProperty('background', grad, 'important'); } catch(_){ mount.style.background = grad; }
+                                                    try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; }
+                                                    // Also set background-image and background-color to defeat overrides
+                                                    try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){ }
+                                                    try { host.style.setProperty('background-image', grad, 'important'); } catch(_){ }
+                                                    try { mount.style.setProperty('background-color', '#0A7A0A', 'important'); } catch(_){ }
+                                                    try { host.style.setProperty('background-color', '#0A7A0A', 'important'); } catch(_){ }
+                                                    try { console.debug('[gauge:lastExamResults] applied perf-gt85', { background: grad }); } catch(_){}
+                                                    mount.classList.add('perf-gt85');
+                                                    host.classList.add('perf-gt85');
                                                     mount.classList.add('dark-perf');
                                                     host.classList.add('dark-perf');
+                                                    // Reafirma estilos após próximo tick para evitar resets ocasionais
+                                                    try {
+                                                        setTimeout(() => {
+                                                            try { mount.style.setProperty('background', grad, 'important'); } catch(_){ mount.style.background = grad; }
+                                                            try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; }
+                                                            try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){ }
+                                                            try { host.style.setProperty('background-image', grad, 'important'); } catch(_){ }
+                                                            try { mount.style.setProperty('background-color', '#0A7A0A', 'important'); } catch(_){ }
+                                                            try { host.style.setProperty('background-color', '#0A7A0A', 'important'); } catch(_){ }
+                                                            mount.classList.add('perf-gt85','dark-perf');
+                                                            host.classList.add('perf-gt85','dark-perf');
+                                                            try {
+                                                                const cm = window.getComputedStyle(mount);
+                                                                const ch = window.getComputedStyle(host);
+                                                                console.debug('[gauge:lastExamResults] lock perf-gt85 background reapplied', { mountBg: cm.backgroundImage||cm.background, hostBg: ch.backgroundImage||ch.background });
+                                                            } catch(_){ console.debug('[gauge:lastExamResults] lock perf-gt85 background reapplied'); }
+                                                        }, 0);
+                                                    } catch(_){}
+                                                    // Observa mudanças e reaplica por alguns segundos, caso algo limpe estilos
+                                                    try {
+                                                        const startTs = Date.now();
+                                                        const observer = new MutationObserver(() => {
+                                                            const elapsed = Date.now() - startTs;
+                                                            if (elapsed > 5000) { try { observer.disconnect(); } catch(_){} return; }
+                                                            const mbg = mount.style.background || '';
+                                                            const hbg = host.style.background || '';
+                                                            const needMount = !/0A7A0A|006400/.test(mbg);
+                                                            const needHost = !/0A7A0A|006400/.test(hbg);
+                                                            if (needMount) { try { mount.style.setProperty('background', grad, 'important'); } catch(_){ mount.style.background = grad; } }
+                                                            if (needHost) { try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; } }
+                                                            try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){ }
+                                                            try { host.style.setProperty('background-image', grad, 'important'); } catch(_){ }
+                                                            try { mount.style.setProperty('background-color', '#0A7A0A', 'important'); } catch(_){ }
+                                                            try { host.style.setProperty('background-color', '#0A7A0A', 'important'); } catch(_){ }
+                                                            mount.classList.add('perf-gt85','dark-perf');
+                                                            host.classList.add('perf-gt85','dark-perf');
+                                                        });
+                                                        observer.observe(mount, { attributes: true, attributeFilter: ['style','class'] });
+                                                        observer.observe(host, { attributes: true, attributeFilter: ['style','class'] });
+                                                    } catch(_){}
                                                     if (header && kpi){
                                                         const span = document.createElement('span');
                                                         span.className = 'ler-thumb';
@@ -736,14 +879,22 @@
                                                     }
                                                 } else if (allGte70Lt75){
                                                     const grad = 'linear-gradient(90deg, #FFF7ED 0%, #FED7AA 100%)'; // light orange
-                                                    mount.style.background = grad;
-                                                    host.style.background = grad;
+                                                    try { if (mount && mount.dataset) mount.dataset.lerLocked = '70_74'; } catch(_){}
+                                                    try { mount.style.setProperty('background', grad, 'important'); } catch(_){ mount.style.background = grad; }
+                                                    try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; }
+                                                    try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){}
+                                                    try { host.style.setProperty('background-image', grad, 'important'); } catch(_){}
+                                                    try { console.debug('[gauge:lastExamResults] applied 70-74', { background: grad }); } catch(_){}
                                                     mount.classList.remove('dark-perf');
                                                     host.classList.remove('dark-perf');
                                                 } else if (allLt70){
                                                     const grad = 'linear-gradient(90deg, #FEE2E2 0%, #FCA5A5 100%)'; // red
-                                                    mount.style.background = grad;
-                                                    host.style.background = grad;
+                                                    try { if (mount && mount.dataset) mount.dataset.lerLocked = 'lt70'; } catch(_){}
+                                                    try { mount.style.setProperty('background', grad, 'important'); } catch(_){ mount.style.background = grad; }
+                                                    try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; }
+                                                    try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){}
+                                                    try { host.style.setProperty('background-image', grad, 'important'); } catch(_){}
+                                                    try { console.debug('[gauge:lastExamResults] applied <70', { background: grad }); } catch(_){}
                                                     mount.classList.remove('dark-perf');
                                                     host.classList.remove('dark-perf');
                                                     if (header && kpi){
@@ -756,8 +907,12 @@
                                                     }
                                                 } else if (allGt75){
                                                     const grad = 'linear-gradient(90deg, #66E166 0%, #32CD32 100%)'; // medium green gradient for 75-85%
-                                                    mount.style.background = grad;
-                                                    host.style.background = grad;
+                                                    try { if (mount && mount.dataset) mount.dataset.lerLocked = '75_85'; } catch(_){}
+                                                    try { mount.style.setProperty('background', grad, 'important'); } catch(_){ mount.style.background = grad; }
+                                                    try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; }
+                                                    try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){}
+                                                    try { host.style.setProperty('background-image', grad, 'important'); } catch(_){}
+                                                    try { console.debug('[gauge:lastExamResults] applied 75-85', { background: grad }); } catch(_){}
                                                     mount.classList.add('dark-perf');
                                                     host.classList.add('dark-perf');
                                                      if (header && kpi){
@@ -773,6 +928,7 @@
                                                     clearStyle();
                                                     mount.classList.remove('dark-perf');
                                                     host.classList.remove('dark-perf');
+                                                    try { if (mount && mount.dataset) delete mount.dataset.lerLocked; } catch(_){}
                                                 }
 
                                                 // Override gauge numbers with the most recent FULL attempt
@@ -782,6 +938,7 @@
                                                         const v = Number(top.correct || 0);
                                                         const m = Number(top.total || 0);
                                                         window.initLastExamResults(host, { value: v, max: m });
+                                                        try { console.debug('[gauge:lastExamResults] set gauge from last FULL', { value: v, max: m, pct: m>0 ? Math.round((v*100)/m) : null }); } catch(_){}
                                                                                                                 // Ensure help hidden and values visible when showing data
                                                                                                                 try {
                                                                                                                     const help = host.querySelector('.ler-help'); if (help) help.style.display='none';
@@ -802,12 +959,14 @@
                                                 clearStyle();
                                                 mount.classList.remove('dark-perf');
                                                 host.classList.remove('dark-perf');
+                                                try { if (mount && mount.dataset) delete mount.dataset.lerLocked; } catch(_){}
                                             }
                                         } else {
                                             // Less than 3 FULL attempts -> show neutral card and update title
                                             clearStyle();
                                             mount.classList.remove('dark-perf');
                                             host.classList.remove('dark-perf');
+                                            try { if (mount && mount.dataset) delete mount.dataset.lerLocked; } catch(_){}
                                                                                         try {
                                               const titleEl = host.querySelector('.ler-text');
                                               if (titleEl) titleEl.textContent = (window.SIMULADOS_I18N && window.SIMULADOS_I18N.WAITING_FULL_EXAMS_TITLE) || 'Aguardando exames completos';
@@ -825,6 +984,27 @@
                                     }
                                 }
                             } catch(_){ /* silent */ }
+                            // Final safeguard: if >85% was detected earlier, reassert styles after gauge and content updates
+                            try {
+                                const mount = document.getElementById('lastExamResultsMount');
+                                const host2 = mount && mount.querySelector('.ler-card');
+                                const hasPerf = mount && (mount.classList.contains('perf-gt85') || (mount.dataset && mount.dataset.lerLocked === 'gt85'));
+                                if (mount && host2 && hasPerf) {
+                                    const grad = 'linear-gradient(90deg, #0A7A0A 0%, #006400 100%)';
+                                    mount.style.setProperty('background', grad, 'important');
+                                    host2.style.setProperty('background', grad, 'important');
+                                    mount.style.setProperty('background-image', grad, 'important');
+                                    host2.style.setProperty('background-image', grad, 'important');
+                                    mount.style.setProperty('background-color', '#0A7A0A', 'important');
+                                    host2.style.setProperty('background-color', '#0A7A0A', 'important');
+                                    mount.classList.add('dark-perf'); host2.classList.add('dark-perf');
+                                    try {
+                                        const cm = window.getComputedStyle(mount);
+                                        const ch = window.getComputedStyle(host2);
+                                        console.debug('[gauge:lastExamResults] final lock', { mountBg: cm.backgroundImage||cm.background, hostBg: ch.backgroundImage||ch.background });
+                                    } catch(_){}
+                                }
+                            } catch(_){}
                             if (!applied){
                                 let v = null, m = null;
                                 try { const vv = localStorage.getItem('lastExamValue'); if (vv != null) v = Number(vv); } catch(_){ }
@@ -1118,10 +1298,15 @@
                                 modal.setAttribute('aria-hidden','false');
                                 (async function loadHistory(){
                                     try {
-                                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
-                                        const url = (base || '') + '/api/exams/history?limit=50';
-                                        const token = (localStorage.getItem('sessionToken')||'').trim();
-                                        const r = await fetch(url, { headers: token ? { 'X-Session-Token': token } : {} });
+                                        const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000').replace(/\/$/,'');
+                                        const url = base + '/api/exams/history?limit=50';
+                                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                                        const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+                                        const headers = {};
+                                        if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+                                        if (sessionTok) headers['X-Session-Token'] = sessionTok;
+                                        const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers, cache: 'no-store' });
                                         let list = [];
                                         if (r.ok) list = await r.json();
                                         if (!Array.isArray(list)) list = [];
@@ -1135,7 +1320,7 @@
                                                 return;
                                             }
                                             for (const item of list){
-                                                const id = item && (item.examAttemptId || item.attemptId || item.id || item._id || item.sessionId || item.examId);
+                                                const id = item && (item.examAttemptId || item.attemptId || item.id || item.Id || item._id || item.sessionId || item.examId);
                                                 if (!id) continue;
                                                 const mode = String((item && (item.examMode || item.mode)) || '').toLowerCase();
                                                 const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
@@ -1222,7 +1407,7 @@
                                     const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                                     const url = (base || '') + '/api/exams/history?limit=50';
                                     const token = (localStorage.getItem('sessionToken')||'').trim();
-                                    const r = await fetch(url, { headers: token ? { 'X-Session-Token': token } : {} });
+                                    const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers: token ? { 'X-Session-Token': token } : {}, cache: 'no-store' });
                                     let list = [];
                                     if (r.ok) list = await r.json();
                                     if (!Array.isArray(list)) list = [];
@@ -1307,10 +1492,12 @@
                     const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                     const token = localStorage.getItem('sessionToken');
                     if (!token) return;
-                    
-                    const resp = await fetch(base + '/api/users/me', {
-                        headers: { 'X-Session-Token': token }
-                    });
+                    // Include Authorization JWT if available for robustness
+                    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                    const headers = { 'X-Session-Token': token };
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                    const resp = await fetch(base + '/api/users/me', { headers });
                     
                     if (resp.ok) {
                         const user = await resp.json();

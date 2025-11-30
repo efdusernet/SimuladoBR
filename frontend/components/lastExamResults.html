@@ -1,8 +1,59 @@
 <!-- lastExamResults: reusable component -->
 <div class="ler-card" role="group" aria-label="Resultados do último exame" aria-describedby="lastExamHelpText">
   <style>
-  .ler-card{ min-width:288px; min-height:56px; display:flex; align-items:center; gap:10px; padding:8px 10px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.04); position:relative; transition: background .25s ease, color .2s ease; }
+  .ler-card{ min-width:288px; min-height:56px; display:flex; align-items:center; gap:10px; padding:8px 10px; background:transparent; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.04); position:relative; transition: background .25s ease, color .2s ease; }
+  /* Background layer sits behind content */
+  .ler-bg{ position:absolute; inset:0; z-index:0; pointer-events:none; border-radius:10px; }
   /* Background color will be overridden dynamically (history-based) on #lastExamResultsMount */
+  /* Perf classes ensure background override even if other styles interfere */
+  /* Strong lock: apply gradient directly on card and mount */
+  #lastExamResultsMount.perf-gt85,
+  #lastExamResultsMount.perf-gt85 .ler-card,
+  .ler-card.perf-gt85,
+  #home #lastExamResultsMount.perf-gt85,
+  #home #lastExamResultsMount.perf-gt85 .ler-card,
+  #home .ler-card.perf-gt85{ 
+    background-image: linear-gradient(90deg, #0A7A0A 0%, #006400 100%) !important; 
+    background-color: #0A7A0A !important; 
+    -webkit-background-clip: padding-box !important; 
+    background-clip: padding-box !important;
+  }
+  /* Medium green for 75–85% */
+  #lastExamResultsMount.perf-75-85,
+  #lastExamResultsMount.perf-75-85 .ler-card,
+  .ler-card.perf-75-85,
+  #home #lastExamResultsMount.perf-75-85,
+  #home #lastExamResultsMount.perf-75-85 .ler-card,
+  #home .ler-card.perf-75-85{
+    background-image: linear-gradient(90deg, #66E166 0%, #32CD32 100%) !important;
+    background-color: #32CD32 !important;
+    -webkit-background-clip: padding-box !important; 
+    background-clip: padding-box !important;
+  }
+  /* Amber for 70–74% */
+  #lastExamResultsMount.perf-70-74,
+  #lastExamResultsMount.perf-70-74 .ler-card,
+  .ler-card.perf-70-74,
+  #home #lastExamResultsMount.perf-70-74,
+  #home #lastExamResultsMount.perf-70-74 .ler-card,
+  #home .ler-card.perf-70-74{
+    background-image: linear-gradient(90deg, #FFF7ED 0%, #FED7AA 100%) !important;
+    background-color: #FED7AA !important;
+    -webkit-background-clip: padding-box !important; 
+    background-clip: padding-box !important;
+  }
+  /* Red for <70% */
+  #lastExamResultsMount.perf-lt70,
+  #lastExamResultsMount.perf-lt70 .ler-card,
+  .ler-card.perf-lt70,
+  #home #lastExamResultsMount.perf-lt70,
+  #home #lastExamResultsMount.perf-lt70 .ler-card,
+  #home .ler-card.perf-lt70{
+    background-image: linear-gradient(90deg, #FEE2E2 0%, #FCA5A5 100%) !important;
+    background-color: #FCA5A5 !important;
+    -webkit-background-clip: padding-box !important; 
+    background-clip: padding-box !important;
+  }
   /* High contrast variant when parent adds .dark-perf class OR on the card itself */
   .dark-perf .ler-card, #lastExamResultsMount.dark-perf .ler-card, .ler-card.dark-perf{ border-color:#0d4b3a; }
   #lastExamResultsMount.dark-perf .ler-text, .ler-card.dark-perf .ler-text{ color:#ECFDF5; }
@@ -15,12 +66,12 @@
   /* Deixe o host ocupar 100% para alinhar com a grid, o contêiner pai limita a largura */
   :host, .ler-card{ width:100%; }
   /* Gauge: aumentar largura em +15px (39 -> 54) e ajustar altura proporcionalmente */
-  .ler-left{ width:54px; height:46px; display:flex; align-items:center; justify-content:center; }
-    .ler-right{ flex:1 1 auto; min-width:0; position:relative; }
-    .ler-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; line-height:1; }
+  .ler-left{ width:54px; height:46px; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; }
+    .ler-right{ flex:1 1 auto; min-width:0; position:relative; z-index:1; }
+    .ler-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; line-height:1; position:relative; z-index:1; }
   .ler-text{ font-size:14px; color:#111827; font-weight:700; letter-spacing:.3px; }
   .ler-icon{ width:44px; height:44px; color:#6b7280; display:inline-flex; align-items:center; justify-content:center; }
-    .ler-subtext{ margin-top:4px; font-size:11px; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ler-subtext{ margin-top:4px; font-size:11px; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; position:relative; z-index:1; }
     .ler-score{ font-weight:600; color:#0f766e; }
     /* Gauge styles */
   .ler-gauge{ width:54px; height:46px; display:block; }
@@ -127,15 +178,29 @@
       if (scoreEl) scoreEl.textContent = v + ' / ' + m;
       // Color/gradient shift by performance
       try {
+        // reset perf classes before applying one
+        el.classList.remove('perf-gt85','perf-75-85','perf-70-74','perf-lt70');
         if (pct >= 0.85) {
           // Use deep green gradient for very high performance
           fg.setAttribute('stroke', 'url(#gaugeDeepGreen)');
-        } else if (pct >= 0.7) {
-          fg.setAttribute('stroke', '#10b981'); // solid green for 70%–84%
-        } else if (pct >= 0.5) {
+          el.classList.add('perf-gt85');
+          el.classList.add('dark-perf');
+        } else if (pct > 0.75) {
+          fg.setAttribute('stroke', '#10b981');
+          el.classList.add('perf-75-85');
+          el.classList.add('dark-perf');
+        } else if (pct >= 0.70) {
+          fg.setAttribute('stroke', '#10b981'); // keep green stroke for gauge
+          el.classList.add('perf-70-74');
+          el.classList.remove('dark-perf');
+        } else if (pct >= 0.50) {
           fg.setAttribute('stroke', '#f59e0b'); // amber 50%–69%
+          el.classList.remove('dark-perf');
+          // do not set perf class here; only <70 gets red
         } else {
           fg.setAttribute('stroke', '#ef4444'); // red <50%
+          el.classList.add('perf-lt70');
+          el.classList.remove('dark-perf');
         }
       } catch(_){ /* ignore color errors */ }
 

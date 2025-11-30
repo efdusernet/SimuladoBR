@@ -317,9 +317,30 @@
         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
         const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
         const headers = {}; if (token) headers['X-Session-Token'] = token; if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+        // === Observer Pattern: lightweight NotificationCenter ===
+        const NotificationCenter = (function(){
+            let state = { unread: 0, list: [], ts: Date.now() };
+            const subs = new Set();
+            function publish(partial){
+                const prev = state;
+                state = Object.assign({}, state, partial, { ts: Date.now() });
+                subs.forEach(fn => { try { fn(state, prev); } catch(_){ } });
+            }
+            function subscribe(fn){ subs.add(fn); return () => subs.delete(fn); }
+            function get(){ return state; }
+            return { publish, subscribe, get };
+        })();
+        window.NotificationCenter = NotificationCenter; // expose for debugging
+
+        let userClosedAt = 0; // timestamp user manually closed panel
+        const SNOOZE_MS = 15000; // do not auto-open within 15s of manual close
+        let autoOpenedYet = false; // avoid repeated auto-opens for same unread burst
+        let lastListIds = new Set();
+
         async function refreshCount(){
             try { const r = await fetch('/api/notifications/unread-count', { headers }); if (!r.ok) return; const d = await r.json(); const c = Number(d.count)||0; if (c>0){ badge.textContent = String(c); badge.style.display='inline-block'; } else { badge.style.display='none'; } btn.style.display = 'inline-flex'; }
             catch(_){ }
+            try { NotificationCenter.publish({ unread: Number(badge.textContent)||0 }); } catch(_){ }
         }
         async function loadList(){
             try {
@@ -344,6 +365,17 @@
                         } catch(_){ }
                     });
                 });
+                try {
+                    const ids = new Set(list.map(x => x && x.id));
+                    NotificationCenter.publish({ list: list });
+                    // Detect newly arrived IDs (simple heuristic)
+                    let newCount = 0; ids.forEach(id => { if (id && !lastListIds.has(id)) newCount++; });
+                    lastListIds = ids;
+                    if (newCount > 0) {
+                        // mark that future auto-open for new items is allowed again
+                        autoOpenedYet = false;
+                    }
+                } catch(_){ }
             } catch(_){ panel.innerHTML = '<div style="color:#dc2626">Falha ao carregar</div>'; }
         }
         function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
@@ -354,6 +386,21 @@
         refreshCount();
         // Periodic refresh (every 90s) to keep unread count up-to-date
         setInterval(refreshCount, 90000);
+        // Mid-interval lightweight list refresh every 180s
+        setInterval(() => { if (panel.style.display !== 'block') { loadList().catch(()=>{}); } }, 180000);
+
+        // Observer subscription: auto-open when unread transitions from 0 -> >0 or new list items arrive
+        NotificationCenter.subscribe((curr, prev) => {
+            const now = Date.now();
+            const snoozed = (now - userClosedAt) < SNOOZE_MS;
+            const unreadIncreased = (prev.unread === 0 && curr.unread > 0);
+            if (!snoozed && unreadIncreased && panel.style.display !== 'block') {
+                // Only auto-open once per burst until user closes or new items arrive
+                if (!autoOpenedYet) {
+                    refreshCount().then(loadList).finally(() => { open(); autoOpenedYet = true; });
+                }
+            }
+        });
     })();
     </script>
     <!-- Admin menu logic: detect admin by probing an admin-only endpoint -->

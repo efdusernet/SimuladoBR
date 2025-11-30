@@ -1,10 +1,13 @@
 const db = require('../models');
 
-// Resolves user from X-Session-Token header (email, NomeUsuario or id) and checks if has role 'admin'
+// Resolves user from X-Session-Token (id, NomeUsuario, Email or JWT) and checks for 'admin' role
 module.exports = async function requireAdmin(req, res, next){
   try {
-    // Accept token from header, body, query, or cookie for HTML GETs
-    let token = (req.get('X-Session-Token') || (req.body && req.body.sessionToken) || req.query && (req.query.sessionToken || req.query.session || req.query.token) || '').toString().trim();
+    // Accept token from header, body, query, Authorization: Bearer, or cookie
+    let token = (req.get('X-Session-Token') || (req.body && req.body.sessionToken) || (req.query && (req.query.sessionToken || req.query.session || req.query.token)) || '').toString().trim();
+    let authHeader = (req.headers && req.headers.authorization) ? req.headers.authorization.trim() : '';
+    let bearerToken = '';
+    if (authHeader && /^Bearer\s+/i.test(authHeader)) bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
     if (!token && req.headers && typeof req.headers.cookie === 'string') {
       const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(v => v.trim()).filter(Boolean).map(kv => {
         const idx = kv.indexOf('=');
@@ -14,14 +17,31 @@ module.exports = async function requireAdmin(req, res, next){
       }));
       if (cookies && cookies.sessionToken) token = cookies.sessionToken.trim();
     }
-    
+
     token = (token || '').trim();
+    bearerToken = (bearerToken || '').trim();
+    if (!token && bearerToken) token = bearerToken;
     if (!token) return res.status(401).json({ error: 'X-Session-Token required' });
 
     let user = null;
-    if (/^\d+$/.test(token)) {
+    // Try JWT first
+    if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(token)) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded && decoded.sub) {
+          user = await db.User.findByPk(Number(decoded.sub));
+        }
+        if (!user && decoded && decoded.email) {
+          user = await db.User.findOne({ where: { Email: decoded.email } });
+        }
+      } catch(_){ /* invalid jwt: fall through */ }
+    }
+    // Numeric id
+    if (!user && /^\d+$/.test(token)) {
       user = await db.User.findByPk(Number(token));
     }
+    // Username or email
     if (!user) {
       const Op = db.Sequelize && db.Sequelize.Op;
       const where = Op ? { [Op.or]: [{ NomeUsuario: token }, { Email: token }] } : { NomeUsuario: token };
@@ -29,7 +49,7 @@ module.exports = async function requireAdmin(req, res, next){
     }
     if (!user) return res.status(401).json({ error: 'User not found' });
 
-    // Check role membership (admin). If RBAC tables are missing, respond 403 instead of 500.
+    // Check admin role membership
     try {
       const rows = await db.sequelize.query(
         'SELECT 1 FROM public.user_role ur JOIN public.role r ON r.id = ur.role_id WHERE ur.user_id = :uid AND r.slug = :slug AND (r.ativo = TRUE OR r.ativo IS NULL) LIMIT 1',
@@ -37,7 +57,6 @@ module.exports = async function requireAdmin(req, res, next){
       );
       if (!rows || !rows.length) return res.status(403).json({ error: 'Admin role required' });
     } catch (err) {
-      // Postgres missing relation error code is 42P01; also check message heuristics
       const code = (err && err.original && err.original.code) || err.code || '';
       const msg = (err && (err.message || err.toString())) || '';
       const missingTable = code === '42P01' || /relation .* does not exist/i.test(msg);

@@ -114,15 +114,17 @@
 }
 
 html,body{
-	width: 32px; /* unchanged */
-	height: 32px; /* unchanged */
-	object-fit: contain; /* unchanged */
-	display: block; /* unchanged */
-	margin: 0 auto; /* unchanged */
-	color: #111827;
+	margin:0;
+	padding:0;
+	width:100%;
+	min-height:100%;
+	color:#111827;
 	-webkit-font-smoothing:antialiased;
 	-moz-osx-font-smoothing:grayscale;
 }
+
+/* Optional light background only when explicitly opted-in */
+body.light-app{ background: var(--bg); }
 
 /* container principal */
 .exam-container{

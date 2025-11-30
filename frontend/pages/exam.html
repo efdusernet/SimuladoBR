@@ -427,6 +427,12 @@
           const btn = document.getElementById('hintBtn'); if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
         }
       }
+      function hideHint(){
+        try {
+          const container = document.getElementById('hintContainer');
+          if (container) { container.style.display = 'none'; container.innerHTML = ''; }
+        } catch(_){}
+      }
       function clearExamData(){
         try {
           const sid = (window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId') || '').trim();
@@ -481,6 +487,8 @@
       function attach(){
         const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
         const hb = document.getElementById('hintBtn'); if (hb) hb.addEventListener('click', onHintClick);
+        const cb = document.getElementById('continueBtn'); if (cb) cb.addEventListener('click', hideHint, true);
+        const bb = document.getElementById('backBtn'); if (bb) bb.addEventListener('click', hideHint, true);
   const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', ()=>{
     try { closeFinishConfirm(); } catch(_){ }
     // Fluxo simplificado: sair sem salvar (sem enviar ao backend)

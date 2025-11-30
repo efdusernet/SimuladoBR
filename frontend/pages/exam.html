@@ -308,6 +308,13 @@
                 clearInterval(_timerInterval);
                 _timerInterval = null;
                 try { alert('Tempo esgotado.'); } catch(e){}
+                // Desabilita ações de continuação imediatamente
+                try {
+                  const cont = document.getElementById('continueBtn');
+                  if (cont) { cont.disabled = true; cont.setAttribute('aria-disabled','true'); cont.style.opacity = '0.6'; }
+                  const form = document.getElementById('answersForm');
+                  if (form) { Array.from(form.querySelectorAll('input,button,select,textarea')).forEach(el=>{ el.disabled = true; }); }
+                } catch(_){ }
                 // Limpeza e redirecionamento para configuração do exame
                 try {
                   // reaproveita clearExamData se definido mais abaixo

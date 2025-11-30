@@ -10,7 +10,8 @@ router.get('/', requireUserSession, async (req, res) => {
     const limit = Math.min(Number(req.query.limit)||20, 100);
     const list = await db.UserNotification.findAll({
       where: { userId },
-      order: [['createdAt','DESC']],
+      // Ordena por id DESC para evitar problemas com alias createdAt em colunas minúsculas
+      order: [['id','DESC']],
       limit
     });
     // Join with Notification minimal fields

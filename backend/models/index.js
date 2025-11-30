@@ -25,6 +25,7 @@ db.ExamAttemptUserStats = require('./ExamAttemptUserStats')(sequelize, DataTypes
 // Feedback related models
 db.CategoriaFeedback = require('./CategoriaFeedback')(sequelize, DataTypes);
 db.Feedback = require('./Feedback')(sequelize, DataTypes);
+db.RetornoFeedback = require('./RetornoFeedback')(sequelize, DataTypes);
 
 
 // Associations

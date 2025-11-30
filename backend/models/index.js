@@ -22,6 +22,9 @@ db.QuestionType = require('./QuestionType')(sequelize, DataTypes);
 db.Indicator = require('./Indicator')(sequelize, DataTypes);
 db.ExamAttemptPurgeLog = require('./ExamAttemptPurgeLog')(sequelize, DataTypes);
 db.ExamAttemptUserStats = require('./ExamAttemptUserStats')(sequelize, DataTypes);
+// Feedback related models
+db.CategoriaFeedback = require('./CategoriaFeedback')(sequelize, DataTypes);
+db.Feedback = require('./Feedback')(sequelize, DataTypes);
 
 
 // Associations

@@ -79,3 +79,31 @@ Date: 2025-11-30
 ## Links
 - Tag: v1.1.1
 - Compare: v1.1.0..v1.1.1
+
+---
+
+# v1.1.2
+
+Date: 2025-11-30
+
+## Highlights
+- Feedback de questões (Exame Completo & Quiz): Botão "Reportar questão" adicionado em `examReviewFull.html` e `examReviewQuiz.html`.
+- Modal permite selecionar categoria (tabela `CategoriaFeedback`) e enviar texto descritivo.
+- Endpoints backend:
+	- `GET /api/feedback/categories` (autenticado) retorna lista de categorias.
+	- `POST /api/feedback` registra feedback (`texto`, `idcategoria`, `questionId` opcional).
+- Modelos Sequelize adicionados: `CategoriaFeedback`, `Feedback` (com campo opcional `questionId` – fallback caso coluna não exista ainda no schema real).
+
+## Considerações Técnicas
+- Caso o banco ainda não tenha a coluna `questionId` em `Feedback`, a rota faz fallback automático removendo o campo antes da inserção.
+- Recomenda-se criar uma migration para adicionar `questionId` e FK para `Question` para melhor rastreabilidade.
+- Proteção: uso de `requireUserSession` garante somente usuários autenticados.
+
+## Próximos Passos Sugeridos
+- Adicionar endpoint de listagem de feedbacks para moderação/admin.
+- Criar migration formal para `questionId` e índices em `Feedback`.
+- Internacionalizar rótulos do modal (i18n) e adicionar limite de tamanho em `texto`.
+
+## Links
+- Tag: v1.1.2 (pending tagging)
+- Compare: v1.1.1..v1.1.2

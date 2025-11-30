@@ -392,23 +392,42 @@
             refreshCount().then(loadList).finally(open);
         });
         document.addEventListener('click', (e)=>{ if (!panel.contains(e.target) && e.target !== btn) close(); });
-        // Initial display: show bell and count once
+        // Initial display: show bell and count once then start adaptive polling
         refreshCount();
-        // Periodic refresh (every 90s) to keep unread count up-to-date
-        setInterval(refreshCount, 90000);
-        // Mid-interval lightweight list refresh every 180s
-        setInterval(() => { if (panel.style.display !== 'block') { loadList().catch(()=>{}); } }, 180000);
+        let pollTimer = null;
+        function schedulePoll(nextMs){
+            try { if (pollTimer) clearTimeout(pollTimer); } catch(_){}
+            pollTimer = setTimeout(async () => {
+                await refreshCount();
+                const unreadNow = NotificationCenter.get().unread;
+                // Faster polling when waiting for first unread, slower otherwise
+                if (document.hidden){
+                    // When tab hidden, back off further
+                    schedulePoll(unreadNow === 0 ? 45000 : 90000);
+                } else {
+                    schedulePoll(unreadNow === 0 ? 15000 : 60000);
+                }
+            }, nextMs);
+        }
+        schedulePoll(15000);
+        // Refresh count immediately when tab gains focus (helps near real-time)
+        window.addEventListener('focus', () => { refreshCount(); });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshCount(); });
 
-        // Observer subscription: auto-open when unread transitions from 0 -> >0 or new list items arrive
+        // Observer subscription: auto-open when unread transitions 0 -> >0 or new unread entries appear
         NotificationCenter.subscribe((curr, prev) => {
             const now = Date.now();
             const snoozed = (now - userClosedAt) < SNOOZE_MS;
             const unreadIncreased = (prev.unread === 0 && curr.unread > 0);
-            if (!snoozed && unreadIncreased && panel.style.display !== 'block') {
-                // Only auto-open once per burst until user closes or new items arrive
-                if (!autoOpenedYet) {
-                    refreshCount().then(loadList).finally(() => { open(); autoOpenedYet = true; });
-                }
+            const newUnreadItems = (() => {
+                try {
+                    const prevIds = new Set((prev.list||[]).filter(x => !x.readAt).map(x => x.id));
+                    const currUnreadIds = (curr.list||[]).filter(x => !x.readAt).map(x => x.id);
+                    return currUnreadIds.some(id => id && !prevIds.has(id));
+                } catch(_) { return false; }
+            })();
+            if (!snoozed && panel.style.display !== 'block' && !autoOpenedYet && (unreadIncreased || newUnreadItems)) {
+                loadList().finally(() => { open(); autoOpenedYet = true; });
             }
         });
     })();

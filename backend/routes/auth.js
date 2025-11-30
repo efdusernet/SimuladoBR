@@ -156,11 +156,27 @@ router.get('/me', async (req, res) => {
         if (!sessionToken) return res.status(400).json({ message: 'X-Session-Token required' });
 
         let user = null;
-        // if numeric, try by Id first
-        if (/^\d+$/.test(sessionToken)) {
+        // If token looks like JWT, try to decode
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+            try {
+                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                // Try by sub (user id) first
+                if (decoded && decoded.sub) {
+                    user = await User.findByPk(Number(decoded.sub));
+                }
+                // Fallback: try by email
+                if (!user && decoded && decoded.email) {
+                    user = await User.findOne({ where: { Email: decoded.email } });
+                }
+            } catch (e) {
+                // Invalid JWT, fallback to legacy lookup
+            }
+        }
+        // Legacy: if numeric, try by Id first
+        if (!user && /^\d+$/.test(sessionToken)) {
             user = await User.findByPk(Number(sessionToken));
         }
-
+        // Legacy: try by username or email
         if (!user) {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });

@@ -1360,7 +1360,14 @@
       try { sessionToken = (localStorage.getItem('sessionToken')||'').trim(); } catch(_){ }
       if (!sessionToken){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
       try {
-        const resp = await fetch(`/api/indicators/IND10?examMode=${encodeURIComponent(examMode)}`, { headers: { 'X-Session-Token': sessionToken } });
+        // Prefer JWT Authorization if available
+        let jwtTok = '';
+        let jwtType = 'Bearer';
+        try { jwtTok = (localStorage.getItem('jwtToken')||'').trim(); jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer'; } catch(_){ }
+        const headers = {};
+        if (jwtTok) { headers['Authorization'] = `${jwtType} ${jwtTok}`; }
+        if (sessionToken) { headers['X-Session-Token'] = sessionToken; }
+        const resp = await fetch(`/api/indicators/IND10?examMode=${encodeURIComponent(examMode)}`, { headers });
         if (!resp.ok){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
         const data = await resp.json();
         const domains = Array.isArray(data.domains) ? data.domains : [];

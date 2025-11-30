@@ -780,7 +780,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userId = user.Id || user.id || null;
                 const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
 
-                localStorage.setItem('sessionToken', nomeUsuarioStored);
+                // Save real session token (JWT) for regular users
+                if (user.token) {
+                    localStorage.setItem('sessionToken', user.token);
+                    sessionStorage.setItem('X-Session-Token', user.token);
+                } else {
+                    localStorage.setItem('sessionToken', nomeUsuarioStored);
+                    sessionStorage.setItem('X-Session-Token', nomeUsuarioStored);
+                }
                 if (userId) localStorage.setItem('userId', String(userId));
                 localStorage.setItem('nomeUsuario', nomeUsuarioStored);
                 if (nomeReal) localStorage.setItem('nome', nomeReal);

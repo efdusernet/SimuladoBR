@@ -26,6 +26,20 @@
     <h1 style="margin:0 0 10px;">Notificações</h1>
     <p style="color:#94a3b8">Crie e dispare notificações para todos os usuários ou individualmente.</p>
 
+    <!-- Botões Admin e Notificações (replicados de index.html para consistência de navegação) -->
+    <div style="display:flex;gap:10px;margin:8px 0 4px;flex-wrap:wrap">
+      <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="display:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1e293b;color:#e5e7eb;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.35);font-size:.80rem;font-weight:600;">Admin ▾</button>
+      <button id="notifBellBtn" type="button" aria-label="Notificações" title="Notificações" style="display:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1e293b;color:#e5e7eb;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.35);font-size:.80rem;font-weight:600;">🔔 <span id="notifBadge" style="background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;margin-left:6px;font-size:.65rem;display:none">0</span></button>
+    </div>
+    <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:absolute;z-index:2400;min-width:200px;background:#1e293b;border:1px solid #334155;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.55);padding:6px;">
+        <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#e5e7eb;text-decoration:none;font-size:.75rem;">Cadastrar questão</a>
+        <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#e5e7eb;text-decoration:none;font-size:.75rem;">Cadastrar questão bulk</a>
+        <a id="lnkAdminFeedbackResp" href="/pages/admin/feedbackResponses.html" style="display:block;padding:6px 8px;border-radius:6px;color:#e5e7eb;text-decoration:none;font-size:.75rem;">Responder feedbacks</a>
+        <a id="lnkAdminNotifications" href="/pages/admin/notifications.html" style="display:block;padding:6px 8px;border-radius:6px;color:#e5e7eb;text-decoration:none;font-size:.75rem;background:#334155;">Notificações</a>
+        <button id="btnAdminLogout" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f1f5f9;color:#334155;font-size:.75rem;border-radius:6px;cursor:pointer;margin-top:4px;">Sair</button>
+    </nav>
+    <div id="notifPanel" aria-hidden="true" style="display:none;position:absolute;z-index:2400;min-width:260px;background:#1e293b;border:1px solid #334155;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.55);padding:8px;max-height:320px;overflow:auto"></div>
+
     <div id="status" class="status"></div>
 
     <form id="notifForm" style="display:grid; gap:12px; margin-bottom:16px;">
@@ -184,6 +198,51 @@
       document.getElementById('btnDisparar').addEventListener('click', disparar);
       loadList();
     })();
+  </script>
+  <script>
+  // Inicializa menu admin (detecção via endpoint e montagem simples)
+  (function initAdminMenu(){
+    const btn = document.getElementById('adminMenuBtn');
+    const panel = document.getElementById('adminMenuPanel');
+    if (!btn || !panel) return;
+    const token = (localStorage.getItem('sessionToken')||'').trim();
+    const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
+    const identity = nomeUsuario || token;
+    if (!identity) return;
+    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+    const headers = {}; if (identity) headers['X-Session-Token'] = identity; if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+    fetch('/api/admin/exams/probe?sessionToken='+encodeURIComponent(identity), { headers }).then(r => {
+      if (!r.ok) return; // não admin
+      btn.style.display='inline-flex';
+      function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+      function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+      btn.addEventListener('click', e => { e.stopPropagation(); if (panel.style.display==='block') close(); else open(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) close(); });
+      const logoutBtn = document.getElementById('btnAdminLogout');
+      if (logoutBtn){ logoutBtn.addEventListener('click', () => { try{ localStorage.clear(); sessionStorage.clear(); document.cookie='sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; }catch(_){} window.location.href='/login.html'; }); }
+    }).catch(()=>{});
+  })();
+  // Sino de notificações reutilizando endpoint de unread-count e lista
+  (function initBell(){
+    const btn = document.getElementById('notifBellBtn');
+    const badge = document.getElementById('notifBadge');
+    const panel = document.getElementById('notifPanel');
+    if (!btn || !badge || !panel) return;
+    const token = (localStorage.getItem('sessionToken')||'').trim();
+    if (!token) return;
+    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+    const headers = { 'X-Session-Token': token }; if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+    async function refreshCount(){ try{ const r = await fetch('/api/notifications/unread-count', { headers }); if(!r.ok) return; const d = await r.json(); const c = Number(d.count)||0; if(c>0){ badge.textContent=String(c); badge.style.display='inline-block'; } else { badge.style.display='none'; } btn.style.display='inline-flex'; }catch(_){}}
+    async function loadList(){ try{ const r = await fetch('/api/notifications?limit=20', { headers }); if(!r.ok) return; const list = await r.json(); panel.innerHTML=''; if(!Array.isArray(list)||!list.length){ panel.innerHTML='<div style="color:#64748b;font-size:.75rem">Sem notificações</div>'; return; } for(const it of list){ const row=document.createElement('div'); row.style.cssText='border-bottom:1px solid #334155;padding:6px 4px'; const cat=it.categoria||''; const t=it.titulo||''; const msg=it.mensagem||''; const read=!!it.readAt; row.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:.75rem;color:#e2e8f0">${t}</strong><span style="font-size:.6rem;color:#94a3b8">${cat}</span></div><div style="font-size:.70rem;color:#cbd5e1;margin-top:4px">${msg}</div><div style="margin-top:6px;"><button data-id="${it.id}" class="mark-read" style="background:${read?'#334155':'#4f46e5'};color:${read?'#e2e8f0':'#fff'};border:none;border-radius:6px;padding:4px 6px;font-size:.65rem;cursor:pointer">${read?'Lida':'Marcar como lida'}</button></div>`; panel.appendChild(row); }
+      panel.querySelectorAll('button.mark-read').forEach(btnEl=>{ btnEl.addEventListener('click', async (e)=>{ const id=e.currentTarget.getAttribute('data-id'); try{ const rr=await fetch(`/api/notifications/${id}/read`,{method:'POST',headers}); if(rr.ok){ refreshCount(); e.currentTarget.textContent='Lida'; e.currentTarget.style.background='#334155'; e.currentTarget.style.color='#e2e8f0'; } }catch(_){ } }); }); }catch(_){ panel.innerHTML='<div style="color:#dc2626;font-size:.7rem">Falha</div>'; }}
+    function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+    function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+    btn.addEventListener('click', e => { e.stopPropagation(); if(panel.style.display==='block'){ close(); } else { loadList(); open(); } });
+    document.addEventListener('click', e => { if(!panel.contains(e.target) && e.target !== btn) close(); });
+    refreshCount(); setInterval(refreshCount, 90000);
+  })();
   </script>
 </body>
 </html>

@@ -68,8 +68,10 @@
           <input id="titulo" type="text" maxlength="200" placeholder="Título da notificação" />
         </div>
         <div>
-          <label for="userId">User ID (se específico)</label>
-          <input id="userId" type="number" min="1" placeholder="ex: 123" />
+          <label for="userSelect">Usuário (se específico)</label>
+          <select id="userSelect" disabled>
+            <option value="">Selecione um usuário...</option>
+          </select>
         </div>
       </div>
       <div>
@@ -164,7 +166,7 @@
         const alcance = document.getElementById('alcance').value;
         const titulo = document.getElementById('titulo').value.trim();
         const mensagem = document.getElementById('mensagem').value.trim();
-        const userId = document.getElementById('userId').value.trim();
+        const userId = document.getElementById('userSelect').value.trim();
         if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); return; }
         const body = { categoria, titulo, mensagem, targetType: alcance };
         if (alcance === 'user'){ body.targetUserId = Number(userId)||null; if (!body.targetUserId){ alert('Informe User ID'); return; } }
@@ -183,7 +185,7 @@
           const alcance = document.getElementById('alcance').value;
           const titulo = document.getElementById('titulo').value.trim();
           const mensagem = document.getElementById('mensagem').value.trim();
-          const userId = document.getElementById('userId').value.trim();
+          const userId = document.getElementById('userSelect').value.trim();
           if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); status.textContent=''; return; }
           const body = { categoria, titulo, mensagem, targetType: alcance };
           if (alcance === 'user'){ body.targetUserId = Number(userId)||null; if (!body.targetUserId){ alert('Informe User ID'); status.textContent=''; return; } }
@@ -200,6 +202,36 @@
       }
       document.getElementById('btnSalvar').addEventListener('click', salvar);
       document.getElementById('btnDisparar').addEventListener('click', disparar);
+      // Carrega usuários para o select quando alcance = user
+      (function initUsersSelect(){
+        const sel = document.getElementById('userSelect');
+        const alcanceEl = document.getElementById('alcance');
+        async function loadUsers(){
+          try {
+            const r = await fetch('/api/admin/users?limit=500', { headers: headers() });
+            if (!r.ok) return;
+            const list = await r.json();
+            sel.innerHTML = '<option value="">Selecione um usuário...</option>';
+            if (Array.isArray(list)){
+              list.forEach(u => {
+                const id = u.Id || u.id;
+                const nome = (u.Nome || '').trim() || (u.NomeUsuario || '').trim() || ('ID ' + id);
+                const opt = document.createElement('option');
+                opt.value = String(id);
+                opt.textContent = `${nome} - ${id}`;
+                sel.appendChild(opt);
+              });
+            }
+          } catch(_){ /* ignore */ }
+        }
+        function toggle(){
+          const isUser = alcanceEl.value === 'user';
+          sel.disabled = !isUser;
+          if (isUser && sel.options.length <= 1) loadUsers();
+        }
+        alcanceEl.addEventListener('change', toggle);
+        toggle();
+      })();
       loadList();
     })();
   </script>

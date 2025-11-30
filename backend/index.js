@@ -82,6 +82,8 @@ app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/admin/feedback', require('./routes/admin_feedback'));
 // Admin notifications
 app.use('/api/admin/notifications', require('./routes/admin_notifications'));
+// Admin users (list for selection)
+app.use('/api/admin/users', require('./routes/admin_users'));
 // User notifications
 app.use('/api/notifications', require('./routes/notifications'));
 // Admin: roles management (removed)

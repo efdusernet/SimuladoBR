@@ -165,8 +165,7 @@
     </style>
 </head>
 <body>
-        <!-- Menu de resultados de exames -->
-        <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" style="position:fixed;top:12px;right:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.10);font-size:.85rem;font-weight:600;">Ver resultado exames ▾</button>
+        <!-- Modal de resultados de exames (aberto via card Histórico) -->
         <div id="examResultsModal" class="overlay" aria-hidden="true" style="display:none;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
             <div style="background:#fff;border-radius:12px;max-width:520px;width:92%;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.35);color:#111827">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -192,18 +191,20 @@
         }
     })();
     </script>
-        <!-- Exam results modal logic -->
+        <!-- Exam results modal logic (trigger via card Histórico) -->
         <script>
             (function(){
-                const btn = document.getElementById('menuToggle');
+                const triggerCard = document.getElementById('card-historico');
                 const modal = document.getElementById('examResultsModal');
                 const closeBtn = document.getElementById('examResultsClose');
                 const selectEl = document.getElementById('examSelect');
                 const openBtn = document.getElementById('openExamReview');
-                if (!btn || !modal || !closeBtn || !selectEl || !openBtn) return;
+                if (!modal || !closeBtn || !selectEl || !openBtn) return;
                 function open(){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); }
                 function close(){ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); }
-                btn.addEventListener('click', (e)=>{ e.preventDefault(); open(); loadHistory(); });
+                if (triggerCard) {
+                    triggerCard.addEventListener('click', (e)=>{ try{ e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); }catch(_){ } open(); loadHistory(); });
+                }
                 closeBtn.addEventListener('click', (e)=>{ e.preventDefault(); close(); });
                 modal.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
 
@@ -451,8 +452,8 @@
                     <span class="card-label">Indicadores</span>
                 </div>
                 <div id="card-progresso-geral" class="card card--simulador" data-card="progresso-geral" aria-label="Progresso geral" role="button" tabindex="0">
-                    <img src="assets/pc.png" alt="Progresso geral" class="thumb" />
-                    <span class="card-label">Progresso geral</span>
+                    <img src="assets/historia.png" alt="Progresso geral" class="thumb" />
+                    <span class="card-label">Histórico</span>
                 </div>
                 <div class="card card--simulador" data-full="https://picsum.photos/800/800?random=6" aria-label="Estou pronto?" role="button" tabindex="0">
                     <img src="assets/pronto.png" alt="Estou pronto?" class="thumb" />
@@ -1096,10 +1097,45 @@
                     window.location.assign('/pages/Indicadores.html');
                     return;
                 }
-                // Navegar para página de Progresso Geral
+                // Abrir modal de Histórico de exames
                 if (card.id === 'card-progresso-geral' || card.getAttribute('data-card') === 'progresso-geral') {
                     try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
-                    window.location.assign('/pages/progressoGeral.html');
+                    try {
+                        const modal = document.getElementById('examResultsModal');
+                        const selectEl = document.getElementById('examSelect');
+                        if (modal) {
+                            modal.style.display = 'flex';
+                            modal.setAttribute('aria-hidden','false');
+                            // Carregar histórico
+                            (async function loadHistory(){
+                                try {
+                                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+                                    const url = (base || '') + '/api/exams/history?limit=50';
+                                    const token = (localStorage.getItem('sessionToken')||'').trim();
+                                    const r = await fetch(url, { headers: token ? { 'X-Session-Token': token } : {} });
+                                    let list = [];
+                                    if (r.ok) list = await r.json();
+                                    if (!Array.isArray(list)) list = [];
+                                    if (selectEl) {
+                                        selectEl.innerHTML = '';
+                                        if (!list.length){ selectEl.innerHTML = '<option value="" selected>Nenhum exame encontrado</option>'; return; }
+                                        for (const item of list){
+                                            const id = item && (item.id || item.sessionId || item.examId);
+                                            const mode = String(item && item.examMode || '').toLowerCase();
+                                            const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
+                                            const finished = item && item.finishedAt ? new Date(item.finishedAt).toLocaleString('pt-BR') : '';
+                                            const pct = item && item.scorePercent != null ? ` (${Math.round(item.scorePercent)}%)` : '';
+                                            const opt = document.createElement('option');
+                                            opt.value = String(id);
+                                            opt.setAttribute('data-mode', mode || 'quiz');
+                                            opt.textContent = `${title}${pct}${finished? ' — ' + finished : ''}`;
+                                            selectEl.appendChild(opt);
+                                        }
+                                    }
+                                } catch(_) { if (selectEl) selectEl.innerHTML = '<option value="" selected>Falha ao carregar</option>'; }
+                            })();
+                        }
+                    } catch(_){ }
                     return;
                 }
                 // Abrir modal Admin

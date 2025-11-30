@@ -54,6 +54,16 @@ if (db.ExamAttemptQuestion && db.ExamAttemptAnswer) {
   db.ExamAttemptAnswer.belongsTo(db.ExamAttemptQuestion, { foreignKey: 'AttemptQuestionId' });
 }
 
+// Associations for notifications
+if (db.Notification && db.UserNotification) {
+  db.Notification.hasMany(db.UserNotification, { foreignKey: 'notificationId' });
+  db.UserNotification.belongsTo(db.Notification, { foreignKey: 'notificationId' });
+}
+if (db.User && db.UserNotification) {
+  db.User.hasMany(db.UserNotification, { foreignKey: 'userId' });
+  db.UserNotification.belongsTo(db.User, { foreignKey: 'userId' });
+}
+
 
 
 db.sequelize = sequelize;

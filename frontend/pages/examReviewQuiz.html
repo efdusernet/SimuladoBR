@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Revisão de Exame (Quiz)</title>
+  <link rel="stylesheet" href="../dist/styles.css" />
+  <link rel="stylesheet" href="../styles.css" />
+  <style>
+    .ans-correct{ border:1px solid #16a34a; background:#ecfdf5; }
+    .ans-wrong{ border:1px solid #dc2626; background:#fef2f2; }
+    .ans-selected{ box-shadow:0 0 0 2px rgba(99,102,241,0.4) inset; }
+    .review-note{ color:#334155; font-size:13px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <main class="exam-container" role="main" style="margin-top:8px;">
+    <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
+      <div class="header-center" id="centerHeader">
+        <div class="knowledge-area" id="knowledgeArea" aria-live="polite">Revisão</div>
+      </div>
+    </header>
+
+    <section class="question-panel" aria-labelledby="questionNumber">
+      <div class="meta-row">
+        <div id="qStatus" class="q-status">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">0</span></div>
+        <div style="margin-left:auto; font-size:14px; color:#555;" id="questionIdDisplay"></div>
+      </div>
+
+      <article class="question-content" id="questionContent">
+        <p id="questionText" class="question-text">Carregando pergunta...</p>
+        <div id="questionImageWrapper" style="display:none; margin:12px 0 16px; text-align:center;"></div>
+
+        <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
+          <div id="answersContainer"></div>
+        </form>
+
+        <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
+          <button id="backBtn" class="primary-btn" style="margin-right:auto;">Voltar</button>
+          <button id="continueBtn" class="primary-btn">Continuar</button>
+        </div>
+        <div id="reviewNote" class="review-note"></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      // Read examId and mode from query
+      const params = new URLSearchParams(window.location.search);
+      const examId = params.get('examId');
+      const mode = (params.get('mode') || 'quiz').toLowerCase();
+      let REVIEW = { questions: [], answers: {} };
+
+      function letterFromIndex(i){ return ['A','B','C','D','E','F'][i] || String(i); }
+
+      async function loadResult(){
+        try {
+          const token = (localStorage.getItem('sessionToken')||'').trim();
+          const url = `/api/exams/result/${encodeURIComponent(examId)}`;
+          const r = await fetch(url, { headers: token ? { 'X-Session-Token': token } : {} });
+          if (!r.ok) throw new Error('Falha ao carregar resultado');
+          const data = await r.json();
+          // Expected shape: { questions: [...], answers: { q_<id>: { optionId|optionIds } }, total }
+          REVIEW.questions = Array.isArray(data.questions) ? data.questions : [];
+          REVIEW.answers = (data.answers && typeof data.answers === 'object') ? data.answers : {};
+          const totalEl = document.getElementById('totalQuestions'); if (totalEl) totalEl.textContent = String(REVIEW.questions.length);
+          render(0);
+        } catch(e){ document.getElementById('questionText').textContent = 'Erro ao carregar resultado.'; }
+      }
+
+      function render(idx){
+        const qs = REVIEW.questions || [];
+        if (!qs.length){ return; }
+        if (idx < 0 || idx >= qs.length) idx = 0;
+        const q = qs[idx];
+        const label = document.getElementById('questionNumber'); if (label) label.textContent = String(idx+1);
+        const idSpan = document.getElementById('questionIdDisplay'); if (idSpan) idSpan.textContent = q && q.id != null ? ('ID: ' + q.id) : '';
+        const textEl = document.getElementById('questionText'); if (textEl) textEl.innerHTML = q && (q.descricao || q.text || '');
+        const cont = document.getElementById('answersContainer'); if (cont) cont.innerHTML = '';
+
+        const key = q && q.id != null ? ('q_' + q.id) : ('idx_' + idx);
+        const ans = REVIEW.answers[key] || {};
+        const selectedIds = Array.isArray(ans.optionIds) ? ans.optionIds : (ans.optionId!=null ? [ans.optionId] : []);
+
+        const options = Array.isArray(q.opcoes || q.options) ? (q.opcoes || q.options) : [];
+        let correctLetter = null; let selectedLetterList = [];
+        options.forEach((opt, i)=>{
+          const isCorrect = !!(opt.correta || opt.isCorrect);
+          const isSelected = selectedIds.includes(opt.id);
+          const wrap = document.createElement('div');
+          wrap.className = 'answer-option';
+          wrap.style.cssText = 'padding:10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;';
+          if (isCorrect) wrap.classList.add('ans-correct');
+          if (!isCorrect && isSelected) wrap.classList.add('ans-wrong');
+          if (isSelected) wrap.classList.add('ans-selected');
+
+          const letter = opt.letra || opt.letter || letterFromIndex(i);
+          if (isCorrect) correctLetter = letter;
+          if (isSelected) selectedLetterList.push(letter);
+
+          wrap.innerHTML = `<strong>${letter}.</strong> ${opt.texto || opt.text || ''}`;
+          cont.appendChild(wrap);
+        });
+
+        const note = document.getElementById('reviewNote');
+        if (note){
+          if (selectedLetterList.length === 0) note.textContent = 'Você não marcou esta questão.';
+          else if (correctLetter && selectedLetterList.includes(correctLetter)) note.textContent = 'Parabéns! Você acertou.';
+          else if (correctLetter) note.textContent = `Você selecionou ${selectedLetterList.join(', ')}; correta: ${correctLetter}.`;
+          else note.textContent = `Você selecionou ${selectedLetterList.join(', ')}.`;
+        }
+
+        // nav handlers
+        const back = document.getElementById('backBtn');
+        const fwd = document.getElementById('continueBtn');
+        back.onclick = ()=>{ render(Math.max(0, idx-1)); };
+        fwd.onclick = ()=>{ render(Math.min(qs.length-1, idx+1)); };
+      }
+
+      if (!examId){ document.getElementById('questionText').textContent = 'Exame inválido.'; }
+      else { loadResult(); }
+    })();
+  </script>
+</body>
+</html>

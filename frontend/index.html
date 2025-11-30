@@ -165,6 +165,23 @@
     </style>
 </head>
 <body>
+        <!-- Menu de resultados de exames -->
+        <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" style="position:fixed;top:12px;right:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.10);font-size:.85rem;font-weight:600;">Ver resultado exames ▾</button>
+        <div id="examResultsModal" class="overlay" aria-hidden="true" style="display:none;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:12px;max-width:520px;width:92%;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.35);color:#111827">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <h2 style="margin:0;font-size:1.2rem;">Selecionar exame</h2>
+                    <button id="examResultsClose" type="button" aria-label="Fechar" style="background:none;border:none;font-size:1.6rem;color:#64748b;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center">×</button>
+                </div>
+                <div style="display:grid;gap:10px;">
+                    <label for="examSelect" style="font-size:.9rem;color:#334155">Exames finalizados</label>
+                    <select id="examSelect" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#111827;font-size:.95rem">
+                        <option value="" selected>Carregando...</option>
+                    </select>
+                    <button id="openExamReview" type="button" style="padding:10px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;">Abrir</button>
+                </div>
+            </div>
+        </div>
     <!-- Auth guard: redirect to login if no session token -->
     <script>
     (function authGuard(){
@@ -175,6 +192,63 @@
         }
     })();
     </script>
+        <!-- Exam results modal logic -->
+        <script>
+            (function(){
+                const btn = document.getElementById('menuToggle');
+                const modal = document.getElementById('examResultsModal');
+                const closeBtn = document.getElementById('examResultsClose');
+                const selectEl = document.getElementById('examSelect');
+                const openBtn = document.getElementById('openExamReview');
+                if (!btn || !modal || !closeBtn || !selectEl || !openBtn) return;
+                function open(){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); }
+                function close(){ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); }
+                btn.addEventListener('click', (e)=>{ e.preventDefault(); open(); loadHistory(); });
+                closeBtn.addEventListener('click', (e)=>{ e.preventDefault(); close(); });
+                modal.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
+
+                async function loadHistory(){
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+                        const url = (base || '') + '/api/exams/history?limit=50';
+                        const token = (localStorage.getItem('sessionToken')||'').trim();
+                        const r = await fetch(url, { headers: token ? { 'X-Session-Token': token } : {} });
+                        let list = [];
+                        if (r.ok) list = await r.json();
+                        if (!Array.isArray(list)) list = [];
+                        selectEl.innerHTML = '';
+                        if (!list.length){
+                            selectEl.innerHTML = '<option value="" selected>Nenhum exame encontrado</option>';
+                            return;
+                        }
+                        for (const item of list){
+                            const id = item && (item.id || item.sessionId || item.examId);
+                            const mode = String(item && item.examMode || '').toLowerCase();
+                            const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
+                            const finished = item && item.finishedAt ? new Date(item.finishedAt).toLocaleString('pt-BR') : '';
+                            const pct = item && item.scorePercent != null ? ` (${Math.round(item.scorePercent)}%)` : '';
+                            const opt = document.createElement('option');
+                            opt.value = String(id);
+                            opt.setAttribute('data-mode', mode || 'quiz');
+                            opt.textContent = `${title}${pct}${finished? ' — ' + finished : ''}`;
+                            selectEl.appendChild(opt);
+                        }
+                    } catch(_){ selectEl.innerHTML = '<option value="" selected>Falha ao carregar</option>'; }
+                }
+
+                openBtn.addEventListener('click', ()=>{
+                    try {
+                        const opt = selectEl.options[selectEl.selectedIndex];
+                        if (!opt || !opt.value){ alert('Selecione um exame.'); return; }
+                        const id = opt.value;
+                        const mode = (opt.getAttribute('data-mode') || 'quiz').toLowerCase();
+                        const path = mode === 'full' ? '/pages/examReviewFull.html' : '/pages/examReviewQuiz.html';
+                        const url = `${path}?examId=${encodeURIComponent(id)}&mode=${encodeURIComponent(mode)}`;
+                        window.location.assign(url);
+                    } catch(e){ alert('Falha ao abrir exame: ' + e); }
+                });
+            })();
+        </script>
     <!-- Admin quick menu (rendered only if user has admin role) -->
     <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="display:none;position:fixed;top:12px;left:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.10);font-size:.85rem;font-weight:600;">Admin ▾</button>
     <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">

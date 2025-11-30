@@ -378,9 +378,19 @@
                 } catch(_){ }
             } catch(_){ panel.innerHTML = '<div style="color:#dc2626">Falha ao carregar</div>'; }
         }
-        function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+        function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); userClosedAt = Date.now(); }
         function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+        // Click opens or closes with full refresh
         btn.addEventListener('click', (e)=>{ e.stopPropagation(); if (panel.style.display==='block') { close(); } else { refreshCount().then(loadList); open(); } });
+        // Hover (mouseenter) auto-refresh + open (debounced) when closed
+        let lastHoverOpen = 0;
+        btn.addEventListener('mouseenter', (e)=>{
+            if (panel.style.display === 'block') return; // already open
+            const now = Date.now();
+            if (now - lastHoverOpen < 1200) return; // debounce rapid hovers
+            lastHoverOpen = now;
+            refreshCount().then(loadList).finally(open);
+        });
         document.addEventListener('click', (e)=>{ if (!panel.contains(e.target) && e.target !== btn) close(); });
         // Initial display: show bell and count once
         refreshCount();

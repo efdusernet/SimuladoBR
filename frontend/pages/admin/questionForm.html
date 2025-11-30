@@ -355,8 +355,10 @@
           opt.textContent = String(it.descricao||'');
           sel.appendChild(opt);
         });
-        // Ensure first option is selected by default on load
-        sel.value = 'PMBOK 7th Ed. Jan 2021';
+        // Default: select the first non-placeholder option if none selected
+        try {
+          if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1;
+        } catch(_){ }
       } catch(e){ console.error('[loadVersoesExame] error:', e); }
     }
 
@@ -873,6 +875,10 @@
       try { $('optsPaste').value = ''; } catch{}
       $('opts').innerHTML = '';
       ensureAtLeastTwo();
+      // Recarregar selects essenciais para auto-preencher com padrão
+      try { await loadExamTypes('examType'); } catch(_){ }
+      try { await loadVersoesExame('versaoExame'); } catch(_){ }
+      try { await loadDominioGeral('iddominiogeral'); } catch(_){ }
       // Marca para limpeza reforçada em reinit
       window._afterSaveReset = true;
       // Reativar distribuição após recriar inputs

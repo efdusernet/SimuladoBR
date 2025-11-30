@@ -1083,13 +1083,30 @@ exports.resumeSession = async (req, res) => {
   exports.lastAttemptSummary = async (req, res) => {
     try {
       // Resolve user using the same policy applied in selection endpoints
-      const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-      if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+      const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+      const authHeader = (req.get('Authorization') || '').trim();
+      let bearerToken = '';
+      if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
+      const sessionToken = bearerToken || legacyToken;
+      if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token or Authorization required' });
 
       let user = null;
-      if (/^\d+$/.test(sessionToken)) {
+      // Try JWT decode first when token looks like JWT
+      if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+        try {
+          const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret');
+          if (decoded && decoded.id != null) user = await db.User.findByPk(Number(decoded.id));
+          if (!user && decoded && decoded.sub != null) user = await db.User.findByPk(Number(decoded.sub));
+          if (!user && decoded && decoded.email) {
+            user = await db.User.findOne({ where: { Email: decoded.email } });
+          }
+        } catch(_) { /* fallback to legacy lookup */ }
+      }
+      // Legacy numeric id
+      if (!user && /^\d+$/.test(sessionToken)) {
         user = await db.User.findByPk(Number(sessionToken));
       }
+      // Legacy username/email lookup
       if (!user) {
         const Op = db.Sequelize && db.Sequelize.Op;
         const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
@@ -1149,11 +1166,25 @@ exports.resumeSession = async (req, res) => {
   exports.lastAttemptsHistory = async (req, res) => {
     try {
       const limit = Math.max(1, Math.min(10, Number(req.query.limit) || 3));
-      const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-      if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+      const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+      const authHeader = (req.get('Authorization') || '').trim();
+      let bearerToken = '';
+      if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
+      const sessionToken = bearerToken || legacyToken;
+      if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token or Authorization required' });
 
       let user = null;
-      if (/^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
+      if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+        try {
+          const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret');
+          if (decoded && decoded.id != null) user = await db.User.findByPk(Number(decoded.id));
+          if (!user && decoded && decoded.sub != null) user = await db.User.findByPk(Number(decoded.sub));
+          if (!user && decoded && decoded.email) {
+            user = await db.User.findOne({ where: { Email: decoded.email } });
+          }
+        } catch(_) { /* ignore and fallback */ }
+      }
+      if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
       if (!user) {
         const Op = db.Sequelize && db.Sequelize.Op;
         const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };

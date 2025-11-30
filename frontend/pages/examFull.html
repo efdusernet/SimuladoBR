@@ -803,6 +803,19 @@
                 if (remaining <= 0){
                   clearInterval(_timerInterval); _timerInterval = null;
                   try { alert('Tempo esgotado.'); } catch(e){}
+                  try {
+                    const contBtn = document.getElementById('continueBtn');
+                    if (contBtn) { contBtn.disabled = true; contBtn.style.pointerEvents = 'none'; }
+                    const form = document.getElementById('answersForm');
+                    if (form) {
+                      const inputs = form.querySelectorAll('input, select, textarea, button');
+                      inputs.forEach(el => { try { el.disabled = true; el.style.pointerEvents = 'none'; } catch(_){} });
+                    }
+                  } catch(_){}
+                  try {
+                    if (typeof window.clearExamData === 'function') { window.clearExamData(); }
+                  } catch(_){}
+                  try { window.location.assign('/pages/examSetup.html'); } catch(_){ window.location.href = '/pages/examSetup.html'; }
                 }
               } catch(e){ }
             }, 1000);

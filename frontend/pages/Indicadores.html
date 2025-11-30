@@ -374,10 +374,27 @@
     // Simple helper to build Authorization header from localStorage (JWT)
     function getAuthHeadersLocal(){
       try {
-        const tok = localStorage.getItem('jwtToken');
-        const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
-        return tok ? { Authorization: `${typ} ${tok}` } : {};
+          const tok = localStorage.getItem('jwtToken') || '';
+          const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
+          return tok ? { Authorization: `${typ} ${tok}` } : {}; 
       } catch(_) { return {}; }
+    }
+
+    // Unified helper: builds Accept + Authorization (JWT) + X-Session-Token when available
+    function buildAuthHeadersLocal(extra){
+      let sessionToken = '';
+      let jwtTok = '';
+      let jwtType = 'Bearer';
+      try {
+          sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+          jwtTok = (localStorage.getItem('jwtToken') || '').trim();
+          jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+      } catch(_){ }
+      const headers = { 'Accept':'application/json' };
+      if (extra && typeof extra === 'object') Object.assign(headers, extra);
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+      if (sessionToken) headers['X-Session-Token'] = sessionToken;
+      return headers;
     }
 
     // Exam type helpers: resolve current slug and map to numeric id via /api/exams/types

@@ -394,6 +394,8 @@
   <!-- registration/session script must run before exam script -->
   <!-- Prefer non-minified script on examFull to honor latest safety fixes for missing #status/#autosaveIndicator -->
   <script src="../script.js"></script>
+  <!-- Shared exam cleanup utilities -->
+  <script src="../components/examCleanup.js"></script>
   <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed; also auto-resume session on 404 -->
   <script>
     (function(){
@@ -813,7 +815,8 @@
                     }
                   } catch(_){}
                   try {
-                    if (typeof window.clearExamData === 'function') { window.clearExamData(); }
+                    if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
+                    else if (typeof window.clearExamData === 'function') { window.clearExamData(); }
                   } catch(_){}
                   try { window.location.assign('/pages/examSetup.html'); } catch(_){ window.location.href = '/pages/examSetup.html'; }
                 }

@@ -305,7 +305,18 @@
         if(!resp.ok) return;
         const html = await resp.text();
         const mountEl = document.getElementById('bottomNavMount');
-        if(mountEl){ mountEl.innerHTML = html; }
+        if(mountEl){
+          mountEl.innerHTML = html;
+          try {
+            const scripts = Array.from(mountEl.querySelectorAll('script'));
+            scripts.forEach(old => {
+              const s = document.createElement('script');
+              if(old.src) s.src = old.src; else s.textContent = old.textContent || '';
+              old.parentNode.removeChild(old);
+              mountEl.appendChild(s);
+            });
+          } catch(_){ }
+        }
       } catch(_){}
     }
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();

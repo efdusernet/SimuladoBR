@@ -1397,41 +1397,31 @@
     }
     function loadDominiosLazy(){ if (!_domLoadedOnce){ _domLoadedOnce = true; loadDominios(); const sel = document.getElementById('domSelModo'); if (sel) sel.addEventListener('change', ()=> loadDominios()); } }
   </script>
-  <!-- Bottom navigation bar -->
-  <nav class="bottom-nav" role="navigation" aria-label="Navegação inferior">
-    <a class="nav-item" href="/" aria-label="Início">
-      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-      <span class="nav-text">Início</span>
-    </a>
-    <a class="nav-item" href="/pages/examSetup.html" aria-label="Simulador">
-      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14l4-4h12c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
-      <span class="nav-text">Simulador</span>
-    </a>
-    <a class="nav-item active" href="/pages/Indicadores.html" aria-label="Indicadores">
-      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2V4h-2v13zm4 0h2v-9h-2v9z"/></svg>
-      <span class="nav-text">Indicadores</span>
-    </a>
-  </nav>
-
-  <style>
-    .bottom-nav{
-      position:fixed; left:0; right:0; bottom:0; height:44px;
-      background:#111827; border-top:1px solid #1f2937;
-      display:flex; align-items:center; justify-content:center; z-index:1000;
-      gap:14px; padding-bottom: env(safe-area-inset-bottom);
-    }
-    .nav-item{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0;
-      min-width:40px; min-height:44px; padding:1px 4px; border-radius:8px; color:#94a3b8;
-      text-decoration:none; user-select:none; -webkit-tap-highlight-color: transparent; cursor:pointer;
-      transition: color .15s ease, background .15s ease; }
-    .nav-item.active{ color:#4f46e5; background: rgba(79,70,229,0.08) }
-    .nav-icon{ width:16px; height:16px; fill: currentColor; display:block }
-    .nav-text{ display:none }
-    @media (min-width: 640px){
-      .bottom-nav{ height:36px; gap:12px }
-      .nav-item{ min-height:32px; min-width:36px; padding:1px 4px }
-      .nav-icon{ width:14px; height:14px }
-    }
-  </style>
+  <!-- Bottom navigation component mount -->
+  <div id="bottomNavMount"></div>
+  <script>
+    (function(){
+      function loadBottomNav(){
+        var mount = document.getElementById('bottomNavMount');
+        if(!mount) return;
+        fetch('../components/bottomNav.html')
+          .then(function(r){ return r.ok ? r.text() : null; })
+          .then(function(html){ if(html){
+              mount.innerHTML = html;
+              try {
+                var scripts = Array.from(mount.querySelectorAll('script'));
+                scripts.forEach(function(old){
+                  var s = document.createElement('script');
+                  if(old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                  old.parentNode.removeChild(old);
+                  mount.appendChild(s);
+                });
+              } catch(_){ }
+          } })
+          .catch(function(){ });
+      }
+      if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', loadBottomNav); } else { loadBottomNav(); }
+    })();
+  </script>
 </body>
 </html>

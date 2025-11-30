@@ -1,5 +1,6 @@
 const db = require('../models');
 const sequelize = require('../config/database');
+const jwt = require('jsonwebtoken');
 // Daily user exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
@@ -1091,37 +1092,73 @@ exports.resumeSession = async (req, res) => {
       if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token or Authorization required' });
 
       let user = null;
-      // Try JWT decode first when token looks like JWT
-      if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+      
+      // Unified JWT decode attempt (bearer first, then legacy if bearer absent)
+      async function tryResolveFromJwt(raw) {
+        if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
         let decoded = null;
-        try { decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret'); }
-        catch(e){ try { decoded = jwt.decode(sessionToken); } catch(_){ decoded = null; } }
-        if (decoded) {
-          const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
-          for (const cid of candidateIds) {
-            if (!user && cid != null && /^\d+$/.test(String(cid))) {
-              user = await db.User.findByPk(Number(cid));
+        try { decoded = jwt.verify(raw, process.env.JWT_SECRET || 'dev-secret'); }
+        catch(e){
+          try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
+        }
+        if (!decoded) {
+          // Manual payload decode fallback (ignore signature) if jsonwebtoken failed
+          try {
+            const parts = raw.split('.');
+            if (parts.length === 3) {
+              const payloadB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+              // pad base64
+              const pad = payloadB64.length % 4; const padded = pad ? payloadB64 + '='.repeat(4-pad) : payloadB64;
+              const buf = Buffer.from(padded, 'base64');
+              const jsonStr = buf.toString('utf8');
+              decoded = JSON.parse(jsonStr);
             }
+          } catch(err){ }
+        }
+        if (!decoded) { return; }
+        const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
+        for (const cid of candidateIds) {
+          if (!user && cid != null && /^\d+$/.test(String(cid))) {
+            user = await db.User.findByPk(Number(cid));
+            if (user) { }
           }
-          if (!user && decoded.email) user = await db.User.findOne({ where: { Email: decoded.email } });
-          const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
-          for (const uname of candidateUsernames) {
-            if (!user && uname) {
-              user = await db.User.findOne({ where: { NomeUsuario: uname } });
-            }
+        }
+        if (!user && decoded.email) {
+          user = await db.User.findOne({ where: { Email: decoded.email } });
+          if (user) { }
+        }
+        const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
+        for (const uname of candidateUsernames) {
+          if (!user && uname) {
+            user = await db.User.findOne({ where: { NomeUsuario: uname } });
+            if (user) { }
           }
         }
       }
-      // Legacy numeric id
-      if (!user && /^\d+$/.test(sessionToken)) {
-        user = await db.User.findByPk(Number(sessionToken));
+      // Try bearer token first; if not resolved and legacy differs, try legacy
+      await tryResolveFromJwt(bearerToken);
+      if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwt(legacyToken);
+      // Fallback: attempt legacy token if bearer failed
+      if (!user && legacyToken) {
+        if (/^\d+$/.test(legacyToken)) {
+          user = await db.User.findByPk(Number(legacyToken));
+          if (user) { }
+        }
+        if (!user) {
+          const Op = db.Sequelize && db.Sequelize.Op;
+          const whereLegacy = Op ? { [Op.or]: [{ NomeUsuario: legacyToken }, { Email: legacyToken }] } : { NomeUsuario: legacyToken };
+          user = await db.User.findOne({ where: whereLegacy });
+          if (user) { }
+        }
       }
-      // Legacy username/email lookup
+      // Final fallback: interpret combined sessionToken (legacy-only scenario)
+      if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
       if (!user) {
         const Op = db.Sequelize && db.Sequelize.Op;
         const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
         user = await db.User.findOne({ where });
       }
+      
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       const attempt = await db.ExamAttempt.findOne({
@@ -1175,7 +1212,10 @@ exports.resumeSession = async (req, res) => {
   // Used by: frontend/index.html (loadLastExamResults) para estilizar o gauge conforme regra dos últimos 3
   exports.lastAttemptsHistory = async (req, res) => {
     try {
-      const limit = Math.max(1, Math.min(10, Number(req.query.limit) || 3));
+      // Allow up to 50 history items instead of previous cap 10
+      const limitRequested = Number(req.query.limit) || 3;
+      const limit = Math.max(1, Math.min(50, limitRequested));
+      
       const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
       const authHeader = (req.get('Authorization') || '').trim();
       let bearerToken = '';
@@ -1184,32 +1224,72 @@ exports.resumeSession = async (req, res) => {
       if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token or Authorization required' });
 
       let user = null;
-      if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+      
+      // Unified JWT decode attempt for history
+      async function tryResolveFromJwtHistory(raw) {
+        if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
         let decoded = null;
-        try { decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret'); }
-        catch(e){ try { decoded = jwt.decode(sessionToken); } catch(_){ decoded = null; } }
-        if (decoded) {
-          const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
-          for (const cid of candidateIds) {
-            if (!user && cid != null && /^\d+$/.test(String(cid))) {
-              user = await db.User.findByPk(Number(cid));
-            }
+        try { decoded = jwt.verify(raw, process.env.JWT_SECRET || 'dev-secret'); }
+        catch(e){
+          try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
+        }
+        if (!decoded) {
+          // Manual payload decode fallback
+            try {
+              const parts = raw.split('.');
+              if (parts.length === 3) {
+                const payloadB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+                const pad = payloadB64.length % 4; const padded = pad ? payloadB64 + '='.repeat(4-pad) : payloadB64;
+                const buf = Buffer.from(padded, 'base64');
+                const jsonStr = buf.toString('utf8');
+                decoded = JSON.parse(jsonStr);
+                
+              }
+            } catch(err){ }
+        }
+        if (!decoded) { return; }
+        const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
+        for (const cid of candidateIds) {
+          if (!user && cid != null && /^\d+$/.test(String(cid))) {
+            user = await db.User.findByPk(Number(cid));
+            if (user) { }
           }
-          if (!user && decoded.email) user = await db.User.findOne({ where: { Email: decoded.email } });
-          const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
-          for (const uname of candidateUsernames) {
-            if (!user && uname) {
-              user = await db.User.findOne({ where: { NomeUsuario: uname } });
-            }
+        }
+        if (!user && decoded.email) {
+          user = await db.User.findOne({ where: { Email: decoded.email } });
+          if (user) { }
+        }
+        const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
+        for (const uname of candidateUsernames) {
+          if (!user && uname) {
+            user = await db.User.findOne({ where: { NomeUsuario: uname } });
+            if (user) { }
           }
         }
       }
+      await tryResolveFromJwtHistory(bearerToken);
+      if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwtHistory(legacyToken);
+      // Fallback legacy token resolution if bearer failed
+      if (!user && legacyToken) {
+        if (/^\d+$/.test(legacyToken)) {
+          user = await db.User.findByPk(Number(legacyToken));
+          if (user) { }
+        }
+        if (!user) {
+          const Op = db.Sequelize && db.Sequelize.Op;
+          const whereLegacy = Op ? { [Op.or]: [{ NomeUsuario: legacyToken }, { Email: legacyToken }] } : { NomeUsuario: legacyToken };
+          user = await db.User.findOne({ where: whereLegacy });
+          if (user) { }
+        }
+      }
+      // Final fallback: combined sessionToken (legacy-only scenario)
       if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
       if (!user) {
         const Op = db.Sequelize && db.Sequelize.Op;
         const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
         user = await db.User.findOne({ where });
       }
+      
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       const attempts = await db.ExamAttempt.findAll({
@@ -1236,6 +1316,8 @@ exports.resumeSession = async (req, res) => {
           }
         } catch(_) { durationSeconds = null; }
         return {
+          attemptId: a.Id, // added so frontend can link to review
+          id: a.Id,        // convenience alias for older UI fallbacks
           correct,
           total,
           scorePercent,
@@ -1343,3 +1425,136 @@ exports.resumeSession = async (req, res) => {
       return res.status(500).json({ error: 'Internal error' });
     }
   };
+
+// GET /api/exams/result/:attemptId
+// Returns the finished attempt's questions with correct flags and selected answers for review
+// Response shape expected by frontend pages examReviewFull.html/examReviewQuiz.html:
+// { total, questions: [{ id, descricao, texto, options: [{ id, texto, isCorrect|correta }] }], answers: { q_<id>: { optionId|optionIds } } }
+exports.getAttemptResult = async (req, res) => {
+  try {
+    const attemptId = Number(req.params.attemptId);
+    if (!Number.isFinite(attemptId) || attemptId <= 0) return res.status(400).json({ error: 'invalid attemptId' });
+
+    // Resolve user using Authorization Bearer or X-Session-Token (same policy as history)
+    const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+    const authHeader = (req.get('Authorization') || '').trim();
+    let bearerToken = '';
+    if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
+    const sessionToken = bearerToken || legacyToken;
+    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token or Authorization required' });
+
+    let user = null;
+    async function tryResolveFromJwt(raw) {
+      if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
+      let decoded = null;
+      try { decoded = jwt.verify(raw, process.env.JWT_SECRET || 'dev-secret'); }
+      catch(e){ try { decoded = jwt.decode(raw); } catch(_) { decoded = null; } }
+      if (!decoded) return;
+      const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
+      for (const cid of candidateIds) {
+        if (!user && cid != null && /^\d+$/.test(String(cid))) {
+          user = await db.User.findByPk(Number(cid));
+        }
+      }
+      if (!user && decoded.email) {
+        user = await db.User.findOne({ where: { Email: decoded.email } });
+      }
+      const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
+      for (const uname of candidateUsernames) {
+        if (!user && uname) {
+          user = await db.User.findOne({ where: { NomeUsuario: uname } });
+        }
+      }
+    }
+    await tryResolveFromJwt(bearerToken);
+    if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwt(legacyToken);
+    if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
+    if (!user) {
+      const Op = db.Sequelize && db.Sequelize.Op;
+      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+      user = await db.User.findOne({ where });
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Load attempt and ensure it belongs to resolved user and is finished
+    const attempt = await db.ExamAttempt.findOne({ where: { Id: attemptId, UserId: user.Id || user.id } });
+    if (!attempt) return res.status(404).json({ error: 'attempt not found' });
+    if (String(attempt.Status || '').toLowerCase() !== 'finished') {
+      // Allow viewing only finished attempts
+      return res.status(400).json({ error: 'attempt not finished' });
+    }
+
+    // Load ordered questions for this attempt
+    const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId }, order: [['Ordem', 'ASC']], attributes: ['Id','QuestionId','Ordem'] });
+    const questionIds = aqRows.map(r => Number(r.QuestionId)).filter(n => Number.isFinite(n));
+    const aqIdByQ = new Map(aqRows.map(r => [Number(r.QuestionId), Number(r.Id)]));
+    const total = questionIds.length;
+
+    // Fetch options with correctness flags
+    let rawOptions = [];
+    if (questionIds.length) {
+      try {
+        rawOptions = await sequelize.query(
+          `SELECT id, idquestao, descricao, iscorreta
+             FROM respostaopcao
+            WHERE (excluido = false OR excluido IS NULL) AND idquestao IN (:ids)
+            ORDER BY idquestao, id`,
+          { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
+        );
+      } catch(_) { rawOptions = []; }
+    }
+    const optsByQ = new Map();
+    rawOptions.forEach(o => {
+      const qid = Number(o.idquestao || o.IdQuestao);
+      if (!Number.isFinite(qid)) return;
+      const arr = optsByQ.get(qid) || [];
+      arr.push({ id: Number(o.id || o.Id), texto: o.descricao || o.Descricao || '', descricao: o.descricao || o.Descricao || '', isCorrect: !!(o.iscorreta || o.IsCorreta), correta: !!(o.iscorreta || o.IsCorreta) });
+      optsByQ.set(qid, arr);
+    });
+
+    // Fetch answers selected for each AttemptQuestion
+    const aqIds = aqRows.map(r => Number(r.Id));
+    let ansRows = [];
+    if (aqIds.length) {
+      try {
+        ansRows = await db.ExamAttemptAnswer.findAll({ where: { AttemptQuestionId: aqIds }, attributes: ['AttemptQuestionId','OptionId','Resposta','Selecionada'] });
+      } catch(_) { ansRows = []; }
+    }
+    const selectedByAq = new Map();
+    ansRows.forEach(a => {
+      const aqid = Number(a.AttemptQuestionId);
+      const list = selectedByAq.get(aqid) || [];
+      if (a.OptionId != null && (a.Selecionada === true || a.Selecionada === 't')) list.push(Number(a.OptionId));
+      selectedByAq.set(aqid, list);
+    });
+
+    const questions = questionIds.map((qid) => ({ id: qid, descricao: null, texto: null, options: optsByQ.get(qid) || [] }));
+    // Populate question text/descricao from questao table for completeness
+    try {
+      if (questionIds.length) {
+        const qRows = await sequelize.query(
+          `SELECT id, descricao FROM questao WHERE id IN (:ids)`,
+          { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
+        );
+        const txtById = new Map((qRows || []).map(r => [Number(r.id || r.Id), String(r.descricao || r.Descricao || '')]));
+        for (const q of questions) { const t = txtById.get(Number(q.id)); if (t != null) { q.descricao = t; q.texto = t; } }
+      }
+    } catch(_) { /* ignore */ }
+
+    // Build answers map keyed by q_<id>
+    const answers = {};
+    for (const qid of questionIds) {
+      const aqid = aqIdByQ.get(Number(qid));
+      const selected = (aqid != null) ? (selectedByAq.get(Number(aqid)) || []) : [];
+      const key = 'q_' + String(qid);
+      if (selected.length > 1) answers[key] = { optionIds: selected };
+      else if (selected.length === 1) answers[key] = { optionId: selected[0] };
+      else answers[key] = { optionIds: [] };
+    }
+
+    return res.json({ total, questions, answers });
+  } catch (err) {
+    console.error('Erro getAttemptResult:', err);
+    return res.status(500).json({ error: 'Internal error' });
+  }
+};

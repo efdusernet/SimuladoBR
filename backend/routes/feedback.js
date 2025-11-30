@@ -14,10 +14,10 @@ router.get('/categories', requireUserSession, async (req, res) => {
 	}
 });
 
-// POST /api/feedback -> cria feedback { texto, idcategoria, idquestao }
+// POST /api/feedback -> cria feedback { texto, idcategoria, idquestao, userId }
 router.post('/', requireUserSession, async (req, res) => {
 	try {
-		const { texto, idcategoria, idquestao } = req.body || {};
+		const { texto, idcategoria, idquestao, userId } = req.body || {};
 		if (!texto || typeof texto !== 'string' || !texto.trim()) {
 			return res.status(400).json({ error: 'Texto obrigatório' });
 		}
@@ -33,8 +33,11 @@ router.post('/', requireUserSession, async (req, res) => {
 		if (!Number.isInteger(qId) || qId <= 0) {
 			return res.status(400).json({ error: 'idquestao inválido' });
 		}
-		const created = await db.Feedback.create({ texto: texto.trim(), idcategoria: catId, idquestao: qId });
-		res.status(201).json({ id: created.id, idcategoria: created.idcategoria, idquestao: created.idquestao });
+		const reportedBy = Number(userId);
+		const payload = { texto: texto.trim(), idcategoria: catId, idquestao: qId };
+		if (Number.isInteger(reportedBy) && reportedBy > 0) payload.reportadopor = reportedBy;
+		const created = await db.Feedback.create(payload);
+		res.status(201).json({ id: created.id, idcategoria: created.idcategoria, idquestao: created.idquestao, reportadopor: created.reportadopor ?? null });
 	} catch (e) {
 		console.error('feedback.create error', e);
 		res.status(500).json({ error: 'Erro ao criar feedback' });

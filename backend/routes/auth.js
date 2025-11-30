@@ -92,6 +92,11 @@ router.post('/login', async (req, res) => {
             const patch = { DataAlteracao: new Date() };
             if (Number(user.AccessFailedCount || 0) !== 0) patch.AccessFailedCount = 0;
             if (user.FimBloqueio) patch.FimBloqueio = null; // limpa bloqueio antigo
+            // Normalização: se NomeUsuario ainda é um guest_*#, renomeia para o e-mail
+            if (user.NomeUsuario && /^guest_/.test(user.NomeUsuario) && user.Email) {
+                patch.NomeUsuario = user.Email.toLowerCase();
+                console.debug('[auth:login] Normalizando NomeUsuario guest_* para email:', patch.NomeUsuario);
+            }
             await user.update(patch);
         } catch (_) { /* ignore */ }
         // Issue JWT for protected endpoints (e.g., indicators)
@@ -99,8 +104,10 @@ router.post('/login', async (req, res) => {
         try {
             const payload = { sub: user.Id, email: user.Email, name: user.NomeUsuario };
             const expiresIn = process.env.JWT_EXPIRES_IN || '12h';
-            token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
-        } catch (_) { /* ignore token error */ }
+            // Fallback secret to ensure dev environments issue a token
+            const secret = process.env.JWT_SECRET || 'dev-secret';
+            token = jwt.sign(payload, secret, { expiresIn });
+        } catch (e) { console.warn('JWT sign error, token omitido:', e && e.message); }
 
         return res.json({
             Id: user.Id,

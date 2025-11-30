@@ -307,8 +307,17 @@
                 display.textContent = fmtSeconds(0);
                 clearInterval(_timerInterval);
                 _timerInterval = null;
-                // exam finished - you may want to auto-submit or notify
                 try { alert('Tempo esgotado.'); } catch(e){}
+                // Limpeza e redirecionamento para configuração do exame
+                try {
+                  // reaproveita clearExamData se definido mais abaixo
+                  if (typeof clearExamData === 'function') { clearExamData(); }
+                  else {
+                    try { sessionStorage.clear(); } catch(_){}
+                    try { localStorage.removeItem('examQuestionCount'); } catch(_){}
+                  }
+                  window.location.assign('/pages/examSetup.html');
+                } catch(_){ window.location.assign('/pages/examSetup.html'); }
                 return;
               }
               display.textContent = fmtSeconds(remaining);

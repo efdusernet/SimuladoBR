@@ -1,20 +1,19 @@
 module.exports = (sequelize, DataTypes) => {
-  // As colunas foram criadas sem aspas (SQL manual), então Postgres converteu para minúsculas.
-  // Mapeamos os atributos camelCase para os nomes reais em minúsculo (targettype, targetuserid, createdby, createdat, updatedat).
+  // Definimos explicitamente as colunas para evitar ambiguidade de nomes (tudo minúsculo no DB).
   const Notification = sequelize.define('Notification', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    categoria: { type: DataTypes.ENUM('Promocoes','Avisos','Alertas'), allowNull: false },
-    titulo: { type: DataTypes.STRING(200), allowNull: false },
-    mensagem: { type: DataTypes.TEXT, allowNull: false },
+    categoria: { type: DataTypes.ENUM('Promocoes','Avisos','Alertas'), allowNull: false, field: 'categoria' },
+    titulo: { type: DataTypes.STRING(200), allowNull: false, field: 'titulo' },
+    mensagem: { type: DataTypes.TEXT, allowNull: false, field: 'mensagem' },
     targetType: { type: DataTypes.ENUM('all','user'), allowNull: false, defaultValue: 'all', field: 'targettype' },
     targetUserId: { type: DataTypes.INTEGER, allowNull: true, field: 'targetuserid' },
-    status: { type: DataTypes.ENUM('draft','sent'), allowNull: false, defaultValue: 'draft' },
-    createdBy: { type: DataTypes.INTEGER, allowNull: false, field: 'createdby' }
+    status: { type: DataTypes.ENUM('draft','sent'), allowNull: false, defaultValue: 'draft', field: 'status' },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false, field: 'createdby' },
+    createdAt: { type: DataTypes.DATE, allowNull: false, field: 'createdat' },
+    updatedAt: { type: DataTypes.DATE, allowNull: false, field: 'updatedat' }
   }, {
     tableName: 'notification',
-    timestamps: true,
-    createdAt: 'createdat',
-    updatedAt: 'updatedat'
+    timestamps: false // timestamps já mapeados manualmente
   });
   return Notification;
 };

@@ -1094,15 +1094,22 @@ exports.resumeSession = async (req, res) => {
       // Try JWT decode first when token looks like JWT
       if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
         let decoded = null;
-        try {
-          decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret');
-        } catch(e) {
-          try { decoded = jwt.decode(sessionToken); } catch(_){ decoded = null; }
-        }
+        try { decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret'); }
+        catch(e){ try { decoded = jwt.decode(sessionToken); } catch(_){ decoded = null; } }
         if (decoded) {
-          if (!user && decoded.id != null) user = await db.User.findByPk(Number(decoded.id));
-          if (!user && decoded.sub != null) user = await db.User.findByPk(Number(decoded.sub));
+          const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
+          for (const cid of candidateIds) {
+            if (!user && cid != null && /^\d+$/.test(String(cid))) {
+              user = await db.User.findByPk(Number(cid));
+            }
+          }
           if (!user && decoded.email) user = await db.User.findOne({ where: { Email: decoded.email } });
+          const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
+          for (const uname of candidateUsernames) {
+            if (!user && uname) {
+              user = await db.User.findOne({ where: { NomeUsuario: uname } });
+            }
+          }
         }
       }
       // Legacy numeric id
@@ -1179,15 +1186,22 @@ exports.resumeSession = async (req, res) => {
       let user = null;
       if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
         let decoded = null;
-        try {
-          decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret');
-        } catch(e) {
-          try { decoded = jwt.decode(sessionToken); } catch(_){ decoded = null; }
-        }
+        try { decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret'); }
+        catch(e){ try { decoded = jwt.decode(sessionToken); } catch(_){ decoded = null; } }
         if (decoded) {
-          if (!user && decoded.id != null) user = await db.User.findByPk(Number(decoded.id));
-          if (!user && decoded.sub != null) user = await db.User.findByPk(Number(decoded.sub));
+          const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
+          for (const cid of candidateIds) {
+            if (!user && cid != null && /^\d+$/.test(String(cid))) {
+              user = await db.User.findByPk(Number(cid));
+            }
+          }
           if (!user && decoded.email) user = await db.User.findOne({ where: { Email: decoded.email } });
+          const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
+          for (const uname of candidateUsernames) {
+            if (!user && uname) {
+              user = await db.User.findOne({ where: { NomeUsuario: uname } });
+            }
+          }
         }
       }
       if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));

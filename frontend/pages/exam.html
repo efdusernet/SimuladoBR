@@ -168,6 +168,8 @@
 
   <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->
   <script src="../script.js"></script>
+  <!-- Shared exam cleanup utilities -->
+  <script src="../components/examCleanup.js"></script>
   <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed -->
   <script>
     (function(){
@@ -315,14 +317,10 @@
                   const form = document.getElementById('answersForm');
                   if (form) { Array.from(form.querySelectorAll('input,button,select,textarea')).forEach(el=>{ el.disabled = true; }); }
                 } catch(_){ }
-                // Limpeza e redirecionamento para configuração do exame
+                // Limpeza e redirecionamento para configuração do exame (shared utility)
                 try {
-                  // reaproveita clearExamData se definido mais abaixo
-                  if (typeof clearExamData === 'function') { clearExamData(); }
-                  else {
-                    try { sessionStorage.clear(); } catch(_){}
-                    try { localStorage.removeItem('examQuestionCount'); } catch(_){}
-                  }
+                  if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
+                  else if (typeof clearExamData === 'function') { clearExamData(); }
                   window.location.assign('/pages/examSetup.html');
                 } catch(_){ window.location.assign('/pages/examSetup.html'); }
                 return;

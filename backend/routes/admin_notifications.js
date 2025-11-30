@@ -6,10 +6,27 @@ const requireAdmin = require('../middleware/requireAdmin');
 // Create draft notification
 router.post('/', requireAdmin, async (req, res) => {
   try {
+    // Debug log de entrada para diagnosticar 500 durante criação via HTTP
+    console.log('[admin_notifications][CREATE][incoming]', {
+      rawBodyKeys: Object.keys(req.body||{}),
+      categoria: req.body && req.body.categoria,
+      titulo: req.body && req.body.titulo,
+      mensagemLen: req.body && req.body.mensagem ? req.body.mensagem.length : 0,
+      targetType: req.body && req.body.targetType,
+      targetUserId: req.body && req.body.targetUserId,
+      hasUser: !!req.user,
+      userId: req.user && (req.user.Id || req.user.id),
+      headersAuth: req.headers.authorization,
+      xSession: req.get('X-Session-Token')
+    });
     const { categoria, titulo, mensagem, targetType, targetUserId } = req.body || {};
     if (!categoria || !titulo || !mensagem) return res.status(400).json({ error: 'Missing fields' });
     const validCat = ['Promocoes','Avisos','Alertas'];
     if (!validCat.includes(categoria)) return res.status(400).json({ error: 'Invalid categoria' });
+    if (!req.user || !(req.user.Id || req.user.id)) {
+      console.warn('[admin_notifications][CREATE] missing req.user');
+      return res.status(401).json({ error: 'Admin identity missing' });
+    }
     const nt = await db.Notification.create({
       categoria,
       titulo,
@@ -17,7 +34,7 @@ router.post('/', requireAdmin, async (req, res) => {
       targetType: targetType === 'user' ? 'user' : 'all',
       targetUserId: targetType === 'user' ? Number(targetUserId) || null : null,
       status: 'draft',
-      createdBy: req.user.Id || req.user.id
+      createdBy: Number(req.user.Id || req.user.id)
     });
     res.status(201).json(nt);
   } catch(e){

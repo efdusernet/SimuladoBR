@@ -56,6 +56,56 @@
   <!-- Bottom navigation component mount -->
   <div id="bottomNavMount"></div>
   <script>
+    // Admin menu logic: mirror top Admin button behavior from index.html
+    (function initAdminMenu(){
+      const btn = document.getElementById('adminMenuBtn');
+      const panel = document.getElementById('adminMenuPanel');
+      if (!btn || !panel) return;
+      const token = (localStorage.getItem('sessionToken') || '').trim();
+      const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+      const sessionForHeader = nomeUsuario || token;
+      if (!token) return;
+      function applyTokenFallback(){
+        try {
+          const q = encodeURIComponent(token);
+          ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp'].forEach(id => {
+            const a = document.getElementById(id); if (!a) return;
+            const href = a.getAttribute('href') || '';
+            if (href.includes('sessionToken=')) return;
+            const sep = href.includes('?') ? '&' : '?';
+            a.setAttribute('href', href + sep + 'sessionToken=' + q);
+          });
+        } catch(_){}
+      }
+      const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+      const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+      const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+      const probeHeaders = { };
+      if (sessionForHeader) probeHeaders['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) probeHeaders['Authorization'] = `${jwtType} ${jwtTok}`;
+      fetch(probeUrl, { headers: probeHeaders, method: 'GET' })
+        .then(r => {
+          if (!r.ok) return Promise.reject('Not admin');
+          btn.style.display = 'inline-flex';
+          applyTokenFallback();
+          function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+          function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+          btn.addEventListener('click', e => { e.stopPropagation(); if (panel.style.display === 'block') close(); else open(); });
+          document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) close(); });
+          const logoutBtn = document.getElementById('btnAdminLogout');
+          if (logoutBtn){
+            logoutBtn.addEventListener('click', ()=>{
+              close();
+              try { localStorage.clear(); } catch(_){ }
+              try { sessionStorage.clear(); } catch(_){ }
+              try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
+              setTimeout(()=>{ window.location.href='/login'; }, 300);
+            });
+          }
+        })
+        .catch(()=>{});
+    })();
+
     (function(){
       function loadBottomNav(){
         var mount = document.getElementById('bottomNavMount');

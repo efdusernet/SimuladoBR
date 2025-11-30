@@ -22,146 +22,120 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/assets/icon-512.png">
     <style>
         :root{
-            --bg: #0f172a;         /* slate-900 */
-            --panel: #111827;      /* gray-900 */
-            --text: #e5e7eb;       /* gray-200 */
-            --muted: #94a3b8;      /* slate-400 */
-            --primary: #4f46e5;    /* indigo-600 */
-            --primary-press: #4338ca; /* indigo-700 */
-            --border: #1f2937;     /* gray-800 */
+            --bg: #0f172a;
+            --panel: #111827;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --primary: #4f46e5;
+            --primary-press: #4338ca;
+            --border: #1f2937;
             --shadow: 0 8px 20px rgba(0,0,0,.35);
         }
-        *{box-sizing:border-box}
-        html,body{height:100%}
+        *{ box-sizing: border-box }
+        html, body{ height: 100% }
         body{
-            margin:0; padding:0;
-            display:flex; flex-direction:column; min-height:100vh;
-            background:#ffffff; color:#111827; /* fundo branco e texto escuro para melhor leitura */
+            margin: 0; padding: 0;
+            display: flex; flex-direction: column; min-height: 100vh;
+            background: #ffffff; color: #111827;
             font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, 'Helvetica Neue', Arial, 'Apple Color Emoji','Segoe UI Emoji';
             touch-action: manipulation;
         }
-
-        /* Main content area (scrollable above bottom nav) */
-                    .content{
-                        flex:1 1 auto; overflow-y:auto; padding:16px 16px calc(env(safe-area-inset-bottom) + 48px) 16px;
-                    }
+        /* === Card Grid (restored full styling with gradients) === */
+        .content{flex:1 1 auto; overflow-y:auto; padding:16px 16px calc(env(safe-area-inset-bottom) + 48px) 16px;}
         .section{display:none}
         .section.active{display:block}
         .title{font-size:1.6rem; text-align:center; margin:4px 0 6px}
         .debug{font-size:0.9rem; color:var(--muted); text-align:center; margin:0 0 16px}
-
-        /* Grid of 6 cards (2 x 3) */
-            .card-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; width:100%; max-width:320px; margin:0 auto; justify-items:center; }
-                .card{
-                    background:#1e293b; border:1px solid rgba(255,255,255,0.06);
-                    width:84px; height:84px; /* +40px total em relação ao original para caber imagem e texto com folga */
-                    display:flex; align-items:center; justify-content:center;
-                    border-radius:12px;
-                    /* Sombras mais profundas em camadas para sensação de elevação */
-                    box-shadow:
-                        0 2px 4px rgba(0,0,0,.22),
-                        0 6px 14px rgba(0,0,0,.32),
-                        0 12px 28px rgba(0,0,0,.38);
-                    cursor:pointer; transition: transform .18s ease, box-shadow .22s ease;
-                    padding:6px 8px; outline:none; color:#ffffff; font-weight:500;
-                    position:relative; overflow:hidden;
-                }
-            .card:hover{
-                transform: scale(1.08);
-                box-shadow:
-                    0 4px 6px rgba(0,0,0,.28),
-                    0 10px 20px rgba(0,0,0,.40),
-                    0 18px 36px rgba(0,0,0,.46);
-            }
-            .card:active{
-                transform: scale(0.97);
-                box-shadow:
-                    0 2px 3px rgba(0,0,0,.30),
-                    0 6px 12px rgba(0,0,0,.36);
-            }
-                .thumb{ width:44px !important; height:44px !important; border-radius:8px; object-fit:cover !important; display:block; margin:0 auto; }
-                    /* Simulador card variant: icon + label */
-                    .card--simulador{ flex-direction:column; gap:6px; align-items:center; justify-content:center; overflow:hidden; display:flex; height:100%; }
-                    .card--simulador .thumb{ width:44px !important; height:44px !important; border-radius:6px; object-fit:cover !important; display:block; margin:0 auto; }
-                    .card-label{ font-size:.75rem; line-height:1.1; color:var(--muted); user-select:none }
-                @media (min-width:480px){
-                    .card{ width:104px; height:104px; padding:10px }
-                        .thumb{ width:54px !important; height:54px !important; }
-                        .card--simulador .thumb{ width:54px !important; height:54px !important; }
-                        .card--simulador{ gap:8px }
-                        .card-label{ font-size:.90rem }
-                .card-grid{ max-width:340px }
-            }
-
-            /* Paleta distinta para cada card dentro de qualquer .card-grid (primeiros 6) */
-            .card-grid .card:nth-child(1){
-                background:linear-gradient(135deg,#6366f1,#4338ca);
-            }
-            .card-grid .card:nth-child(2){
-                background:linear-gradient(135deg,#0ea5e9,#0369a1);
-            }
-            .card-grid .card:nth-child(3){
-                background:linear-gradient(135deg,#ec4899,#be185d);
-            }
-            .card-grid .card:nth-child(4){
-                background:linear-gradient(135deg,#10b981,#047857);
-            }
-            .card-grid .card:nth-child(5){
-                background:linear-gradient(135deg,#f59e0b,#b45309);
-            }
-            .card-grid .card:nth-child(6){
-                background:linear-gradient(135deg,#8b5cf6,#6d28d9);
-            }
-            /* Ajuste de texto e leve overlay para legibilidade */
-            .card-grid .card::after{
-                content:""; position:absolute; inset:0; background:linear-gradient(to bottom,rgba(0,0,0,0.12),rgba(0,0,0,0.35)); mix-blend-mode:overlay; pointer-events:none;
-            }
-            .card-label{color:#fff !important; text-shadow:0 1px 2px rgba(0,0,0,.4);}
-            /* Fonte menor especificamente para labels em cards simulador */
-            .card--simulador .card-label{ font-size:.65rem !important; }
-            /* Acessibilidade foco */
-            .card:focus-visible{ outline:2px solid #fff; outline-offset:3px; }
+        .card-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; width:100%; max-width:320px; margin:0 auto; justify-items:center; }
+        .card{
+            background:#1e293b; border:1px solid rgba(255,255,255,0.06);
+            width:84px; height:84px;
+            display:flex; align-items:center; justify-content:center;
+            border-radius:12px;
+            box-shadow:
+                0 2px 4px rgba(0,0,0,.22),
+                0 6px 14px rgba(0,0,0,.32),
+                0 12px 28px rgba(0,0,0,.38);
+            cursor:pointer; transition: transform .18s ease, box-shadow .22s ease;
+            padding:6px 8px; outline:none; color:#ffffff; font-weight:500;
+            position:relative; overflow:hidden;
+        }
+        .card:hover{
+            transform: scale(1.08);
+            box-shadow:
+                0 4px 6px rgba(0,0,0,.28),
+                0 10px 20px rgba(0,0,0,.40),
+                0 18px 36px rgba(0,0,0,.46);
+        }
+        .card:active{
+            transform: scale(0.97);
+            box-shadow:
+                0 2px 3px rgba(0,0,0,.30),
+                0 6px 12px rgba(0,0,0,.36);
+        }
+        .thumb{ width:44px !important; height:44px !important; border-radius:8px; object-fit:cover !important; display:block; margin:0 auto; }
+        .card--simulador{ flex-direction:column; gap:6px; align-items:center; justify-content:center; overflow:hidden; display:flex; height:100%; }
+        .card--simulador .thumb{ width:44px !important; height:44px !important; border-radius:6px; object-fit:cover !important; display:block; margin:0 auto; }
+        .card-label{ font-size:.75rem; line-height:1.1; user-select:none }
+        @media (min-width:480px){
+            .card{ width:104px; height:104px; padding:10px }
+            .thumb{ width:54px !important; height:54px !important; }
+            .card--simulador .thumb{ width:54px !important; height:54px !important; }
+            .card--simulador{ gap:8px }
+            .card-label{ font-size:.90rem }
+            .card-grid{ max-width:340px }
+        }
+        /* Gradient palette for first six cards */
+        .card-grid .card:nth-child(1){background:linear-gradient(135deg,#6366f1,#4338ca);}
+        .card-grid .card:nth-child(2){background:linear-gradient(135deg,#0ea5e9,#0369a1);}
+        .card-grid .card:nth-child(3){background:linear-gradient(135deg,#ec4899,#be185d);}
+        .card-grid .card:nth-child(4){background:linear-gradient(135deg,#10b981,#047857);}
+        .card-grid .card:nth-child(5){background:linear-gradient(135deg,#f59e0b,#b45309);}
+        .card-grid .card:nth-child(6){background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
+        .card-grid .card::after{content:""; position:absolute; inset:0; background:linear-gradient(to bottom,rgba(0,0,0,0.12),rgba(0,0,0,0.35)); mix-blend-mode:overlay; pointer-events:none;}
+        /* Card labels and focus accessibility */
+        .card-label{ color: #fff !important; text-shadow: 0 1px 2px rgba(0,0,0,.4) }
+        .card--simulador .card-label{ font-size: .65rem !important }
+        .card:focus-visible{ outline: 2px solid #fff; outline-offset: 3px }
 
         /* Bottom navigation bar */
-                    .bottom-nav{
-                        position:fixed; left:0; right:0; bottom:0; height:44px;
-            background:var(--panel); border-top:1px solid var(--border);
-            display:flex; align-items:center; justify-content:center; z-index:1000;
-            gap:14px;
+        .bottom-nav{
+            position: fixed; left: 0; right: 0; bottom: 0; height: 44px;
+            background: var(--panel); border-top: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
+            gap: 14px;
             padding-bottom: env(safe-area-inset-bottom);
         }
-                        .nav-item{
-                            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0;
-                            min-width:40px; min-height:44px; padding:1px 4px; border-radius:8px; color:var(--muted);
-            user-select:none; -webkit-tap-highlight-color: transparent; cursor:pointer; transition: color .15s ease, background .15s ease;
+        .nav-item{
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+            min-width: 40px; min-height: 44px; padding: 1px 4px; border-radius: 8px; color: var(--muted);
+            user-select: none; -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease, background .15s ease;
         }
         .nav-item.active{ color: var(--primary); background: rgba(79,70,229,0.08) }
-                        .nav-icon{ width:16px; height:16px; fill: currentColor; display:block }
-                        .nav-text{ display:none }
+        .nav-icon{ width: 16px; height: 16px; fill: currentColor; display: block }
+        .nav-text{ display: none }
 
-                /* Desktop: reduzir ainda mais o bottom nav mantendo mobile confortável */
-                @media (min-width: 640px){
-                    .bottom-nav{ height:36px; gap:12px }
-                    .nav-item{ min-height:32px; min-width:36px; padding:1px 4px }
-                    .nav-icon{ width:14px; height:14px }
-                    .content{ padding-bottom: calc(env(safe-area-inset-bottom) + 40px) }
-                }
+        @media (min-width: 640px){
+            .bottom-nav{ height: 36px; gap: 12px }
+            .nav-item{ min-height: 32px; min-width: 36px; padding: 1px 4px }
+            .nav-icon{ width: 14px; height: 14px }
+            .content{ padding-bottom: calc(env(safe-area-inset-bottom) + 40px) }
+        }
 
-                /* Modo compacto opcional: aplique a classe .compact no <body> para forçar tamanho reduzido em qualquer tela */
-                body.compact .bottom-nav{ height:32px }
-                body.compact .nav-item{ min-height:32px; min-width:32px; padding:0 4px }
-                body.compact .nav-icon{ width:14px; height:14px }
-                body.compact .content{ padding-bottom: calc(env(safe-area-inset-bottom) + 36px) }
+        body.compact .bottom-nav{ height: 32px }
+        body.compact .nav-item{ min-height: 32px; min-width: 32px; padding: 0 4px }
+        body.compact .nav-icon{ width: 14px; height: 14px }
+        body.compact .content{ padding-bottom: calc(env(safe-area-inset-bottom) + 36px) }
 
         /* Fullscreen overlay */
-        .overlay{ position:fixed; inset:0; background:#000; display:none; align-items:center; justify-content:center; z-index:2000; }
-        .overlay.active{ display:flex }
-        .overlay img{ max-width:100vw; max-height:100vh; object-fit:contain }
+        .overlay{ position: fixed; inset: 0; background: #000; display: none; align-items: center; justify-content: center; z-index: 2000 }
+        .overlay.active{ display: flex }
+        .overlay img{ max-width: 100vw; max-height: 100vh; object-fit: contain }
         .back-btn{
-            position:fixed; top:16px; left:16px; width:40px; height:40px; border-radius:999px; border:1px solid rgba(255,255,255,0.25);
-            background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none;
+            position: fixed; top: 16px; left: 16px; width: 40px; height: 40px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; cursor: pointer; outline: none;
         }
-        .back-btn svg{ width:22px; height:22px; fill:#fff }
+        .back-btn svg{ width: 22px; height: 22px; fill: #fff }
     </style>
 </head>
 <body>
@@ -332,7 +306,7 @@
         }, window.SIMULADOS_I18N || {});
     </script>
     <script>
-    // Notifications bell: fetch unread count and list
+    // Notifications bell: simple click-to-open with on-demand refresh
     (function initNotifications(){
         const btn = document.getElementById('notifBellBtn');
         const badge = document.getElementById('notifBadge');
@@ -348,16 +322,38 @@
             catch(_){ }
         }
         async function loadList(){
-            try { const r = await fetch('/api/notifications?limit=20', { headers }); if (!r.ok) return; const list = await r.json(); panel.innerHTML=''; if (!Array.isArray(list) || !list.length){ panel.innerHTML = '<div style="color:#64748b">Sem notificações</div>'; return; }
-                for (const it of list){ const row = document.createElement('div'); row.style.cssText='border-bottom:1px solid #e5e7eb;padding:6px 4px'; const cat = it.categoria||''; const t = it.titulo||''; const msg = it.mensagem||''; const read = !!it.readAt; row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:.85rem">${t}</strong><span style="font-size:.7rem;color:#6b7280">${cat}</span></div><div style="font-size:.80rem;color:#334155;margin-top:4px">${msg}</div><div style="margin-top:6px;"><button data-id="${it.id}" class="mark-read" style="background:${read?'#e5e7eb':'#4f46e5'};color:${read?'#111827':'#fff'};border:none;border-radius:6px;padding:4px 6px;font-size:.75rem;cursor:pointer">${read?'Lida':'Marcar como lida'}</button></div>`; panel.appendChild(row); }
-                panel.querySelectorAll('button.mark-read').forEach(btnEl => { btnEl.addEventListener('click', async (e) => { const id = e.currentTarget.getAttribute('data-id'); try { const rr = await fetch(`/api/notifications/${id}/read`, { method: 'POST', headers }); if (rr.ok){ refreshCount(); e.currentTarget.textContent='Lida'; e.currentTarget.style.background='#e5e7eb'; e.currentTarget.style.color='#111827'; } } catch(_){ } }); });
+            try {
+                const r = await fetch('/api/notifications?limit=20', { headers });
+                if (!r.ok) return;
+                const list = await r.json();
+                panel.innerHTML='';
+                if (!Array.isArray(list) || !list.length){ panel.innerHTML = '<div style="color:#64748b">Sem notificações</div>'; return; }
+                for (const it of list){
+                    const row = document.createElement('div');
+                    row.style.cssText='border-bottom:1px solid #e5e7eb;padding:6px 4px';
+                    const cat = it.categoria||''; const t = it.titulo||''; const msg = it.mensagem||''; const read = !!it.readAt;
+                    row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:.85rem">${t}</strong><span style="font-size:.7rem;color:#6b7280">${cat}</span></div><div style="font-size:.80rem;color:#334155;margin-top:4px">${msg}</div><div style="margin-top:6px;"><button data-id="${it.id}" class="mark-read" style="background:${read?'#e5e7eb':'#4f46e5'};color:${read?'#111827':'#fff'};border:none;border-radius:6px;padding:4px 6px;font-size:.75rem;cursor:pointer">${read?'Lida':'Marcar como lida'}</button></div>`;
+                    panel.appendChild(row);
+                }
+                panel.querySelectorAll('button.mark-read').forEach(btnEl => {
+                    btnEl.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.getAttribute('data-id');
+                        try {
+                            const rr = await fetch(`/api/notifications/${id}/read`, { method: 'POST', headers });
+                            if (rr.ok){ await refreshCount(); await loadList(); }
+                        } catch(_){ }
+                    });
+                });
             } catch(_){ panel.innerHTML = '<div style="color:#dc2626">Falha ao carregar</div>'; }
         }
         function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
         function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
-        btn.addEventListener('click', (e)=>{ e.stopPropagation(); if (panel.style.display==='block') { close(); } else { loadList(); open(); } });
+        btn.addEventListener('click', (e)=>{ e.stopPropagation(); if (panel.style.display==='block') { close(); } else { refreshCount().then(loadList); open(); } });
         document.addEventListener('click', (e)=>{ if (!panel.contains(e.target) && e.target !== btn) close(); });
-        refreshCount(); setInterval(refreshCount, 90000);
+        // Initial display: show bell and count once
+        refreshCount();
+        // Periodic refresh (every 90s) to keep unread count up-to-date
+        setInterval(refreshCount, 90000);
     })();
     </script>
     <!-- Admin menu logic: detect admin by probing an admin-only endpoint -->
@@ -1744,7 +1740,20 @@
                             if(!resp.ok) return;
                             const html = await resp.text();
                             const mountEl = document.getElementById('bottomNavMount');
-                            if(mountEl){ mountEl.innerHTML = html; }
+                            if(mountEl){
+                                mountEl.innerHTML = html;
+                                // Execute any <script> tags inside the fetched fragment (innerHTML does not run them)
+                                try {
+                                    const scripts = Array.from(mountEl.querySelectorAll('script'));
+                                    scripts.forEach(old => {
+                                        const s = document.createElement('script');
+                                        if (old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                                        old.parentNode.removeChild(old);
+                                        // Append to mount to preserve relative execution context
+                                        mountEl.appendChild(s);
+                                    });
+                                } catch(_){ /* silent */ }
+                            }
                         } catch(_){}
                     }
                     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();

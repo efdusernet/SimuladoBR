@@ -83,13 +83,17 @@
 
   <script>
     (function(){
+      // Constrói cabeçalhos de autorização replicando a lógica do index.html (usa nomeUsuario como fallback)
       function headers(){
         const h = {};
         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
         const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
         const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+        const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
+        // requireAdmin tenta resolver: JWT -> id numérico -> NomeUsuario/Email. Se sessionTok for apenas um hash, usar nomeUsuario ajuda.
+        const identity = nomeUsuario || sessionTok;
         if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
-        if (sessionTok) h['X-Session-Token'] = sessionTok;
+        if (identity) h['X-Session-Token'] = identity;
         h['Content-Type'] = 'application/json';
         return h;
       }

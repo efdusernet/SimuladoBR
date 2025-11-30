@@ -1,17 +1,18 @@
 module.exports = (sequelize, DataTypes) => {
+  // Ajuste de nomes para colunas em minúsculo (notificationid, userid, deliverystatus, deliveredat, readat, createdat, updatedat)
   const UserNotification = sequelize.define('UserNotification', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    notificationId: { type: DataTypes.INTEGER, allowNull: false },
-    userId: { type: DataTypes.INTEGER, allowNull: false },
-    deliveryStatus: { type: DataTypes.ENUM('queued','delivered'), allowNull: false, defaultValue: 'queued' },
-    deliveredAt: { type: DataTypes.DATE, allowNull: true },
-    readAt: { type: DataTypes.DATE, allowNull: true }
+    notificationId: { type: DataTypes.INTEGER, allowNull: false, field: 'notificationid' },
+    userId: { type: DataTypes.INTEGER, allowNull: false, field: 'userid' },
+    deliveryStatus: { type: DataTypes.ENUM('queued','delivered'), allowNull: false, defaultValue: 'queued', field: 'deliverystatus' },
+    deliveredAt: { type: DataTypes.DATE, allowNull: true, field: 'deliveredat' },
+    readAt: { type: DataTypes.DATE, allowNull: true, field: 'readat' }
   }, {
     tableName: 'user_notification',
     timestamps: true,
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt',
-    indexes: [{ fields: ['userId','readAt'] }, { fields: ['notificationId'] }]
+    createdAt: 'createdat',
+    updatedAt: 'updatedat',
+    indexes: [{ fields: ['userid','readat'] }, { fields: ['notificationid'] }]
   });
   return UserNotification;
 };

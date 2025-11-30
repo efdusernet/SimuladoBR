@@ -1058,6 +1058,47 @@
                 if (!card) return;
                 // Se for o card do Simulador, usar fluxo do script.js
                 if (card.classList.contains('card--simulador')){
+                    // Exception: use this card for Histórico modal, not exam setup
+                    const isHistorico = (card.id === 'card-progresso-geral') || (card.getAttribute('data-card') === 'progresso-geral');
+                    if (isHistorico) {
+                        try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                        try {
+                            const modal = document.getElementById('examResultsModal');
+                            const selectEl = document.getElementById('examSelect');
+                            if (modal) {
+                                modal.style.display = 'flex';
+                                modal.setAttribute('aria-hidden','false');
+                                (async function loadHistory(){
+                                    try {
+                                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+                                        const url = (base || '') + '/api/exams/history?limit=50';
+                                        const token = (localStorage.getItem('sessionToken')||'').trim();
+                                        const r = await fetch(url, { headers: token ? { 'X-Session-Token': token } : {} });
+                                        let list = [];
+                                        if (r.ok) list = await r.json();
+                                        if (!Array.isArray(list)) list = [];
+                                        if (selectEl) {
+                                            selectEl.innerHTML = '';
+                                            if (!list.length){ selectEl.innerHTML = '<option value="" selected>Nenhum exame encontrado</option>'; return; }
+                                            for (const item of list){
+                                                const id = item && (item.id || item.sessionId || item.examId);
+                                                const mode = String(item && item.examMode || '').toLowerCase();
+                                                const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
+                                                const finished = item && item.finishedAt ? new Date(item.finishedAt).toLocaleString('pt-BR') : '';
+                                                const pct = item && item.scorePercent != null ? ` (${Math.round(item.scorePercent)}%)` : '';
+                                                const opt = document.createElement('option');
+                                                opt.value = String(id);
+                                                opt.setAttribute('data-mode', mode || 'quiz');
+                                                opt.textContent = `${title}${pct}${finished? ' — ' + finished : ''}`;
+                                                selectEl.appendChild(opt);
+                                            }
+                                        }
+                                    } catch(_) { if (selectEl) selectEl.innerHTML = '<option value="" selected>Falha ao carregar</option>'; }
+                                })();
+                            }
+                        } catch(_){ }
+                        return;
+                    }
                     // Evita qualquer ação/navegação padrão e outros handlers paralelos
                     try { e.preventDefault(); } catch(_) {}
                     try { e.stopPropagation(); } catch(_) {}

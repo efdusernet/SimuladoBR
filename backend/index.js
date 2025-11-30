@@ -78,6 +78,8 @@ app.use('/api/integrity', require('./routes/integrity'));
 app.use('/api/indicators', require('./routes/indicators'));
 // Feedback reporting
 app.use('/api/feedback', require('./routes/feedback'));
+// Admin feedback responses
+app.use('/api/admin/feedback', require('./routes/admin_feedback'));
 // Admin: roles management (removed)
 // Mount debug routes (development only)
 app.use('/api/debug', require('./routes/debug'));

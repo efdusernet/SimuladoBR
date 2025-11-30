@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Responder Feedbacks</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
+    .wrap{ max-width:960px; margin:20px auto; padding:16px; background:#111827; border:1px solid #1f2937; border-radius:10px; }
+    table{ width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td{ border-bottom:1px solid #1f2937; padding:8px; text-align:left; font-size:.9rem; }
+    th{ color:#a5b4fc; }
+    .btn{ padding:6px 10px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
+    .btn-primary{ background:#4f46e5; color:#fff; }
+    .btn-muted{ background:#334155; color:#e5e7eb; }
+    .resp-box{ display:flex; gap:8px; align-items:flex-start; }
+    textarea{ width:100%; min-height:80px; resize:vertical; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    .status{ font-size:.8rem; color:#93c5fd; min-height:18px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 style="margin:0 0 10px;">Feedbacks pendentes</h1>
+    <p style="color:#94a3b8">Somente administradores. Responda abaixo; a resposta será vinculada ao feedback e à questão.</p>
+    <div id="status" class="status"></div>
+    <table aria-label="Feedbacks pendentes">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Questão</th>
+          <th>Categoria</th>
+          <th>Texto</th>
+          <th>Responder</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <script>
+    (async function init(){
+      const status = document.getElementById('status');
+      const rows = document.getElementById('rows');
+      function headers(){
+        const h = { };
+        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+        const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+        if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+        if (sessionTok) h['X-Session-Token'] = sessionTok;
+        h['Content-Type'] = 'application/json';
+        return h;
+      }
+      async function load(){
+        status.textContent = 'Carregando...';
+        try {
+          const r = await fetch('/api/admin/feedback/pending', { headers: headers() });
+          if (!r.ok){ status.textContent = 'Acesso negado ou falha ao carregar'; return; }
+          const list = await r.json();
+          rows.innerHTML = '';
+          if (!Array.isArray(list) || !list.length){ rows.innerHTML = '<tr><td colspan="5">Nenhum feedback pendente.</td></tr>'; status.textContent=''; return; }
+          const frag = document.createDocumentFragment();
+          list.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${item.id}</td><td>${item.idquestao}</td><td>${item.idcategoria}</td><td>${(item.texto||'').replace(/[\n\r]+/g,' ')}</td>`;
+            const tdResp = document.createElement('td');
+            const box = document.createElement('div'); box.className='resp-box';
+            const ta = document.createElement('textarea'); ta.placeholder='Escreva a resposta ao usuário';
+            const btn = document.createElement('button'); btn.className='btn btn-primary'; btn.textContent='Enviar';
+            const msg = document.createElement('div'); msg.className='status';
+            btn.onclick = async ()=>{
+              msg.textContent = 'Enviando...'; btn.disabled=true;
+              try {
+                const body = { idfeedback: item.id, resposta: ta.value.trim() };
+                if (!body.resposta){ msg.textContent = 'Digite uma resposta.'; btn.disabled=false; return; }
+                const rr = await fetch('/api/admin/feedback/respond', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+                if (rr.ok){ msg.textContent = 'Resposta registrada.'; tr.style.opacity='0.6'; setTimeout(load, 600); }
+                else { const d = await rr.json().catch(()=>({})); msg.textContent = d.error||'Falha'; }
+              } catch(e){ msg.textContent = 'Erro de rede'; }
+              btn.disabled=false;
+            };
+            box.appendChild(ta); box.appendChild(btn); box.appendChild(msg);
+            tdResp.appendChild(box);
+            tr.appendChild(tdResp);
+            frag.appendChild(tr);
+          });
+          rows.appendChild(frag);
+          status.textContent = '';
+        } catch(e){ status.textContent = 'Erro ao carregar'; }
+      }
+      load();
+    })();
+  </script>
+</body>
+</html>

@@ -4,6 +4,7 @@ module.exports = (sequelize, DataTypes) => {
     texto: { type: DataTypes.TEXT, allowNull: false },
     idcategoria: { type: DataTypes.INTEGER, allowNull: false },
     idquestao: { type: DataTypes.INTEGER, allowNull: false },
+    reportadopor: { type: DataTypes.INTEGER, allowNull: true },
   }, {
     tableName: 'Feedback',
     freezeTableName: true,

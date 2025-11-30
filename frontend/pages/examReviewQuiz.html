@@ -224,8 +224,10 @@
             const headers = { 'Content-Type':'application/json' };
             if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
             if (sessionTok) headers['X-Session-Token'] = sessionTok;
+            const sessionUserId = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
             const body = { texto, idcategoria: Number(catId) };
             if (/^\d+$/.test(qId)) body.idquestao = Number(qId);
+            if (sessionUserId != null) body.userId = sessionUserId;
             const resp = await fetch('/api/feedback', { method:'POST', headers, body: JSON.stringify(body) });
             if (resp.ok){
               if (statusEl) statusEl.textContent = 'Feedback enviado. Obrigado!';

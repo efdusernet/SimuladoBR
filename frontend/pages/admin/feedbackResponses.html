@@ -39,80 +39,51 @@
     <h1 style="margin:0 0 10px;">Feedbacks pendentes</h1>
     <p style="color:#94a3b8">Somente administradores. Responda abaixo; a resposta será vinculada ao feedback e à questão.</p>
     <div id="status" class="status"></div>
-    <table aria-label="Feedbacks pendentes">
+    <table aria-label="Feedbacks pendentes" style="table-layout:auto;">
       <thead>
         <tr>
           <th>ID</th>
           <th>Questão</th>
           <th>Categoria</th>
-          <th>Texto</th>
-          <th>Responder</th>
+          <th>Usuário</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
+    <div id="feedbackTextList" aria-label="Textos dos feedbacks" style="margin-top:18px; display:grid; gap:12px;"></div>
   </div>
 
-  <!-- Bottom navigation (replicado do index com tema escuro simplificado) -->
-  <nav class="bottom-nav" aria-label="Navegação inferior" style="position:fixed;left:0;right:0;bottom:0;height:44px;background:#111827;border-top:1px solid #1f2937;display:flex;align-items:center;justify-content:center;z-index:1000;gap:14px;padding-bottom: env(safe-area-inset-bottom)">
-      <button class="nav-item active" id="tab-home" data-target="home" aria-label="Home" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#4f46e5;background:rgba(79,70,229,0.09);cursor:pointer;">
-          <span class="nav-text" style="font-size:.65rem;">Home</span>
-      </button>
-      <button class="nav-item" id="tab-profile" data-target="profile" aria-label="Perfil" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#94a3b8;cursor:pointer;">
-          <span class="nav-text" style="font-size:.65rem;">Perfil</span>
-      </button>
-  </nav>
-
-  
-
+  <!-- Bottom navigation component mount -->
+  <div id="bottomNavMount"></div>
   <script>
-    // Admin menu logic (probe + token fallback)
-    (function initAdminMenu(){
-        const btn = document.getElementById('adminMenuBtn');
-        const panel = document.getElementById('adminMenuPanel');
-        if (!btn || !panel) return;
-        const token = (localStorage.getItem('sessionToken') || '').trim();
-        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-        const sessionForHeader = nomeUsuario || token;
-        if (!token) return;
-        function applyTokenFallback(){
+    (function(){
+      function loadBottomNav(){
+        var mount = document.getElementById('bottomNavMount');
+        if(!mount) return;
+        fetch('../../components/bottomNav.html')
+          .then(r => r.ok ? r.text() : null)
+          .then(html => { if(html){
+            mount.innerHTML = html;
             try {
-                const q = encodeURIComponent(token);
-                ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp'].forEach(id => {
-                    const a = document.getElementById(id); if (!a) return;
-                    const href = a.getAttribute('href') || '';
-                    if (href.includes('sessionToken=')) return;
-                    const sep = href.includes('?') ? '&' : '?';
-                    a.setAttribute('href', href + sep + 'sessionToken=' + q);
-                });
+              var scripts = Array.from(mount.querySelectorAll('script'));
+              scripts.forEach(old => {
+                var s = document.createElement('script');
+                if(old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                old.parentNode.removeChild(old);
+                mount.appendChild(s);
+              });
             } catch(_){ }
-        }
-        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
-        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-        const probeHeaders = { };
-        if (sessionForHeader) probeHeaders['X-Session-Token'] = sessionForHeader;
-        if (jwtTok) probeHeaders['Authorization'] = `${jwtType} ${jwtTok}`;
-        fetch(probeUrl, { headers: probeHeaders, method: 'GET' })
-          .then(r => {
-              if (!r.ok) return Promise.reject('Not admin');
-              btn.style.display = 'inline-flex';
-              applyTokenFallback();
-              function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
-              function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
-              btn.addEventListener('click', e => { e.stopPropagation(); if (panel.style.display === 'block') close(); else open(); });
-              document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) close(); });
-              const logoutBtn = document.getElementById('btnAdminLogout');
-              if (logoutBtn){ logoutBtn.addEventListener('click', ()=>{ close(); try{ localStorage.clear(); sessionStorage.clear(); }catch(_){}; try{ document.cookie='sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; }catch(_){}; setTimeout(()=>{ window.location.href='/login'; }, 300); }); }
-          })
-          .catch(()=>{});
+          }}).catch(()=>{});
+      }
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadBottomNav); else loadBottomNav();
     })();
 
-    (async function init(){
+    (function(){
       const status = document.getElementById('status');
       const rows = document.getElementById('rows');
+      const textList = document.getElementById('feedbackTextList');
       function headers(){
-        const h = { };
+        const h = {};
         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
         const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
         const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
@@ -125,49 +96,92 @@
         status.textContent = 'Carregando...';
         try {
           const r = await fetch('/api/admin/feedback/pending', { headers: headers() });
-          if (!r.ok){ status.textContent = 'Acesso negado ou falha ao carregar'; return; }
+          if(!r.ok){ status.textContent='Acesso negado ou falha'; return; }
           const list = await r.json();
-          rows.innerHTML = '';
-          if (!Array.isArray(list) || !list.length){ rows.innerHTML = '<tr><td colspan="5">Nenhum feedback pendente.</td></tr>'; status.textContent=''; return; }
+          rows.innerHTML='';
+          if(textList) textList.innerHTML='';
+          if(!Array.isArray(list) || !list.length){ rows.innerHTML='<tr><td colspan="4">Nenhum feedback pendente.</td></tr>'; status.textContent=''; return; }
           const frag = document.createDocumentFragment();
           list.forEach(item => {
+            const usuarioNome = (item.usuarioNome || item.usuarionome || '').trim() || 'Desconhecido';
+            const usuarioIdRaw = item.usuarioId ?? item.usuarioid ?? item.reportadopor ?? item.idusuario ?? item.userId ?? item.usuarioId;
+            const usuarioId = (usuarioIdRaw !== undefined && usuarioIdRaw !== null && usuarioIdRaw !== '') ? usuarioIdRaw : '—';
+            const usuarioDisplay = usuarioNome + ' - ' + (usuarioId === null ? '—' : usuarioId);
+            // table row
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${item.id}</td><td>${item.idquestao}</td><td>${item.idcategoria}</td><td>${(item.texto||'').replace(/[\n\r]+/g,' ')}</td>`;
-            const tdResp = document.createElement('td');
-            const box = document.createElement('div'); box.className='resp-box';
-            const ta = document.createElement('textarea'); ta.placeholder='Escreva a resposta ao usuário';
-            const btn = document.createElement('button'); btn.className='btn btn-primary'; btn.textContent='Enviar';
-            const msg = document.createElement('div'); msg.className='status';
-            btn.onclick = async ()=>{
-              msg.textContent = 'Enviando...'; btn.disabled=true;
-              try {
-                const body = { idfeedback: item.id, resposta: ta.value.trim() };
-                if (!body.resposta){ msg.textContent = 'Digite uma resposta.'; btn.disabled=false; return; }
-                const rr = await fetch('/api/admin/feedback/respond', { method:'POST', headers: headers(), body: JSON.stringify(body) });
-                if (rr.ok){ msg.textContent = 'Resposta registrada.'; tr.style.opacity='0.6'; setTimeout(load, 600); }
-                else { const d = await rr.json().catch(()=>({})); msg.textContent = d.error||'Falha'; }
-              } catch(e){ msg.textContent = 'Erro de rede'; }
-              btn.disabled=false;
-            };
-            box.appendChild(ta); box.appendChild(btn); box.appendChild(msg);
-            tdResp.appendChild(box);
-            tr.appendChild(tdResp);
+            tr.innerHTML = `<td>${item.id}</td><td>${item.idquestao}</td><td>${item.idcategoria}</td><td>${usuarioDisplay}</td>`;
             frag.appendChild(tr);
+            // card with text + responder
+            if(textList){
+              const card = document.createElement('div');
+              card.style.cssText='background:#1e293b;padding:12px 14px;border:1px solid #334155;border-radius:8px;display:flex;flex-direction:column;gap:10px;';
+              const head = document.createElement('div');
+              head.style.cssText='font-size:.7rem;color:#94a3b8;font-weight:600;display:flex;flex-wrap:wrap;gap:10px;';
+              head.innerHTML = `ID: <strong>${item.id}</strong> · Questão: <strong>${item.idquestao}</strong> · Categoria: <strong>${item.idcategoria}</strong> · Usuário: <strong>${usuarioDisplay}</strong>`;
+              const contentRow = document.createElement('div');
+              contentRow.style.cssText='display:flex;flex-direction:row;gap:16px;align-items:stretch;';
+              const bodyWrap = document.createElement('div'); bodyWrap.style.cssText='flex:1;min-width:0;';
+              const body = document.createElement('div'); body.style.cssText='font-size:.8rem;line-height:1.4;color:#e2e8f0;white-space:pre-wrap;word-break:break-word;'; body.textContent=item.texto||''; bodyWrap.appendChild(body);
+              const respWrap = document.createElement('div'); respWrap.style.cssText='width:300px;display:flex;flex-direction:column;gap:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px;';
+              const ta = document.createElement('textarea'); ta.placeholder='Responder este feedback'; ta.style.cssText='width:100%;min-height:90px;resize:vertical;padding:8px;border-radius:6px;border:1px solid #1f2937;background:#0f172a;color:#e5e7eb;font-size:.75rem;';
+              const notifyWrap = document.createElement('div'); notifyWrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
+              const notifyChkLabel = document.createElement('label'); notifyChkLabel.style.cssText='display:flex;align-items:center;gap:6px;font-size:.65rem;color:#cbd5e1;font-weight:600;';
+              const notifyChk = document.createElement('input'); notifyChk.type='checkbox'; notifyChk.style.width='14px'; notifyChk.style.height='14px';
+              notifyChkLabel.appendChild(notifyChk); notifyChkLabel.appendChild(document.createTextNode('Notificar usuário'));
+              const notifyFields = document.createElement('div'); notifyFields.style.cssText='display:none;flex-direction:column;gap:4px;background:#1e293b;padding:6px;border:1px solid #334155;border-radius:6px;';
+              const notifTitulo = document.createElement('input'); notifTitulo.type='text'; notifTitulo.placeholder='Título (opcional)'; notifTitulo.style.cssText='padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e5e7eb;font-size:.65rem;';
+              const notifMsg = document.createElement('textarea'); notifMsg.placeholder='Mensagem (opcional)'; notifMsg.style.cssText='min-height:54px;padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e5e7eb;font-size:.65rem;resize:vertical;';
+              notifyFields.appendChild(notifTitulo); notifyFields.appendChild(notifMsg);
+              notifyChk.addEventListener('change',()=>{ notifyFields.style.display = notifyChk.checked ? 'flex' : 'none'; });
+              notifyWrap.appendChild(notifyChkLabel); notifyWrap.appendChild(notifyFields);
+              const btn = document.createElement('button'); btn.className='btn btn-primary'; btn.textContent='Enviar resposta'; btn.style.fontSize='.7rem';
+              const msg = document.createElement('div'); msg.className='status'; msg.style.minHeight='16px';
+              btn.onclick = async ()=>{
+                msg.textContent='Enviando...'; btn.disabled=true;
+                try {
+                  const payload = { idfeedback: item.id, resposta: ta.value.trim() };
+                  if(!payload.resposta){ msg.textContent='Digite uma resposta.'; btn.disabled=false; return; }
+                  const rr = await fetch('/api/admin/feedback/respond',{method:'POST', headers: headers(), body: JSON.stringify(payload)});
+                  if(rr.ok){
+                    msg.textContent='Resposta registrada.'; card.style.opacity='0.6'; tr.style.opacity='0.6';
+                    if(notifyChk.checked){
+                      try {
+                        const userId = (item.usuarioId!=null?item.usuarioId:null) || item.usuarioid || item.reportadopor || item.idusuario || item.userId || item.usuarioId || null;
+                        if(userId){
+                          const notifBody={ categoria:'Avisos', titulo:(notifTitulo.value.trim()||'Resposta ao seu feedback'), mensagem:(notifMsg.value.trim()||('Sua questão #'+item.idquestao+' recebeu resposta: '+payload.resposta.substring(0,140)+(payload.resposta.length>140?'…':''))), targetType:'user', targetUserId:Number(userId)};
+                            const rn = await fetch('/api/admin/notifications',{method:'POST', headers: headers(), body: JSON.stringify(notifBody)});
+                            if(rn.ok){
+                              const created = await rn.json().catch(()=>null);
+                              if(created && created.id){
+                                const rs = await fetch('/api/admin/notifications/'+created.id+'/send',{method:'POST', headers: headers()});
+                                if(rs.ok) msg.textContent += ' Notificação enviada.'; else msg.textContent += ' (Falha ao enviar notificação)';
+                              } else {
+                                msg.textContent += ' (Notificação criada sem ID)';
+                              }
+                            } else {
+                              msg.textContent += ' (Falha ao criar notificação)';
+                            }
+                        } else msg.textContent += ' (ID usuário ausente)';
+                      } catch(_){ msg.textContent += ' (Erro ao notificar)'; }
+                    }
+                    setTimeout(load,800);
+                  } else { const d=await rr.json().catch(()=>({})); msg.textContent=d.error||'Falha'; }
+                } catch(e){ msg.textContent='Erro de rede'; }
+                btn.disabled=false;
+              };
+              respWrap.appendChild(ta); respWrap.appendChild(notifyWrap); respWrap.appendChild(btn); respWrap.appendChild(msg);
+              contentRow.appendChild(bodyWrap); contentRow.appendChild(respWrap);
+              card.appendChild(head); card.appendChild(contentRow); textList.appendChild(card);
+            }
           });
           rows.appendChild(frag);
-          status.textContent = '';
-        } catch(e){ status.textContent = 'Erro ao carregar'; }
+          status.textContent='';
+        } catch(e){ status.textContent='Erro ao carregar'; }
       }
       load();
     })();
 
-    // Bottom nav handlers (Home / Perfil -> redirecionar para index)
-    (function initBottomNav(){
-        const homeBtn = document.getElementById('tab-home');
-        const profileBtn = document.getElementById('tab-profile');
-        if (homeBtn){ homeBtn.addEventListener('click', ()=>{ window.location.assign('/'); }); }
-        if (profileBtn){ profileBtn.addEventListener('click', ()=>{ window.location.assign('/'); }); }
-    })();
+    // Bottom nav replaced by shared component; page-specific handlers no longer required.
   </script>
 </body>
 </html>

@@ -9,9 +9,12 @@ router.get('/pending', requireAdmin, async (req, res) => {
   try {
     // Find feedbacks with zero respostas
     const [rows] = await db.sequelize.query(`
-      SELECT f.id, f.texto, f.idcategoria, f.idquestao
+      SELECT f.id, f.texto, f.idcategoria, f.idquestao,
+             f.reportadopor AS "usuarioId",
+             u."Nome" AS "usuarioNome"
       FROM "Feedback" f
       LEFT JOIN "RetornoFeedback" r ON r.idfeedback = f.id
+      LEFT JOIN "Usuario" u ON u."Id" = f.reportadopor
       WHERE r.id IS NULL
       ORDER BY f.id DESC
     `);

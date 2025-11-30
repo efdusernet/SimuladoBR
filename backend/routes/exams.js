@@ -24,4 +24,6 @@ router.post('/resume', examController.resumeSession);
 router.get('/last', examController.lastAttemptSummary);
 // Stats: last N finished attempts (default 3) for styling rules on gauge
 router.get('/history', examController.lastAttemptsHistory);
+// Exam result for review pages
+router.get('/result/:attemptId', examController.getAttemptResult);
 module.exports = router;

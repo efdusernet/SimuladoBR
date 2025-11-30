@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Notificações (Admin)</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
+    .wrap{ max-width:900px; margin:20px auto; padding:16px; background:#111827; border:1px solid #1f2937; border-radius:10px; }
+    label{ display:block; font-size:.85rem; color:#94a3b8; margin:8px 0 4px; }
+    input, select, textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    .row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .btn{ padding:8px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
+    .btn-primary{ background:#4f46e5; color:#fff; }
+    .btn-muted{ background:#334155; color:#e5e7eb; }
+    table{ width:100%; border-collapse:collapse; margin-top:16px; }
+    th,td{ padding:8px; border-bottom:1px solid #1f2937; font-size:.9rem; text-align:left; }
+    th{ color:#a5b4fc; }
+    .status{ font-size:.85rem; color:#93c5fd; min-height:18px; }
+    :root{ --bg: #0f172a; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 style="margin:0 0 10px;">Notificações</h1>
+    <p style="color:#94a3b8">Crie e dispare notificações para todos os usuários ou individualmente.</p>
+
+    <div id="status" class="status"></div>
+
+    <form id="notifForm" style="display:grid; gap:12px; margin-bottom:16px;">
+      <div class="row">
+        <div>
+          <label for="categoria">Categoria</label>
+          <select id="categoria">
+            <option value="Promocoes">Promoções</option>
+            <option value="Avisos">Avisos</option>
+            <option value="Alertas">Alertas</option>
+          </select>
+        </div>
+        <div>
+          <label for="alcance">Alcance</label>
+          <select id="alcance">
+            <option value="all">Todos</option>
+            <option value="user">Usuário específico</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="titulo">Título</label>
+          <input id="titulo" type="text" maxlength="200" placeholder="Título da notificação" />
+        </div>
+        <div>
+          <label for="userId">User ID (se específico)</label>
+          <input id="userId" type="number" min="1" placeholder="ex: 123" />
+        </div>
+      </div>
+      <div>
+        <label for="mensagem">Mensagem</label>
+        <textarea id="mensagem" rows="4" placeholder="Conteúdo da notificação"></textarea>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="btnSalvar" type="button" class="btn btn-muted">Salvar rascunho</button>
+        <button id="btnDisparar" type="button" class="btn btn-primary">Disparar</button>
+      </div>
+    </form>
+
+    <table aria-label="Notificações recentes">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Categoria</th>
+          <th>Título</th>
+          <th>Alvo</th>
+          <th>Status</th>
+          <th>Enviadas/Lidas</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <script>
+    (function(){
+      function headers(){
+        const h = {};
+        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+        const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+        if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+        if (sessionTok) h['X-Session-Token'] = sessionTok;
+        h['Content-Type'] = 'application/json';
+        return h;
+      }
+      async function loadList(){
+        const rows = document.getElementById('rows');
+        const status = document.getElementById('status');
+        status.textContent = 'Carregando...';
+        try{
+          const r = await fetch('/api/admin/notifications', { headers: headers() });
+          if (!r.ok){ status.textContent = 'Falha ao carregar'; return; }
+          const list = await r.json();
+          rows.innerHTML = '';
+          if (!Array.isArray(list) || !list.length){ rows.innerHTML = '<tr><td colspan="6">Nenhuma notificação.</td></tr>'; status.textContent=''; return; }
+          const frag = document.createDocumentFragment();
+          for (const it of list){
+            const tr = document.createElement('tr');
+            const alvo = it.targetType === 'user' ? ('user #' + (it.targetUserId||'')) : 'Todos';
+            tr.innerHTML = `<td>${it.id}</td><td>${it.categoria}</td><td>${it.titulo}</td><td>${alvo}</td><td>${it.status}</td><td data-stats="${it.id}">—</td>`;
+            frag.appendChild(tr);
+            // Fetch stats
+            try {
+              const rs = await fetch('/api/admin/notifications/' + it.id, { headers: headers() });
+              if (rs.ok){ const d = await rs.json(); const td = rows.querySelector(`td[data-stats="${it.id}"]`); if (td){ td.textContent = `${d.stats.total} / ${d.stats.read}`; } }
+            } catch(_){ }
+          }
+          rows.appendChild(frag);
+          status.textContent = '';
+        } catch(e){ status.textContent = 'Erro ao carregar'; }
+      }
+      async function salvar(){
+        const categoria = document.getElementById('categoria').value;
+        const alcance = document.getElementById('alcance').value;
+        const titulo = document.getElementById('titulo').value.trim();
+        const mensagem = document.getElementById('mensagem').value.trim();
+        const userId = document.getElementById('userId').value.trim();
+        if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); return; }
+        const body = { categoria, titulo, mensagem, targetType: alcance };
+        if (alcance === 'user'){ body.targetUserId = Number(userId)||null; if (!body.targetUserId){ alert('Informe User ID'); return; } }
+        try {
+          const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+          if (!r.ok){ const d = await r.json().catch(()=>({})); alert('Falha: ' + (d.error||r.statusText)); return; }
+          alert('Rascunho salvo'); loadList();
+        } catch(e){ alert('Erro: '+ e); }
+      }
+      async function disparar(){
+        const status = document.getElementById('status');
+        status.textContent='Disparando...';
+        try{
+          // Create draft then send last created matching title (simplify UX for MVP)
+          const categoria = document.getElementById('categoria').value;
+          const alcance = document.getElementById('alcance').value;
+          const titulo = document.getElementById('titulo').value.trim();
+          const mensagem = document.getElementById('mensagem').value.trim();
+          const userId = document.getElementById('userId').value.trim();
+          if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); status.textContent=''; return; }
+          const body = { categoria, titulo, mensagem, targetType: alcance };
+          if (alcance === 'user'){ body.targetUserId = Number(userId)||null; if (!body.targetUserId){ alert('Informe User ID'); status.textContent=''; return; } }
+          const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+          const created = await r1.json();
+          if (!r1.ok){ alert('Falha ao salvar: ' + (created.error||r1.statusText)); status.textContent=''; return; }
+          const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
+          const sent = await r2.json();
+          if (!r2.ok){ alert('Falha ao disparar: ' + (sent.error||r2.statusText)); status.textContent=''; return; }
+          alert(`Disparado para ${sent.sent} usuários`);
+          status.textContent='';
+          loadList();
+        } catch(e){ alert('Erro: ' + e); status.textContent=''; }
+      }
+      document.getElementById('btnSalvar').addEventListener('click', salvar);
+      document.getElementById('btnDisparar').addEventListener('click', disparar);
+      loadList();
+    })();
+  </script>
+</body>
+</html>

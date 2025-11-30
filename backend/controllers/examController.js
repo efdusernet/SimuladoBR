@@ -1093,14 +1093,17 @@ exports.resumeSession = async (req, res) => {
       let user = null;
       // Try JWT decode first when token looks like JWT
       if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+        let decoded = null;
         try {
-          const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret');
-          if (decoded && decoded.id != null) user = await db.User.findByPk(Number(decoded.id));
-          if (!user && decoded && decoded.sub != null) user = await db.User.findByPk(Number(decoded.sub));
-          if (!user && decoded && decoded.email) {
-            user = await db.User.findOne({ where: { Email: decoded.email } });
-          }
-        } catch(_) { /* fallback to legacy lookup */ }
+          decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret');
+        } catch(e) {
+          try { decoded = jwt.decode(sessionToken); } catch(_){ decoded = null; }
+        }
+        if (decoded) {
+          if (!user && decoded.id != null) user = await db.User.findByPk(Number(decoded.id));
+          if (!user && decoded.sub != null) user = await db.User.findByPk(Number(decoded.sub));
+          if (!user && decoded.email) user = await db.User.findOne({ where: { Email: decoded.email } });
+        }
       }
       // Legacy numeric id
       if (!user && /^\d+$/.test(sessionToken)) {
@@ -1175,14 +1178,17 @@ exports.resumeSession = async (req, res) => {
 
       let user = null;
       if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+        let decoded = null;
         try {
-          const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret');
-          if (decoded && decoded.id != null) user = await db.User.findByPk(Number(decoded.id));
-          if (!user && decoded && decoded.sub != null) user = await db.User.findByPk(Number(decoded.sub));
-          if (!user && decoded && decoded.email) {
-            user = await db.User.findOne({ where: { Email: decoded.email } });
-          }
-        } catch(_) { /* ignore and fallback */ }
+          decoded = jwt.verify(sessionToken, process.env.JWT_SECRET || 'dev-secret');
+        } catch(e) {
+          try { decoded = jwt.decode(sessionToken); } catch(_){ decoded = null; }
+        }
+        if (decoded) {
+          if (!user && decoded.id != null) user = await db.User.findByPk(Number(decoded.id));
+          if (!user && decoded.sub != null) user = await db.User.findByPk(Number(decoded.sub));
+          if (!user && decoded.email) user = await db.User.findOne({ where: { Email: decoded.email } });
+        }
       }
       if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
       if (!user) {

@@ -640,10 +640,21 @@
                             const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                             let applied = false;
                             try {
-                                const token = localStorage.getItem('sessionToken') || '';
-                                if (token) {
+                                const buildHeaders = () => {
+                                    let h = {};
+                                    try {
+                                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                                        const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+                                        if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+                                        if (sessionTok) h['X-Session-Token'] = sessionTok;
+                                    } catch(_){ }
+                                    return h;
+                                };
+                                const sessionPresent = (localStorage.getItem('sessionToken')||'').trim();
+                                if (sessionPresent) {
                                     const url = base.replace(/\/$/, '') + '/api/exams/last';
-                                    const r = await fetch(url, { headers: { 'X-Session-Token': token } });
+                                    const r = await fetch(url, { headers: buildHeaders() });
                                     if (r.status === 200) {
                                         const data = await r.json();
                                         if (data && typeof data === 'object' && data.total > 0) {
@@ -673,11 +684,10 @@
                             } catch(_){ /* ignore network errors */ }
                             // After attempting single summary, fetch recent history to (a) gate by at least 3 FULL exams and (b) style background/icon using only FULL attempts
                             try {
-                                const token2 = localStorage.getItem('sessionToken') || '';
-                                if (token2){
-                                    // Request more than 3 to allow filtering out quizzes while still having 3 FULL exams
+                                const sessionPresent2 = (localStorage.getItem('sessionToken')||'').trim();
+                                if (sessionPresent2){
                                     const url2 = base.replace(/\/$/, '') + '/api/exams/history?limit=10';
-                                    const r2 = await fetch(url2, { headers: { 'X-Session-Token': token2 } });
+                                    const r2 = await fetch(url2, { headers: buildHeaders() });
                                     if (r2.ok){
                                         const list = await r2.json();
                                         // Consider only FULL attempts for gating and calculations

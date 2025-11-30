@@ -20,7 +20,12 @@ router.post('/', requireAdmin, async (req, res) => {
       createdBy: req.user.Id || req.user.id
     });
     res.status(201).json(nt);
-  } catch(e){ res.status(500).json({ error: 'Internal error' }); }
+  } catch(e){
+    const msg = e && (e.message || e.toString());
+    const code = e && e.original && (e.original.code || e.original.errno);
+    console.error('[admin_notifications][CREATE] error:', code, msg);
+    res.status(500).json({ error: 'Internal error', code, message: msg });
+  }
 });
 
 // Send notification (generate UserNotification rows)
@@ -43,7 +48,12 @@ router.post('/:id/send', requireAdmin, async (req, res) => {
     if (rows.length) await db.UserNotification.bulkCreate(rows);
     n.status = 'sent'; await n.save();
     res.json({ sent: rows.length });
-  } catch(e){ res.status(500).json({ error: 'Internal error' }); }
+  } catch(e){
+    const msg = e && (e.message || e.toString());
+    const code = e && e.original && (e.original.code || e.original.errno);
+    console.error('[admin_notifications][SEND] error:', code, msg);
+    res.status(500).json({ error: 'Internal error', code, message: msg });
+  }
 });
 
 // Admin list notifications

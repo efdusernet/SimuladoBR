@@ -5,12 +5,12 @@ module.exports = (sequelize, DataTypes) => {
     userId: { type: DataTypes.INTEGER, allowNull: false, field: 'userid' },
     deliveryStatus: { type: DataTypes.ENUM('queued','delivered'), allowNull: false, defaultValue: 'queued', field: 'deliverystatus' },
     deliveredAt: { type: DataTypes.DATE, allowNull: true, field: 'deliveredat' },
-    readAt: { type: DataTypes.DATE, allowNull: true, field: 'readat' },
-    createdAt: { type: DataTypes.DATE, allowNull: false, field: 'createdat' },
-    updatedAt: { type: DataTypes.DATE, allowNull: false, field: 'updatedat' }
+    readAt: { type: DataTypes.DATE, allowNull: true, field: 'readat' }
   }, {
     tableName: 'user_notification',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'createdat',
+    updatedAt: 'updatedat',
     indexes: [{ fields: ['userid','readat'] }, { fields: ['notificationid'] }]
   });
   return UserNotification;

@@ -211,6 +211,16 @@ Coleção e instruções em: `postman/README.md`
 
 Se algo não estiver claro ou faltar um exemplo específico, abra uma issue ou peça que eu amplie a seção correspondente.
 
+## Manutenção de ENUMs de Notificações
+
+Para adicionar novos valores aos tipos ENUM usados por notificações (ex.: nova categoria), siga o guia detalhado em `docs/notifications-maintenance.md`. Resumo:
+- Primeiro execute `ALTER TYPE ... ADD VALUE` no PostgreSQL.
+- Depois atualize o model Sequelize adicionando o literal.
+- Atualize o frontend (select de categoria) se aplicável.
+- Evite recriar tipos ou depender de `sync({ alter: true })` em produção para ENUMs.
+
+Casos especiais (renomear valor, migrar para TEXT + constraint, estratégia de rollback) também estão cobertos no documento.
+
 ## Melhorias de Interface Recentes (Nov 2025)
 
 ### Indicadores de Desempenho (Indicadores.html)

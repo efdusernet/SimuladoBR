@@ -17,9 +17,24 @@
     .resp-box{ display:flex; gap:8px; align-items:flex-start; }
     textarea{ width:100%; min-height:80px; resize:vertical; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
     .status{ font-size:.8rem; color:#93c5fd; min-height:18px; }
+    /* Override global light background variable to ensure no white stripe */
+    :root{ --bg: #0f172a; }
+    html{ background:#0f172a; }
+    body.light-app{ background:#0f172a !important; }
+    /* Neutralize any element that might be using var(--bg) at top */
+    body > .top-bar, body > .header, body > header{ background:#0f172a !important; border:none !important; }
   </style>
 </head>
 <body>
+  <!-- Admin quick menu -->
+  <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="display:none;position:fixed;top:12px;left:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.10);background:#1e293b;color:#e5e7eb;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.30);font-size:.85rem;font-weight:600;">Admin ▾</button>
+  <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">
+      <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão</a>
+      <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
+      <a id="lnkAdminFeedbackResp" href="/pages/admin/feedbackResponses.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Responder feedbacks</a>
+      <button id="btnAdminLogout" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f1f5f9;color:#334155;font-size:.85rem;border-radius:6px;cursor:pointer;">Sair</button>
+  </nav>
+  
   <div class="wrap">
     <h1 style="margin:0 0 10px;">Feedbacks pendentes</h1>
     <p style="color:#94a3b8">Somente administradores. Responda abaixo; a resposta será vinculada ao feedback e à questão.</p>
@@ -38,7 +53,61 @@
     </table>
   </div>
 
+  <!-- Bottom navigation (replicado do index com tema escuro simplificado) -->
+  <nav class="bottom-nav" aria-label="Navegação inferior" style="position:fixed;left:0;right:0;bottom:0;height:44px;background:#111827;border-top:1px solid #1f2937;display:flex;align-items:center;justify-content:center;z-index:1000;gap:14px;padding-bottom: env(safe-area-inset-bottom)">
+      <button class="nav-item active" id="tab-home" data-target="home" aria-label="Home" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#4f46e5;background:rgba(79,70,229,0.09);cursor:pointer;">
+          <span class="nav-text" style="font-size:.65rem;">Home</span>
+      </button>
+      <button class="nav-item" id="tab-profile" data-target="profile" aria-label="Perfil" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:1px 4px;border-radius:8px;color:#94a3b8;cursor:pointer;">
+          <span class="nav-text" style="font-size:.65rem;">Perfil</span>
+      </button>
+  </nav>
+
+  
+
   <script>
+    // Admin menu logic (probe + token fallback)
+    (function initAdminMenu(){
+        const btn = document.getElementById('adminMenuBtn');
+        const panel = document.getElementById('adminMenuPanel');
+        if (!btn || !panel) return;
+        const token = (localStorage.getItem('sessionToken') || '').trim();
+        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+        const sessionForHeader = nomeUsuario || token;
+        if (!token) return;
+        function applyTokenFallback(){
+            try {
+                const q = encodeURIComponent(token);
+                ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp'].forEach(id => {
+                    const a = document.getElementById(id); if (!a) return;
+                    const href = a.getAttribute('href') || '';
+                    if (href.includes('sessionToken=')) return;
+                    const sep = href.includes('?') ? '&' : '?';
+                    a.setAttribute('href', href + sep + 'sessionToken=' + q);
+                });
+            } catch(_){ }
+        }
+        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+        const probeHeaders = { };
+        if (sessionForHeader) probeHeaders['X-Session-Token'] = sessionForHeader;
+        if (jwtTok) probeHeaders['Authorization'] = `${jwtType} ${jwtTok}`;
+        fetch(probeUrl, { headers: probeHeaders, method: 'GET' })
+          .then(r => {
+              if (!r.ok) return Promise.reject('Not admin');
+              btn.style.display = 'inline-flex';
+              applyTokenFallback();
+              function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+              function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+              btn.addEventListener('click', e => { e.stopPropagation(); if (panel.style.display === 'block') close(); else open(); });
+              document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) close(); });
+              const logoutBtn = document.getElementById('btnAdminLogout');
+              if (logoutBtn){ logoutBtn.addEventListener('click', ()=>{ close(); try{ localStorage.clear(); sessionStorage.clear(); }catch(_){}; try{ document.cookie='sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; }catch(_){}; setTimeout(()=>{ window.location.href='/login'; }, 300); }); }
+          })
+          .catch(()=>{});
+    })();
+
     (async function init(){
       const status = document.getElementById('status');
       const rows = document.getElementById('rows');
@@ -90,6 +159,14 @@
         } catch(e){ status.textContent = 'Erro ao carregar'; }
       }
       load();
+    })();
+
+    // Bottom nav handlers (Home / Perfil -> redirecionar para index)
+    (function initBottomNav(){
+        const homeBtn = document.getElementById('tab-home');
+        const profileBtn = document.getElementById('tab-profile');
+        if (homeBtn){ homeBtn.addEventListener('click', ()=>{ window.location.assign('/'); }); }
+        if (profileBtn){ profileBtn.addEventListener('click', ()=>{ window.location.assign('/'); }); }
     })();
   </script>
 </body>

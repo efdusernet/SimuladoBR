@@ -50,6 +50,12 @@
             </svg>
             Destacar questão
           </button>
+          <button id="hintBtn" class="icon-btn" type="button" title="Mostrar dica" aria-label="Mostrar dica">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 2a7 7 0 00-7 7c0 3.06 1.92 5.66 4.6 6.6l.4 2.4h4l.4-2.4A7 7 0 0019 9a7 7 0 00-7-7zm-1 16h2v2h-2v-2zm1-14a5 5 0 00-5 5c0 2.2 1.42 4.08 3.4 4.74L10.6 15h2.8l-.8-1.26A5 5 0 0017 9a5 5 0 00-5-5z" fill="currentColor"></path>
+            </svg>
+            Dica
+          </button>
           <button id="likeBtn" class="icon-like" aria-pressed="false" title="Gostei" aria-label="Gostei">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s-6.716-4.35-9.062-7.018C-0.413 10.983 2.973 6 7.5 6c1.84 0 3.515.756 4.5 2.01C13.985 6.756 15.66 6 17.5 6 22.027 6 25.413 10.983 21.062 13.982 18.716 16.65 12 21 12 21z" stroke="currentColor" stroke-width="1.2" fill="currentColor"/></svg>
           </button>
@@ -72,6 +78,7 @@
           <button id="backBtn" class="primary-btn" style="display:none;margin-right:8px;">Voltar</button>
           <button id="continueBtn" class="primary-btn">Continuar</button>
         </div>
+        <div id="hintContainer" style="display:none; margin-top:12px; padding:10px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; color:#334155; font-size:14px; line-height:1.5;"></div>
       </article>
     </section>
   </main>
@@ -374,6 +381,52 @@
   <!-- Finalizar exame: confirmação + limpeza local -->
   <script>
     (function(){
+      function getCurrentQuestion(){
+        try {
+          const el = document.getElementById('questionNumber');
+          const idx = Number((el && el.textContent || '').trim());
+          const zero = Number.isFinite(idx) ? idx - 1 : 0;
+          const arr = Array.isArray(window.QUESTIONS) ? window.QUESTIONS : (function(){
+            const sid = window.currentSessionId || null; if (!sid) return [];
+            const raw = localStorage.getItem(`questions_${sid}`); if (!raw) return [];
+            const a = JSON.parse(raw); return Array.isArray(a) ? a : [];
+          })();
+          return (zero >= 0 && zero < arr.length) ? arr[zero] : null;
+        } catch(_) { return null; }
+      }
+      async function fetchHintForQuestion(id){
+        try {
+          if (!Number.isFinite(id)) return null;
+          const token = (localStorage.getItem('sessionToken') || '').trim();
+          const r = await fetch(`/api/questions/view/${id}`, { headers: token ? { 'X-Session-Token': token } : {} });
+          if (r && r.ok) { const q = await r.json(); return q && (q.dica || q.hint || null); }
+        } catch(_){ }
+        return null;
+      }
+      async function onHintClick(){
+        try {
+          const btn = document.getElementById('hintBtn'); if (btn) { btn.disabled = true; btn.setAttribute('aria-busy','true'); }
+          const q = getCurrentQuestion();
+          const hint = q && (q.dica || q.hint);
+          const container = document.getElementById('hintContainer');
+          let text = hint || null;
+          if (!text && q && q.id != null) {
+            text = await fetchHintForQuestion(q.id);
+          }
+          if (container) {
+            if (text) {
+              container.style.display = '';
+              container.innerHTML = `<strong>Dica:</strong> ${text}`;
+            } else {
+              container.style.display = '';
+              container.innerHTML = '<em>Nenhuma dica disponível para esta questão.</em>';
+            }
+          }
+        } catch(_){ }
+        finally {
+          const btn = document.getElementById('hintBtn'); if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+        }
+      }
       function clearExamData(){
         try {
           const sid = (window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId') || '').trim();
@@ -427,6 +480,7 @@
       function closeFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
       function attach(){
         const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
+        const hb = document.getElementById('hintBtn'); if (hb) hb.addEventListener('click', onHintClick);
   const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', ()=>{
     try { closeFinishConfirm(); } catch(_){ }
     // Fluxo simplificado: sair sem salvar (sem enviar ao backend)

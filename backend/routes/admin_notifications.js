@@ -51,7 +51,13 @@ router.get('/', requireAdmin, async (req, res) => {
   try {
     const list = await db.Notification.findAll({ order: [['createdAt','DESC']], limit: 100 });
     res.json(list);
-  } catch(e){ res.status(500).json({ error: 'Internal error' }); }
+  } catch(e){
+    // Log detalhes para troubleshooting (enum, tabela inexistente, perms, etc.)
+    const msg = e && (e.message || e.toString());
+    const code = e && e.original && (e.original.code || e.original.errno);
+    console.error('[admin_notifications][LIST] error:', code, msg);
+    res.status(500).json({ error: 'Internal error', code, message: msg });
+  }
 });
 
 // Detail with stats
@@ -63,7 +69,12 @@ router.get('/:id', requireAdmin, async (req, res) => {
     const total = await db.UserNotification.count({ where: { notificationId: id } });
     const read = await db.UserNotification.count({ where: { notificationId: id, readAt: { [db.Sequelize.Op.ne]: null } } });
     res.json({ notification: n, stats: { total, read } });
-  } catch(e){ res.status(500).json({ error: 'Internal error' }); }
+  } catch(e){
+    const msg = e && (e.message || e.toString());
+    const code = e && e.original && (e.original.code || e.original.errno);
+    console.error('[admin_notifications][DETAIL] error:', code, msg);
+    res.status(500).json({ error: 'Internal error', code, message: msg });
+  }
 });
 
 module.exports = router;

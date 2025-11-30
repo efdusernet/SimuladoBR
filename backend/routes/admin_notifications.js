@@ -76,10 +76,10 @@ router.post('/:id/send', requireAdmin, async (req, res) => {
 // Admin list notifications
 router.get('/', requireAdmin, async (req, res) => {
   try {
-    const list = await db.Notification.findAll({ order: [['createdAt','DESC']], limit: 100 });
+    // Ordena por id DESC para evitar dependência de alias createdAt (coluna é createdat no schema)
+    const list = await db.Notification.findAll({ order: [['id','DESC']], limit: 100 });
     res.json(list);
   } catch(e){
-    // Log detalhes para troubleshooting (enum, tabela inexistente, perms, etc.)
     const msg = e && (e.message || e.toString());
     const code = e && e.original && (e.original.code || e.original.errno);
     console.error('[admin_notifications][LIST] error:', code, msg);

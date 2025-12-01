@@ -68,9 +68,9 @@
           <input id="titulo" type="text" maxlength="200" placeholder="Título da notificação" />
         </div>
         <div>
-          <label for="userSelect">Usuários (se específico)</label>
-          <select id="userSelect" multiple size="8" disabled>
-            <option value="">Selecione usuários...</option>
+          <label for="userSelect">Usuário (se específico)</label>
+          <select id="userSelect" size="8" disabled>
+            <option value="">Selecione um usuário...</option>
           </select>
         </div>
       </div>
@@ -100,9 +100,20 @@
   </div>
 
   <div id="bottomNavMount"></div>
+  <div id="toast" aria-live="polite" style="display:none;position:fixed;right:16px;bottom:16px;z-index:2500;background:#16a34a;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 8px 18px rgba(0,0,0,0.45);font-size:.85rem;">
+    Mensagem enviada com sucesso
+  </div>
 
   <script>
     (function(){
+      function showToast(text){
+        const el = document.getElementById('toast');
+        if (!el) return;
+        el.textContent = text || 'Mensagem enviada com sucesso';
+        el.style.display = 'block';
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(()=>{ el.style.display='none'; }, 2500);
+      }
       // Constrói cabeçalhos de autorização replicando a lógica do index.html (usa nomeUsuario como fallback)
       function headers(){
         const h = {};
@@ -167,18 +178,14 @@
         const titulo = document.getElementById('titulo').value.trim();
         const mensagem = document.getElementById('mensagem').value.trim();
         const sel = document.getElementById('userSelect');
-        const selectedIds = Array.from(sel.selectedOptions).map(o => o.value).filter(Boolean);
+        const selectedId = Number((sel.value||'').trim());
         if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); return; }
-        if (alcance === 'user' && selectedIds.length === 0){ alert('Selecione pelo menos um usuário.'); return; }
+        if (alcance === 'user' && (!Number.isInteger(selectedId) || selectedId <= 0)){ alert('Selecione um usuário válido.'); return; }
         try {
           if (alcance === 'user'){
-            let ok = 0, fail = 0;
-            for (const id of selectedIds){
-              const body = { categoria, titulo, mensagem, targetType: 'user', targetUserId: Number(id) };
-              const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
-              if (r.ok) ok++; else fail++;
-            }
-            alert(`Rascunhos salvos: ${ok}, falhas: ${fail}`);
+            const body = { categoria, titulo, mensagem, targetType: 'user', targetUserId: selectedId };
+            const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+            if (!r.ok){ const d = await r.json().catch(()=>({})); alert('Falha ao salvar: ' + (d.error||r.statusText)); return; }
           } else {
             const body = { categoria, titulo, mensagem, targetType: 'all' };
             const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
@@ -198,20 +205,16 @@
           const titulo = document.getElementById('titulo').value.trim();
           const mensagem = document.getElementById('mensagem').value.trim();
           const sel = document.getElementById('userSelect');
-          const selectedIds = Array.from(sel.selectedOptions).map(o => o.value).filter(Boolean);
+          const selectedId = Number((sel.value||'').trim());
           if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); status.textContent=''; return; }
-          if (alcance === 'user' && selectedIds.length === 0){ alert('Selecione pelo menos um usuário.'); status.textContent=''; return; }
+          if (alcance === 'user' && (!Number.isInteger(selectedId) || selectedId <= 0)){ alert('Selecione um usuário válido.'); status.textContent=''; return; }
           if (alcance === 'user'){
-            let totalSent = 0, totalFail = 0;
-            for (const id of selectedIds){
-              const body = { categoria, titulo, mensagem, targetType: 'user', targetUserId: Number(id) };
-              const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
-              const created = await r1.json().catch(()=>null);
-              if (!r1.ok || !created || !created.id){ totalFail++; continue; }
-              const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
-              if (r2.ok){ const sent = await r2.json().catch(()=>({sent:0})); totalSent += Number(sent && sent.sent || 0); } else { totalFail++; }
-            }
-            alert(`Disparado para ${totalSent} usuários, falhas: ${totalFail}`);
+            const body = { categoria, titulo, mensagem, targetType: 'user', targetUserId: selectedId };
+            const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+            const created = await r1.json().catch(()=>null);
+            if (!r1.ok || !created || !created.id){ status.textContent=''; return; }
+            const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
+            if (r2.ok) showToast('Mensagem enviada com sucesso');
           } else {
             const body = { categoria, titulo, mensagem, targetType: 'all' };
             const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
@@ -220,7 +223,7 @@
             const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
             const sent = await r2.json();
             if (!r2.ok){ alert('Falha ao disparar: ' + (sent.error||r2.statusText)); status.textContent=''; return; }
-            alert(`Disparado para ${sent.sent} usuários`);
+            showToast('Mensagem enviada com sucesso');
           }
           status.textContent='';
           loadList();

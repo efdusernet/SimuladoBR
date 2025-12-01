@@ -220,7 +220,7 @@
           
           let src = buildSrc(raw);
           let origin = src ? 'field' : null;
-          try { if (q && q.id === 266) console.debug('[examFull] q266 raw value len', raw ? raw.length : 0, 'startsWith(data:)?', /^data:/i.test(raw), 'first50=', raw.slice(0,50)); } catch(_){ }
+          // suprimir logs específicos da questão 266
           if (!src) {
             try {
               const qt = document.getElementById('questionText');
@@ -249,7 +249,7 @@
           // Diagnostic
           try {
             console.debug('[examFull] renderImage idx', idx, 'id', q && q.id, 'hasRaw?', !!raw, 'srcResolved?', !!src, 'origin', origin);
-            if (q && q.id === 266) console.debug('[examFull] q266 object', q);
+            // suprimir logs específicos da questão 266
           } catch(_){ }
           // If no image, hide wrapper
           if (!src){

@@ -144,7 +144,7 @@
           const frag = document.createDocumentFragment();
           for (const it of list){
             const tr = document.createElement('tr');
-            const alvo = it.targetType === 'user' ? ('user #' + (it.targetUserId||'')) : 'Todos';
+            const alvo = it.targetType === 'user' ? (it.targetUser && it.targetUser.display ? it.targetUser.display : ('user #' + (it.targetUserId||''))) : 'Todos';
             tr.innerHTML = `<td>${it.id}</td><td>${it.categoria}</td><td>${it.titulo}</td><td>${alvo}</td><td>${it.status}</td><td data-stats="${it.id}">—</td>`;
             frag.appendChild(tr);
             // Fetch stats

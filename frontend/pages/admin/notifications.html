@@ -68,9 +68,9 @@
           <input id="titulo" type="text" maxlength="200" placeholder="Título da notificação" />
         </div>
         <div>
-          <label for="userSelect">Usuário (se específico)</label>
-          <select id="userSelect" disabled>
-            <option value="">Selecione um usuário...</option>
+          <label for="userSelect">Usuários (se específico)</label>
+          <select id="userSelect" multiple size="8" disabled>
+            <option value="">Selecione usuários...</option>
           </select>
         </div>
       </div>
@@ -166,14 +166,26 @@
         const alcance = document.getElementById('alcance').value;
         const titulo = document.getElementById('titulo').value.trim();
         const mensagem = document.getElementById('mensagem').value.trim();
-        const userId = document.getElementById('userSelect').value.trim();
+        const sel = document.getElementById('userSelect');
+        const selectedIds = Array.from(sel.selectedOptions).map(o => o.value).filter(Boolean);
         if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); return; }
-        const body = { categoria, titulo, mensagem, targetType: alcance };
-        if (alcance === 'user'){ body.targetUserId = Number(userId)||null; if (!body.targetUserId){ alert('Informe User ID'); return; } }
+        if (alcance === 'user' && selectedIds.length === 0){ alert('Selecione pelo menos um usuário.'); return; }
         try {
-          const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
-          if (!r.ok){ const d = await r.json().catch(()=>({})); alert('Falha: ' + (d.error||r.statusText)); return; }
-          alert('Rascunho salvo'); loadList();
+          if (alcance === 'user'){
+            let ok = 0, fail = 0;
+            for (const id of selectedIds){
+              const body = { categoria, titulo, mensagem, targetType: 'user', targetUserId: Number(id) };
+              const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+              if (r.ok) ok++; else fail++;
+            }
+            alert(`Rascunhos salvos: ${ok}, falhas: ${fail}`);
+          } else {
+            const body = { categoria, titulo, mensagem, targetType: 'all' };
+            const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+            if (!r.ok){ const d = await r.json().catch(()=>({})); alert('Falha: ' + (d.error||r.statusText)); return; }
+            alert('Rascunho salvo');
+          }
+          loadList();
         } catch(e){ alert('Erro: '+ e); }
       }
       async function disparar(){
@@ -185,17 +197,31 @@
           const alcance = document.getElementById('alcance').value;
           const titulo = document.getElementById('titulo').value.trim();
           const mensagem = document.getElementById('mensagem').value.trim();
-          const userId = document.getElementById('userSelect').value.trim();
+          const sel = document.getElementById('userSelect');
+          const selectedIds = Array.from(sel.selectedOptions).map(o => o.value).filter(Boolean);
           if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); status.textContent=''; return; }
-          const body = { categoria, titulo, mensagem, targetType: alcance };
-          if (alcance === 'user'){ body.targetUserId = Number(userId)||null; if (!body.targetUserId){ alert('Informe User ID'); status.textContent=''; return; } }
-          const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
-          const created = await r1.json();
-          if (!r1.ok){ alert('Falha ao salvar: ' + (created.error||r1.statusText)); status.textContent=''; return; }
-          const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
-          const sent = await r2.json();
-          if (!r2.ok){ alert('Falha ao disparar: ' + (sent.error||r2.statusText)); status.textContent=''; return; }
-          alert(`Disparado para ${sent.sent} usuários`);
+          if (alcance === 'user' && selectedIds.length === 0){ alert('Selecione pelo menos um usuário.'); status.textContent=''; return; }
+          if (alcance === 'user'){
+            let totalSent = 0, totalFail = 0;
+            for (const id of selectedIds){
+              const body = { categoria, titulo, mensagem, targetType: 'user', targetUserId: Number(id) };
+              const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+              const created = await r1.json().catch(()=>null);
+              if (!r1.ok || !created || !created.id){ totalFail++; continue; }
+              const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
+              if (r2.ok){ const sent = await r2.json().catch(()=>({sent:0})); totalSent += Number(sent && sent.sent || 0); } else { totalFail++; }
+            }
+            alert(`Disparado para ${totalSent} usuários, falhas: ${totalFail}`);
+          } else {
+            const body = { categoria, titulo, mensagem, targetType: 'all' };
+            const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+            const created = await r1.json();
+            if (!r1.ok){ alert('Falha ao salvar: ' + (created.error||r1.statusText)); status.textContent=''; return; }
+            const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
+            const sent = await r2.json();
+            if (!r2.ok){ alert('Falha ao disparar: ' + (sent.error||r2.statusText)); status.textContent=''; return; }
+            alert(`Disparado para ${sent.sent} usuários`);
+          }
           status.textContent='';
           loadList();
         } catch(e){ alert('Erro: ' + e); status.textContent=''; }

@@ -690,6 +690,8 @@
 
     <!-- Bottom navigation bar -->
     <div id="bottomNavMount"></div>
+    <!-- Toast notification container -->
+    <div id="toast" aria-live="polite" style="display:none;position:fixed;right:14px;bottom:14px;z-index:2600;background:#334155;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.4);font-size:.80rem;max-width:240px"></div>
 
     <!-- Fullscreen overlay for image -->
     <div id="fullOverlay" class="overlay" aria-hidden="true">
@@ -737,6 +739,17 @@
                         proceedBtn.onclick = ()=>{ try{ close(); }catch(_){}; if (typeof onProceed==='function') onProceed(); };
                         return true;
                     } catch(_){ return false; }
+                };
+                // Simple toast helper
+                window.showToast = function(msg){
+                    try {
+                        const el = document.getElementById('toast');
+                        if (!el) return;
+                        el.textContent = msg || '';
+                        el.style.display = 'block';
+                        clearTimeout(window.__toastTimer);
+                        window.__toastTimer = setTimeout(()=>{ try{ el.style.display='none'; }catch(_){ } }, 2600);
+                    } catch(_){ }
                 };
             })();
         </script>
@@ -1357,6 +1370,25 @@
             document.addEventListener('click', (e) => {
                 const card = e.target.closest && e.target.closest('.card');
                 if (!card) return;
+                // Prioridade: interceptar clique no exame completo (mock) antes do handler genérico
+                if (card.id === 'card-exam-mock' || card.getAttribute('data-card') === 'exam-mock'){
+                    try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                    const bloqueado = (window.BloqueioAtivado === true) || (localStorage.getItem('BloqueioAtivado') === 'true');
+                    if (bloqueado){
+                        window.showToast && window.showToast('Somente usuário Premium.');
+                        return;
+                    }
+                    const proceed = function(){
+                        try {
+                            localStorage.setItem('examQuestionCount', '180');
+                            localStorage.setItem('examCountFromDefault', 'true');
+                            sessionStorage.setItem('startExam', 'true');
+                        } catch(_){ }
+                        window.location.assign('/pages/examFull.html');
+                    };
+                    if (!(window.showFullExamConfirm && window.showFullExamConfirm(proceed))){ proceed(); }
+                    return;
+                }
                 // Se for o card do Simulador, usar fluxo do script.js
                 if (card.classList.contains('card--simulador')){
                     // Indicadores: intercepta antes de fluxo genérico
@@ -1446,29 +1478,6 @@
                     if (window.showExamSetupAndRedirect) {
                         // Usa caminho absoluto para consistência
                         window.showExamSetupAndRedirect('/pages/exam.html');
-                    }
-                    return;
-                }
-                // Se for o card do Exame Cmpleto (Mock)
-                if (card.id === 'card-exam-mock' || card.getAttribute('data-card') === 'exam-mock'){
-                    try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
-                    const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
-                    if (bloqueado){
-                        try { if (typeof showToast === 'function') showToast('Somente usuário Premium.'); else alert('Somente usuário Premium.'); } catch(_) { alert('Somente usuário Premium.'); }
-                        return;
-                    }
-                    // Premium: exibe modal de confirmação e, ao prosseguir, inicia o exame completo
-                    const proceed = function(){
-                        try {
-                            localStorage.setItem('examQuestionCount', '180');
-                            localStorage.setItem('examCountFromDefault', 'true');
-                            sessionStorage.setItem('startExam', 'true');
-                        } catch(_){ }
-                        window.location.assign('/pages/examFull.html');
-                    };
-                    if (!(window.showFullExamConfirm && window.showFullExamConfirm(proceed))){
-                        // Fallback: sem modal carregado, seguir direto
-                        proceed();
                     }
                     return;
                 }

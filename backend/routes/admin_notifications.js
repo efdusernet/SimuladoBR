@@ -62,7 +62,36 @@ router.get('/', requireAdmin, async (req, res) => {
   try {
     // Ordena por id DESC para evitar dependência de alias createdAt (coluna é createdat no schema)
     const list = await db.Notification.findAll({ order: [['id','DESC']], limit: 100 });
-    res.json(list);
+    // Enriquecer com Nome (Usuario) quando targetType=user
+    const userIds = Array.from(new Set(list
+      .filter(n => n && n.targetType === 'user' && n.targetUserId)
+      .map(n => Number(n.targetUserId))
+      .filter(id => Number.isFinite(id))
+    ));
+    let usersById = {};
+    if (userIds.length) {
+      const users = await db.User.findAll({
+        attributes: ['Id','Nome','NomeUsuario'],
+        where: { Id: userIds }
+      });
+      users.forEach(u => { usersById[Number(u.Id)] = { Id: u.Id, Nome: u.Nome, NomeUsuario: u.NomeUsuario }; });
+    }
+    const enriched = list.map(n => {
+      const plain = n.toJSON();
+      if (plain.targetType === 'user' && plain.targetUserId) {
+        const u = usersById[Number(plain.targetUserId)];
+        if (u) {
+          plain.targetUser = {
+            Id: u.Id,
+            Nome: u.Nome,
+            NomeUsuario: u.NomeUsuario,
+            display: `${(u.Nome||u.NomeUsuario||'Usuario')} - ${u.Id}`
+          };
+        }
+      }
+      return plain;
+    });
+    res.json(enriched);
   } catch(e){
     const msg = e && (e.message || e.toString());
     const code = e && e.original && (e.original.code || e.original.errno);

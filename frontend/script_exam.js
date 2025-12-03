@@ -18,6 +18,7 @@
 
             // store user selections: key by question id (or index) -> { index, optionId } or { indices:[], optionIds:[] }
             const ANSWERS = {};
+            try { window.ANSWERS = ANSWERS; } catch(e){}
 
             // Current exam blueprint (durations, checkpoints, multi-select, etc.)
             let EXAM_BP = (function(){
@@ -570,6 +571,18 @@
                   // desabilitar também como se fossem checkpoints, a menos que haja override.
                   const isExtraGate = (idx === 59 || idx === 119);
                   contBtn.disabled = inPause || ((isCheckpoint || isExtraGate) && !allowOverride);
+                  // Modo quiz: ao chegar na última questão (25ª), alterar rótulo para "Enviar"
+                  try {
+                    const total = Array.isArray(QUESTIONS) ? QUESTIONS.length : 0;
+                    if (total > 0) {
+                      const isLast = (idx === total - 1);
+                      if (isLast && total === 25) {
+                        contBtn.textContent = 'Enviar';
+                      } else {
+                        contBtn.textContent = 'Continuar';
+                      }
+                    }
+                  } catch(_){}
                 }
               } catch(e) {}
 
@@ -659,7 +672,7 @@
                     status.style.display = '';
                     status.textContent = `Resultado: ${data.totalCorrect} / ${data.totalQuestions} questões corretas.`;
                   } else {
-                    alert(`Resultado: ${data.totalCorrect} / ${data.totalQuestions}`);
+                    try { showToast(`Resultado: ${data.totalCorrect} / ${data.totalQuestions}`, 1800, true); } catch(_){ /* fallback */ }
                   }
                 } catch(e){ console.warn('show result failed', e); }
 
@@ -686,6 +699,13 @@
                   // hide autosave indicator
                   try { updateAutosaveIndicatorHidden(); } catch(e){}
                 } catch(e){}
+
+                // Após envio no modo quiz (exam.html), limpar dados e redirecionar para a página inicial
+                try {
+                  if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
+                  else if (typeof clearExamData === 'function') { clearExamData(); }
+                } catch(_){ }
+                try { window.location.assign('/'); } catch(_){ window.location.href = '/'; }
 
                 return data;
               } catch (err) {
@@ -977,6 +997,7 @@
                         try { QUESTIONS = JSON.parse(qraw); } catch(e) { QUESTIONS = []; }
                         // ensure options are normalized and frozen (in case older cache lacked shuffledOptions)
                         try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
+                        try { window.QUESTIONS = QUESTIONS; } catch(_){}
                         // rehydrate answers and progress for this cached set
                         try {
                           const raw = localStorage.getItem(`answers_${window.currentSessionId}`);
@@ -1007,6 +1028,7 @@
                   if (!count) {
                     // fallback to sample questions
                     QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
+                    try { window.QUESTIONS = QUESTIONS; } catch(_){}
                     // normalize and freeze option order once
                     try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
                     initExam();
@@ -1132,6 +1154,7 @@
                                 }
                               } catch(e) {}
                               try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
+                              try { window.QUESTIONS = QUESTIONS; } catch(_){}
                               try {
                                 if (window.currentSessionId) {
                                   const qkey = `questions_${window.currentSessionId}`;
@@ -1167,6 +1190,7 @@
                               } catch(e){}
                             } else {
                               QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
+                              try { window.QUESTIONS = QUESTIONS; } catch(_){}
                             }
                             initExam();
                             return;
@@ -1289,6 +1313,7 @@
                       imagemUrl: (q.imagemUrl || q.imagem_url || q.image_url || q.imageUrl || null),
                       options: (q.options || []).map(o => ({ id: o.id || o.Id || null, text: (o.text || o.descricao || o.Descricao || '') }))
                     }));
+                    try { window.QUESTIONS = QUESTIONS; } catch(_){}
                     // Debug: log questão 266 após mapeamento
                     try {
                       const postQ266 = QUESTIONS.find(q => q && q.id === 266);
@@ -1365,6 +1390,7 @@
                   } else {
                     // no questions returned - fallback
                     QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
+                    try { window.QUESTIONS = QUESTIONS; } catch(_){}
                   }
                 } catch (e) {
                   console.warn('prepareAndInit error', e);

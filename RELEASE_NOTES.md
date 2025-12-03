@@ -20,7 +20,6 @@ Date: 2025-11-12
 - Tag: v1.0.0
 - Compare: fb7c51a..da61682
 
----
 
 # v1.0.1
 
@@ -107,3 +106,23 @@ Date: 2025-11-30
 ## Links
 - Tag: v1.1.2 (pending tagging)
 - Compare: v1.1.1..v1.1.2
+
+---
+
+# v1.1.3
+
+Date: 2025-12-03
+
+## Highlights
+- Quiz mode UX and flow fixes:
+	- Change the last question’s button label from `Continuar` to `Enviar` when total is 25.
+	- Correct completion percentage in the finish confirmation by exposing `window.ANSWERS` and `window.QUESTIONS`.
+	- On submit in quiz (exam.html), show a brief result toast, clear all exam-related state, and redirect to home.
+
+## Technical Notes
+- `frontend/script_exam.js`: updated `renderQuestion` to toggle the button label, exposed `ANSWERS`/`QUESTIONS` on `window`, and enhanced `submitExam()` to cleanup and redirect.
+- Ensures parity with full-exam submit behavior, but with a streamlined quiz finish.
+
+## Links
+- Tag: v1.1.3
+- Compare: v1.1.2..v1.1.3

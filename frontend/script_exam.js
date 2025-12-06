@@ -658,7 +658,9 @@
 
                 const payload = { sessionId: window.currentSessionId || null, answers };
                 const token = localStorage.getItem('sessionToken') || '';
-                const submitUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/submit';
+                // Ensure BACKEND_BASE has a proper default value
+                const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                const submitUrl = baseUrl.replace(/\/$/, '') + '/api/exams/submit';
                 const resp = await fetch(submitUrl, {
                   method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload)
                 });
@@ -737,7 +739,9 @@
                 if (!answers.length) return { ok: true, saved: 0 };
                 const payload = { sessionId: window.currentSessionId || null, answers, partial: true };
                 const token = localStorage.getItem('sessionToken') || '';
-                const submitUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/submit';
+                // Ensure BACKEND_BASE has a proper default value
+                const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                const submitUrl = baseUrl.replace(/\/$/, '') + '/api/exams/submit';
                 const resp = await fetch(submitUrl, {
                   method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload)
                 });

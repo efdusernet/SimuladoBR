@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configurações - SimuladosBR</title>
+  <link rel="stylesheet" href="../styles.css" />
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #0f172a; }
+    .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+    h1 { font-size: 1.5rem; margin-bottom: 24px; color: #1e293b; }
+    .settings-card { background: white; border-radius: 8px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .settings-card h2 { font-size: 1.1rem; margin: 0 0 16px; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: #475569; font-size: 0.9rem; }
+    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; }
+    .form-group input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+    .form-group input:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+    .btn-secondary { background: #64748b; color: white; }
+    .btn-secondary:hover { background: #475569; }
+    .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 0.9rem; }
+    .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .alert-info { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+    .info-text { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
+    .back-link { display: inline-block; margin-bottom: 20px; color: #3b82f6; text-decoration: none; font-weight: 500; }
+    .back-link:hover { text-decoration: underline; }
+    .verification-section { display: none; margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← Voltar para Home</a>
+    <h1>⚙️ Configurações da Conta</h1>
+
+    <!-- Dados Cadastrais -->
+    <div class="settings-card">
+      <h2>Dados Cadastrais</h2>
+      <div id="profileAlert"></div>
+      <form id="profileForm">
+        <div class="form-group">
+          <label for="profileName">Nome</label>
+          <input type="text" id="profileName" placeholder="Seu nome" />
+        </div>
+        <div class="form-group">
+          <label for="profileUsername">Nome de Usuário</label>
+          <input type="text" id="profileUsername" placeholder="Seu nome de usuário" />
+          <p class="info-text">Usado para login no sistema</p>
+        </div>
+        <button type="submit" class="btn btn-primary" id="saveProfileBtn">Salvar Alterações</button>
+      </form>
+    </div>
+
+    <!-- Alterar Email -->
+    <div class="settings-card">
+      <h2>Alterar Email</h2>
+      <div id="emailAlert"></div>
+      <form id="emailForm">
+        <div class="form-group">
+          <label for="currentEmail">Email Atual</label>
+          <input type="email" id="currentEmail" disabled />
+        </div>
+        <div class="form-group">
+          <label for="newEmail">Novo Email</label>
+          <input type="email" id="newEmail" placeholder="novo@email.com" />
+          <p class="info-text">Você receberá um código de verificação no novo email</p>
+        </div>
+        <button type="submit" class="btn btn-primary" id="requestEmailChangeBtn">Solicitar Alteração</button>
+      </form>
+      
+      <!-- Verification Section -->
+      <div class="verification-section" id="emailVerificationSection">
+        <div class="form-group">
+          <label for="emailVerificationCode">Código de Verificação</label>
+          <input type="text" id="emailVerificationCode" placeholder="Digite o código de 6 dígitos" maxlength="6" />
+          <p class="info-text">Digite o código enviado para o novo email</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="verifyEmailChangeBtn">Confirmar Alteração</button>
+        <button type="button" class="btn btn-secondary" id="cancelEmailChangeBtn" style="margin-left: 8px;">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Alterar Senha -->
+    <div class="settings-card">
+      <h2>Alterar Senha</h2>
+      <div id="passwordAlert"></div>
+      <form id="passwordForm">
+        <div class="form-group">
+          <label for="currentPassword">Senha Atual</label>
+          <input type="password" id="currentPassword" placeholder="Digite sua senha atual" />
+        </div>
+        <div class="form-group">
+          <label for="newPassword">Nova Senha</label>
+          <input type="password" id="newPassword" placeholder="Digite a nova senha" />
+          <p class="info-text">Mínimo de 6 caracteres</p>
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">Confirmar Nova Senha</label>
+          <input type="password" id="confirmPassword" placeholder="Digite novamente a nova senha" />
+        </div>
+        <button type="submit" class="btn btn-primary" id="changePasswordBtn">Alterar Senha</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Helper functions
+    function showAlert(containerId, message, type = 'info') {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+      setTimeout(() => { container.innerHTML = ''; }, 5000);
+    }
+
+    function getAuthHeaders() {
+      const token = localStorage.getItem('sessionToken') || '';
+      return { 'Content-Type': 'application/json', 'X-Session-Token': token };
+    }
+
+    // Load user data
+    async function loadUserData() {
+      try {
+        const res = await fetch('/api/users/me', { headers: getAuthHeaders() });
+        if (!res.ok) {
+          if (res.status === 401) window.location.assign('/login');
+          throw new Error('Erro ao carregar dados');
+        }
+        const user = await res.json();
+        document.getElementById('profileName').value = user.Nome || '';
+        document.getElementById('profileUsername').value = user.NomeUsuario || '';
+        document.getElementById('currentEmail').value = user.Email || '';
+      } catch (e) {
+        console.error(e);
+        showAlert('profileAlert', 'Erro ao carregar dados do usuário', 'error');
+      }
+    }
+
+    // Update profile
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('saveProfileBtn');
+      btn.disabled = true;
+      try {
+        const nome = document.getElementById('profileName').value.trim();
+        const nomeUsuario = document.getElementById('profileUsername').value.trim();
+        
+        if (!nome) {
+          showAlert('profileAlert', 'Nome é obrigatório', 'error');
+          return;
+        }
+
+        const res = await fetch('/api/users/me/profile', {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ Nome: nome, NomeUsuario: nomeUsuario })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Erro ao atualizar');
+        }
+
+        showAlert('profileAlert', 'Dados atualizados com sucesso!', 'success');
+      } catch (e) {
+        showAlert('profileAlert', e.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Request email change
+    let pendingEmailChange = null;
+    document.getElementById('emailForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('requestEmailChangeBtn');
+      btn.disabled = true;
+      try {
+        const newEmail = document.getElementById('newEmail').value.trim().toLowerCase();
+        
+        if (!newEmail || !newEmail.includes('@')) {
+          showAlert('emailAlert', 'Email inválido', 'error');
+          return;
+        }
+
+        const res = await fetch('/api/users/me/email/request-change', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ newEmail })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Erro ao solicitar alteração');
+        }
+
+        pendingEmailChange = newEmail;
+        showAlert('emailAlert', 'Código de verificação enviado para o novo email!', 'success');
+        document.getElementById('emailVerificationSection').style.display = 'block';
+      } catch (e) {
+        showAlert('emailAlert', e.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Verify email change
+    document.getElementById('verifyEmailChangeBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('verifyEmailChangeBtn');
+      btn.disabled = true;
+      try {
+        const code = document.getElementById('emailVerificationCode').value.trim();
+        
+        if (!code || code.length !== 6) {
+          showAlert('emailAlert', 'Código deve ter 6 dígitos', 'error');
+          return;
+        }
+
+        const res = await fetch('/api/users/me/email/verify-change', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ newEmail: pendingEmailChange, token: code })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Erro ao verificar código');
+        }
+
+        showAlert('emailAlert', 'Email alterado com sucesso! Faça login novamente.', 'success');
+        document.getElementById('emailVerificationSection').style.display = 'none';
+        document.getElementById('newEmail').value = '';
+        document.getElementById('emailVerificationCode').value = '';
+        pendingEmailChange = null;
+        
+        // Reload user data
+        setTimeout(() => loadUserData(), 1500);
+      } catch (e) {
+        showAlert('emailAlert', e.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Cancel email change
+    document.getElementById('cancelEmailChangeBtn').addEventListener('click', () => {
+      document.getElementById('emailVerificationSection').style.display = 'none';
+      document.getElementById('newEmail').value = '';
+      document.getElementById('emailVerificationCode').value = '';
+      pendingEmailChange = null;
+      showAlert('emailAlert', 'Alteração de email cancelada', 'info');
+    });
+
+    // Change password
+    document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('changePasswordBtn');
+      btn.disabled = true;
+      try {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+          showAlert('passwordAlert', 'Preencha todos os campos', 'error');
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          showAlert('passwordAlert', 'As senhas não conferem', 'error');
+          return;
+        }
+
+        if (newPassword.length < 6) {
+          showAlert('passwordAlert', 'A nova senha deve ter no mínimo 6 caracteres', 'error');
+          return;
+        }
+
+        const res = await fetch('/api/users/me/password', {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Erro ao alterar senha');
+        }
+
+        showAlert('passwordAlert', 'Senha alterada com sucesso!', 'success');
+        document.getElementById('passwordForm').reset();
+      } catch (e) {
+        showAlert('passwordAlert', e.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Load user data on page load
+    loadUserData();
+  </script>
+</body>
+</html>

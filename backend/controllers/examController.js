@@ -515,15 +515,36 @@ exports.submitAnswers = async (req, res) => {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
     if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
 
-    // resolve user (same as other endpoints)
+    // resolve user (aceita JWT ou ID/email)
     let user = null;
-    if (/^\d+$/.test(sessionToken)) {
-      user = await User.findByPk(Number(sessionToken));
-    }
-    if (!user) {
-      const Op = db.Sequelize && db.Sequelize.Op;
-      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-      user = await User.findOne({ where });
+    let tokenPayload = null;
+    // Se for JWT, decodifica
+    if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+      try {
+        tokenPayload = jwt.verify(sessionToken, process.env.JWT_SECRET || 'segredo');
+      } catch (e) {
+        return res.status(401).json({ error: 'Invalid session token' });
+      }
+      // Tenta buscar por sub (ID), email ou nome
+      if (tokenPayload && tokenPayload.sub) {
+        user = await User.findByPk(Number(tokenPayload.sub));
+      }
+      if (!user && tokenPayload && tokenPayload.email) {
+        user = await User.findOne({ where: { Email: tokenPayload.email } });
+      }
+      if (!user && tokenPayload && tokenPayload.name) {
+        user = await User.findOne({ where: { NomeUsuario: tokenPayload.name } });
+      }
+    } else {
+      // Se não for JWT, tenta ID, nome ou email direto
+      if (/^\d+$/.test(sessionToken)) {
+        user = await User.findByPk(Number(sessionToken));
+      }
+      if (!user) {
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+        user = await User.findOne({ where });
+      }
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
 

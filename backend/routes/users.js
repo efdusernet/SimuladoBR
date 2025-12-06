@@ -326,10 +326,21 @@ router.post('/me/email/request-change', async (req, res) => {
 
         const emailLower = newEmail.trim().toLowerCase();
         
-        // Check if email already exists
-        const existing = await User.findOne({ where: { Email: emailLower } });
-        if (existing && existing.Id !== user.Id) {
-            return res.status(409).json({ message: 'Este email já está em uso' });
+        // CRITICAL: Check if email already exists in database (prevent takeover)
+        // Use case-insensitive search with ILIKE for PostgreSQL
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const whereClause = Op ? { Email: { [Op.iLike]: emailLower } } : { Email: emailLower };
+        const existing = await User.findOne({ where: whereClause });
+        if (existing) {
+            // Even if it's the same user, reject to prevent confusion
+            const existingId = Number(existing.Id || existing.id);
+            const currentUserId = Number(user.Id || user.id);
+            if (existingId !== currentUserId) {
+                console.warn(`[SECURITY] User ${currentUserId} attempted to change email to already registered email: ${emailLower} (owner: ${existingId})`);
+                return res.status(409).json({ message: 'Este email já está em uso' });
+            }
+            // If same user, they already have this email - no change needed
+            return res.status(400).json({ message: 'Este já é o seu email atual' });
         }
 
         // Create verification token

@@ -244,4 +244,248 @@ router.get('/me/stats/summary', async (req, res) => {
     }
 });
 
+/**
+ * PUT /api/users/me/profile
+ * Atualiza Nome e NomeUsuario do usuário autenticado
+ */
+router.put('/me/profile', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const sessionToken = (req.get('X-Session-Token') || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        
+        let user = null;
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+            try {
+                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
+                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
+            } catch(_) { /* ignore */ }
+        }
+        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const { Nome, NomeUsuario } = req.body || {};
+        
+        if (!Nome || !Nome.trim()) {
+            return res.status(400).json({ message: 'Nome é obrigatório' });
+        }
+
+        // Update fields
+        user.Nome = Nome.trim();
+        if (NomeUsuario && NomeUsuario.trim()) {
+            user.NomeUsuario = NomeUsuario.trim();
+        }
+        user.DataAlteracao = new Date();
+        
+        await user.save();
+        
+        return res.json({ message: 'Perfil atualizado com sucesso', user: { Id: user.Id, Nome: user.Nome, NomeUsuario: user.NomeUsuario } });
+    } catch (err) {
+        console.error('Erro ao atualizar perfil:', err);
+        return res.status(500).json({ error: 'Erro interno' });
+    }
+});
+
+/**
+ * POST /api/users/me/email/request-change
+ * Solicita alteração de email e envia código de verificação
+ */
+router.post('/me/email/request-change', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const sessionToken = (req.get('X-Session-Token') || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        
+        let user = null;
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+            try {
+                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
+                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
+            } catch(_) { /* ignore */ }
+        }
+        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const { newEmail } = req.body || {};
+        
+        if (!newEmail || !newEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) {
+            return res.status(400).json({ message: 'Email inválido' });
+        }
+
+        const emailLower = newEmail.trim().toLowerCase();
+        
+        // Check if email already exists
+        const existing = await User.findOne({ where: { Email: emailLower } });
+        if (existing && existing.Id !== user.Id) {
+            return res.status(409).json({ message: 'Este email já está em uso' });
+        }
+
+        // Create verification token
+        const token = generateVerificationCode(6);
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+        
+        // Store with metadata indicating it's for email change
+        await EmailVerification.create({ 
+            UserId: user.Id, 
+            Token: token, 
+            ExpiresAt: expiresAt, 
+            Used: false, 
+            CreatedAt: new Date(),
+            Meta: JSON.stringify({ type: 'email_change', newEmail: emailLower })
+        });
+        
+        // Send verification email to new address
+        await sendVerificationEmail(emailLower, token);
+        
+        return res.json({ message: 'Código de verificação enviado para o novo email' });
+    } catch (err) {
+        console.error('Erro ao solicitar alteração de email:', err);
+        return res.status(500).json({ error: 'Erro interno' });
+    }
+});
+
+/**
+ * POST /api/users/me/email/verify-change
+ * Verifica código e efetua alteração de email
+ */
+router.post('/me/email/verify-change', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const sessionToken = (req.get('X-Session-Token') || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        
+        let user = null;
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+            try {
+                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
+                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
+            } catch(_) { /* ignore */ }
+        }
+        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const { newEmail, token } = req.body || {};
+        
+        if (!token || !token.trim()) {
+            return res.status(400).json({ message: 'Código de verificação obrigatório' });
+        }
+
+        // Find verification record
+        const verification = await EmailVerification.findOne({
+            where: {
+                UserId: user.Id,
+                Token: token.trim(),
+                Used: false
+            },
+            order: [['CreatedAt', 'DESC']]
+        });
+
+        if (!verification) {
+            return res.status(400).json({ message: 'Código inválido ou já utilizado' });
+        }
+
+        if (new Date() > new Date(verification.ExpiresAt)) {
+            return res.status(400).json({ message: 'Código expirado' });
+        }
+
+        // Verify metadata matches
+        let meta = {};
+        try {
+            meta = JSON.parse(verification.Meta || '{}');
+        } catch(_) { }
+
+        if (meta.type !== 'email_change' || meta.newEmail !== newEmail.trim().toLowerCase()) {
+            return res.status(400).json({ message: 'Código não corresponde à solicitação' });
+        }
+
+        // Update email and mark as confirmed
+        user.Email = newEmail.trim().toLowerCase();
+        user.EmailConfirmado = true;
+        user.DataAlteracao = new Date();
+        await user.save();
+
+        // Mark token as used
+        verification.Used = true;
+        await verification.save();
+
+        return res.json({ message: 'Email alterado com sucesso' });
+    } catch (err) {
+        console.error('Erro ao verificar alteração de email:', err);
+        return res.status(500).json({ error: 'Erro interno' });
+    }
+});
+
+/**
+ * PUT /api/users/me/password
+ * Altera senha do usuário autenticado
+ */
+router.put('/me/password', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const sessionToken = (req.get('X-Session-Token') || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        
+        let user = null;
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+            try {
+                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
+                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
+            } catch(_) { /* ignore */ }
+        }
+        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const { currentPassword, newPassword } = req.body || {};
+        
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: 'Senha atual e nova senha são obrigatórias' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ message: 'Nova senha deve ter no mínimo 6 caracteres' });
+        }
+
+        // Verify current password
+        const isValid = await bcrypt.compare(currentPassword, user.SenhaHash);
+        if (!isValid) {
+            return res.status(401).json({ message: 'Senha atual incorreta' });
+        }
+
+        // Hash new password
+        const newHash = await bcrypt.hash(newPassword, 10);
+        user.SenhaHash = newHash;
+        user.DataAlteracao = new Date();
+        await user.save();
+
+        return res.json({ message: 'Senha alterada com sucesso' });
+    } catch (err) {
+        console.error('Erro ao alterar senha:', err);
+        return res.status(500).json({ error: 'Erro interno' });
+    }
+});
+
 module.exports = router;

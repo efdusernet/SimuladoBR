@@ -684,7 +684,10 @@
                     </svg>
                     <span class="card-label">Admin</span>
                 </div>
-                <div class="card" data-full="https://picsum.photos/800/800?random=31" aria-label="Abrir imagem 1" role="button" tabindex="0"></div>
+                <div id="card-profile-settings" class="card card--settings" data-card="profile-settings" aria-label="Configurações da conta" role="button" tabindex="0" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span style="font-size: 2.5rem; line-height: 1;">⚙️</span>
+                    <span class="card-label" style="margin-top: 4px;">Configurações</span>
+                </div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=32" aria-label="Abrir imagem 2" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=33" aria-label="Abrir imagem 3" role="button" tabindex="0"></div>
                 <div class="card" data-full="https://picsum.photos/800/800?random=34" aria-label="Abrir imagem 4" role="button" tabindex="0"></div>
@@ -1397,7 +1400,7 @@
                 // Se for o card do Simulador, usar fluxo do script.js
                 if (card.classList.contains('card--simulador') || card.classList.contains('card--settings')){
                     // Configurações: intercepta e redireciona para página de settings
-                    const isSettings = (card.id === 'card-settings') || (card.getAttribute('data-card') === 'settings');
+                    const isSettings = (card.id === 'card-settings') || (card.id === 'card-profile-settings') || (card.getAttribute('data-card') === 'settings') || (card.getAttribute('data-card') === 'profile-settings');
                     if (isSettings) {
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
                         window.location.assign('/pages/settings.html');

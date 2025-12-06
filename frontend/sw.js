@@ -1,7 +1,7 @@
-// Service Worker v2.0 - PWA Offline-First Robusto
+// Service Worker v2.0.1 - PWA Offline-First Robusto
 // Estratégias: Cache-First (assets), Network-First + Cache Fallback (API), Stale-While-Revalidate (images)
 
-const VERSION = '2.0.0';
+const VERSION = '2.0.1';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -135,23 +135,32 @@ self.addEventListener('fetch', event => {
 // Estratégia: Cache-First
 // ============================================
 async function cacheFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  
-  if (cached) {
-    const dateHeader = cached.headers.get('sw-cache-time');
-    if (dateHeader) {
-      const age = Date.now() - parseInt(dateHeader);
-      const maxAge = CACHE_CONFIG.maxAge[cacheName.split('-')[1]] || CACHE_CONFIG.maxAge.dynamic;
-      
-      if (age > maxAge) {
-        fetchAndCache(request, cacheName).catch(() => {});
+  try {
+    const cache = await caches.open(cacheName);
+    const cached = await cache.match(request);
+    
+    if (cached) {
+      const dateHeader = cached.headers.get('sw-cache-time');
+      if (dateHeader) {
+        const age = Date.now() - parseInt(dateHeader);
+        const maxAge = CACHE_CONFIG.maxAge[cacheName.split('-')[1]] || CACHE_CONFIG.maxAge.dynamic;
+        
+        if (age > maxAge) {
+          fetchAndCache(request, cacheName).catch(() => {});
+        }
       }
+      return cached;
     }
-    return cached;
-  }
 
-  return fetchAndCache(request, cacheName);
+    return await fetchAndCache(request, cacheName);
+  } catch (error) {
+    console.log('[SW] Cache-first failed:', request.url);
+    // Permitir que o navegador tente buscar normalmente
+    return fetch(request).catch(() => {
+      // Se tudo falhar, retornar resposta vazia ao invés de undefined
+      return new Response('', { status: 404, statusText: 'Not Found' });
+    });
+  }
 }
 
 // ============================================
@@ -161,29 +170,40 @@ async function networkFirstWithCache(request, cacheName) {
   try {
     const response = await fetch(request);
     
-    if (response.ok) {
-      const cache = await caches.open(cacheName);
-      const responseToCache = response.clone();
-      const headers = new Headers(responseToCache.headers);
-      headers.set('sw-cache-time', Date.now().toString());
-      
-      const cachedResponse = new Response(responseToCache.body, {
-        status: responseToCache.status,
-        statusText: responseToCache.statusText,
-        headers: headers
-      });
-      
-      cache.put(request, cachedResponse);
-      cleanCache(cacheName);
+    if (response && response.ok) {
+      try {
+        const cache = await caches.open(cacheName);
+        const responseToCache = response.clone();
+        const headers = new Headers(responseToCache.headers);
+        headers.set('sw-cache-time', Date.now().toString());
+        
+        const cachedResponse = new Response(responseToCache.body, {
+          status: responseToCache.status,
+          statusText: responseToCache.statusText,
+          headers: headers
+        });
+        
+        await cache.put(request, cachedResponse);
+        cleanCache(cacheName).catch(() => {});
+      } catch (cacheError) {
+        console.log('[SW] Cache put failed:', cacheError);
+      }
     }
     
     return response;
   } catch (error) {
-    const cache = await caches.open(cacheName);
-    const cached = await cache.match(request);
+    console.log('[SW] Network failed, trying cache:', request.url);
     
-    if (cached) return cached;
+    try {
+      const cache = await caches.open(cacheName);
+      const cached = await cache.match(request);
+      
+      if (cached) return cached;
+    } catch (cacheError) {
+      console.log('[SW] Cache match failed:', cacheError);
+    }
     
+    // Fallback para API
     if (request.url.includes('/api/')) {
       return new Response(
         JSON.stringify({ error: 'Você está offline', offline: true }),
@@ -191,7 +211,8 @@ async function networkFirstWithCache(request, cacheName) {
       );
     }
     
-    return Response.error();
+    // Para outros recursos, retornar 404
+    return new Response('', { status: 404, statusText: 'Not Found' });
   }
 }
 
@@ -199,39 +220,59 @@ async function networkFirstWithCache(request, cacheName) {
 // Estratégia: Stale-While-Revalidate
 // ============================================
 async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  
-  const fetchPromise = fetch(request)
-    .then(response => {
-      if (response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => cached);
-  
-  return cached || fetchPromise;
+  try {
+    const cache = await caches.open(cacheName);
+    const cached = await cache.match(request);
+    
+    const fetchPromise = fetch(request)
+      .then(response => {
+        if (response && response.ok) {
+          cache.put(request, response.clone()).catch(() => {});
+        }
+        return response;
+      })
+      .catch(() => {
+        console.log('[SW] Stale-while-revalidate fetch failed:', request.url);
+        return cached || new Response('', { status: 404 });
+      });
+    
+    return cached || fetchPromise;
+  } catch (error) {
+    console.log('[SW] Stale-while-revalidate error:', error);
+    return fetch(request).catch(() => new Response('', { status: 404 }));
+  }
 }
 
 // ============================================
 // Helpers
 // ============================================
 async function fetchAndCache(request, cacheName) {
-  const response = await fetch(request);
-  if (response.ok) {
-    const cache = await caches.open(cacheName);
-    cache.put(request, response.clone());
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      const cache = await caches.open(cacheName);
+      await cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.log('[SW] Fetch failed for:', request.url);
+    throw error;
   }
-  return response;
 }
 
 async function cleanCache(cacheName) {
-  const cache = await caches.open(cacheName);
-  const requests = await cache.keys();
-  const maxEntries = CACHE_CONFIG.maxEntries[cacheName.split('-')[1]] || 100;
-  
-  if (requests.length > maxEntries) {
-    const toDelete = requests.slice(0, requests.length - maxEntries);
-    await Promise.all(toDelete.map(request => cache.delete(request)));
+  try {
+    const cache = await caches.open(cacheName);
+    const requests = await cache.keys();
+    const maxEntries = CACHE_CONFIG.maxEntries[cacheName.split('-')[1]] || 100;
+    
+    if (requests.length > maxEntries) {
+      const toDelete = requests.slice(0, requests.length - maxEntries);
+      await Promise.all(toDelete.map(request => cache.delete(request)));
+      console.log(`[SW] Cleaned ${toDelete.length} entries from ${cacheName}`);
+    }
+  } catch (error) {
+    console.log('[SW] Clean cache failed:', error);
   }
 }
 

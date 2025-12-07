@@ -24,23 +24,40 @@ const createTransporter = () => {
   return transporter;
 };
 
-async function sendVerificationEmail(toEmail, token) {
+async function sendVerificationEmail(toEmail, token, context = 'verificação de e-mail') {
   const transporter = createTransporter();
   const appBase = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
   const verifyUrl = `${appBase.replace(/\/$/, '')}/api/auth/verify?token=${encodeURIComponent(token)}`;
 
-  const subject = 'Verificação de e-mail — SimuladosBR';
-  const text = `Seu código de verificação: ${token}\nUse este link para validar: ${verifyUrl}`;
-  const html = `
-    <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.4; color:#111;">
-      <p>Olá,</p>
-      <p>Use o código de verificação abaixo para confirmar seu e-mail no SimuladosBR:</p>
-      <p style="font-size:20px; font-weight:700; letter-spacing:2px; margin:16px 0;">${token}</p>
-      <p>Caso prefira, clique no link para validar automaticamente:</p>
-      <p><a href="${verifyUrl}" style="color:#1a73e8;">${verifyUrl}</a></p>
-      <hr style="border:none; border-top:1px solid #eee; margin:18px 0;" />
-      <p style="font-size:12px; color:#666;">Se você não solicitou este e-mail, ignore-o.</p>
-    </div>`;
+  let subject, text, html;
+  
+  if (context === 'recuperação de senha') {
+    subject = 'Recuperação de senha — SimuladosBR';
+    text = `Seu código de recuperação de senha: ${token}\nEste código expira em 24 horas.`;
+    html = `
+      <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.4; color:#111;">
+        <p>Olá,</p>
+        <p>Você solicitou a recuperação de senha no SimuladosBR.</p>
+        <p>Use o código abaixo para redefinir sua senha:</p>
+        <p style="font-size:20px; font-weight:700; letter-spacing:2px; margin:16px 0;">${token}</p>
+        <p style="color:#666;">Este código expira em 24 horas.</p>
+        <hr style="border:none; border-top:1px solid #eee; margin:18px 0;" />
+        <p style="font-size:12px; color:#666;">Se você não solicitou esta recuperação, ignore este e-mail.</p>
+      </div>`;
+  } else {
+    subject = 'Verificação de e-mail — SimuladosBR';
+    text = `Seu código de verificação: ${token}\nUse este link para validar: ${verifyUrl}`;
+    html = `
+      <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.4; color:#111;">
+        <p>Olá,</p>
+        <p>Use o código de verificação abaixo para confirmar seu e-mail no SimuladosBR:</p>
+        <p style="font-size:20px; font-weight:700; letter-spacing:2px; margin:16px 0;">${token}</p>
+        <p>Caso prefira, clique no link para validar automaticamente:</p>
+        <p><a href="${verifyUrl}" style="color:#1a73e8;">${verifyUrl}</a></p>
+        <hr style="border:none; border-top:1px solid #eee; margin:18px 0;" />
+        <p style="font-size:12px; color:#666;">Se você não solicitou este e-mail, ignore-o.</p>
+      </div>`;
+  }
 
   if (!transporter) {
     // Fallback for dev: log the token and URL so developer can copy it

@@ -43,6 +43,27 @@ router.post('/login', async (req, res) => {
         // If email not confirmed, create/send verification token and ask user to validate
         if (!user.EmailConfirmado) {
             try {
+                // Invalidar tokens anteriores não usados de verificação de email para este usuário
+                const existingTokens = await EmailVerification.findAll({
+                    where: {
+                        UserId: user.Id,
+                        Used: false
+                    }
+                });
+
+                for (const oldToken of existingTokens) {
+                    try {
+                        const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
+                        // Se não tem meta ou se é verificação de email (não tem type ou type não é password_reset/email_change)
+                        if (!oldMeta.type || (oldMeta.type !== 'password_reset' && oldMeta.type !== 'email_change')) {
+                            await oldToken.update({ ExpiresAt: new Date(Date.now() - 1000) });
+                            console.log(`[login-email-verification] Token anterior ${oldToken.Token} expirado para UserId ${user.Id}`);
+                        }
+                    } catch (e) {
+                        console.warn('[login-email-verification] Erro ao processar meta de token antigo:', e);
+                    }
+                }
+
                 const token = require('../utils/codegen').generateVerificationCode(6);
                 const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
                 await EmailVerification.create({ UserId: user.Id, Token: token, ExpiresAt: expiresAt, Used: false, CreatedAt: new Date() });
@@ -151,6 +172,155 @@ router.post('/verify', async (req, res) => {
     } catch (err) {
         console.error('Erro em /api/auth/verify:', err);
         return res.status(500).json({ message: 'Erro interno' });
+    }
+});
+
+// POST /api/auth/forgot-password
+// Solicita código de reset de senha
+router.post('/forgot-password', async (req, res) => {
+    try {
+        console.log('[forgot-password] Iniciando processo de recuperação de senha');
+        const { email } = req.body || {};
+        
+        if (!email || typeof email !== 'string') {
+            console.log('[forgot-password] Email inválido ou ausente');
+            return res.status(400).json({ message: 'E-mail obrigatório' });
+        }
+
+        const emailLower = email.trim().toLowerCase();
+        console.log('[forgot-password] Buscando usuário com email:', emailLower);
+        const user = await User.findOne({ where: { Email: emailLower } });
+        
+        if (!user) {
+            console.log('[forgot-password] Usuário não encontrado, retornando resposta genérica');
+            // Por segurança, não revelar se o email existe ou não
+            return res.json({ message: 'Se o e-mail estiver cadastrado, você receberá um código de recuperação.' });
+        }
+
+        console.log('[forgot-password] Usuário encontrado, UserId:', user.Id);
+        
+        // Invalidar tokens anteriores não usados do mesmo tipo para este usuário
+        const existingTokens = await EmailVerification.findAll({
+            where: {
+                UserId: user.Id,
+                Used: false
+            }
+        });
+
+        console.log(`[forgot-password] Encontrados ${existingTokens.length} tokens não usados`);
+
+        let expiredCount = 0;
+        for (const oldToken of existingTokens) {
+            try {
+                const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
+                console.log(`[forgot-password] Verificando token ${oldToken.Token}, meta:`, oldMeta);
+                if (oldMeta.type === 'password_reset') {
+                    // Expira imediatamente ajustando ExpiresAt para o passado
+                    const newExpiresAt = new Date(Date.now() - 1000);
+                    await oldToken.update({ ExpiresAt: newExpiresAt });
+                    expiredCount++;
+                    console.log(`[forgot-password] ✓ Token ${oldToken.Token} expirado. Nova ExpiresAt: ${newExpiresAt.toISOString()}`);
+                }
+            } catch (e) {
+                console.warn('[forgot-password] Erro ao processar meta de token antigo:', e);
+            }
+        }
+        
+        console.log(`[forgot-password] Total de tokens expirados: ${expiredCount}`);
+
+        // Gerar novo código de verificação
+        const token = require('../utils/codegen').generateVerificationCode(6);
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+        // Criar registro de verificação com meta indicando que é reset de senha
+        await EmailVerification.create({
+            UserId: user.Id,
+            Token: token,
+            ExpiresAt: expiresAt,
+            Used: false,
+            CreatedAt: new Date(),
+            Meta: JSON.stringify({ type: 'password_reset', email: emailLower })
+        });
+
+        // Enviar email com código
+        await sendVerificationEmail(emailLower, token, 'recuperação de senha');
+
+        return res.json({ message: 'Código enviado para o e-mail informado.' });
+    } catch (err) {
+        console.error('Erro em /api/auth/forgot-password:', err);
+        return res.status(500).json({ message: 'Erro ao processar solicitação' });
+    }
+});
+
+// POST /api/auth/reset-password
+// Reseta senha usando código de verificação
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { email, token, senhaHash } = req.body || {};
+
+        if (!email || !token || !senhaHash) {
+            return res.status(400).json({ message: 'E-mail, código e nova senha são obrigatórios' });
+        }
+
+        const emailLower = email.trim().toLowerCase();
+        const tokenUpper = token.trim().toUpperCase();
+
+        // Buscar usuário
+        const user = await User.findOne({ where: { Email: emailLower } });
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado' });
+        }
+
+        // Primeiro, buscar qualquer código com este token para este usuário (independente de Used)
+        const allVerifications = await EmailVerification.findAll({
+            where: {
+                UserId: user.Id,
+                Token: tokenUpper
+            },
+            order: [['CreatedAt', 'DESC']]
+        });
+
+        if (!allVerifications || allVerifications.length === 0) {
+            return res.status(400).json({ message: 'Código inválido. Verifique se digitou corretamente.' });
+        }
+
+        // Pegar o mais recente
+        const verification = allVerifications[0];
+
+        // Verificar se já foi usado
+        if (verification.Used) {
+            return res.status(400).json({ message: 'Este código já foi utilizado. Solicite um novo código.' });
+        }
+
+        // Verificar se código expirou
+        if (new Date() > new Date(verification.ExpiresAt)) {
+            return res.status(400).json({ message: 'Código expirado. Solicite um novo código.' });
+        }
+
+        // Verificar se o código é realmente para reset de senha
+        try {
+            const meta = verification.Meta ? JSON.parse(verification.Meta) : {};
+            if (meta.type !== 'password_reset') {
+                return res.status(400).json({ message: 'Este código não é válido para recuperação de senha.' });
+            }
+        } catch (_) {
+            // Se não tem meta, considerar inválido para reset
+            return res.status(400).json({ message: 'Este código não é válido para recuperação de senha.' });
+        }
+
+        // Hash da senha com bcrypt (servidor)
+        const hashedPassword = await bcrypt.hash(senhaHash, 10);
+
+        // Atualizar senha do usuário
+        await user.update({ SenhaHash: hashedPassword });
+
+        // Marcar código como usado
+        await verification.update({ Used: true });
+
+        return res.json({ message: 'Senha alterada com sucesso' });
+    } catch (err) {
+        console.error('Erro em /api/auth/reset-password:', err);
+        return res.status(500).json({ message: 'Erro ao resetar senha' });
     }
 });
 

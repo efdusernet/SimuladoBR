@@ -66,6 +66,28 @@ router.post('/', async (req, res) => {
 
         // Create email verification token (expires in 24h)
         try {
+            // Note: Este é um novo usuário, então não há tokens anteriores para invalidar
+            // Mas por consistência, verificamos se há algum token não usado (caso de recriação)
+            const existingTokens = await EmailVerification.findAll({
+                where: {
+                    UserId: created.Id,
+                    Used: false
+                }
+            });
+
+            for (const oldToken of existingTokens) {
+                try {
+                    const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
+                    // Se não tem meta ou se é verificação de email inicial
+                    if (!oldMeta.type || (oldMeta.type !== 'password_reset' && oldMeta.type !== 'email_change')) {
+                        await oldToken.update({ ExpiresAt: new Date(Date.now() - 1000) });
+                        console.log(`[register] Token anterior ${oldToken.Token} expirado para UserId ${created.Id}`);
+                    }
+                } catch (e) {
+                    console.warn('[register] Erro ao processar meta de token antigo:', e);
+                }
+            }
+
             // 6-character alphanumeric verification code
             const token = generateVerificationCode(6);
             const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -343,6 +365,27 @@ router.post('/me/email/request-change', async (req, res) => {
             return res.status(400).json({ message: 'Este já é o seu email atual' });
         }
 
+        // Invalidar tokens anteriores não usados de troca de email para este usuário
+        const existingTokens = await EmailVerification.findAll({
+            where: {
+                UserId: user.Id,
+                Used: false
+            }
+        });
+
+        for (const oldToken of existingTokens) {
+            try {
+                const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
+                if (oldMeta.type === 'email_change') {
+                    // Expira imediatamente ajustando ExpiresAt para o passado
+                    await oldToken.update({ ExpiresAt: new Date(Date.now() - 1000) });
+                    console.log(`[email-change] Token anterior ${oldToken.Token} expirado para UserId ${user.Id}`);
+                }
+            } catch (e) {
+                console.warn('[email-change] Erro ao processar meta de token antigo:', e);
+            }
+        }
+
         // Create verification token
         const token = generateVerificationCode(6);
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
@@ -440,6 +483,51 @@ router.post('/me/email/verify-change', async (req, res) => {
         return res.json({ message: 'Email alterado com sucesso' });
     } catch (err) {
         console.error('Erro ao verificar alteração de email:', err);
+        return res.status(500).json({ error: 'Erro interno' });
+    }
+});
+
+/**
+ * POST /api/users/me/verify-password
+ * Verifica se a senha fornecida está correta (para autenticação adicional)
+ */
+router.post('/me/verify-password', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const sessionToken = (req.get('X-Session-Token') || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        
+        let user = null;
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+            try {
+                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
+                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
+            } catch(_) { /* ignore */ }
+        }
+        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const { password } = req.body || {};
+        
+        if (!password) {
+            return res.status(400).json({ message: 'Senha é obrigatória' });
+        }
+
+        // Verify password
+        const isValid = await bcrypt.compare(password, user.SenhaHash);
+        if (!isValid) {
+            return res.status(401).json({ message: 'Senha incorreta' });
+        }
+
+        return res.json({ message: 'Senha verificada com sucesso' });
+    } catch (err) {
+        console.error('Erro ao verificar senha:', err);
         return res.status(500).json({ error: 'Erro interno' });
     }
 });

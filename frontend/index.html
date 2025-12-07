@@ -588,24 +588,45 @@
         <!-- Global logout handler for span#quit (works for admin and non-admin users) -->
         <script>
             (function bindGlobalQuit(){
-                const quitEl = document.getElementById('quit');
-                if (!quitEl) return;
-                quitEl.style.cursor='pointer';
-                quitEl.setAttribute('role','button');
-                quitEl.setAttribute('aria-label','Encerrar sessão');
-                quitEl.addEventListener('click', (e)=>{
-                    e.preventDefault();
-                    try { localStorage.clear(); } catch(_){ }
-                    try { sessionStorage.clear(); } catch(_){ }
-                    try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
-                    try {
-                        const n = document.createElement('div');
-                        n.textContent='Sessão encerrada';
-                        n.style.cssText='position:fixed;top:14px;right:14px;background:#334155;color:#fff;padding:8px 12px;border-radius:6px;font-size:.75rem;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.25)';
-                        document.body.appendChild(n); setTimeout(()=>{ try{ n.remove(); }catch(_){ } },1200);
-                    } catch(_){ }
-                    setTimeout(()=>{ window.location.href='/login'; }, 300);
+                function setupQuitHandler(){
+                    const quitEl = document.getElementById('quit');
+                    if (!quitEl) return;
+                    quitEl.style.cursor='pointer';
+                    quitEl.setAttribute('role','button');
+                    quitEl.setAttribute('aria-label','Encerrar sessão');
+                    quitEl.addEventListener('click', (e)=>{
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try { localStorage.clear(); } catch(_){ }
+                        try { sessionStorage.clear(); } catch(_){ }
+                        try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
+                        try {
+                            const n = document.createElement('div');
+                            n.textContent='Sessão encerrada';
+                            n.style.cssText='position:fixed;top:14px;right:14px;background:#334155;color:#fff;padding:8px 12px;border-radius:6px;font-size:.75rem;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.25)';
+                            document.body.appendChild(n); setTimeout(()=>{ try{ n.remove(); }catch(_){ } },1200);
+                        } catch(_){ }
+                        setTimeout(()=>{ window.location.href='/login.html'; }, 300);
+                    });
+                }
+                
+                // Tenta configurar imediatamente e também após DOM ready
+                if(document.readyState === 'loading'){
+                    document.addEventListener('DOMContentLoaded', setupQuitHandler);
+                } else {
+                    setupQuitHandler();
+                }
+                
+                // Também observa mudanças no DOM para quando o elemento aparecer
+                const observer = new MutationObserver(()=>{
+                    const quitEl = document.getElementById('quit');
+                    if(quitEl && !quitEl.hasAttribute('data-quit-bound')){
+                        quitEl.setAttribute('data-quit-bound', 'true');
+                        setupQuitHandler();
+                        observer.disconnect();
+                    }
                 });
+                observer.observe(document.body, { childList: true, subtree: true });
             })();
         </script>
     <!-- Test button for lastExamResults (cycles through performance levels) -->
@@ -1395,11 +1416,20 @@
                 }
                 // Se for o card do Simulador, usar fluxo do script.js
                 if (card.classList.contains('card--simulador') || card.classList.contains('card--settings')){
-                    // Configurações: intercepta e redireciona para página de settings
+                    // Configurações: intercepta e redireciona para página de settings (com verificação de senha)
                     const isSettings = (card.id === 'card-settings') || (card.id === 'card-profile-settings') || (card.getAttribute('data-card') === 'settings') || (card.getAttribute('data-card') === 'profile-settings');
                     if (isSettings) {
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
-                        window.location.assign('/pages/settings.html');
+                        // Verificar senha antes de permitir acesso
+                        (async () => {
+                            try {
+                                await window.verifyPasswordForSettings();
+                                window.location.assign('/pages/settings.html');
+                            } catch (err) {
+                                // Usuário cancelou ou senha incorreta
+                                console.log('Acesso às configurações negado:', err);
+                            }
+                        })();
                         return;
                     }
                     // Indicadores: intercepta antes de fluxo genérico
@@ -1853,6 +1883,32 @@
                         } catch(_){}
                     }
                     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+                })();
+                </script>
+
+                <!-- Password Verification Modal Mount Point -->
+                <div id="settingsPasswordModalMount"></div>
+                <script>
+                (function(){
+                    async function loadPasswordModal(){
+                        try {
+                            const resp = await fetch('/components/settingsPasswordVerification.html');
+                            if(!resp.ok) return;
+                            const html = await resp.text();
+                            const mountEl = document.getElementById('settingsPasswordModalMount');
+                            if(mountEl){
+                                mountEl.innerHTML = html;
+                                const scripts = Array.from(mountEl.querySelectorAll('script'));
+                                scripts.forEach(old => {
+                                    const s = document.createElement('script');
+                                    if (old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                                    old.parentNode.removeChild(old);
+                                    mountEl.appendChild(s);
+                                });
+                            }
+                        } catch(_){}
+                    }
+                    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadPasswordModal); else loadPasswordModal();
                 })();
                 </script>
 </body>

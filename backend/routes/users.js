@@ -181,6 +181,7 @@ router.get('/me', async (req, res) => {
         const isAdmin = adminEmails.includes(emailLower) || nomeLower === 'admin' || nomeLower.startsWith('admin_');
         return res.json({
             Id: user.Id,
+            Nome: user.Nome,
             NomeUsuario: user.NomeUsuario,
             Email: user.Email,
             EmailConfirmado: user.EmailConfirmado,

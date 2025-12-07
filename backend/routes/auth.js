@@ -56,8 +56,8 @@ router.post('/login', async (req, res) => {
                         const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
                         // Se não tem meta ou se é verificação de email (não tem type ou type não é password_reset/email_change)
                         if (!oldMeta.type || (oldMeta.type !== 'password_reset' && oldMeta.type !== 'email_change')) {
-                            await oldToken.update({ ExpiresAt: new Date(Date.now() - 1000) });
-                            console.log(`[login-email-verification] Token anterior ${oldToken.Token} expirado para UserId ${user.Id}`);
+                            await oldToken.update({ ForcedExpiration: true });
+                            console.log(`[login-email-verification] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${user.Id}`);
                         }
                     } catch (e) {
                         console.warn('[login-email-verification] Erro ao processar meta de token antigo:', e);
@@ -155,6 +155,7 @@ router.post('/verify', async (req, res) => {
         const now = new Date();
         const record = await EmailVerification.findOne({ where: { Token: token, Used: false } });
         if (!record) return res.status(400).json({ message: 'Token inválido ou já utilizado' });
+        if (record.ForcedExpiration) return res.status(400).json({ message: 'Este código foi invalidado porque você solicitou um novo. Use o código mais recente.' });
         if (record.ExpiresAt && new Date(record.ExpiresAt) < now) return res.status(400).json({ message: 'Token expirado' });
 
         // mark used and set user email confirmed
@@ -215,11 +216,10 @@ router.post('/forgot-password', async (req, res) => {
                 const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
                 console.log(`[forgot-password] Verificando token ${oldToken.Token}, meta:`, oldMeta);
                 if (oldMeta.type === 'password_reset') {
-                    // Expira imediatamente ajustando ExpiresAt para o passado
-                    const newExpiresAt = new Date(Date.now() - 1000);
-                    await oldToken.update({ ExpiresAt: newExpiresAt });
+                    // Força expiração do token ajustando ForcedExpiration
+                    await oldToken.update({ ForcedExpiration: true });
                     expiredCount++;
-                    console.log(`[forgot-password] ✓ Token ${oldToken.Token} expirado. Nova ExpiresAt: ${newExpiresAt.toISOString()}`);
+                    console.log(`[forgot-password] ✓ Token ${oldToken.Token} forçadamente expirado (ForcedExpiration=true)`);
                 }
             } catch (e) {
                 console.warn('[forgot-password] Erro ao processar meta de token antigo:', e);
@@ -292,7 +292,12 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ message: 'Este código já foi utilizado. Solicite um novo código.' });
         }
 
-        // Verificar se código expirou
+        // Verificar se foi forçadamente expirado
+        if (verification.ForcedExpiration) {
+            return res.status(400).json({ message: 'Este código foi invalidado porque você solicitou um novo. Use o código mais recente.' });
+        }
+
+        // Verificar se código expirou naturalmente
         if (new Date() > new Date(verification.ExpiresAt)) {
             return res.status(400).json({ message: 'Código expirado. Solicite um novo código.' });
         }

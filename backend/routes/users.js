@@ -80,8 +80,8 @@ router.post('/', async (req, res) => {
                     const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
                     // Se não tem meta ou se é verificação de email inicial
                     if (!oldMeta.type || (oldMeta.type !== 'password_reset' && oldMeta.type !== 'email_change')) {
-                        await oldToken.update({ ExpiresAt: new Date(Date.now() - 1000) });
-                        console.log(`[register] Token anterior ${oldToken.Token} expirado para UserId ${created.Id}`);
+                        await oldToken.update({ ForcedExpiration: true });
+                        console.log(`[register] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${created.Id}`);
                     }
                 } catch (e) {
                     console.warn('[register] Erro ao processar meta de token antigo:', e);
@@ -377,9 +377,9 @@ router.post('/me/email/request-change', async (req, res) => {
             try {
                 const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
                 if (oldMeta.type === 'email_change') {
-                    // Expira imediatamente ajustando ExpiresAt para o passado
-                    await oldToken.update({ ExpiresAt: new Date(Date.now() - 1000) });
-                    console.log(`[email-change] Token anterior ${oldToken.Token} expirado para UserId ${user.Id}`);
+                    // Força expiração do token
+                    await oldToken.update({ ForcedExpiration: true });
+                    console.log(`[email-change] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${user.Id}`);
                 }
             } catch (e) {
                 console.warn('[email-change] Erro ao processar meta de token antigo:', e);
@@ -454,6 +454,10 @@ router.post('/me/email/verify-change', async (req, res) => {
 
         if (!verification) {
             return res.status(400).json({ message: 'Código inválido ou já utilizado' });
+        }
+
+        if (verification.ForcedExpiration) {
+            return res.status(400).json({ message: 'Este código foi invalidado porque você solicitou um novo. Use o código mais recente.' });
         }
 
         if (new Date() > new Date(verification.ExpiresAt)) {

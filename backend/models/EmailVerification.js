@@ -36,6 +36,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
       field: 'Meta'
+    },
+    ForcedExpiration: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'ForcedExpiration'
     }
   }, {
     tableName: 'EmailVerification',

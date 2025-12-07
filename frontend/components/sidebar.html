@@ -267,9 +267,6 @@
         <button class="sidebar-accordion-item" data-section="simulados" data-simulado="pmp">
           PMP Completo (180 questões)
         </button>
-        <button class="sidebar-accordion-item" data-section="simulados" data-simulado="rapido">
-          Simulado Rápido (60 questões)
-        </button>
         <button class="sidebar-accordion-item" data-section="simulados" data-simulado="custom">
           Simulado Customizado
         </button>
@@ -350,14 +347,8 @@
 
   // Navigation handlers
   function setupNavigation() {
-    // Home/Dashboard
-    const homeBtn = document.getElementById('sidebarHome');
-    if (homeBtn) {
-      homeBtn.addEventListener('click', () => {
-        navigateToSection('home');
-      });
-    }
-
+    // Dashboard não tem navegação (fica sempre ativo, mostra home)
+    
     // Indicadores
     const indicadoresBtn = document.getElementById('sidebarIndicadores');
     if (indicadoresBtn) {
@@ -415,18 +406,59 @@
     });
 
     // Add active class to clicked item
-    const activeItem = document.querySelector(`[data-section="${section}"]${subsection ? `[data-simulado="${subsection}"]` : ':not([data-simulado])'}`);
+    const selector = subsection 
+      ? `[data-simulado="${subsection}"]` 
+      : `#sidebar${section.charAt(0).toUpperCase() + section.slice(1)}`;
+    const activeItem = document.querySelector(selector);
     if (activeItem) {
       activeItem.classList.add('active');
     }
 
-    // Trigger navigation in main app
-    if (typeof window.navigateTo === 'function') {
-      window.navigateTo(section, subsection);
-    } else {
-      // Fallback: show section directly
+    // Mapeamento de seções da sidebar para seções do index.html
+    const sectionMap = {
+      'indicadores': () => window.location.href = '/pages/Indicadores.html',
+      'perfil': 'profile',
+      'configuracoes': () => {
+        // Verificar senha antes de ir para configurações
+        if (window.verifyPasswordForSettings) {
+          window.verifyPasswordForSettings()
+            .then(() => window.location.href = '/pages/settings.html')
+            .catch(() => console.log('Acesso negado'));
+        } else {
+          window.location.href = '/pages/settings.html';
+        }
+      },
+      'simulados': (sub) => {
+        // Mapear simulados para cards específicos
+        const cardMap = {
+          'pmp': () => {
+            const card = document.getElementById('card-exam-mock');
+            if (card) card.click();
+          },
+          'custom': () => {
+            // Marcar que estamos indo para o examSetup para evitar loop ao voltar
+            try {
+              sessionStorage.setItem('wentToExamSetup', 'true');
+            } catch(e) {}
+            // Redirecionar para examSetup.html
+            window.location.href = '/pages/examSetup.html';
+          }
+        };
+        const action = cardMap[sub];
+        if (typeof action === 'function') {
+          action();
+        }
+      }
+    };
+
+    // Executar navegação
+    const action = sectionMap[section];
+    if (typeof action === 'function') {
+      action(subsection);
+    } else if (action) {
+      // Navegar para seção do index.html
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-      const targetSection = document.querySelector(`.section[data-section="${section}"]`);
+      const targetSection = document.getElementById(action);
       if (targetSection) {
         targetSection.classList.add('active');
       }

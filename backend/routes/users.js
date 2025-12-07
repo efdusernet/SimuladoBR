@@ -525,7 +525,8 @@ router.post('/me/verify-password', async (req, res) => {
             return res.status(400).json({ message: 'Senha é obrigatória' });
         }
 
-        // Verify password
+        // Password comes as SHA-256 hash from client (same as login)
+        // Server stored hash is bcrypt(SHA-256)
         const isValid = await bcrypt.compare(password, user.SenhaHash);
         if (!isValid) {
             return res.status(401).json({ message: 'Senha incorreta' });

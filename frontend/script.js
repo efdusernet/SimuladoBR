@@ -7,9 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const nameInput = document.getElementById('nameInput');
     const passwordInput = document.getElementById('passwordInput');
     const verifyTokenInput = document.getElementById('verifyTokenInput');
+    const newPasswordInput = document.getElementById('newPasswordInput');
+    const confirmPasswordInput = document.getElementById('confirmPasswordInput');
     const submitBtn = document.getElementById('submitEmail');
     const modalError = document.getElementById('modalError');
     const toggleModeBtn = document.getElementById('toggleModeBtn');
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
     const pathNow = window.location.pathname || '';
     const onLoginPage = pathNow.replace(/\/+$/, '') === '/login';
 
@@ -313,16 +316,52 @@ document.addEventListener('DOMContentLoaded', () => {
             // hide name field
             if (nameInput) nameInput.style.display = 'none';
             if (verifyTokenInput) verifyTokenInput.style.display = 'none';
+            if (newPasswordInput) newPasswordInput.style.display = 'none';
+            if (confirmPasswordInput) confirmPasswordInput.style.display = 'none';
+            if (passwordInput) passwordInput.style.display = '';
+            if (forgotPasswordLink) forgotPasswordLink.style.display = 'block';
             if (titleEl) titleEl.textContent = 'Entrar';
             if (descEl) descEl.textContent = 'Informe seu e-mail e senha para entrar.';
             if (submitBtn) submitBtn.textContent = 'Entrar';
             if (toggleModeBtn) toggleModeBtn.textContent = 'Criar conta';
             if (modalError) { modalError.style.display = 'none'; modalError.style.color = ''; }
             if (passwordInput) passwordInput.focus();
+        } else if (mode === 'forgot-password') {
+            // Modo: solicitar reset de senha
+            if (nameInput) nameInput.style.display = 'none';
+            if (passwordInput) passwordInput.style.display = 'none';
+            if (verifyTokenInput) verifyTokenInput.style.display = 'none';
+            if (newPasswordInput) newPasswordInput.style.display = 'none';
+            if (confirmPasswordInput) confirmPasswordInput.style.display = 'none';
+            if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
+            if (titleEl) titleEl.textContent = 'Recuperar Senha';
+            if (descEl) descEl.textContent = 'Informe seu e-mail para receber o código de recuperação.';
+            if (submitBtn) submitBtn.textContent = 'Enviar Código';
+            if (toggleModeBtn) toggleModeBtn.textContent = 'Voltar ao login';
+            if (modalError) { modalError.style.display = 'none'; modalError.style.color = ''; }
+            if (emailInput) emailInput.focus();
+        } else if (mode === 'reset-password') {
+            // Modo: informar código e nova senha
+            if (nameInput) nameInput.style.display = 'none';
+            if (passwordInput) passwordInput.style.display = 'none';
+            if (verifyTokenInput) verifyTokenInput.style.display = '';
+            if (newPasswordInput) newPasswordInput.style.display = '';
+            if (confirmPasswordInput) confirmPasswordInput.style.display = '';
+            if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
+            if (titleEl) titleEl.textContent = 'Redefinir Senha';
+            if (descEl) descEl.textContent = 'Informe o código recebido por e-mail e sua nova senha.';
+            if (submitBtn) submitBtn.textContent = 'Redefinir Senha';
+            if (toggleModeBtn) toggleModeBtn.textContent = 'Voltar ao login';
+            if (modalError) { modalError.style.display = 'none'; modalError.style.color = ''; }
+            if (verifyTokenInput) verifyTokenInput.focus();
         } else {
             // register
             if (nameInput) nameInput.style.display = '';
+            if (passwordInput) passwordInput.style.display = '';
             if (verifyTokenInput) verifyTokenInput.style.display = 'none';
+            if (newPasswordInput) newPasswordInput.style.display = 'none';
+            if (confirmPasswordInput) confirmPasswordInput.style.display = 'none';
+            if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
             if (titleEl) titleEl.textContent = 'Registro obrigatório';
             if (descEl) descEl.textContent = 'Por favor, informe seu nome, e-mail e senha para registrar o aplicativo.';
             if (submitBtn) submitBtn.textContent = 'Registrar';
@@ -679,12 +718,34 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) { console.warn('resumeLockoutIfAny error', e); }
     }
 
+    // Event listener para "Esqueci minha senha"
+    if (forgotPasswordLink) {
+        forgotPasswordLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            setModalMode('forgot-password');
+        });
+    }
+
+    // Event listener para toggle mode (agora inclui reset de senha)
+    if (toggleModeBtn) {
+        toggleModeBtn.addEventListener('click', () => {
+            const currentMode = modal.getAttribute('data-mode') || 'register';
+            if (currentMode === 'forgot-password' || currentMode === 'reset-password') {
+                setModalMode('login');
+            } else if (currentMode === 'login') {
+                setModalMode('register');
+            } else {
+                setModalMode('login');
+            }
+        });
+    }
+
     if (modal && submitBtn && emailInput) submitBtn.addEventListener('click', async () => {
         const email = emailInput.value && emailInput.value.trim();
         const nome = nameInput.value && nameInput.value.trim();
         const password = passwordInput ? (passwordInput.value || '') : '';
 
-        const mode = modal.getAttribute('data-mode') || 'register'; // 'register' or 'login'
+        const mode = modal.getAttribute('data-mode') || 'register'; // 'register', 'login', 'forgot-password', 'reset-password'
 
         // Basic validations
         if (!email || !validateEmail(email)) {
@@ -701,6 +762,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (!password || password.length < 6) {
                 modalError.textContent = 'Informe uma senha com pelo menos 6 caracteres.';
+                modalError.style.display = 'block';
+                return;
+            }
+        } else if (mode === 'forgot-password') {
+            // Apenas email necessário
+        } else if (mode === 'reset-password') {
+            const token = verifyTokenInput ? (verifyTokenInput.value || '').trim() : '';
+            const newPassword = newPasswordInput ? (newPasswordInput.value || '') : '';
+            const confirmPassword = confirmPasswordInput ? (confirmPasswordInput.value || '') : '';
+            
+            if (!token || token.length < 6) {
+                modalError.textContent = 'Informe o código de verificação recebido por e-mail.';
+                modalError.style.display = 'block';
+                return;
+            }
+            if (!newPassword || newPassword.length < 6) {
+                modalError.textContent = 'Informe uma nova senha com pelo menos 6 caracteres.';
+                modalError.style.display = 'block';
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                modalError.textContent = 'As senhas não coincidem.';
                 modalError.style.display = 'block';
                 return;
             }
@@ -727,6 +810,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitBtn.textContent = 'Entrar';
                 modalError.style.color = 'green';
                 modalError.textContent = 'Conta criada. Agora faça login com sua senha.';
+                modalError.style.display = 'block';
+                if (passwordInput) passwordInput.value = '';
+            } else if (mode === 'forgot-password') {
+                // Solicitar código de reset de senha
+                const BACKEND_BASE = SIMULADOS_CONFIG.BACKEND_BASE || 'http://localhost:3000';
+                const url = `${BACKEND_BASE.replace(/\/$/, '')}/api/auth/forgot-password`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const text = await res.text();
+                let data;
+                try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+                
+                if (!res.ok) {
+                    const msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : `${res.status} ${res.statusText}`);
+                    throw new Error(msg);
+                }
+                
+                // Mudar para modo reset-password
+                setModalMode('reset-password');
+                modalError.style.color = 'green';
+                modalError.textContent = 'Código enviado para seu e-mail. Verifique sua caixa de entrada.';
+                modalError.style.display = 'block';
+            } else if (mode === 'reset-password') {
+                // Resetar senha com código
+                const token = verifyTokenInput.value.trim();
+                const newPassword = newPasswordInput.value;
+                const senhaHashClient = await hashPasswordSHA256(newPassword);
+                
+                const BACKEND_BASE = SIMULADOS_CONFIG.BACKEND_BASE || 'http://localhost:3000';
+                const url = `${BACKEND_BASE.replace(/\/$/, '')}/api/auth/reset-password`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, token, senhaHash: senhaHashClient })
+                });
+                const text = await res.text();
+                let data;
+                try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+                
+                if (!res.ok) {
+                    const msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : `${res.status} ${res.statusText}`);
+                    throw new Error(msg);
+                }
+                
+                // Senha resetada com sucesso, voltar para login
+                setModalMode('login');
+                modalError.style.color = 'green';
+                modalError.textContent = 'Senha alterada com sucesso! Agora faça login.';
                 modalError.style.display = 'block';
                 if (passwordInput) passwordInput.value = '';
             } else if (mode === 'login') {
@@ -913,15 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (passwordInput && submitBtn) passwordInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
     if (nameInput && submitBtn) nameInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
 
-    // toggle mode button (register <-> login)
-    if (modal && toggleModeBtn){
-        toggleModeBtn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            const current = modal.getAttribute('data-mode') || 'register';
-            const next = current === 'register' ? 'login' : 'register';
-            setModalMode(next);
-        });
-    }
+    // toggle mode button já configurado anteriormente (linha ~731)
     // Expor funções para uso externo (index.html - card Simulador)
     try {
         window.loadExamSetupModal = loadExamSetupModal;

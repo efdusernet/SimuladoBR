@@ -20,6 +20,15 @@
     <!-- Standard Icons -->
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/assets/icon-512.png">
+    
+    <!-- Layout Manager -->
+    <script src="/utils/layoutManager.js"></script>
+    
+    <!-- Layout Styles (loaded conditionally by layoutManager) -->
+    <link rel="stylesheet" href="/layouts/mobile-layout.css">
+    <link rel="stylesheet" href="/layouts/desktop-layout.css" media="(min-width: 768px)">
+    <link rel="stylesheet" href="/layouts/fullscreen-layout.css">
+    
     <style>
         :root{
             --bg: #0f172a;
@@ -139,7 +148,10 @@
     </style>
 </head>
 <body>
-        <!-- Modal de resultados de exames (aberto via card Histórico) -->
+    <!-- Sidebar Mount (desktop only) -->
+    <div id="sidebarMount" style="display: none;"></div>
+    
+    <!-- Modal de resultados de exames (aberto via card Histórico) -->
         <div id="examResultsModal" class="overlay" aria-hidden="true" style="display:none;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
             <div style="background:#fff;border-radius:12px;max-width:520px;width:92%;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.35);color:#111827">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -159,6 +171,18 @@
         if (!token) {
             // Redirecionar para login se não houver token
             window.location.href = '/login.html';
+        }
+        
+        // Detectar se o usuário voltou do examSetup usando botão voltar
+        try {
+            const wentToSetup = sessionStorage.getItem('wentToExamSetup') === 'true';
+            if (wentToSetup) {
+                console.log('[index.html] Detectado retorno do examSetup, marcando flag');
+                sessionStorage.setItem('justReturnedFromExamSetup', 'true');
+                sessionStorage.removeItem('wentToExamSetup');
+            }
+        } catch(e) {
+            console.warn('[index.html] Erro ao detectar retorno:', e);
         }
     })();
     </script>
@@ -281,8 +305,8 @@
         </script>
     <!-- Admin quick menu (rendered only if user has admin role) -->
     <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="display:none;position:fixed;top:12px;left:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.10);font-size:.85rem;font-weight:600;">Admin ▾</button>
-    <button id="notifBellBtn" type="button" aria-label="Notificações" title="Notificações" style="position:fixed;top:12px;left:86px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.08);font-size:.85rem;font-weight:600;display:none;">🔔 <span id="notifBadge" style="background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;margin-left:6px;font-size:.7rem;display:none">0</span></button>
-    <div id="notifPanel" aria-hidden="true" style="display:none;position:fixed;top:52px;left:86px;z-index:2299;min-width:260px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:8px;max-height:320px;overflow:auto"></div>
+    <button id="notifBellBtn" type="button" aria-label="Notificações" title="Notificações" style="position:fixed;top:12px;right:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#fff;color:#111827;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.08);font-size:.85rem;font-weight:600;display:none;">🔔 <span id="notifBadge" style="background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;margin-left:6px;font-size:.7rem;display:none">0</span></button>
+    <div id="notifPanel" aria-hidden="true" style="display:none;position:fixed;top:52px;right:12px;z-index:2299;min-width:260px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:8px;max-height:320px;overflow:auto"></div>
     <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">
         <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão</a>
         <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>

@@ -1,0 +1,16 @@
+/**
+ * Mobile Layout Styles
+ * PRESERVA O LAYOUT ATUAL - NÃO MODIFICA NADA
+ * Layout: Card Grid 2x2 com gradientes (84x84px) como está no index.html
+ */
+
+/* Mobile: Esconder sidebar apenas */
+body[data-layout="mobile"] #sidebarMount {
+  display: none !important;
+}
+
+/* Mobile: NÃO sobrescreve nada do layout atual */
+/* Todo o CSS de .card, .card-grid, .section, .content, .title, etc. 
+   continua exatamente como está definido no <style> do index.html */
+
+/* Fim mobile-layout.css - Preserva layout atual do index.html */

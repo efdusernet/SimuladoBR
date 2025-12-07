@@ -147,6 +147,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function showExamSetupAndRedirect(examUrl) {
+        // Verificar se o usuário acabou de voltar do examSetup usando botão voltar do navegador
+        // Usamos sessionStorage para rastrear se o usuário saiu para examSetup
+        try {
+            const justReturned = sessionStorage.getItem('justReturnedFromExamSetup') === 'true';
+            if (justReturned) {
+                console.log('[showExamSetupAndRedirect] Usuário voltou do examSetup, ignorando modal');
+                sessionStorage.removeItem('justReturnedFromExamSetup');
+                return;
+            }
+        } catch(e) {
+            console.warn('[showExamSetupAndRedirect] Erro ao verificar retorno:', e);
+        }
+
+        // Marcar que estamos indo para o examSetup
+        try {
+            sessionStorage.setItem('wentToExamSetup', 'true');
+        } catch(e) {}
+
         // load modal (if not yet) and show it; store target url on modal
         const modalEl = await loadExamSetupModal();
         if (!modalEl) {

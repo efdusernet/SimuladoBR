@@ -30,7 +30,7 @@ router.post('/send-test-email', async (req, res) => {
     const to = (req.body && req.body.to) || req.query.to;
     if (!to) return res.status(400).json({ message: 'to (email) required' });
 
-    const token = generateVerificationCode(6);
+    const token = generateVerificationCode(6).toUpperCase();
   const result = await sendVerificationEmail(to, token);
   // Return the raw result from the mailer for easier debugging in dev
   return res.json({ ok: true, mailer: result, token: result.token || token, verifyUrl: result.verifyUrl || null });

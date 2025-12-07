@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
                     }
                 }
 
-                const token = require('../utils/codegen').generateVerificationCode(6);
+                const token = require('../utils/codegen').generateVerificationCode(6).toUpperCase();
                 const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
                 await EmailVerification.create({ UserId: user.Id, Token: token, ExpiresAt: expiresAt, Used: false, CreatedAt: new Date() });
                 await sendVerificationEmail(user.Email, token);
@@ -149,7 +149,7 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/verify - body: { token }
 router.post('/verify', async (req, res) => {
     try {
-        const token = (req.body && req.body.token) || req.query.token;
+        const token = ((req.body && req.body.token) || req.query.token || '').trim().toUpperCase();
         if (!token) return res.status(400).json({ message: 'Token obrigatório' });
 
         const now = new Date();
@@ -229,7 +229,7 @@ router.post('/forgot-password', async (req, res) => {
         console.log(`[forgot-password] Total de tokens expirados: ${expiredCount}`);
 
         // Gerar novo código de verificação
-        const token = require('../utils/codegen').generateVerificationCode(6);
+        const token = require('../utils/codegen').generateVerificationCode(6).toUpperCase();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
         // Criar registro de verificação com meta indicando que é reset de senha

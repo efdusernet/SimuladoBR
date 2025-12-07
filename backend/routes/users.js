@@ -89,7 +89,7 @@ router.post('/', async (req, res) => {
             }
 
             // 6-character alphanumeric verification code
-            const token = generateVerificationCode(6);
+            const token = generateVerificationCode(6).toUpperCase();
             const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
             await EmailVerification.create({ UserId: created.Id, Token: token, ExpiresAt: expiresAt, Used: false, CreatedAt: new Date() });
             // send email (if configured); in dev this may log the token
@@ -387,7 +387,7 @@ router.post('/me/email/request-change', async (req, res) => {
         }
 
         // Create verification token
-        const token = generateVerificationCode(6);
+        const token = generateVerificationCode(6).toUpperCase();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
         
         // Store with metadata indicating it's for email change
@@ -442,11 +442,13 @@ router.post('/me/email/verify-change', async (req, res) => {
             return res.status(400).json({ message: 'Código de verificação obrigatório' });
         }
 
+        const tokenUpper = token.trim().toUpperCase();
+
         // Find verification record
         const verification = await EmailVerification.findOne({
             where: {
                 UserId: user.Id,
-                Token: token.trim(),
+                Token: tokenUpper,
                 Used: false
             },
             order: [['CreatedAt', 'DESC']]

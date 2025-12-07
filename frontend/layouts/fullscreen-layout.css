@@ -1,0 +1,406 @@
+/**
+ * Fullscreen Layout Styles
+ * Layout: Página ocupa toda viewport (exames, indicadores)
+ */
+
+/* Custom Properties Fullscreen */
+:root {
+  --fullscreen-bg: #ffffff;
+  --fullscreen-header-height: 60px;
+  --fullscreen-footer-height: 70px;
+}
+
+/* Base Fullscreen */
+body[data-layout="fullscreen"] {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: var(--fullscreen-bg);
+}
+
+/* Esconder todos os elementos de navegação */
+body[data-layout="fullscreen"] #sidebarMount,
+body[data-layout="fullscreen"] #bottomNavMount,
+body[data-layout="fullscreen"] .mobile-header,
+body[data-layout="fullscreen"] .desktop-header {
+  display: none !important;
+}
+
+/* Container Fullscreen */
+body[data-layout="fullscreen"] .fullscreen-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Header Fullscreen */
+body[data-layout="fullscreen"] .fullscreen-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--fullscreen-header-height);
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+body[data-layout="fullscreen"] .fullscreen-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+body[data-layout="fullscreen"] .fullscreen-header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+body[data-layout="fullscreen"] .fullscreen-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+body[data-layout="fullscreen"] .fullscreen-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+body[data-layout="fullscreen"] .fullscreen-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Content Fullscreen */
+body[data-layout="fullscreen"] .fullscreen-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-top: var(--fullscreen-header-height);
+  margin-bottom: var(--fullscreen-footer-height);
+  padding: 1.5rem;
+  height: calc(100vh - var(--fullscreen-header-height) - var(--fullscreen-footer-height));
+}
+
+/* Footer Fullscreen */
+body[data-layout="fullscreen"] .fullscreen-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--fullscreen-footer-height);
+  background: white;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  z-index: 1000;
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Botão Exit Fullscreen */
+body[data-layout="fullscreen"] .exit-fullscreen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+body[data-layout="fullscreen"] .exit-fullscreen-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+body[data-layout="fullscreen"] .exit-fullscreen-btn:active {
+  transform: scale(0.98);
+}
+
+/* Página: Exame */
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] {
+  background: #f8fafc;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .fullscreen-header {
+  background: #4f46e5;
+  color: white;
+  border-bottom: none;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .fullscreen-title,
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .fullscreen-subtitle {
+  color: white;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exit-fullscreen-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exit-fullscreen-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Timer Exame */
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exam-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exam-timer.warning {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exam-timer.danger {
+  background: #fee2e2;
+  color: #dc2626;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Progresso Exame */
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exam-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exam-progress-bar {
+  width: 120px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exam-progress-fill {
+  height: 100%;
+  background: white;
+  transition: width 0.3s ease;
+}
+
+/* Página: Indicadores */
+body[data-layout="fullscreen"][data-fullscreen-page="indicators"] {
+  background: white;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="indicators"] .fullscreen-content {
+  padding: 0;
+}
+
+body[data-layout="fullscreen"][data-fullscreen-page="indicators"] .chart-container {
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
+}
+
+/* Animações de entrada */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+body[data-layout="fullscreen"] .fullscreen-container {
+  animation: fadeInScale 0.3s ease-out;
+}
+
+/* Animações de saída */
+@keyframes fadeOutScale {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+body[data-layout="fullscreen"].exiting .fullscreen-container {
+  animation: fadeOutScale 0.2s ease-in;
+}
+
+/* Scrollbar customizada */
+body[data-layout="fullscreen"] .fullscreen-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+body[data-layout="fullscreen"] .fullscreen-content::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+body[data-layout="fullscreen"] .fullscreen-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+body[data-layout="fullscreen"] .fullscreen-content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Mobile Fullscreen */
+@media (max-width: 767px) {
+  body[data-layout="fullscreen"] .fullscreen-header {
+    padding: 0 1rem;
+  }
+  
+  body[data-layout="fullscreen"] .fullscreen-footer {
+    padding: 0 1rem;
+  }
+  
+  body[data-layout="fullscreen"] .fullscreen-content {
+    padding: 1rem;
+  }
+  
+  body[data-layout="fullscreen"] .fullscreen-title {
+    font-size: 0.875rem;
+  }
+  
+  body[data-layout="fullscreen"] .fullscreen-subtitle {
+    font-size: 0.75rem;
+  }
+  
+  body[data-layout="fullscreen"][data-fullscreen-page="exam"] .exam-progress-bar {
+    width: 80px;
+  }
+}
+
+/* Landscape Mode */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --fullscreen-header-height: 50px;
+    --fullscreen-footer-height: 50px;
+  }
+  
+  body[data-layout="fullscreen"] .fullscreen-content {
+    padding: 1rem;
+  }
+}
+
+/* Dark Mode (opcional) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fullscreen-bg: #0f172a;
+  }
+  
+  body[data-layout="fullscreen"] .fullscreen-header,
+  body[data-layout="fullscreen"] .fullscreen-footer {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  
+  body[data-layout="fullscreen"] .fullscreen-title {
+    color: #f1f5f9;
+  }
+  
+  body[data-layout="fullscreen"] .fullscreen-subtitle {
+    color: #94a3b8;
+  }
+  
+  body[data-layout="fullscreen"] .exit-fullscreen-btn {
+    border-color: #334155;
+    color: #cbd5e1;
+  }
+  
+  body[data-layout="fullscreen"] .exit-fullscreen-btn:hover {
+    background: #334155;
+    border-color: #475569;
+    color: #f1f5f9;
+  }
+}
+
+/* Acessibilidade */
+body[data-layout="fullscreen"] :focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+/* Performance */
+body[data-layout="fullscreen"] .fullscreen-header,
+body[data-layout="fullscreen"] .fullscreen-footer {
+  contain: layout style;
+  will-change: transform;
+}
+
+body[data-layout="fullscreen"] .fullscreen-content {
+  contain: layout style paint;
+}
+
+/* ESC Key Hint */
+body[data-layout="fullscreen"]::before {
+  content: 'Pressione ESC para sair';
+  position: fixed;
+  bottom: calc(var(--fullscreen-footer-height) + 1rem);
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  opacity: 0;
+  animation: fadeInOut 3s ease-in-out;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+@keyframes fadeInOut {
+  0%, 100% {
+    opacity: 0;
+  }
+  10%, 90% {
+    opacity: 1;
+  }
+}

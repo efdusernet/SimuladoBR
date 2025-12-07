@@ -1,0 +1,448 @@
+<style>
+/* Sidebar Styles */
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  background: #1e293b;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+/* User Header */
+.sidebar-header {
+  padding: 1.5rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+}
+
+.sidebar-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: #4f46e5;
+  flex-shrink: 0;
+}
+
+.sidebar-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-user-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-email {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Navigation */
+.sidebar-nav {
+  flex: 1;
+  padding: 1rem 0;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-nav-item:hover {
+  background: #334155;
+  color: white;
+}
+
+.sidebar-nav-item.active {
+  background: #334155;
+  color: white;
+  border-left-color: #4f46e5;
+}
+
+.sidebar-nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.sidebar-nav-label {
+  flex: 1;
+}
+
+/* Accordion para Simulados */
+.sidebar-accordion {
+  border: none;
+  background: transparent;
+}
+
+.sidebar-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #cbd5e1;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-accordion-header:hover {
+  background: #334155;
+  color: white;
+}
+
+.sidebar-accordion-chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s;
+  flex-shrink: 0;
+}
+
+.sidebar-accordion.expanded .sidebar-accordion-chevron {
+  transform: rotate(90deg);
+}
+
+.sidebar-accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  background: #0f172a;
+}
+
+.sidebar-accordion.expanded .sidebar-accordion-content {
+  max-height: 500px;
+}
+
+.sidebar-accordion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem 0.65rem 3rem;
+  color: #94a3b8;
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+  font-size: 0.875rem;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-accordion-item:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.sidebar-accordion-item.active {
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+/* Footer */
+.sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Scrollbar */
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+</style>
+
+<aside class="sidebar">
+  <!-- User Header -->
+  <div class="sidebar-header">
+    <div class="sidebar-avatar" id="sidebarAvatar">U</div>
+    <div class="sidebar-user-info">
+      <p class="sidebar-user-name" id="sidebarUserName">Carregando...</p>
+      <p class="sidebar-user-email" id="sidebarUserEmail">usuario@email.com</p>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="sidebar-nav">
+    <!-- Dashboard -->
+    <button class="sidebar-nav-item active" data-section="home" id="sidebarHome">
+      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      <span class="sidebar-nav-label">Dashboard</span>
+    </button>
+
+    <!-- Simulados (Accordion) -->
+    <div class="sidebar-accordion" id="sidebarSimuladosAccordion">
+      <button class="sidebar-accordion-header">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <span class="sidebar-nav-label">Simulados</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <button class="sidebar-accordion-item" data-section="simulados" data-simulado="pmp">
+          PMP Completo (180 questões)
+        </button>
+        <button class="sidebar-accordion-item" data-section="simulados" data-simulado="rapido">
+          Simulado Rápido (60 questões)
+        </button>
+        <button class="sidebar-accordion-item" data-section="simulados" data-simulado="custom">
+          Simulado Customizado
+        </button>
+      </div>
+    </div>
+
+    <!-- Indicadores -->
+    <button class="sidebar-nav-item" data-section="indicadores" id="sidebarIndicadores">
+      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <span class="sidebar-nav-label">Indicadores</span>
+    </button>
+
+    <!-- Perfil -->
+    <button class="sidebar-nav-item" data-section="perfil" id="sidebarPerfil">
+      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+      </svg>
+      <span class="sidebar-nav-label">Perfil</span>
+    </button>
+
+    <!-- Configurações -->
+    <button class="sidebar-nav-item" data-section="configuracoes" id="sidebarConfiguracoes">
+      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      <span class="sidebar-nav-label">Configurações</span>
+    </button>
+  </nav>
+
+  <!-- Footer -->
+  <div class="sidebar-footer">
+    <button class="sidebar-logout-btn" id="sidebarLogoutBtn">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+      </svg>
+      Sair
+    </button>
+  </div>
+</aside>
+
+<script>
+(function() {
+  'use strict';
+
+  // Load user data
+  async function loadUserData() {
+    try {
+      const token = localStorage.getItem('sessionToken');
+      if (!token) return;
+
+      const response = await fetch('/api/users/me', {
+        headers: { 'X-Session-Token': token }
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        const nameEl = document.getElementById('sidebarUserName');
+        const emailEl = document.getElementById('sidebarUserEmail');
+        const avatarEl = document.getElementById('sidebarAvatar');
+
+        if (nameEl && user.Nome) {
+          nameEl.textContent = user.Nome;
+        }
+        if (emailEl && user.Email) {
+          emailEl.textContent = user.Email;
+        }
+        if (avatarEl && user.Nome) {
+          avatarEl.textContent = user.Nome.charAt(0).toUpperCase();
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do usuário:', error);
+    }
+  }
+
+  // Navigation handlers
+  function setupNavigation() {
+    // Home/Dashboard
+    const homeBtn = document.getElementById('sidebarHome');
+    if (homeBtn) {
+      homeBtn.addEventListener('click', () => {
+        navigateToSection('home');
+      });
+    }
+
+    // Indicadores
+    const indicadoresBtn = document.getElementById('sidebarIndicadores');
+    if (indicadoresBtn) {
+      indicadoresBtn.addEventListener('click', () => {
+        navigateToSection('indicadores');
+      });
+    }
+
+    // Perfil
+    const perfilBtn = document.getElementById('sidebarPerfil');
+    if (perfilBtn) {
+      perfilBtn.addEventListener('click', () => {
+        navigateToSection('perfil');
+      });
+    }
+
+    // Configurações
+    const configBtn = document.getElementById('sidebarConfiguracoes');
+    if (configBtn) {
+      configBtn.addEventListener('click', () => {
+        navigateToSection('configuracoes');
+      });
+    }
+
+    // Accordion toggle
+    const accordionHeader = document.querySelector('.sidebar-accordion-header');
+    const accordion = document.getElementById('sidebarSimuladosAccordion');
+    if (accordionHeader && accordion) {
+      accordionHeader.addEventListener('click', () => {
+        accordion.classList.toggle('expanded');
+      });
+    }
+
+    // Simulados accordion items
+    const simuladoItems = document.querySelectorAll('.sidebar-accordion-item');
+    simuladoItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const simulado = item.dataset.simulado;
+        navigateToSection('simulados', simulado);
+      });
+    });
+
+    // Logout
+    const logoutBtn = document.getElementById('sidebarLogoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', handleLogout);
+    }
+  }
+
+  // Navigate to section (integrates with existing index.html navigation)
+  function navigateToSection(section, subsection) {
+    // Remove active class from all items
+    document.querySelectorAll('.sidebar-nav-item, .sidebar-accordion-item').forEach(item => {
+      item.classList.remove('active');
+    });
+
+    // Add active class to clicked item
+    const activeItem = document.querySelector(`[data-section="${section}"]${subsection ? `[data-simulado="${subsection}"]` : ':not([data-simulado])'}`);
+    if (activeItem) {
+      activeItem.classList.add('active');
+    }
+
+    // Trigger navigation in main app
+    if (typeof window.navigateTo === 'function') {
+      window.navigateTo(section, subsection);
+    } else {
+      // Fallback: show section directly
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      const targetSection = document.querySelector(`.section[data-section="${section}"]`);
+      if (targetSection) {
+        targetSection.classList.add('active');
+      }
+    }
+  }
+
+  // Logout handler
+  function handleLogout() {
+    if (confirm('Deseja realmente sair?')) {
+      localStorage.removeItem('sessionToken');
+      window.location.href = '/login.html';
+    }
+  }
+
+  // Initialize
+  loadUserData();
+  setupNavigation();
+})();
+</script>

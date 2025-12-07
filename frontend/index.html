@@ -171,19 +171,68 @@
         if (!token) {
             // Redirecionar para login se não houver token
             window.location.href = '/login.html';
+            return;
         }
         
-        // Detectar se o usuário voltou do examSetup usando botão voltar
-        try {
+        // Função para esconder spinner e prevenir loop
+        function cleanupAfterReturn() {
+            console.log('[index.html] cleanupAfterReturn executado');
+            
+            // Marcar flag de retorno
             const wentToSetup = sessionStorage.getItem('wentToExamSetup') === 'true';
             if (wentToSetup) {
-                console.log('[index.html] Detectado retorno do examSetup, marcando flag');
+                console.log('[index.html] Detectado retorno do examSetup');
                 sessionStorage.setItem('justReturnedFromExamSetup', 'true');
                 sessionStorage.removeItem('wentToExamSetup');
             }
-        } catch(e) {
-            console.warn('[index.html] Erro ao detectar retorno:', e);
+            
+            // SEMPRE esconder o spinner ao carregar index.html
+            setTimeout(() => {
+                const spinner = document.getElementById('redirectSpinner');
+                if (spinner) {
+                    spinner.remove(); // Remove completamente em vez de só esconder
+                    console.log('[index.html] Spinner removido');
+                }
+                
+                // Fechar TODOS os modais/overlays que possam estar abertos
+                const modalsToClose = [
+                    'adminModal',
+                    'examResultsModal',
+                    'examSetupModal'
+                ];
+                
+                modalsToClose.forEach(modalId => {
+                    const modal = document.getElementById(modalId);
+                    if (modal) {
+                        modal.classList.remove('active');
+                        modal.setAttribute('aria-hidden', 'true');
+                        modal.style.display = 'none';
+                        console.log('[index.html] Modal fechado:', modalId);
+                    }
+                });
+                
+                // Fechar qualquer overlay genérico
+                const overlays = document.querySelectorAll('.overlay.active');
+                overlays.forEach(overlay => {
+                    overlay.classList.remove('active');
+                    overlay.setAttribute('aria-hidden', 'true');
+                    overlay.style.display = 'none';
+                    console.log('[index.html] Overlay fechado');
+                });
+                
+                // Restaurar scroll do body
+                document.body.style.overflow = '';
+            }, 0);
         }
+        
+        // Executar na carga
+        cleanupAfterReturn();
+        
+        // Executar também no pageshow (para detectar navegação back/forward)
+        window.addEventListener('pageshow', (event) => {
+            console.log('[index.html] pageshow event, persisted:', event.persisted);
+            cleanupAfterReturn();
+        });
     })();
     </script>
         <!-- Exam results modal logic (trigger via card Histórico) -->
@@ -661,7 +710,7 @@
             <!-- lastExamResults alinhado com a largura dos cards (usa mesmas constraints de .card-grid) -->
             <div id="lastExamResultsMount" aria-live="polite" style="max-width:320px;margin:0 auto 8px auto; box-sizing:border-box; transition: background .25s ease;"></div>
             <div class="card-grid">
-                 <div class="card card--simulador" data-full="" aria-label="Simulador" role="button" tabindex="0">
+                 <div class="card card--simulador" aria-label="Simulador" role="button" tabindex="0">
                     <img src="assets/pc.png" alt="Personalizar Exame" class="thumb" />
                     <span class="card-label">Setup</span>
                 </div>
@@ -1540,6 +1589,17 @@
                     try { e.preventDefault(); } catch(_) {}
                     try { e.stopPropagation(); } catch(_) {}
                     try { if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation(); } catch(_) {}
+                    
+                    // Verificar se acabou de voltar do examSetup
+                    try {
+                        const justReturned = sessionStorage.getItem('justReturnedFromExamSetup') === 'true';
+                        if (justReturned) {
+                            console.log('[index.html] Card clicado mas usuário acabou de voltar, ignorando');
+                            sessionStorage.removeItem('justReturnedFromExamSetup');
+                            return;
+                        }
+                    } catch(_) {}
+                    
                     if (window.showExamSetupAndRedirect) {
                         // Usa caminho absoluto para consistência
                         window.showExamSetupAndRedirect('/pages/exam.html');

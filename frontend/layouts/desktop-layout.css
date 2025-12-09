@@ -15,37 +15,37 @@
   --desktop-padding: 2rem;
 }
 
-/* Grid Layout Desktop */
+/* Two-Column Layout Desktop */
 body[data-layout="desktop"] {
-  display: grid;
-  grid-template-columns: var(--sidebar-width) 1fr;
-  grid-template-rows: auto 1fr;
+  display: flex;
   min-height: 100vh;
   margin: 0;
   overflow-x: hidden;
+  background: #f8fafc;
 }
 
-/* Sidebar Container */
+/* Sidebar Container - Coluna Esquerda Fixa */
 body[data-layout="desktop"] #sidebarMount {
   display: block !important;
-  grid-column: 1;
-  grid-row: 1 / -1;
   position: fixed;
   left: 0;
   top: 0;
   width: var(--sidebar-width);
   height: 100vh;
+  background: var(--sidebar-bg);
   z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Content Area */
+/* Content Area - Coluna Direita */
 body[data-layout="desktop"] .content {
-  grid-column: 2;
-  grid-row: 1 / -1;
   margin-left: var(--sidebar-width);
+  flex: 1;
   padding: var(--desktop-padding);
   min-height: 100vh;
   background: #f8fafc;
+  width: calc(100% - var(--sidebar-width));
 }
 
 /* Esconder bottom-nav no desktop */
@@ -53,11 +53,11 @@ body[data-layout="desktop"] #bottomNavMount {
   display: none !important;
 }
 
-/* Posicionamento do botão de notificações no desktop */
+/* Posicionamento do botão de notificações no desktop - dentro da área de conteúdo */
 body[data-layout="desktop"] #notifBellBtn {
   position: fixed !important;
   top: 20px !important;
-  right: calc(100vw - var(--sidebar-width) + 16px) !important;
+  right: 20px !important;
   left: auto !important;
   z-index: 2300;
 }
@@ -65,7 +65,7 @@ body[data-layout="desktop"] #notifBellBtn {
 body[data-layout="desktop"] #notifPanel {
   position: fixed !important;
   top: 64px !important;
-  right: calc(100vw - var(--sidebar-width) + 16px) !important;
+  right: 20px !important;
   left: auto !important;
 }
 

@@ -526,9 +526,17 @@ router.post('/me/verify-password', async (req, res) => {
             return res.status(400).json({ message: 'Senha é obrigatória' });
         }
 
+        // Debug logging
+        console.log('[verify-password] User:', user.Email);
+        console.log('[verify-password] SHA-256 received (first 20 chars):', password.substring(0, 20));
+        console.log('[verify-password] Bcrypt stored (first 20 chars):', user.SenhaHash.substring(0, 20));
+
         // Password comes as SHA-256 hash from client (same as login)
         // Server stored hash is bcrypt(SHA-256)
         const isValid = await bcrypt.compare(password, user.SenhaHash);
+        
+        console.log('[verify-password] Comparison result:', isValid);
+        
         if (!isValid) {
             return res.status(401).json({ message: 'Senha incorreta' });
         }

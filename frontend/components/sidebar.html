@@ -289,14 +289,6 @@
       <span class="sidebar-nav-label">Progresso Geral</span>
     </button>
 
-    <!-- Perfil -->
-    <button class="sidebar-nav-item" data-section="perfil" id="sidebarPerfil">
-      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-      </svg>
-      <span class="sidebar-nav-label">Perfil</span>
-    </button>
-
     <!-- Configurações -->
     <button class="sidebar-nav-item" data-section="configuracoes" id="sidebarConfiguracoes">
       <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -370,14 +362,6 @@
     if (progressoGeralBtn) {
       progressoGeralBtn.addEventListener('click', () => {
         navigateToSection('progresso-geral');
-      });
-    }
-
-    // Perfil (redireciona para configurações)
-    const perfilBtn = document.getElementById('sidebarPerfil');
-    if (perfilBtn) {
-      perfilBtn.addEventListener('click', () => {
-        navigateToSection('configuracoes');
       });
     }
 

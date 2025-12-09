@@ -363,11 +363,11 @@
         <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
         <a id="lnkAdminFeedbackResp" href="/pages/admin/feedbackResponses.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Responder feedbacks</a>
         <a id="lnkAdminNotifications" href="/pages/admin/notifications.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Notificações</a>
-        <a id="lnkUserSettings" href="/pages/settings.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">⚙️ Configurações</a>
         <button id="btnAdminFixture" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#0d9488;font-size:.85rem;border-radius:6px;cursor:pointer;">Gerar tentativa fixture</button>
         <button id="btnAdminReconcile" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#4f46e5;font-size:.85rem;border-radius:6px;cursor:pointer;">Reconciliar estatísticas</button>
         <button id="btnAdminPurge" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#b91c1c;font-size:.85rem;border-radius:6px;cursor:pointer;">Expurgar tentativas abandonadas</button>
         <button id="btnAdminMarkAbandoned" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#dc2626;font-size:.85rem;border-radius:6px;cursor:pointer;">Marcar abandonadas (inatividade)</button>
+        <button id="btnAdminResetPassword" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#7c3aed;font-size:.85rem;border-radius:6px;cursor:pointer;">Resetar senha de usuário</button>
         <button id="btnAdminLogout" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f1f5f9;color:#334155;font-size:.85rem;border-radius:6px;cursor:pointer;">Sair</button>
     </nav>
     <!-- i18n constants (can be extended or replaced per locale) -->
@@ -637,6 +637,38 @@
                           alert(r.ok ? `Marcadas: timeout=${r.data.markedTimeout}, lowProgress=${r.data.markedLowProgress} (processadas ${r.data.processed}).` : `Falhou (${r.status}).`);
                       } catch(e){ alert('Erro ao marcar: ' + e); }
                       markBtn.disabled = false; markBtn.textContent = 'Marcar abandonadas (inatividade)';
+                  });
+              }
+              // Reset Password button handler
+              const resetPasswordBtn = document.getElementById('btnAdminResetPassword');
+              console.log('[DEBUG] Reset password button:', resetPasswordBtn);
+              if (resetPasswordBtn){
+                  resetPasswordBtn.addEventListener('click', ()=>{
+                      console.log('[DEBUG] Reset password clicked!');
+                      close(); // Fecha o menu admin
+                      const adminModal = document.getElementById('adminModal');
+                      console.log('[DEBUG] Admin modal element:', adminModal);
+                      if (adminModal){
+                          adminModal.classList.add('active');
+                          adminModal.setAttribute('aria-hidden','false');
+                          // Force display - remove any inline display:none
+                          adminModal.style.display = '';
+                          console.log('[DEBUG] Modal classes:', adminModal.className);
+                          console.log('[DEBUG] Modal display after fix:', window.getComputedStyle(adminModal).display);
+                          const nav = document.querySelector('.bottom-nav'); if (nav) nav.style.display='none';
+                          // Focus email field & highlight reset password box
+                          try {
+                              const emailField = document.getElementById('resetEmail');
+                              if (emailField){ emailField.focus(); emailField.scrollIntoView({behavior:'smooth', block:'center'}); }
+                              // Find and highlight the reset password panel
+                              const heading = Array.from(adminModal.querySelectorAll('h3')).find(h => /Resetar Senha de Usuário/i.test(h.textContent||''));
+                              const panel = heading ? heading.parentElement : null;
+                              if (panel){
+                                  panel.style.outline='2px solid #7c3aed';
+                                  setTimeout(()=>{ panel.style.outline=''; }, 2400);
+                              }
+                          } catch(_){}
+                      }
                   });
               }
               // Logout button handler relocated from misplaced inline block
@@ -1420,6 +1452,24 @@
                 <div id="fixtureOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
             </div>
             
+            <!-- Reset User Password -->
+            <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
+                <h3 style="margin:0 0 12px;font-size:1.1rem;color:var(--primary)">Resetar Senha de Usuário</h3>
+                <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">Redefine a senha de qualquer usuário pelo email. A nova senha será encriptada com SHA-256.</p>
+                <form id="resetPasswordForm" style="display:grid;gap:10px;margin-bottom:12px">
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="resetEmail" style="font-size:0.75rem;color:var(--muted)">Email do Usuário *</label>
+                        <input id="resetEmail" name="email" type="email" required placeholder="usuario@exemplo.com" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label for="resetNewPassword" style="font-size:0.75rem;color:var(--muted)">Nova Senha *</label>
+                        <input id="resetNewPassword" name="newPassword" type="password" required placeholder="Digite a nova senha" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <button type="submit" style="margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Resetar Senha</button>
+                </form>
+                <div id="resetPasswordOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;color:var(--text);white-space:pre-wrap"></div>
+            </div>
+            
             <!-- Outras opções futuras -->
             <div style="border:1px solid var(--border);border-radius:8px;padding:16px">
                 <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary)">Outras Ferramentas</h3>
@@ -1913,6 +1963,62 @@
                         }
                     } catch(err){
                         fixtureOutput.textContent='Erro de rede/execução:\n' + (err && err.stack ? err.stack : err.message || String(err));
+                    }
+                });
+            }
+
+            // Reset Password Form Handler
+            const resetPasswordForm = document.getElementById('resetPasswordForm');
+            const resetPasswordOutput = document.getElementById('resetPasswordOutput');
+            if (resetPasswordForm) {
+                resetPasswordForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('resetEmail').value.trim();
+                    const newPassword = document.getElementById('resetNewPassword').value;
+                    
+                    if (!email || !newPassword) {
+                        alert('Preencha email e nova senha.');
+                        return;
+                    }
+                    
+                    resetPasswordOutput.style.display = 'block';
+                    resetPasswordOutput.textContent = 'Processando...\n';
+                    
+                    try {
+                        // Hash password with SHA-256 client-side
+                        const encoder = new TextEncoder();
+                        const data = encoder.encode(newPassword);
+                        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                        const hashArray = Array.from(new Uint8Array(hashBuffer));
+                        const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                        
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const token = localStorage.getItem('sessionToken');
+                        const payload = { email, newPassword: hashedPassword };
+                        const url = base + '/api/admin/users/reset-password';
+                        
+                        const resp = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Session-Token': token
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        const result = await resp.json();
+                        
+                        if (resp.ok) {
+                            resetPasswordOutput.style.color = 'var(--success, #22c55e)';
+                            resetPasswordOutput.textContent = `✓ Senha resetada com sucesso!\nUsuário: ${result.email || email}\nNova senha SHA-256: ${hashedPassword.substring(0, 16)}...`;
+                            resetPasswordForm.reset();
+                        } else {
+                            resetPasswordOutput.style.color = 'var(--danger, #ef4444)';
+                            resetPasswordOutput.textContent = `✗ Erro: ${result.error || 'Falha ao resetar senha'}\nStatus: ${resp.status}`;
+                        }
+                    } catch (err) {
+                        resetPasswordOutput.style.color = 'var(--danger, #ef4444)';
+                        resetPasswordOutput.textContent = `✗ Erro de rede:\n${err.message || String(err)}`;
                     }
                 });
             }

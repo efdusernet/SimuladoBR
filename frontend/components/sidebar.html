@@ -289,14 +289,24 @@
       <span class="sidebar-nav-label">Progresso Geral</span>
     </button>
 
-    <!-- Configurações -->
-    <button class="sidebar-nav-item" data-section="configuracoes" id="sidebarConfiguracoes">
-      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-      </svg>
-      <span class="sidebar-nav-label">Configurações</span>
-    </button>
+    <!-- Configurações (Accordion) -->
+    <div class="sidebar-accordion" id="sidebarConfiguracoesAccordion">
+      <button class="sidebar-accordion-header">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span class="sidebar-nav-label">Configurações</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <button class="sidebar-accordion-item" data-section="configuracoes" data-config="perfil">
+          Perfil
+        </button>
+      </div>
+    </div>
   </nav>
 
   <!-- Footer -->
@@ -365,29 +375,38 @@
       });
     }
 
-    // Configurações
-    const configBtn = document.getElementById('sidebarConfiguracoes');
-    if (configBtn) {
-      configBtn.addEventListener('click', () => {
-        navigateToSection('configuracoes');
+    // Accordion toggles
+    const simuladosAccordionHeader = document.querySelector('#sidebarSimuladosAccordion .sidebar-accordion-header');
+    const simuladosAccordion = document.getElementById('sidebarSimuladosAccordion');
+    if (simuladosAccordionHeader && simuladosAccordion) {
+      simuladosAccordionHeader.addEventListener('click', () => {
+        simuladosAccordion.classList.toggle('expanded');
       });
     }
 
-    // Accordion toggle
-    const accordionHeader = document.querySelector('.sidebar-accordion-header');
-    const accordion = document.getElementById('sidebarSimuladosAccordion');
-    if (accordionHeader && accordion) {
-      accordionHeader.addEventListener('click', () => {
-        accordion.classList.toggle('expanded');
+    const configAccordionHeader = document.querySelector('#sidebarConfiguracoesAccordion .sidebar-accordion-header');
+    const configAccordion = document.getElementById('sidebarConfiguracoesAccordion');
+    if (configAccordionHeader && configAccordion) {
+      configAccordionHeader.addEventListener('click', () => {
+        configAccordion.classList.toggle('expanded');
       });
     }
 
     // Simulados accordion items
-    const simuladoItems = document.querySelectorAll('.sidebar-accordion-item');
+    const simuladoItems = document.querySelectorAll('#sidebarSimuladosAccordion .sidebar-accordion-item');
     simuladoItems.forEach(item => {
       item.addEventListener('click', () => {
         const simulado = item.dataset.simulado;
         navigateToSection('simulados', simulado);
+      });
+    });
+
+    // Configurações accordion items
+    const configItems = document.querySelectorAll('#sidebarConfiguracoesAccordion .sidebar-accordion-item');
+    configItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const config = item.dataset.config;
+        navigateToSection('configuracoes', config);
       });
     });
 
@@ -478,8 +497,13 @@
     const sectionMap = {
       'indicadores': () => window.location.href = '/pages/Indicadores.html',
       'progresso-geral': () => window.location.href = '/pages/progressoGeral.html',
-      'perfil': 'profile',
-      'configuracoes': () => {
+      'configuracoes': (sub) => {
+        // Se tem subsection (ex: perfil), processar
+        if (sub === 'perfil') {
+          // Redirecionar para configurações que contém perfil
+          sub = null;
+        }
+        // Processar configurações
         // Verificar senha antes de carregar configurações
         if (window.verifyPasswordForSettings) {
           window.verifyPasswordForSettings()

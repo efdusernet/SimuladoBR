@@ -23,6 +23,8 @@
     
     <!-- Layout Manager -->
     <script src="/utils/layoutManager.js"></script>
+    <!-- Logout Utility -->
+    <script src="/utils/logout.js"></script>
     
     <!-- Layout Styles (loaded conditionally by layoutManager) -->
     <link rel="stylesheet" href="/layouts/mobile-layout.css">
@@ -641,16 +643,14 @@
               if (logoutBtn){
                   logoutBtn.addEventListener('click', ()=>{
                       close();
-                      try { localStorage.clear(); } catch(_){ }
-                      try { sessionStorage.clear(); } catch(_){ }
-                      try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
-                      try {
-                          const n = document.createElement('div');
-                          n.textContent='Sessão encerrada';
-                          n.style.cssText='position:fixed;top:14px;right:14px;background:#334155;color:#fff;padding:8px 12px;border-radius:6px;font-size:.75rem;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.25)';
-                          document.body.appendChild(n); setTimeout(()=>{ try{ n.remove(); }catch(_){ } },1200);
-                      } catch(_){ }
-                      setTimeout(()=>{ window.location.href='/login'; }, 300);
+                      if (window.performLogout) {
+                          window.performLogout({ confirm: false, showNotification: true });
+                      } else {
+                          try { localStorage.clear(); } catch(_){ }
+                          try { sessionStorage.clear(); } catch(_){ }
+                          try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
+                          window.location.href = '/login.html';
+                      }
                   });
               }
                             // Note: quit handler moved to global block to work for all users
@@ -670,6 +670,10 @@
                     quitEl.addEventListener('click', (e)=>{
                         e.preventDefault();
                         e.stopPropagation();
+                        if (window.performLogout) {
+                            window.performLogout({ confirm: false, showNotification: false });
+                            return;
+                        }
                         try { localStorage.clear(); } catch(_){ }
                         try { sessionStorage.clear(); } catch(_){ }
                         try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }

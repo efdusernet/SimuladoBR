@@ -521,9 +521,16 @@
 
   // Logout handler
   function handleLogout() {
-    if (confirm('Deseja realmente sair?')) {
-      localStorage.removeItem('sessionToken');
-      window.location.href = '/login.html';
+    if (window.performLogout) {
+      window.performLogout({ confirm: true, showNotification: false });
+    } else {
+      // Fallback if logout utility not loaded
+      if (confirm('Deseja realmente sair?')) {
+        try { localStorage.clear(); } catch(e) {}
+        try { sessionStorage.clear(); } catch(e) {}
+        try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(e) {}
+        window.location.href = '/login.html';
+      }
     }
   }
 

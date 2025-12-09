@@ -594,12 +594,18 @@
               idSpan.textContent = (q && q.id != null) ? ('ID: ' + q.id) : '';
             }
           } catch(_){ }
-          // Toggle Continue visibility at question 180 (1-based)
+          // Change Continue button to "Enviar" at question 180 (1-based)
           try {
             const contBtn = document.getElementById('continueBtn');
             if (contBtn){
               const labelNum = (typeof idx === 'number') ? (idx + 1) : null;
-              contBtn.style.display = (labelNum === 180) ? 'none' : '';
+              if (labelNum === 180) {
+                contBtn.textContent = 'Enviar';
+                contBtn.style.background = '#10b981'; // Green color for submit
+              } else {
+                contBtn.textContent = 'Continuar';
+                contBtn.style.background = ''; // Reset to default
+              }
             }
           } catch(_){ }
         } catch(_){ }
@@ -1042,10 +1048,18 @@
           const { key, list } = readMarkedList();
           if (typeof curIdx === 'number'){
             const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
-            const entry = { currentIdx: curIdx, questionNumber, letter: letter || null, savedAt: new Date().toISOString() };
-            if (i >= 0) list[i] = entry; else list.push(entry);
-            writeMarkedList(key, list);
-            try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
+            if (i >= 0) {
+              // Questão já está marcada - REMOVER (toggle off)
+              list.splice(i, 1);
+              writeMarkedList(key, list);
+              try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} desmarcada.`); } catch(_){ }
+            } else {
+              // Questão não está marcada - ADICIONAR (toggle on)
+              const entry = { currentIdx: curIdx, questionNumber, letter: letter || null, savedAt: new Date().toISOString() };
+              list.push(entry);
+              writeMarkedList(key, list);
+              try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
+            }
           } else {
             const entry = { currentIdx: null, questionNumber: null, letter: letter || null, savedAt: new Date().toISOString() };
             list.push(entry);

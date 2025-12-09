@@ -388,13 +388,18 @@
               } catch(_) { $('questionText').textContent = q.text || q.descricao || ''; }
               try { const idSpan = document.getElementById('questionIdDisplay'); if (idSpan) idSpan.textContent = (q && q.id != null) ? `ID: ${q.id}` : ''; } catch(_){}
 
-              // Show/hide Continue button at question 180 (1-based)
+              // Change Continue button to "Enviar" at question 180 (1-based)
               try {
                 const contBtn = $('continueBtn');
                 if (contBtn) {
                   const labelNum = idx + 1; // 1-based label
-                  if (labelNum === 180) { contBtn.style.display = 'none'; }
-                  else { contBtn.style.display = ''; }
+                  if (labelNum === 180) {
+                    contBtn.textContent = 'Enviar';
+                    contBtn.style.background = '#10b981'; // Green color for submit
+                  } else {
+                    contBtn.textContent = 'Continuar';
+                    contBtn.style.background = ''; // Reset to default
+                  }
                 }
               } catch(_){ }
 
@@ -571,15 +576,17 @@
                   // desabilitar também como se fossem checkpoints, a menos que haja override.
                   const isExtraGate = (idx === 59 || idx === 119);
                   contBtn.disabled = inPause || ((isCheckpoint || isExtraGate) && !allowOverride);
-                  // Modo quiz: ao chegar na última questão (25ª), alterar rótulo para "Enviar"
+                  // Ao chegar na última questão, alterar rótulo para "Enviar"
                   try {
                     const total = Array.isArray(QUESTIONS) ? QUESTIONS.length : 0;
                     if (total > 0) {
                       const isLast = (idx === total - 1);
-                      if (isLast && total === 25) {
+                      if (isLast) {
                         contBtn.textContent = 'Enviar';
+                        contBtn.style.background = '#10b981'; // Green color for submit
                       } else {
                         contBtn.textContent = 'Continuar';
+                        contBtn.style.background = ''; // Reset to default
                       }
                     }
                   } catch(_){}

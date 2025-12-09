@@ -247,6 +247,7 @@
     body.compact .modal .primary-btn, body.compact .modal .secondary-btn { min-height: 28px; padding: 5px 8px; }
     body.compact .modal .modal-content { max-width: 520px; padding: 14px !important; }
   </style>
+  <script src="/utils/logout.js"></script>
   </head>
   <body>
 
@@ -380,12 +381,12 @@
     const logout = panel.querySelector('.page-logout');
     if (logout) logout.addEventListener('click', (e)=>{
       e.preventDefault();
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-        document.cookie = 'sessionToken=; Max-Age=0; Path=/';
-      } catch(_){}
-      window.location.assign('/login');
+      if (window.performLogout) {
+        window.performLogout({ confirm: false, showNotification: false });
+      } else {
+        try { localStorage.clear(); sessionStorage.clear(); document.cookie = 'sessionToken=; Max-Age=0; Path=/'; } catch(_){}
+        window.location.assign('/login');
+      }
     });
   })();
 

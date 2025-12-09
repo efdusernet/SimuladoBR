@@ -365,6 +365,14 @@
       });
     }
 
+    // Progresso Geral
+    const progressoGeralBtn = document.getElementById('sidebarProgressoGeral');
+    if (progressoGeralBtn) {
+      progressoGeralBtn.addEventListener('click', () => {
+        navigateToSection('progresso-geral');
+      });
+    }
+
     // Perfil
     const perfilBtn = document.getElementById('sidebarPerfil');
     if (perfilBtn) {

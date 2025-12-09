@@ -20,6 +20,7 @@
     .status{ font-size:.85rem; color:#93c5fd; min-height:18px; }
     :root{ --bg: #0f172a; }
   </style>
+  <script src="/utils/logout.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -333,7 +334,7 @@
           alert('Gerar fixture: use ferramenta completa em index.html (Admin Modal).');
         });
       }
-      if (logoutBtn){ logoutBtn.addEventListener('click', () => { try{ localStorage.clear(); sessionStorage.clear(); document.cookie='sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; }catch(_){} window.location.href='/login.html'; }); }
+      if (logoutBtn){ logoutBtn.addEventListener('click', () => { if (window.performLogout) { window.performLogout({ confirm: false, showNotification: false }); } else { try{ localStorage.clear(); sessionStorage.clear(); document.cookie='sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; }catch(_){} window.location.href='/login.html'; } }); }
     }).catch(()=>{});
   })();
   // Sino de notificações reutilizando endpoint de unread-count e lista

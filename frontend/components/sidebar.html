@@ -281,6 +281,14 @@
       <span class="sidebar-nav-label">Indicadores</span>
     </button>
 
+    <!-- Progresso Geral -->
+    <button class="sidebar-nav-item" data-section="progresso-geral" id="sidebarProgressoGeral">
+      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+      </svg>
+      <span class="sidebar-nav-label">Progresso Geral</span>
+    </button>
+
     <!-- Perfil -->
     <button class="sidebar-nav-item" data-section="perfil" id="sidebarPerfil">
       <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -458,9 +466,17 @@
     });
 
     // Add active class to clicked item
-    const selector = subsection 
-      ? `[data-simulado="${subsection}"]` 
-      : `#sidebar${section.charAt(0).toUpperCase() + section.slice(1)}`;
+    let selector;
+    if (subsection) {
+      selector = `[data-simulado="${subsection}"]`;
+    } else {
+      // Convert kebab-case to camelCase for ID (progresso-geral -> ProgressoGeral)
+      const camelCase = section
+        .split('-')
+        .map((word, index) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join('');
+      selector = `#sidebar${camelCase}`;
+    }
     const activeItem = document.querySelector(selector);
     if (activeItem) {
       activeItem.classList.add('active');
@@ -469,6 +485,7 @@
     // Mapeamento de seções da sidebar para seções do index.html
     const sectionMap = {
       'indicadores': () => window.location.href = '/pages/Indicadores.html',
+      'progresso-geral': () => window.location.href = '/pages/progressoGeral.html',
       'perfil': 'profile',
       'configuracoes': () => {
         // Verificar senha antes de carregar configurações

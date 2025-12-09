@@ -709,6 +709,54 @@
                   try { updateAutosaveIndicatorHidden(); } catch(e){}
                 } catch(e){}
 
+                // Calcular performance e redirecionar para examPmiResults.html (exames >=180 questões)
+                const totalQuestions = data.totalQuestions || 0;
+                if (totalQuestions >= 180 && data.details && Array.isArray(data.details)) {
+                  // Calcular percentuais
+                  const scorableQuestions = data.details.filter(d => !d.isPretest);
+                  const totalScorableQuestions = scorableQuestions.length;
+                  const overallPct = totalScorableQuestions > 0 ? Math.round((data.totalCorrect / totalScorableQuestions) * 100) : 0;
+                  
+                  // Performance por domínio
+                  const domainStats = { 1: {correct:0, total:0}, 2: {correct:0, total:0}, 3: {correct:0, total:0} };
+                  scorableQuestions.forEach(detail => {
+                    const domainId = detail.domainId || detail.IdDominio;
+                    if (domainStats[domainId]) {
+                      domainStats[domainId].total++;
+                      if (detail.isCorrect) domainStats[domainId].correct++;
+                    }
+                  });
+                  
+                  const peoplePct = domainStats[1].total > 0 ? Math.round((domainStats[1].correct / domainStats[1].total) * 100) : 0;
+                  const processPct = domainStats[2].total > 0 ? Math.round((domainStats[2].correct / domainStats[2].total) * 100) : 0;
+                  const businessPct = domainStats[3].total > 0 ? Math.round((domainStats[3].correct / domainStats[3].total) * 100) : 0;
+                  
+                  // Recuperar nome do usuário
+                  const userName = localStorage.getItem('nome') || localStorage.getItem('userName') || localStorage.getItem('username') || 'Candidate';
+                  
+                  // Construir URL com parâmetros
+                  const params = new URLSearchParams({
+                    overallPct: overallPct,
+                    peoplePct: peoplePct,
+                    processPct: processPct,
+                    businessPct: businessPct,
+                    name: userName,
+                    pmiId: '12345',
+                    tcId: 'SIM-' + Date.now(),
+                    date: new Date().toISOString().split('T')[0]
+                  });
+                  
+                  // Limpar dados antes de redirecionar
+                  try {
+                    if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
+                    else if (typeof clearExamData === 'function') { clearExamData(); }
+                  } catch(_){}
+                  
+                  // Redirecionar para examPmiResults.html
+                  window.location.href = `/pages/examPmiResults.html?${params.toString()}`;
+                  return data;
+                }
+                
                 // Após envio no modo quiz (exam.html), limpar dados e redirecionar para a página inicial
                 try {
                   if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }

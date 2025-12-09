@@ -398,6 +398,46 @@
     }
   }
 
+  // Load settings.html content into profile section
+  async function loadSettingsIntoProfile() {
+    try {
+      const response = await fetch('/pages/settings.html');
+      if (!response.ok) throw new Error('Failed to load settings');
+      
+      const html = await response.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Extrair apenas o conteúdo do body (sem header/nav)
+      const content = doc.body.innerHTML;
+      
+      // Injetar no profile section
+      const profileSection = document.getElementById('profile');
+      if (profileSection) {
+        profileSection.innerHTML = content;
+        
+        // Executar scripts inline da página settings
+        const scripts = doc.querySelectorAll('script');
+        scripts.forEach(script => {
+          if (script.innerHTML) {
+            try {
+              eval(script.innerHTML);
+            } catch (e) {
+              console.error('Error executing settings script:', e);
+            }
+          }
+        });
+        
+        // Ativar a seção profile
+        navigateToSection('perfil');
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      // Fallback: redirecionar para a página
+      window.location.href = '/pages/settings.html';
+    }
+  }
+
   // Navigate to section (integrates with existing index.html navigation)
   function navigateToSection(section, subsection) {
     // Remove active class from all items
@@ -419,13 +459,27 @@
       'indicadores': () => window.location.href = '/pages/Indicadores.html',
       'perfil': 'profile',
       'configuracoes': () => {
-        // Verificar senha antes de ir para configurações
+        // Verificar senha antes de carregar configurações
         if (window.verifyPasswordForSettings) {
           window.verifyPasswordForSettings()
-            .then(() => window.location.href = '/pages/settings.html')
+            .then(async () => {
+              // No modo desktop, carregar settings.html dentro da section profile
+              const layout = document.body.getAttribute('data-layout');
+              if (layout === 'desktop') {
+                await loadSettingsIntoProfile();
+              } else {
+                // No mobile, redirecionar normalmente
+                window.location.href = '/pages/settings.html';
+              }
+            })
             .catch(() => console.log('Acesso negado'));
         } else {
-          window.location.href = '/pages/settings.html';
+          const layout = document.body.getAttribute('data-layout');
+          if (layout === 'desktop') {
+            loadSettingsIntoProfile();
+          } else {
+            window.location.href = '/pages/settings.html';
+          }
         }
       },
       'simulados': (sub) => {

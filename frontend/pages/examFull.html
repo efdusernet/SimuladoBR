@@ -942,25 +942,18 @@
     const pct = window.__lastCompletionPercent || 0;
     try { yes.disabled = true; yes.textContent = 'Processando...'; } catch(_){ }
     if (pct >= 95) {
-      // Envia resultados e limpa apenas dados da sessão do exame
-      try { if (typeof window.submitExam === 'function') await window.submitExam(); } catch(_){ }
-      try {
-        const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
-        if (sid){
-          const sessionKeys = [
-            `answers_${sid}`,`answers_${sid}_savedAt`,
-            `progress_${sid}`,`progress_${sid}_savedAt`,
-            `questions_${sid}`,`questions_${sid}_savedAt`,
-            `FirstStop_${sid}`,`SecondStop_${sid}`,
-            `backBarrier_${sid}`,`allowContinueAfterCheckpoint_${sid}`,
-            `pauseUntil_${sid}`,`pauseConsumed_${sid}_cp1`,`pauseConsumed_${sid}_cp2`
-          ];
-          sessionKeys.forEach(k=>{ try { localStorage.removeItem(k); } catch(_){ } });
-          try { localStorage.removeItem('currentSessionId'); } catch(_){ }
+      // Envia resultados - submitExam já faz limpeza e redirecionamento
+      try { 
+        closeFinishConfirm();
+        if (typeof window.submitExam === 'function') {
+          await window.submitExam();
+          // submitExam já redireciona para examPmiResults.html (>=180 questões) ou home
         }
-      } catch(_){ }
-      try { closeFinishConfirm(); } catch(_){ }
-      try { window.location.assign('/'); } catch(_){ window.location.href = '/'; }
+      } catch(err){ 
+        console.error('Erro ao submeter exame:', err);
+        alert('Erro ao enviar resultados. Tente novamente.');
+        try { yes.disabled = false; yes.textContent = 'Sim, enviar e encerrar'; } catch(_){}
+      }
       return;
     } else {
       // Fluxo antigo: sair sem salvar

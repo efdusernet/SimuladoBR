@@ -408,6 +408,18 @@
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       
+      // Extrair estilos do head
+      const styles = doc.querySelectorAll('style');
+      styles.forEach(style => {
+        // Adicionar estilos ao head do documento principal se ainda não existir
+        if (!document.querySelector(`style[data-settings-style]`)) {
+          const newStyle = document.createElement('style');
+          newStyle.setAttribute('data-settings-style', 'true');
+          newStyle.innerHTML = style.innerHTML;
+          document.head.appendChild(newStyle);
+        }
+      });
+      
       // Extrair apenas o conteúdo do body (sem header/nav)
       const content = doc.body.innerHTML;
       

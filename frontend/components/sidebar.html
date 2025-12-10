@@ -307,6 +307,90 @@
         </button>
       </div>
     </div>
+
+    <!-- Admin (Accordion - só visível para admins) -->
+    <div class="sidebar-accordion" id="sidebarAdminAccordion" style="display: none;">
+      <button class="sidebar-accordion-header">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+        </svg>
+        <span class="sidebar-nav-label">Admin</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <button class="sidebar-accordion-item" data-admin-action="cadastrar-questao">
+          Cadastrar questão
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="cadastrar-bulk">
+          Cadastrar questão bulk
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="feedback">
+          Responder feedbacks
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="notificacoes">
+          Notificações
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="fixture">
+          Gerar tentativa fixture
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="reconcile">
+          Reconciliar estatísticas
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="purge">
+          Expurgar tentativas abandonadas
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="mark-abandoned">
+          Marcar abandonadas (inatividade)
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="reset-password">
+          Resetar senha de usuário
+        </button>
+      </div>
+    </div>
+
+    <!-- Admin (Accordion - só visível para admins) -->
+    <div class="sidebar-accordion" id="sidebarAdminAccordion" style="display: none;">
+      <button class="sidebar-accordion-header">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+        </svg>
+        <span class="sidebar-nav-label">Admin</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <button class="sidebar-accordion-item" data-admin-action="cadastrar-questao">
+          Cadastrar questão
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="cadastrar-bulk">
+          Cadastrar questão bulk
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="feedback">
+          Responder feedbacks
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="notificacoes">
+          Notificações
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="fixture">
+          Gerar tentativa fixture
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="reconcile">
+          Reconciliar estatísticas
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="purge">
+          Expurgar tentativas abandonadas
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="mark-abandoned">
+          Marcar abandonadas (inatividade)
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="reset-password">
+          Resetar senha de usuário
+        </button>
+      </div>
+    </div>
   </nav>
 
   <!-- Footer -->
@@ -392,6 +476,14 @@
       });
     }
 
+    const adminAccordionHeader = document.querySelector('#sidebarAdminAccordion .sidebar-accordion-header');
+    const adminAccordion = document.getElementById('sidebarAdminAccordion');
+    if (adminAccordionHeader && adminAccordion) {
+      adminAccordionHeader.addEventListener('click', () => {
+        adminAccordion.classList.toggle('expanded');
+      });
+    }
+
     // Simulados accordion items
     const simuladoItems = document.querySelectorAll('#sidebarSimuladosAccordion .sidebar-accordion-item');
     simuladoItems.forEach(item => {
@@ -407,6 +499,14 @@
       item.addEventListener('click', () => {
         const config = item.dataset.config;
         navigateToSection('configuracoes', config);
+      });
+    });
+
+    // Admin accordion items
+    const adminItems = document.querySelectorAll('#sidebarAdminAccordion .sidebar-accordion-item');
+    adminItems.forEach(item => {
+      item.addEventListener('click', () => {
+        handleAdminAction(item.dataset.adminAction);
       });
     });
 
@@ -564,6 +664,167 @@
     }
   }
 
+  // Admin action handler
+  function handleAdminAction(action) {
+    const token = localStorage.getItem('sessionToken') || '';
+    const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
+    const sessionForHeader = nomeUsuario || token;
+    
+    const actionMap = {
+      'cadastrar-questao': () => {
+        window.location.href = `/pages/admin/questionForm.html?sessionToken=${encodeURIComponent(token)}`;
+      },
+      'cadastrar-bulk': () => {
+        window.location.href = `/pages/admin/questionBulk.html?sessionToken=${encodeURIComponent(token)}`;
+      },
+      'feedback': () => {
+        window.location.href = `/pages/admin/feedbackResponses.html?sessionToken=${encodeURIComponent(token)}`;
+      },
+      'notificacoes': () => {
+        window.location.href = `/pages/admin/notifications.html?sessionToken=${encodeURIComponent(token)}`;
+      },
+      'fixture': () => {
+        // Open admin modal and scroll to fixture section
+        const adminModal = document.getElementById('adminModal');
+        if (adminModal) {
+          adminModal.classList.add('active');
+          adminModal.setAttribute('aria-hidden', 'false');
+          // Hide bottom nav if exists
+          const nav = document.querySelector('.bottom-nav');
+          if (nav) nav.style.display = 'none';
+          // Focus and scroll to fixture form
+          setTimeout(() => {
+            const userField = document.getElementById('fxUserId');
+            if (userField) {
+              userField.focus();
+              userField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+        }
+      },
+      'reconcile': () => {
+        // Open admin modal and scroll to reconcile section
+        const adminModal = document.getElementById('adminModal');
+        if (adminModal) {
+          adminModal.classList.add('active');
+          adminModal.setAttribute('aria-hidden', 'false');
+          // Hide bottom nav if exists
+          const nav = document.querySelector('.bottom-nav');
+          if (nav) nav.style.display = 'none';
+          // Scroll to reconcile section (first panel)
+          setTimeout(() => {
+            const heading = adminModal.querySelector('h3');
+            if (heading) heading.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
+      },
+      'purge': () => {
+        if (confirm('Expurgar tentativas abandonadas? Esta ação é irreversível.')) {
+          callAdminPost('/api/admin/exams/purge-abandoned', 'Tentativas expurgadas');
+        }
+      },
+      'mark-abandoned': () => {
+        if (confirm('Marcar tentativas abandonadas por inatividade?')) {
+          callAdminPost('/api/admin/exams/mark-abandoned', 'Tentativas marcadas como abandonadas');
+        }
+      },
+      'reset-password': () => {
+        // Open admin modal for password reset
+        const modal = document.getElementById('adminPasswordResetModal');
+        if (modal) {
+          modal.style.display = 'flex';
+          modal.setAttribute('aria-hidden', 'false');
+        }
+      }
+    };
+    
+    const handler = actionMap[action];
+    if (handler) handler();
+  }
+
+  async function callAdminPost(path, successMsg) {
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
+      const sessionForHeader = nomeUsuario || token;
+      const jwtTok = localStorage.getItem('jwtToken') || '';
+      const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
+      
+      const headers = { 'Content-Type': 'application/json' };
+      if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+      
+      const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(sessionForHeader);
+      const resp = await fetch(url, { method: 'POST', headers });
+      const data = await resp.json().catch(() => ({}));
+      
+      if (resp.ok) {
+        alert(successMsg);
+      } else {
+        alert('Erro: ' + (data.message || data.error || 'Falha na operação'));
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e.message);
+    }
+  }
+
+  async function callAdminPostWithBody(path, body, successMsg) {
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
+      const sessionForHeader = nomeUsuario || token;
+      const jwtTok = localStorage.getItem('jwtToken') || '';
+      const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
+      
+      const headers = { 'Content-Type': 'application/json' };
+      if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+      
+      const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(sessionForHeader);
+      const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      const data = await resp.json().catch(() => ({}));
+      
+      if (resp.ok) {
+        alert(successMsg);
+      } else {
+        alert('Erro: ' + (data.message || data.error || 'Falha na operação'));
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e.message);
+    }
+  }
+
+  // Check if user is admin
+  async function checkAdminAccess() {
+    try {
+      const token = localStorage.getItem('sessionToken');
+      const nomeUsuario = localStorage.getItem('nomeUsuario');
+      const sessionForHeader = nomeUsuario || token;
+      
+      if (!token) return;
+      
+      const jwtTok = localStorage.getItem('jwtToken') || '';
+      const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
+      const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+      
+      const headers = {};
+      if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+      
+      const response = await fetch(probeUrl, { headers, method: 'GET' });
+      
+      if (response.ok) {
+        // User is admin, show the admin menu
+        const adminAccordion = document.getElementById('sidebarAdminAccordion');
+        if (adminAccordion) {
+          adminAccordion.style.display = 'block';
+        }
+      }
+    } catch (e) {
+      // Not admin or error, keep menu hidden
+    }
+  }
+
   // Logout handler
   function handleLogout() {
     if (window.performLogout) {
@@ -582,5 +843,6 @@
   // Initialize
   loadUserData();
   setupNavigation();
+  checkAdminAccess();
 })();
 </script>

@@ -51,8 +51,6 @@ router.post('/reset-password', requireAdmin, async (req, res) => {
     targetUser.DataAlteracao = new Date();
     await targetUser.save();
 
-    console.log(`[admin-reset-password] Admin user ${req.user.Id} reset password for user ${targetUser.Id} (${targetUser.Email})`);
-
     return res.json({ 
       message: 'Senha resetada com sucesso', 
       email: targetUser.Email,

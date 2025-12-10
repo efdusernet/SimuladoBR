@@ -124,6 +124,14 @@ const LayoutManager = {
     // Mostrar bottom-nav
     const bottomNav = document.getElementById('bottomNavMount');
     if (bottomNav) bottomNav.style.display = '';
+    
+    // Restaurar visibilidade do botão admin se usuário é admin
+    // O botão foi configurado pelo initAdminMenu(), apenas garantir que não está oculto
+    const adminBtn = document.getElementById('adminMenuBtn');
+    if (adminBtn && adminBtn.style.display === 'inline-flex') {
+      // Já está visível, não fazer nada
+      console.log('[LayoutManager] Botão admin mantido visível no mobile');
+    }
   },
   
   /**

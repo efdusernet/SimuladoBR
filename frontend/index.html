@@ -1451,9 +1451,15 @@
                 <button id="adminModalClose" style="background:none;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center" aria-label="Fechar">×</button>
             </div>
             
-            <!-- Reconciliação de Estatísticas -->
-            <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
-                <h3 style="margin:0 0 12px;font-size:1.1rem;color:var(--primary)">Reconciliação de Estatísticas</h3>
+            <!-- Accordion: Reconciliação de Estatísticas -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">📊 Reconciliação de Estatísticas</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
                 <p style="font-size:0.9rem;color:var(--muted);margin:0 0 16px;line-height:1.5">Reconstruir ou corrigir as estatísticas agregadas de tentativas de exames.</p>
                 
                 <div style="display:grid;gap:12px;margin-bottom:16px">
@@ -1483,9 +1489,15 @@
                 <div id="reconcileOutput" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.8rem;color:var(--text);max-height:200px;overflow-y:auto;display:none;white-space:pre-wrap"></div>
             </div>
 
-            <!-- Fixture Attempt (Distribuição por Domínio) -->
-            <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
-                <h3 style="margin:0 0 12px;font-size:1.1rem;color:var(--primary)">Gerar Tentativa Fixture</h3>
+            <!-- Accordion: Gerar Tentativa Fixture -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🔧 Gerar Tentativa Fixture</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
                 <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">Cria uma tentativa finalizada diretamente no banco para testes. Pode especificar percentuais de desempenho por domínio (People, Process, Business). Os valores reais podem divergir levemente devido à disponibilidade de questões por domínio.</p>
                 <form id="fixtureForm" style="display:grid;gap:10px;margin-bottom:12px">
                     <div style="display:flex;flex-direction:column;gap:4px">
@@ -1521,9 +1533,15 @@
                 <div id="fixtureOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
             </div>
             
-            <!-- Reset User Password -->
-            <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
-                <h3 style="margin:0 0 12px;font-size:1.1rem;color:var(--primary)">Resetar Senha de Usuário</h3>
+            <!-- Accordion: Resetar Senha -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🔑 Resetar Senha de Usuário</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
                 <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">Redefine a senha de qualquer usuário pelo email. A nova senha será encriptada com SHA-256.</p>
                 <form id="resetPasswordForm" style="display:grid;gap:10px;margin-bottom:12px">
                     <div style="display:flex;flex-direction:column;gap:4px">
@@ -1539,10 +1557,17 @@
                 <div id="resetPasswordOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;color:var(--text);white-space:pre-wrap"></div>
             </div>
             
-            <!-- Outras opções futuras -->
-            <div style="border:1px solid var(--border);border-radius:8px;padding:16px">
-                <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary)">Outras Ferramentas</h3>
-                <p style="font-size:0.85rem;color:var(--muted);margin:0">Em breve: gestão de usuários, purga de dados, relatórios avançados.</p>
+            <!-- Accordion: Outras Ferramentas -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🛠️ Outras Ferramentas</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0">Em breve: gestão de usuários, purga de dados, relatórios avançados.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -1855,6 +1880,44 @@
                     adminModal.classList.remove('active');
                     adminModal.setAttribute('aria-hidden', 'true');
                     if (nav) nav.style.display = '';
+                });
+            }
+            
+            // Admin Modal Accordions
+            if (adminModal) {
+                const accordions = adminModal.querySelectorAll('.admin-accordion');
+                accordions.forEach(accordion => {
+                    const header = accordion.querySelector('.admin-accordion-header');
+                    const content = accordion.querySelector('.admin-accordion-content');
+                    const chevron = accordion.querySelector('.admin-accordion-chevron');
+                    
+                    if (header && content) {
+                        header.addEventListener('click', () => {
+                            const isOpen = content.style.display === 'block';
+                            
+                            if (isOpen) {
+                                content.style.display = 'none';
+                                if (chevron) chevron.style.transform = 'rotate(0deg)';
+                                header.style.background = 'var(--bg)';
+                            } else {
+                                content.style.display = 'block';
+                                if (chevron) chevron.style.transform = 'rotate(180deg)';
+                                header.style.background = 'rgba(79, 70, 229, 0.1)';
+                            }
+                        });
+                        
+                        // Hover effect
+                        header.addEventListener('mouseenter', () => {
+                            if (content.style.display !== 'block') {
+                                header.style.background = 'rgba(148, 163, 184, 0.1)';
+                            }
+                        });
+                        header.addEventListener('mouseleave', () => {
+                            if (content.style.display !== 'block') {
+                                header.style.background = 'var(--bg)';
+                            }
+                        });
+                    }
                 });
             }
             

@@ -344,51 +344,6 @@
         <button class="sidebar-accordion-item" data-admin-action="mark-abandoned">
           Marcar abandonadas (inatividade)
         </button>
-        <button class="sidebar-accordion-item" data-admin-action="reset-password">
-          Resetar senha de usuário
-        </button>
-      </div>
-    </div>
-
-    <!-- Admin (Accordion - só visível para admins) -->
-    <div class="sidebar-accordion" id="sidebarAdminAccordion" style="display: none;">
-      <button class="sidebar-accordion-header">
-        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
-        </svg>
-        <span class="sidebar-nav-label">Admin</span>
-        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
-      </button>
-      <div class="sidebar-accordion-content">
-        <button class="sidebar-accordion-item" data-admin-action="cadastrar-questao">
-          Cadastrar questão
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="cadastrar-bulk">
-          Cadastrar questão bulk
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="feedback">
-          Responder feedbacks
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="notificacoes">
-          Notificações
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="fixture">
-          Gerar tentativa fixture
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="reconcile">
-          Reconciliar estatísticas
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="purge">
-          Expurgar tentativas abandonadas
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="mark-abandoned">
-          Marcar abandonadas (inatividade)
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="reset-password">
-          Resetar senha de usuário
-        </button>
       </div>
     </div>
   </nav>
@@ -726,14 +681,6 @@
       'mark-abandoned': () => {
         if (confirm('Marcar tentativas abandonadas por inatividade?')) {
           callAdminPost('/api/admin/exams/mark-abandoned', 'Tentativas marcadas como abandonadas');
-        }
-      },
-      'reset-password': () => {
-        // Open admin modal for password reset
-        const modal = document.getElementById('adminPasswordResetModal');
-        if (modal) {
-          modal.style.display = 'flex';
-          modal.setAttribute('aria-hidden', 'false');
         }
       }
     };

@@ -42,7 +42,7 @@ body[data-layout="desktop"] #sidebarMount {
 body[data-layout="desktop"] .content {
   margin-left: var(--sidebar-width);
   flex: 1;
-  padding: var(--desktop-padding);
+  padding: 1rem;
   min-height: 100vh;
   background: #f8fafc;
   width: calc(100% - var(--sidebar-width));
@@ -82,6 +82,39 @@ body[data-layout="desktop"] .section {
 
 body[data-layout="desktop"] .section.active {
   display: block;
+}
+
+/* Reduzir padding/margin das sections carregadas dinamicamente */
+body[data-layout="desktop"] #exam-setup,
+body[data-layout="desktop"] #progresso-geral {
+  padding: 0;
+  margin: 0;
+}
+
+body[data-layout="desktop"] #exam-setup > *,
+body[data-layout="desktop"] #progresso-geral > * {
+  max-width: 100%;
+}
+
+/* Esconder elementos desnecessários do progressoGeral carregado dinamicamente */
+body[data-layout="desktop"] #progresso-geral .menu-toggle,
+body[data-layout="desktop"] #progresso-geral .nav-menu {
+  display: none !important;
+}
+
+/* Resetar estilos do main.content dentro do progresso-geral */
+body[data-layout="desktop"] #progresso-geral main.content {
+  margin-left: 0 !important;
+  padding: 0 !important;
+  overflow-y: visible !important;
+  flex: none !important;
+}
+
+/* Alinhar container à esquerda */
+body[data-layout="desktop"] #progresso-geral .container {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  padding-left: 0 !important;
 }
 
 /* Transforma card-grid de 2x2 para lista vertical */

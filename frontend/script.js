@@ -165,6 +165,14 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.setItem('wentToExamSetup', 'true');
         } catch(e) {}
 
+        // No modo desktop, carregar examSetup dentro do index.html
+        const layout = document.body.getAttribute('data-layout');
+        if (layout === 'desktop' && typeof window.loadExamSetupIntoSection === 'function') {
+            console.log('[showExamSetupAndRedirect] Desktop mode - loading inline');
+            window.loadExamSetupIntoSection();
+            return;
+        }
+
         // load modal (if not yet) and show it; store target url on modal
         const modalEl = await loadExamSetupModal();
         if (!modalEl) {

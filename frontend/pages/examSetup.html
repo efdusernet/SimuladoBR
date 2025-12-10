@@ -159,6 +159,8 @@
       cursor: pointer;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
+    body[data-layout='desktop'] .menu-toggle { display: none !important; }
+    body[data-layout='desktop'] .menu-panel { display: none !important; }
     .menu-toggle:hover { background: #f7f9fc; }
     .ui-menu-icon-set-hamburger-mobile {
       display:inline-block;
@@ -366,6 +368,9 @@
 
   // Lightweight menu toggle and logout for this page
   (function initTopMenu(){
+    // Skip in desktop mode
+    if (document.body.getAttribute('data-layout') === 'desktop') return;
+    
     const btn = document.getElementById('menuToggle');
     const panel = document.getElementById('pageMenu');
     if (!btn || !panel) return;

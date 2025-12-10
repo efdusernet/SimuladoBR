@@ -453,6 +453,7 @@
     configItems.forEach(item => {
       item.addEventListener('click', () => {
         const config = item.dataset.config;
+        console.log('[Sidebar] Config item clicked:', config);
         navigateToSection('configuracoes', config);
       });
     });
@@ -474,16 +475,21 @@
 
   // Load settings.html content into profile section
   async function loadSettingsIntoProfile() {
+    console.log('[Sidebar] loadSettingsIntoProfile called');
     try {
+      console.log('[Sidebar] Fetching /pages/settings.html');
       const response = await fetch('/pages/settings.html');
+      console.log('[Sidebar] Fetch response:', response.status, response.ok);
       if (!response.ok) throw new Error('Failed to load settings');
       
       const html = await response.text();
+      console.log('[Sidebar] HTML received, length:', html.length);
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       
       // Extrair estilos do head
       const styles = doc.querySelectorAll('style');
+      console.log('[Sidebar] Styles found:', styles.length);
       styles.forEach(style => {
         // Adicionar estilos ao head do documento principal se ainda não existir
         if (!document.querySelector(`style[data-settings-style]`)) {
@@ -496,14 +502,18 @@
       
       // Extrair apenas o conteúdo do body (sem header/nav)
       const content = doc.body.innerHTML;
+      console.log('[Sidebar] Content extracted, length:', content.length);
       
       // Injetar no profile section
       const profileSection = document.getElementById('profile');
+      console.log('[Sidebar] Profile section found:', !!profileSection);
       if (profileSection) {
         profileSection.innerHTML = content;
+        console.log('[Sidebar] Content injected');
         
         // Executar scripts inline da página settings
         const scripts = doc.querySelectorAll('script');
+        console.log('[Sidebar] Scripts found:', scripts.length);
         scripts.forEach(script => {
           if (script.innerHTML) {
             try {
@@ -514,11 +524,13 @@
           }
         });
         
-        // Ativar a seção profile
-        navigateToSection('perfil');
+        // Ativar a seção profile no index.html
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        profileSection.classList.add('active');
+        console.log('[Sidebar] Profile section activated');
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
+      console.error('[Sidebar] Error loading settings:', error);
       // Fallback: redirecionar para a página
       window.location.href = '/pages/settings.html';
     }
@@ -553,31 +565,28 @@
       'indicadores': () => window.location.href = '/pages/Indicadores.html',
       'progresso-geral': () => window.location.href = '/pages/progressoGeral.html',
       'configuracoes': (sub) => {
-        // Se tem subsection (ex: perfil), processar
-        if (sub === 'perfil') {
-          // Redirecionar para configurações que contém perfil
-          sub = null;
-        }
-        // Processar configurações
-        // Verificar senha antes de carregar configurações
-        if (window.verifyPasswordForSettings) {
-          window.verifyPasswordForSettings()
-            .then(async () => {
-              // No modo desktop, carregar settings.html dentro da section profile
-              const layout = document.body.getAttribute('data-layout');
-              if (layout === 'desktop') {
-                await loadSettingsIntoProfile();
-              } else {
-                // No mobile, redirecionar normalmente
-                window.location.href = '/pages/settings.html';
-              }
-            })
-            .catch(() => console.log('Acesso negado'));
+        console.log('[Sidebar] Configuracoes clicked, subsection:', sub);
+        const layout = document.body.getAttribute('data-layout');
+        console.log('[Sidebar] Current layout:', layout);
+        
+        // No modo desktop, não precisa verificar senha (usuário já está autenticado)
+        if (layout === 'desktop') {
+          console.log('[Sidebar] Desktop mode - loading settings directly');
+          loadSettingsIntoProfile();
         } else {
-          const layout = document.body.getAttribute('data-layout');
-          if (layout === 'desktop') {
-            loadSettingsIntoProfile();
+          // No mobile, verificar senha antes de redirecionar
+          if (window.verifyPasswordForSettings) {
+            console.log('[Sidebar] Mobile mode - verifying password');
+            window.verifyPasswordForSettings()
+              .then(() => {
+                console.log('[Sidebar] Password verified - redirecting');
+                window.location.href = '/pages/settings.html';
+              })
+              .catch((err) => {
+                console.log('[Sidebar] Password verification failed or cancelled:', err);
+              });
           } else {
+            console.log('[Sidebar] verifyPasswordForSettings not available - redirecting directly');
             window.location.href = '/pages/settings.html';
           }
         }

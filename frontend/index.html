@@ -1546,11 +1546,11 @@
                 <form id="resetPasswordForm" style="display:grid;gap:10px;margin-bottom:12px">
                     <div style="display:flex;flex-direction:column;gap:4px">
                         <label for="resetEmail" style="font-size:0.75rem;color:var(--muted)">Email do Usuário *</label>
-                        <input id="resetEmail" name="email" type="email" required placeholder="usuario@exemplo.com" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                        <input id="resetEmail" name="email" type="email" autocomplete="email" required placeholder="usuario@exemplo.com" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
                     </div>
                     <div style="display:flex;flex-direction:column;gap:4px">
                         <label for="resetNewPassword" style="font-size:0.75rem;color:var(--muted)">Nova Senha *</label>
-                        <input id="resetNewPassword" name="newPassword" type="password" required placeholder="Digite a nova senha" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                        <input id="resetNewPassword" name="newPassword" type="password" autocomplete="new-password" required placeholder="Digite a nova senha" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
                     </div>
                     <button type="submit" style="margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Resetar Senha</button>
                 </form>
@@ -1640,17 +1640,13 @@
                     // Configurações: intercepta e redireciona para página de settings (com verificação de senha)
                     const isSettings = (card.id === 'card-settings') || (card.id === 'card-profile-settings') || (card.getAttribute('data-card') === 'settings') || (card.getAttribute('data-card') === 'profile-settings');
                     if (isSettings) {
+                        console.log('[Settings Card] Clicked, card id:', card.id);
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
-                        // Verificar senha antes de permitir acesso
-                        (async () => {
-                            try {
-                                await window.verifyPasswordForSettings();
-                                window.location.assign('/pages/settings.html');
-                            } catch (err) {
-                                // Usuário cancelou ou senha incorreta
-                                console.log('Acesso às configurações negado:', err);
-                            }
-                        })();
+                        
+                        // Redirecionar diretamente para settings sem verificação de senha
+                        // O usuário já está autenticado com JWT token
+                        console.log('[Settings Card] Redirecting to settings page');
+                        window.location.assign('/pages/settings.html');
                         return;
                     }
                     // Indicadores: intercepta antes de fluxo genérico

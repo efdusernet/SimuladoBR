@@ -7,9 +7,11 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { sendVerificationEmail } = require('../utils/mailer');
 const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../config/security');
+const { authSchemas, validate } = require('../middleware/validation');
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', validate(authSchemas.login), async (req, res) => {
     try {
         const body = req.body || {};
         if (!body.Email || typeof body.Email !== 'string') {
@@ -67,6 +69,7 @@ router.post('/login', async (req, res) => {
                 const token = require('../utils/codegen').generateVerificationCode(6).toUpperCase();
                 const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
                 await EmailVerification.create({ UserId: user.Id, Token: token, ExpiresAt: expiresAt, Used: false, CreatedAt: new Date() });
+                
                 await sendVerificationEmail(user.Email, token);
             } catch (e) {
                 console.error('Erro criando/enviando token verificação no login:', e);
@@ -125,9 +128,17 @@ router.post('/login', async (req, res) => {
         try {
             const payload = { sub: user.Id, email: user.Email, name: user.NomeUsuario };
             const expiresIn = process.env.JWT_EXPIRES_IN || '12h';
-            // Fallback secret to ensure dev environments issue a token
-            const secret = process.env.JWT_SECRET || 'dev-secret';
-            token = jwt.sign(payload, secret, { expiresIn });
+            token = jwt.sign(payload, jwtSecret, { expiresIn });
+            
+            // Set httpOnly cookie for secure token storage
+            const cookieOptions = {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+                sameSite: 'strict',
+                maxAge: 12 * 60 * 60 * 1000, // 12 hours in milliseconds
+                path: '/'
+            };
+            res.cookie('sessionToken', token, cookieOptions);
         } catch (e) { console.warn('JWT sign error, token omitido:', e && e.message); }
 
         return res.json({
@@ -137,7 +148,7 @@ router.post('/login', async (req, res) => {
             Email: user.Email,
             EmailConfirmado: user.EmailConfirmado,
             BloqueioAtivado: user.BloqueioAtivado,
-            token,
+            token, // Still return token for backward compatibility
             tokenType: token ? 'Bearer' : null
         });
     } catch (err) {
@@ -147,10 +158,9 @@ router.post('/login', async (req, res) => {
 });
 
 // POST /api/auth/verify - body: { token }
-router.post('/verify', async (req, res) => {
+router.post('/verify', validate(authSchemas.verify), async (req, res) => {
     try {
-        const token = ((req.body && req.body.token) || req.query.token || '').trim().toUpperCase();
-        if (!token) return res.status(400).json({ message: 'Token obrigatório' });
+        const token = req.body.token.trim().toUpperCase();
 
         const now = new Date();
         const record = await EmailVerification.findOne({ where: { Token: token, Used: false } });
@@ -178,16 +188,11 @@ router.post('/verify', async (req, res) => {
 
 // POST /api/auth/forgot-password
 // Solicita código de reset de senha
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', validate(authSchemas.forgotPassword), async (req, res) => {
     try {
         console.log('[forgot-password] Iniciando processo de recuperação de senha');
-        const { email } = req.body || {};
+        const { email } = req.body;
         
-        if (!email || typeof email !== 'string') {
-            console.log('[forgot-password] Email inválido ou ausente');
-            return res.status(400).json({ message: 'E-mail obrigatório' });
-        }
-
         const emailLower = email.trim().toLowerCase();
         console.log('[forgot-password] Buscando usuário com email:', emailLower);
         const user = await User.findOne({ where: { Email: emailLower } });
@@ -254,13 +259,9 @@ router.post('/forgot-password', async (req, res) => {
 
 // POST /api/auth/reset-password
 // Reseta senha usando código de verificação
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', validate(authSchemas.resetPassword), async (req, res) => {
     try {
-        const { email, token, senhaHash } = req.body || {};
-
-        if (!email || !token || !senhaHash) {
-            return res.status(400).json({ message: 'E-mail, código e nova senha são obrigatórios' });
-        }
+        const { email, token, senhaHash } = req.body;
 
         const emailLower = email.trim().toLowerCase();
         const tokenUpper = token.trim().toUpperCase();
@@ -331,17 +332,18 @@ router.post('/reset-password', async (req, res) => {
 
 module.exports = router;
 
-// GET /api/auth/me - resolve user by X-Session-Token header (NomeUsuario or Email or Id)
+// GET /api/auth/me - resolve user by cookie sessionToken, X-Session-Token header or query parameter
 router.get('/me', async (req, res) => {
     try {
-        const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return res.status(400).json({ message: 'X-Session-Token required' });
+        // Read token from cookie (preferred), header, or query parameter (legacy)
+        const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+        if (!sessionToken) return res.status(400).json({ message: 'Session token required' });
 
         let user = null;
         // If token looks like JWT, try to decode
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 // Try by sub (user id) first
                 if (decoded && decoded.sub) {
                     user = await User.findByPk(Number(decoded.sub));
@@ -376,6 +378,27 @@ router.get('/me', async (req, res) => {
         });
     } catch (err) {
         console.error('Erro em /api/auth/me:', err);
+        return res.status(500).json({ message: 'Erro interno' });
+    }
+});
+
+// POST /api/auth/logout - Clear httpOnly cookie and cleanup session
+router.post('/logout', (req, res) => {
+    try {
+        // Clear the httpOnly cookie
+        res.clearCookie('sessionToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/'
+        });
+        
+        return res.json({ 
+            success: true, 
+            message: 'Logout realizado com sucesso' 
+        });
+    } catch (err) {
+        console.error('Erro em /api/auth/logout:', err);
         return res.status(500).json({ message: 'Erro interno' });
     }
 });

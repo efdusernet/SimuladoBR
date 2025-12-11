@@ -345,43 +345,19 @@
                 $('questionNumber').textContent = 0;
                 $('totalQuestions').textContent = 0;
                 $('questionText').textContent = 'Nenhuma pergunta disponível.';
-                try { const ac = document.getElementById('answersContainer'); if (ac) ac.innerHTML = ''; } catch(e){}
+                try { const ac = document.getElementById('answersContainer'); if (ac) { while(ac.firstChild) ac.removeChild(ac.firstChild); } } catch(e){}
                 try { const idSpan = document.getElementById('questionIdDisplay'); if (idSpan) idSpan.textContent = ''; } catch(_){}
                 return;
               }
               // manter "Exemplo" fixo no header conforme solicitado; apenas atualizamos número e texto
               $('questionNumber').textContent = idx + 1;
               $('totalQuestions').textContent = QUESTIONS.length;
-              // Preserve possible HTML (e.g., embedded <img>) when descricao contains tags, sanitizing unsafe content.
-              function sanitizeHtml(html){
-                try {
-                  const container = document.createElement('div');
-                  container.innerHTML = String(html || '');
-                  // remove script and style tags entirely
-                  container.querySelectorAll('script, style').forEach(el => el.remove());
-                  // walk and strip unsafe attrs and protocols
-                  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null);
-                  while (walker.nextNode()){
-                    const el = walker.currentNode;
-                    // remove on* handlers
-                    Array.from(el.attributes || []).forEach(attr => {
-                      const name = attr.name.toLowerCase();
-                      if (name.startsWith('on')) el.removeAttribute(attr.name);
-                      if (name === 'href' || name === 'src'){
-                        const val = (attr.value || '').trim();
-                        const safe = /^(https?:|\/|data:image\/)/i.test(val);
-                        if (!safe) el.removeAttribute(attr.name);
-                      }
-                    });
-                  }
-                  return container.innerHTML;
-                } catch(e){ return String(html || ''); }
-              }
+              // Use DOMPurify sanitization from utils/sanitize.js
               try {
                 const rawDesc = q.text || q.descricao || '';
-                if (/(<img|<p|<br|<div|<span)/i.test(rawDesc)) {
+                if (containsHTML(rawDesc)) {
                   const qt = document.getElementById('questionText');
-                  if (qt) qt.innerHTML = sanitizeHtml(rawDesc); else $('questionText').textContent = rawDesc;
+                  if (qt) qt.innerHTML = sanitizeHTML(rawDesc); else $('questionText').textContent = rawDesc;
                 } else {
                   $('questionText').textContent = rawDesc;
                 }
@@ -1273,8 +1249,9 @@
                           const suggested = Math.min(available, 25);
                           if (available > 0 && suggested > 0) {
                             const btnId = 'adjustQtyBtn';
-                            statusEl.innerHTML = `Não há questões suficientes para sua seleção. Disponíveis: <strong>${available}</strong>. Você pode iniciar com <strong>${suggested}</strong>. ` +
-                              `<button id="${btnId}" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>`;
+                            const safeMsg = `Não há questões suficientes para sua seleção. Disponíveis: <strong>${Number(available)}</strong>. Você pode iniciar com <strong>${Number(suggested)}</strong>. ` +
+                              `<button id="${btnId}" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${Number(suggested)}</button>`;
+                            statusEl.innerHTML = sanitizeHTML(safeMsg);
                             const btn = document.getElementById(btnId);
                             if (btn) btn.onclick = async () => {
                               try { localStorage.setItem('examQuestionCount', String(suggested)); } catch(e){}
@@ -1284,8 +1261,9 @@
                           } else {
                             // available === 0
                             const backId = 'backToSetupBtn';
-                            statusEl.innerHTML = `Nenhuma questão encontrada para os filtros selecionados. ` +
+                            const safeMsg = `Nenhuma questão encontrada para os filtros selecionados. ` +
                               `<button id="${backId}" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Voltar à configuração</button>`;
+                            statusEl.innerHTML = sanitizeHTML(safeMsg);
                             const b = document.getElementById(backId);
                             if (b) b.onclick = () => { try { window.location.href = '/pages/examSetup.html'; } catch(_){} };
                           }

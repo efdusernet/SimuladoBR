@@ -21,8 +21,8 @@
     try {
       const days = 30;
       const [summaryResp,dailyResp] = await Promise.all([
-        fetch(`/api/users/me/stats/summary?days=${days}`, { headers: { 'X-Session-Token': token }}),
-        fetch(`/api/users/me/stats/daily?days=${days}`, { headers: { 'X-Session-Token': token }})
+        fetch(`/api/users/me/stats/summary?days=${days}`, { headers: { 'X-Session-Token': token }, credentials: 'include' }),
+        fetch(`/api/users/me/stats/daily?days=${days}`, { headers: { 'X-Session-Token': token }, credentials: 'include' })
       ]);
       if(!summaryResp.ok || !dailyResp.ok) throw new Error('Falha na resposta');
       const summary = await summaryResp.json();

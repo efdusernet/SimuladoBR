@@ -226,6 +226,10 @@
       } catch(_){ }
     })();
   </script>
+  <!-- DOMPurify for XSS protection -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+  <!-- Sanitization utilities -->
+  <script src="../utils/sanitize.js"></script>
   <!-- Prefer non-minified script for image field support and diagnostics -->
   <script src="../script_exam.js"></script>
   <!-- (Optional) Keep build script disabled for now; uncomment if needed -->

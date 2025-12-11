@@ -560,6 +560,10 @@
       } catch(_){ }
     })();
   </script>
+  <!-- DOMPurify for XSS protection -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+  <!-- Sanitization utilities -->
+  <script src="../utils/sanitize.js"></script>
   <!-- Prefer non-minified script to ensure image fields & diagnostics are active -->
   <script src="../script_exam.js"></script>
   <!-- <script src="../assets/build/script_exam.js"></script> -->

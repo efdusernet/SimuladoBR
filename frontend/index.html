@@ -25,6 +25,8 @@
     <script src="/utils/layoutManager.js"></script>
     <!-- Logout Utility -->
     <script src="/utils/logout.js"></script>
+    <!-- CSRF Protection - TEMPORARILY DISABLED -->
+    <!-- <script src="/utils/csrf.js"></script> -->
     
     <!-- Layout Styles (loaded conditionally by layoutManager) -->
     <link rel="stylesheet" href="/layouts/mobile-layout.css">
@@ -351,7 +353,7 @@
                         const headers = {};
                         if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
                         if (rawSession) headers['X-Session-Token'] = rawSession;
-                        const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers, cache: 'no-store' });
+                        const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers, cache: 'no-store', credentials: 'include' });
                         let list = [];
                         if (r.ok) {
                             list = await r.json();
@@ -457,11 +459,10 @@
         const badge = document.getElementById('notifBadge');
         const panel = document.getElementById('notifPanel');
         if (!btn || !badge || !panel) return;
-        const token = (localStorage.getItem('sessionToken')||'').trim();
-        if (!token) return;
+        // Auth via httpOnly cookie, no localStorage token needed
         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
         const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-        const headers = {}; if (token) headers['X-Session-Token'] = token; if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+        const headers = {}; if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
         // === Observer Pattern: lightweight NotificationCenter ===
         const NotificationCenter = (function(){
             let state = { unread: 0, list: [], ts: Date.now() };
@@ -483,13 +484,13 @@
         let lastListIds = new Set();
 
         async function refreshCount(){
-            try { const r = await fetch('/api/notifications/unread-count', { headers }); if (!r.ok) return; const d = await r.json(); const c = Number(d.count)||0; if (c>0){ badge.textContent = String(c); badge.style.display='inline-block'; } else { badge.style.display='none'; } btn.style.display = 'inline-flex'; }
+            try { const r = await fetch('/api/notifications/unread-count', { headers, credentials: 'include' }); if (!r.ok) return; const d = await r.json(); const c = Number(d.count)||0; if (c>0){ badge.textContent = String(c); badge.style.display='inline-block'; } else { badge.style.display='none'; } btn.style.display = 'inline-flex'; }
             catch(_){ }
             try { NotificationCenter.publish({ unread: Number(badge.textContent)||0 }); } catch(_){ }
         }
         async function loadList(){
             try {
-                const r = await fetch('/api/notifications?limit=20', { headers });
+                const r = await fetch('/api/notifications?limit=20', { headers, credentials: 'include' });
                 if (!r.ok) return;
                 const list = await r.json();
                 panel.innerHTML='';
@@ -505,7 +506,7 @@
                     btnEl.addEventListener('click', async (e) => {
                         const id = e.currentTarget.getAttribute('data-id');
                         try {
-                            const rr = await fetch(`/api/notifications/${id}/read`, { method: 'POST', headers });
+                            const rr = await fetch(`/api/notifications/${id}/read`, { method: 'POST', headers, credentials: 'include' });
                             if (rr.ok){ await refreshCount(); await loadList(); }
                         } catch(_){ }
                     });
@@ -609,7 +610,7 @@
         const probeHeaders = { };
         if (sessionForHeader) probeHeaders['X-Session-Token'] = sessionForHeader;
         if (jwtTok) probeHeaders['Authorization'] = `${jwtType} ${jwtTok}`;
-        fetch(probeUrl, { headers: probeHeaders, method: 'GET' })
+        fetch(probeUrl, { headers: probeHeaders, method: 'GET', credentials: 'include' })
           .then(r => {
               if (!r.ok) return Promise.reject('Not admin'); // not admin
               // Success => show menu
@@ -644,7 +645,7 @@
                   if (identity) headers['X-Session-Token'] = identity;
                   if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
                   const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity);
-                  const resp = await fetch(url,{method:'POST',headers});
+                  const resp = await fetch(url,{method:'POST',headers, credentials: 'include'});
                   const data = await resp.json().catch(()=>({}));
                   return {ok:resp.ok,status:resp.status,data};
               }
@@ -918,6 +919,10 @@
                 EXAM_SETUP_PATH: '/pages/examSetup.html'
             });
         </script>
+        <!-- DOMPurify for XSS protection -->
+        <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+        <!-- Sanitization utilities -->
+        <script src="./utils/sanitize.js"></script>
         <!-- Script global do app (necessário para abrir o examSetup modal) -->
         <script src="./script.js" onerror="(function(){var s=document.createElement('script');s.src='./assets/build/script.js';document.body.appendChild(s);}())"></script>
         <!-- Load reusable full exam confirmation modal component -->
@@ -1010,7 +1015,7 @@
                                 const sessionPresent = (localStorage.getItem('sessionToken')||'').trim();
                                 if (sessionPresent) {
                                     const url = base.replace(/\/$/, '') + '/api/exams/last';
-                                    const r = await fetch(url, { headers: buildHeaders() });
+                                    const r = await fetch(url, { headers: buildHeaders(), credentials: 'include' });
                                     if (r.status === 200) {
                                         const data = await r.json();
                                         if (data && typeof data === 'object' && data.total > 0) {
@@ -1043,7 +1048,7 @@
                                 const sessionPresent2 = (localStorage.getItem('sessionToken')||'').trim();
                                 if (sessionPresent2){
                                     const url2 = base.replace(/\/$/, '') + '/api/exams/history?limit=10';
-                                    const r2 = await fetch(url2 + (url2.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers: buildHeaders(), cache: 'no-store' });
+                                    const r2 = await fetch(url2 + (url2.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers: buildHeaders(), cache: 'no-store', credentials: 'include' });
                                     if (r2.ok){
                                         const list = await r2.json();
                                         // Consider only FULL attempts for gating and calculations
@@ -1624,6 +1629,9 @@
             document.addEventListener('click', (e) => {
                 const card = e.target.closest && e.target.closest('.card');
                 if (!card) return;
+                
+                console.log('[index.html] Card clicado:', card.id, card.getAttribute('data-card'));
+                
                 // Prioridade: interceptar clique no exame completo (mock) antes do handler genérico
                 if (card.id === 'card-exam-mock' || card.getAttribute('data-card') === 'exam-mock'){
                     try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
@@ -1660,7 +1668,22 @@
                     // Indicadores: intercepta antes de fluxo genérico
                     const isIndicadores = (card.id === 'card-indicadores') || (card.getAttribute('data-card') === 'indicadores');
                     if (isIndicadores) {
+                        // Verificar se acabou de vir de Indicadores (prevenir loop)
+                        try {
+                            const preventLoop = sessionStorage.getItem('preventIndicadoresLoop') === 'true';
+                            const loopTime = parseInt(sessionStorage.getItem('preventIndicadoresLoopTime') || '0', 10);
+                            const now = Date.now();
+                            
+                            if (preventLoop && (now - loopTime) < 2000) {
+                                console.log('[index.html] Detectado possível loop para Indicadores, ignorando clique');
+                                sessionStorage.removeItem('preventIndicadoresLoop');
+                                sessionStorage.removeItem('preventIndicadoresLoopTime');
+                                return;
+                            }
+                        } catch(_) {}
+                        
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                        console.log('[index.html] Navegando para Indicadores.html');
                         window.location.assign('/pages/Indicadores.html');
                         return;
                     }
@@ -1684,7 +1707,7 @@
                                         const headers = {};
                                         if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
                                         if (sessionTok) headers['X-Session-Token'] = sessionTok;
-                                        const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers, cache: 'no-store' });
+                                        const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers, cache: 'no-store', credentials: 'include' });
                                         let list = [];
                                         if (r.ok) list = await r.json();
                                         if (!Array.isArray(list)) list = [];
@@ -1773,7 +1796,7 @@
                                     const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                                     const url = (base || '') + '/api/exams/history?limit=50';
                                     const token = (localStorage.getItem('sessionToken')||'').trim();
-                                    const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers: token ? { 'X-Session-Token': token } : {}, cache: 'no-store' });
+                                    const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers: token ? { 'X-Session-Token': token } : {}, cache: 'no-store', credentials: 'include' });
                                     let list = [];
                                     if (r.ok) list = await r.json();
                                     if (!Array.isArray(list)) list = [];
@@ -1858,14 +1881,13 @@
             (async function checkAdmin() {
                 try {
                     const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
-                    const token = localStorage.getItem('sessionToken');
-                    if (!token) return;
+                    // Auth via httpOnly cookie, no localStorage token needed
                     // Include Authorization JWT if available for robustness
                     const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
                     const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                    const headers = { 'X-Session-Token': token };
+                    const headers = {};
                     if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-                    const resp = await fetch(base + '/api/users/me', { headers });
+                    const resp = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
                     
                     if (resp.ok) {
                         const user = await resp.json();
@@ -2073,13 +2095,12 @@
                     fixtureOutput.textContent='Gerando fixture...\n';
                     try {
                         const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
-                        const token = localStorage.getItem('sessionToken');
                         const payload = { userId: Number(userId), overallPct: Number(overallPct), totalQuestions: Number(totalQuestions), examTypeSlug: examTypeSlug || 'pmp' };
                         if (peoplePct !== '') payload.peoplePct = Number(peoplePct);
                         if (processPct !== '') payload.processPct = Number(processPct);
                         if (businessPct !== '') payload.businessPct = Number(businessPct);
                         const url = base + '/api/admin/exams/fixture-attempt';
-                        const resp = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json','X-Session-Token': token }, body: JSON.stringify(payload) });
+                        const resp = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
                         const rawText = await resp.text();
                         let parsed; try { parsed = JSON.parse(rawText); } catch(_) { parsed = null; }
                         const ms = new Date() - startedAt;

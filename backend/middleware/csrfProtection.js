@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { security } = require('../utils/logger');
 
 // In-memory token store (in production, use Redis)
 const tokenStore = new Map();
@@ -31,6 +32,7 @@ function csrfProtection(req, res, next) {
 
   // Validate token exists
   if (!tokenFromRequest || !tokenFromCookie) {
+    security.csrfFailure(req);
     return res.status(403).json({ 
       error: 'CSRF token missing',
       code: 'CSRF_MISSING'
@@ -39,6 +41,7 @@ function csrfProtection(req, res, next) {
 
   // Validate tokens match
   if (tokenFromRequest !== tokenFromCookie) {
+    security.csrfFailure(req);
     return res.status(403).json({ 
       error: 'CSRF token invalid',
       code: 'CSRF_INVALID'
@@ -48,6 +51,7 @@ function csrfProtection(req, res, next) {
   // Validate token in store and not expired
   const tokenData = tokenStore.get(tokenFromCookie);
   if (!tokenData) {
+    security.csrfFailure(req);
     return res.status(403).json({ 
       error: 'CSRF token expired or invalid',
       code: 'CSRF_EXPIRED'
@@ -57,6 +61,7 @@ function csrfProtection(req, res, next) {
   // Check expiration
   if (Date.now() - tokenData.createdAt > TOKEN_EXPIRY) {
     tokenStore.delete(tokenFromCookie);
+    security.csrfFailure(req);
     return res.status(403).json({ 
       error: 'CSRF token expired',
       code: 'CSRF_EXPIRED'
@@ -68,6 +73,8 @@ function csrfProtection(req, res, next) {
   const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
   
   if (origin && !origin.startsWith(allowedOrigin)) {
+    security.csrfFailure(req);
+    security.suspiciousActivity(req, `CSRF origin mismatch: ${origin}`);
     return res.status(403).json({ 
       error: 'Invalid origin',
       code: 'CSRF_ORIGIN_MISMATCH'

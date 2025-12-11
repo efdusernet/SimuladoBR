@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const db = require('../models');
 const { User, EmailVerification } = db;
 const jwt = require('jsonwebtoken');
@@ -12,11 +13,23 @@ const { sendVerificationEmail } = require('../utils/mailer');
 const bcrypt = require('bcryptjs');
 const { authSchemas, userSchemas, validate } = require('../middleware/validation');
 
+// Explicitly set bcrypt rounds for password hashing security
+const BCRYPT_ROUNDS = 12;
+
+// Rate limiter for user registration
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 registrations per hour per IP
+  message: 'Muitas tentativas de registro. Aguarde 1 hora.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 /**
  * POST /api/users
  * Cria usuário persistido no banco (tabela Usuario)
  */
-router.post('/', validate(authSchemas.register), async (req, res) => {
+router.post('/', registerLimiter, validate(authSchemas.register), async (req, res) => {
     try {
         const body = req.body;
 
@@ -34,8 +47,7 @@ router.post('/', validate(authSchemas.register), async (req, res) => {
         // If a SenhaHash (client-side SHA256 hex) is provided, bcrypt it before storing.
         let senhaHashToStore = null;
         if (body.SenhaHash && typeof body.SenhaHash === 'string') {
-            // use 10 salt rounds
-            senhaHashToStore = await bcrypt.hash(body.SenhaHash, 10);
+            senhaHashToStore = await bcrypt.hash(body.SenhaHash, BCRYPT_ROUNDS);
         }
 
         const createObj = {
@@ -577,7 +589,7 @@ router.put('/me/password', async (req, res) => {
         }
 
         // Hash new password
-        const newHash = await bcrypt.hash(newPassword, 10);
+        const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
         user.SenhaHash = newHash;
         user.DataAlteracao = new Date();
         await user.save();

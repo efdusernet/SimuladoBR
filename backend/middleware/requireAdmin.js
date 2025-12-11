@@ -1,6 +1,7 @@
 const db = require('../models');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/security');
+const { security } = require('../utils/logger');
 
 // Resolves user from X-Session-Token (id, NomeUsuario, Email or JWT) and checks for 'admin' role
 module.exports = async function requireAdmin(req, res, next){
@@ -47,16 +48,21 @@ module.exports = async function requireAdmin(req, res, next){
         'SELECT 1 FROM public.user_role ur JOIN public.role r ON r.id = ur.role_id WHERE ur.user_id = :uid AND r.slug = :slug AND (r.ativo = TRUE OR r.ativo IS NULL) LIMIT 1',
         { replacements: { uid: user.Id, slug: 'admin' }, type: db.Sequelize.QueryTypes.SELECT }
       );
-      if (!rows || !rows.length) return res.status(403).json({ error: 'Admin role required' });
+      if (!rows || !rows.length) {
+        security.authorizationFailure(req, 'admin_resource', 'access');
+        return res.status(403).json({ error: 'Admin role required' });
+      }
     } catch (err) {
       const code = (err && err.original && err.original.code) || err.code || '';
       const msg = (err && (err.message || err.toString())) || '';
       const missingTable = code === '42P01' || /relation .* does not exist/i.test(msg);
       if (missingTable) {
         console.warn('requireAdmin: RBAC tables missing; denying with 403');
+        security.authorizationFailure(req, 'admin_resource', 'rbac_tables_missing');
         return res.status(403).json({ error: 'Admin role required' });
       }
       console.warn('requireAdmin: role check failed; denying with 403. Error:', msg);
+      security.authorizationFailure(req, 'admin_resource', 'role_check_error');
       return res.status(403).json({ error: 'Admin role required' });
     }
 

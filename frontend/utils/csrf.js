@@ -152,6 +152,5 @@ window.addEventListener('user-login', () => {
   });
 });
 
-// Export for explicit usage
-export { CSRFManager };
-export default window.csrfManager;
+// Available globally via window.csrfManager
+// If you need to use as module, add type="module" to script tag

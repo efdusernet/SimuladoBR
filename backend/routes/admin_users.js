@@ -4,6 +4,9 @@ const db = require('../models');
 const requireAdmin = require('../middleware/requireAdmin');
 const bcrypt = require('bcryptjs');
 
+// Explicitly set bcrypt rounds for password hashing security
+const BCRYPT_ROUNDS = 12;
+
 // GET /api/admin/users
 // Lista usuários para seleção administrativa (Id, Nome, NomeUsuario)
 router.get('/', requireAdmin, async (req, res) => {
@@ -45,7 +48,7 @@ router.post('/reset-password', requireAdmin, async (req, res) => {
     }
 
     // newPassword is already SHA-256 hashed from client, now bcrypt it
-    const bcryptHash = await bcrypt.hash(newPassword, 10);
+    const bcryptHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
     
     targetUser.SenhaHash = bcryptHash;
     targetUser.DataAlteracao = new Date();

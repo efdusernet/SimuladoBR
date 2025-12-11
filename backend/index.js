@@ -3,12 +3,24 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const addRequestId = require('express-request-id')();
 require('dotenv').config();
+
+// Initialize structured logging system
+const { logger } = require('./utils/logger');
+const { requestLogger, errorLogger } = require('./middleware/logging');
 
 // Validate security configuration early (will exit if JWT_SECRET invalid)
 require('./config/security');
 
 const app = express();
+
+// Request ID tracking - must be first
+app.use(addRequestId);
+
+// HTTP request logging
+app.use(requestLogger);
+
 // Security headers (CSP disabled initially to avoid breaking inline assets; can be tightened later)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
@@ -33,13 +45,18 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 const db = require('./models');
 const sequelize = db.sequelize;
 
-sequelize.authenticate().then(() => console.log('DB conectado!')).catch(err => console.error('Erro:', err));
+sequelize.authenticate()
+	.then(() => logger.info('Database connected successfully'))
+	.catch(err => {
+		logger.error('Database connection failed', { error: err.message, stack: err.stack });
+		process.exit(1);
+	});
 
 // Opcional: sincroniza modelos com o banco quando DB_SYNC=true
 if (process.env.DB_SYNC === 'true') {
 	sequelize.sync({ alter: true })
-		.then(() => console.log('Modelos sincronizados com o DB (alter).'))
-		.catch(err => console.error('Erro ao sincronizar modelos:', err));
+		.then(() => logger.info('Database models synchronized (alter mode)'))
+		.catch(err => logger.error('Error synchronizing models', { error: err.message, stack: err.stack }));
 }
 
 // Rotas
@@ -131,5 +148,43 @@ app.use((req, res, next) => {
 			res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
+// Error logging middleware (must be after all routes)
+app.use(errorLogger);
+
+// Global error handler
+app.use((err, req, res, next) => {
+	const statusCode = err.statusCode || 500;
+	const message = err.message || 'Internal server error';
+	
+	res.status(statusCode).json({
+		success: false,
+		message,
+		...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+	});
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor na porta ${PORT}`));
+app.listen(PORT, () => {
+	logger.info(`Server started successfully`, {
+		port: PORT,
+		environment: process.env.NODE_ENV || 'development',
+		node_version: process.version
+	});
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+	logger.info('SIGTERM signal received: closing HTTP server');
+	app.close(() => {
+		logger.info('HTTP server closed');
+		sequelize.close().then(() => {
+			logger.info('Database connection closed');
+			process.exit(0);
+		});
+	});
+});
+
+process.on('SIGINT', () => {
+	logger.info('SIGINT signal received: closing HTTP server');
+	process.exit(0);
+});

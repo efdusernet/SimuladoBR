@@ -1,4 +1,104 @@
+// SafeRedirect: Security utility to prevent open redirect vulnerabilities
+class SafeRedirect {
+    constructor() {
+        // Whitelist of allowed internal paths (relative URLs only)
+        this.allowedPaths = [
+            '/',
+            '/index.html',
+            '/login',
+            '/login.html',
+            '/pages/exam.html',
+            '/pages/examFull.html',
+            '/pages/examSetup.html',
+            '/pages/indicadores.html',
+            '/pages/admin/users.html',
+            '/pages/admin/questions.html',
+            '/pages/admin/examTypes.html'
+        ];
+    }
+
+    /**
+     * Validates and sanitizes a redirect URL
+     * @param {string} url - The URL to validate
+     * @param {string} fallback - Fallback URL if validation fails (default: '/')
+     * @returns {string} - Safe URL to redirect to
+     */
+    validateRedirect(url, fallback = '/') {
+        if (!url || typeof url !== 'string') {
+            return fallback;
+        }
+
+        try {
+            // If it's a relative URL (starts with / but not //), validate against whitelist
+            if (url.startsWith('/') && !url.startsWith('//')) {
+                // Extract path without query string and hash
+                const path = url.split('?')[0].split('#')[0];
+                
+                // Check if path or its parent directories are in whitelist
+                const isAllowed = this.allowedPaths.some(allowedPath => {
+                    // Exact match
+                    if (path === allowedPath) return true;
+                    // Allow paths under /pages/
+                    if (path.startsWith('/pages/') && allowedPath.startsWith('/pages/')) return true;
+                    // Allow paths under /components/
+                    if (path.startsWith('/components/')) return true;
+                    return false;
+                });
+
+                if (isAllowed) {
+                    return url;
+                }
+                
+                console.warn('[SafeRedirect] Rejected non-whitelisted path:', path);
+                return fallback;
+            }
+
+            // For absolute URLs, parse and validate origin
+            const parsedUrl = new URL(url, window.location.origin);
+            
+            // Only allow same-origin redirects
+            if (parsedUrl.origin !== window.location.origin) {
+                console.warn('[SafeRedirect] Rejected external redirect:', parsedUrl.href);
+                return fallback;
+            }
+
+            // Validate the pathname against whitelist
+            const path = parsedUrl.pathname;
+            const isAllowed = this.allowedPaths.some(allowedPath => {
+                if (path === allowedPath) return true;
+                if (path.startsWith('/pages/') && allowedPath.startsWith('/pages/')) return true;
+                if (path.startsWith('/components/')) return true;
+                return false;
+            });
+
+            if (isAllowed) {
+                return parsedUrl.href;
+            }
+
+            console.warn('[SafeRedirect] Rejected non-whitelisted URL:', parsedUrl.href);
+            return fallback;
+
+        } catch (e) {
+            console.error('[SafeRedirect] Error validating redirect:', e);
+            return fallback;
+        }
+    }
+
+    /**
+     * Safely redirects to a URL after validation
+     * @param {string} url - The URL to redirect to
+     * @param {string} fallback - Fallback URL if validation fails
+     */
+    safeRedirect(url, fallback = '/') {
+        const safeUrl = this.validateRedirect(url, fallback);
+        window.location.assign(safeUrl);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize SafeRedirect utility
+    const safeRedirect = new SafeRedirect();
+
     // Status banner removido do app — helpers mantidos como no-op para compatibilidade
     const setStatus = () => {};
     const clearStatus = () => {};
@@ -131,11 +231,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const modalEl = document.getElementById('examSetupModal');
                     const to = modalEl && modalEl.getAttribute('data-exam-url');
                     const examUrl = to || (SIMULADOS_CONFIG.EXAM_URL || './pages/exam.html');
-                    // show spinner and redirect
+                    // show spinner and redirect (with validation)
                     hideEmailModal(); // ensure email modal hidden
                     hideRedirectSpinner();
                     showRedirectSpinner('Iniciando o simulado...');
-                    setTimeout(() => { window.location.href = examUrl; }, 300);
+                    const safeExamUrl = safeRedirect.validateRedirect(examUrl, '/pages/exam.html');
+                    setTimeout(() => { window.location.href = safeExamUrl; }, 300);
                 });
             }
 
@@ -179,7 +280,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // fallback revisado: se não conseguiu carregar o modal, vá para a página de configuração
             const setupPath = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.EXAM_SETUP_PATH) || '/pages/examSetup.html';
             showRedirectSpinner('Abrindo configuração do simulado...');
-            setTimeout(()=>{ window.location.href = setupPath; }, 100);
+            const safeSetupPath = safeRedirect.validateRedirect(setupPath, '/pages/examSetup.html');
+            setTimeout(()=>{ window.location.href = safeSetupPath; }, 100);
             return;
         }
         modalEl.setAttribute('data-exam-url', examUrl);
@@ -313,7 +415,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 showEmailModal();
             } else {
                 try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
-                window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+                const currentUrl = safeRedirect.validateRedirect(window.location.href, '/');
+                window.location.assign('/login?redirect=' + encodeURIComponent(currentUrl));
                 return;
             }
         } else {
@@ -962,23 +1065,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 showUserHeader(nomeReal);
                 hideEmailModal();
 
-                // redirect to pre-login destination or default
+                // redirect to pre-login destination or default (with validation)
                 try {
                     const params = new URLSearchParams(window.location.search || '');
                     const redirectParam = params.get('redirect');
                     let target = null;
                     if (redirectParam) {
-                        try {
-                            const u = new URL(redirectParam, window.location.origin);
-                            if (u.origin === window.location.origin) target = u.href;
-                        } catch(_){ }
+                        // Validate redirect parameter
+                        target = safeRedirect.validateRedirect(decodeURIComponent(redirectParam), null);
                     }
                     if (!target) {
-                        try { target = sessionStorage.getItem('postLoginRedirect'); } catch(_){ }
+                        try {
+                            const sessionRedirect = sessionStorage.getItem('postLoginRedirect');
+                            if (sessionRedirect) {
+                                target = safeRedirect.validateRedirect(sessionRedirect, null);
+                            }
+                        } catch(_){ }
                     }
                     if (!target) target = '/';
                     try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
-                    window.location.assign(target);
+                    safeRedirect.safeRedirect(target, '/');
                 } catch (e) { console.warn('Erro redirect login:', e); }
             }
             else if (mode === 'verify') {
@@ -1037,23 +1143,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     showUserHeader(nomeReal);
                     hideEmailModal();
 
-                    // redirect to pre-login destination or default
+                    // redirect to pre-login destination or default (with validation)
                     try {
                         const params = new URLSearchParams(window.location.search || '');
                         const redirectParam = params.get('redirect');
                         let target = null;
                         if (redirectParam) {
-                            try {
-                                const u = new URL(redirectParam, window.location.origin);
-                                if (u.origin === window.location.origin) target = u.href;
-                            } catch(_){ }
+                            // Validate redirect parameter
+                            target = safeRedirect.validateRedirect(decodeURIComponent(redirectParam), null);
                         }
                         if (!target) {
-                            try { target = sessionStorage.getItem('postLoginRedirect'); } catch(_){ }
+                            try {
+                                const sessionRedirect = sessionStorage.getItem('postLoginRedirect');
+                                if (sessionRedirect) {
+                                    target = safeRedirect.validateRedirect(sessionRedirect, null);
+                                }
+                            } catch(_){ }
                         }
                         if (!target) target = '/';
                         try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
-                        window.location.assign(target);
+                        safeRedirect.safeRedirect(target, '/');
                     } catch (e) { console.warn('Erro redirect login:', e); }
                 } else {
                     // switch to login mode so user can enter password

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const db = require('../models');
 const { User, EmailVerification } = db;
 const Op = db.Sequelize && db.Sequelize.Op;
@@ -9,9 +10,53 @@ const { sendVerificationEmail } = require('../utils/mailer');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/security');
 const { authSchemas, validate } = require('../middleware/validation');
+const { security, audit } = require('../utils/logger');
+
+// Explicitly set bcrypt rounds for password hashing security
+const BCRYPT_ROUNDS = 12;
+
+// Strict rate limiter for login endpoint
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per window per IP
+  skipSuccessfulRequests: true, // Don't count successful logins
+  message: 'Muitas tentativas de login. Aguarde 15 minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    security.rateLimitExceeded(req);
+    res.status(429).json({ message: 'Muitas tentativas de login. Aguarde 15 minutos.' });
+  }
+});
+
+// Rate limiter for password reset requests
+const resetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 requests per window per IP
+  message: 'Muitas tentativas de recuperação de senha. Aguarde 1 hora.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    security.rateLimitExceeded(req);
+    res.status(429).json({ message: 'Muitas tentativas de recuperação de senha. Aguarde 1 hora.' });
+  }
+});
+
+// Rate limiter for registration
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 registrations per hour per IP
+  message: 'Muitas tentativas de registro. Aguarde 1 hora.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    security.rateLimitExceeded(req);
+    res.status(429).json({ message: 'Muitas tentativas de registro. Aguarde 1 hora.' });
+  }
+});
 
 // POST /api/auth/login
-router.post('/login', validate(authSchemas.login), async (req, res) => {
+router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res) => {
     try {
         const body = req.body || {};
         if (!body.Email || typeof body.Email !== 'string') {
@@ -25,6 +70,7 @@ router.post('/login', validate(authSchemas.login), async (req, res) => {
         const user = await User.findOne({ where: { Email: email } });
         if (!user) {
             // Usuário inexistente: não há onde registrar falha
+            security.loginFailure(req, email, 'user_not_found');
             return res.status(401).json({ message: 'Credenciais inválidas' });
         }
 
@@ -34,6 +80,8 @@ router.post('/login', validate(authSchemas.login), async (req, res) => {
             const until = user.FimBloqueio ? new Date(user.FimBloqueio).getTime() : 0;
             if (until && until > now) {
                 const secondsLeft = Math.ceil((until - now) / 1000);
+                security.loginFailure(req, email, 'account_locked');
+                security.suspiciousActivity(req, `Account locked until ${new Date(until).toISOString()} - repeated failed attempts`);
                 return res.status(423).json({
                     message: 'Muitas tentativas de login. Sua conta foi bloqueada temporariamente. Aguarde 5 minutos antes de tentar novamente.',
                     lockoutUntil: new Date(until).toISOString(),
@@ -74,6 +122,7 @@ router.post('/login', validate(authSchemas.login), async (req, res) => {
             } catch (e) {
                 console.error('Erro criando/enviando token verificação no login:', e);
             }
+            security.loginFailure(req, email, 'email_not_confirmed');
             return res.status(403).json({ message: 'E-mail não confirmado. Enviamos um token para o seu e-mail.' });
         }
 
@@ -141,6 +190,9 @@ router.post('/login', validate(authSchemas.login), async (req, res) => {
             res.cookie('sessionToken', token, cookieOptions);
         } catch (e) { console.warn('JWT sign error, token omitido:', e && e.message); }
 
+        // Log successful login
+        security.loginSuccess(req, user);
+
         return res.json({
             Id: user.Id,
             NomeUsuario: user.NomeUsuario,
@@ -188,7 +240,7 @@ router.post('/verify', validate(authSchemas.verify), async (req, res) => {
 
 // POST /api/auth/forgot-password
 // Solicita código de reset de senha
-router.post('/forgot-password', validate(authSchemas.forgotPassword), async (req, res) => {
+router.post('/forgot-password', resetLimiter, validate(authSchemas.forgotPassword), async (req, res) => {
     try {
         console.log('[forgot-password] Iniciando processo de recuperação de senha');
         const { email } = req.body;
@@ -250,6 +302,9 @@ router.post('/forgot-password', validate(authSchemas.forgotPassword), async (req
         // Enviar email com código
         await sendVerificationEmail(emailLower, token, 'recuperação de senha');
 
+        // Log password reset request
+        security.passwordResetRequest(req, emailLower);
+
         return res.json({ message: 'Código enviado para o e-mail informado.' });
     } catch (err) {
         console.error('Erro em /api/auth/forgot-password:', err);
@@ -259,7 +314,7 @@ router.post('/forgot-password', validate(authSchemas.forgotPassword), async (req
 
 // POST /api/auth/reset-password
 // Reseta senha usando código de verificação
-router.post('/reset-password', validate(authSchemas.resetPassword), async (req, res) => {
+router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword), async (req, res) => {
     try {
         const { email, token, senhaHash } = req.body;
 
@@ -315,13 +370,16 @@ router.post('/reset-password', validate(authSchemas.resetPassword), async (req, 
         }
 
         // Hash da senha com bcrypt (servidor)
-        const hashedPassword = await bcrypt.hash(senhaHash, 10);
+        const hashedPassword = await bcrypt.hash(senhaHash, BCRYPT_ROUNDS);
 
         // Atualizar senha do usuário
         await user.update({ SenhaHash: hashedPassword });
 
         // Marcar código como usado
         await verification.update({ Used: true });
+
+        // Log successful password reset
+        security.passwordResetSuccess(req, emailLower);
 
         return res.json({ message: 'Senha alterada com sucesso' });
     } catch (err) {

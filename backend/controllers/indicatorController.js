@@ -1,12 +1,14 @@
+const { badRequest, internalError } = require('../middleware/errors');
+
 // IND8 - % Acertos/Erros por Area de Conhecimento
-async function getAreaConhecimentoStats(req, res){
+async function getAreaConhecimentoStats(req, res, next){
   try {
     const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
     const examTypeId = parseInt(req.query.exam_type, 10);
     const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
     const userIdParam = parseInt(req.query.idUsuario, 10);
     const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     // Identificar o último exame completo do usuário
     let idExame = parseInt(req.query.idExame, 10);
@@ -82,20 +84,19 @@ async function getAreaConhecimentoStats(req, res){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, areas });
   } catch(err){
-    logger.error('getAreaConhecimentoStats error:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'AREA_CONHECIMENTO_STATS_ERROR', err));
   }
 }
 
 // IND9 - % Acertos/Erros por Abordagem (categoriaquestao)
-async function getAbordagemStats(req, res){
+async function getAbordagemStats(req, res, next){
   try {
     const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
     const examTypeId = parseInt(req.query.exam_type, 10);
     const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
     const userIdParam = parseInt(req.query.idUsuario, 10);
     const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     let idExame = parseInt(req.query.idExame, 10);
     if (!Number.isFinite(idExame) || idExame <= 0) {
@@ -169,8 +170,7 @@ async function getAbordagemStats(req, res){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, abordagens });
   } catch(err){
-    logger.error('getAbordagemStats error:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'ABORDAGEM_STATS_ERROR', err));
   }
 }
 const db = require('../models');
@@ -182,7 +182,7 @@ function getFullExamQuestionCount(){
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 180;
 }
 
-async function getOverview(req, res) {
+async function getOverview(req, res, next) {
   try {
     const out = {
       last15: {
@@ -197,11 +197,11 @@ async function getOverview(req, res) {
     };
     return res.json(out);
   } catch (err) {
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'OVERVIEW_ERROR', err));
   }
 }
 
-async function getExamsCompleted(req, res) {
+async function getExamsCompleted(req, res, next) {
   try {
     const raw = parseInt(req.query.days, 10);
     const days = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 120) : 30;
@@ -231,11 +231,11 @@ async function getExamsCompleted(req, res) {
     const total = rows && rows[0] ? Number(rows[0].total) : 0;
     return res.json({ days, examMode: examMode || 'full', userId: userId || null, total });
   } catch (err) {
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'EXAMS_COMPLETED_ERROR', err));
   }
 }
 
-async function getApprovalRate(req, res) {
+async function getApprovalRate(req, res, next) {
   try {
     const raw = parseInt(req.query.days, 10);
     const days = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 120) : 30;
@@ -269,11 +269,11 @@ async function getApprovalRate(req, res) {
     const ratePercent = total > 0 ? Number(((approved * 100) / total).toFixed(2)) : null;
     return res.json({ days, examMode: examMode || 'full', userId: userId || null, total, approved, ratePercent });
   } catch (err) {
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'APPROVAL_RATE_ERROR', err));
   }
 }
 
-async function getFailureRate(req, res) {
+async function getFailureRate(req, res, next) {
   try {
     const raw = parseInt(req.query.days, 10);
     const days = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 120) : 30;
@@ -307,15 +307,15 @@ async function getFailureRate(req, res) {
     const ratePercent = total > 0 ? Number(((failed * 100) / total).toFixed(2)) : null;
     return res.json({ days, examMode: examMode || 'full', userId: userId || null, total, failed, ratePercent });
   } catch (err) {
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'FAILURE_RATE_ERROR', err));
   }
 }
 
-async function getOverviewDetailed(req, res) {
+async function getOverviewDetailed(req, res, next) {
   try {
     const user = req.user || {};
     const userId = Number.isFinite(parseInt(user.sub, 10)) ? parseInt(user.sub, 10) : null;
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     const rawDays = parseInt(req.query.days, 10);
     const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 120) : 30;
@@ -367,11 +367,11 @@ async function getOverviewDetailed(req, res) {
       }
     });
   } catch (err) {
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'OVERVIEW_DETAILED_ERROR', err));
   }
 }
 
-async function getQuestionsCount(req, res){
+async function getQuestionsCount(req, res, next){
   try {
     const examTypeId = parseInt(req.query.exam_type, 10);
     const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
@@ -383,19 +383,19 @@ async function getQuestionsCount(req, res){
     const total = rows && rows[0] ? Number(rows[0].total) : 0;
     return res.json({ examTypeId: hasExamType ? examTypeId : null, total });
   } catch(err){
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'QUESTIONS_COUNT_ERROR', err));
   }
 }
 
-async function getAnsweredQuestionsCount(req, res){
+async function getAnsweredQuestionsCount(req, res, next){
   try {
     const examTypeId = parseInt(req.query.exam_type, 10);
     if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
-      return res.status(400).json({ message: 'exam_type obrigatório' });
+      return next(badRequest('exam_type obrigatório', 'EXAM_TYPE_REQUIRED'));
     }
     const userIdParam = parseInt(req.query.idUsuario, 10);
     const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     const sql = `
       SELECT 
@@ -412,19 +412,19 @@ async function getAnsweredQuestionsCount(req, res){
     const ativos = rows && rows[0] ? Number(rows[0].ativos_distintos) : 0;
     return res.json({ examTypeId, userId, historicalDistinct: historico, activeDistinct: ativos });
   } catch(err){
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'ANSWERED_QUESTIONS_COUNT_ERROR', err));
   }
 }
 
-async function getTotalHours(req, res){
+async function getTotalHours(req, res, next){
   try {
     const examTypeId = parseInt(req.query.exam_type, 10);
     if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
-      return res.status(400).json({ message: 'exam_type obrigatório' });
+      return next(badRequest('exam_type obrigatório', 'EXAM_TYPE_REQUIRED'));
     }
     const userIdParam = parseInt(req.query.idUsuario, 10);
     const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     const sql = `SELECT COALESCE(SUM(COALESCE(aq.tempo_gasto_segundos,0)),0)::bigint AS segundos
                  FROM exam_attempt a
@@ -437,18 +437,18 @@ async function getTotalHours(req, res){
     const horas = Number((segundos / 3600).toFixed(2));
     return res.json({ examTypeId, userId, segundos, horas });
   } catch(err){
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'TOTAL_HOURS_ERROR', err));
   }
 }
 
-async function getProcessGroupStats(req, res){
+async function getProcessGroupStats(req, res, next){
   try {
     const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
     const examTypeId = parseInt(req.query.exam_type, 10);
     const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
     const userIdParam = parseInt(req.query.idUsuario, 10);
     const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     // Identificar o último exame do usuário (considerando exam_type se fornecido)
     let idExame = parseInt(req.query.idExame, 10);
@@ -560,8 +560,7 @@ async function getProcessGroupStats(req, res){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, grupos });
   } catch(err){
-    logger.error('getProcessGroupStats error:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'PROCESS_GROUP_STATS_ERROR', err));
   }
 }
 
@@ -572,14 +571,14 @@ async function getProcessGroupStats(req, res){
 // - Não respondidas contam como incorretas
 // - Percentual = (#corretas / total questões do grupo no exame) * 100
 // - Ranking: #Corretas desc, Percentual desc, Id do grupo asc (empatados recebem mesma posição - dense rank)
-async function getDetailsLast(req, res){
+async function getDetailsLast(req, res, next){
   try {
     const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
     const examTypeId = parseInt(req.query.exam_type, 10);
     const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
     const userIdParam = parseInt(req.query.idUsuario, 10);
     const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     // Descobrir última tentativa concluída
     const lastExamSql = `SELECT a.id, a.exam_type_id
@@ -695,13 +694,12 @@ async function getDetailsLast(req, res){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, itens });
   } catch(err) {
-    logger.error('getDetailsLast error:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'DETAILS_LAST_ERROR', err));
   }
 }
 
 // IND10 - Performance por Domínio
-async function getPerformancePorDominio(req, res){
+async function getPerformancePorDominio(req, res, next){
   try {
     // Modo de seleção do exame: 'best' ou 'last'. Aceita examMode ou exam_mode para flexibilidade.
     const examMode = req.query.examMode || req.query.exam_mode || 'last';
@@ -714,7 +712,7 @@ async function getPerformancePorDominio(req, res){
           : (req.user && Number.isFinite(parseInt(req.user?.id, 10))
               ? parseInt(req.user.id, 10)
               : null));
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     // SQL para buscar exames finalizados do usuário
     const examsSql = `
@@ -804,7 +802,7 @@ async function getPerformancePorDominio(req, res){
         }
       }
     } else {
-      return res.status(400).json({ message: 'examMode inválido. Use "best" ou "last".' });
+      return next(badRequest('examMode inválido. Use "best" ou "last".', 'INVALID_EXAM_MODE'));
     }
 
     if (!selectedExam) {
@@ -871,20 +869,19 @@ async function getPerformancePorDominio(req, res){
     });
 
   } catch(err) {
-    logger.error('getPerformancePorDominio error:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'PERFORMANCE_POR_DOMINIO_ERROR', err));
   }
 }
 
 // IND11 - Tempo médio de resposta por questão
-async function getAvgTimePerQuestion(req, res){
+async function getAvgTimePerQuestion(req, res, next){
   try {
     const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
     const examTypeId = parseInt(req.query.exam_type, 10);
     const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
     const userIdParam = parseInt(req.query.idUsuario, 10);
     const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     const raw = parseInt(req.query.days, 10);
     const days = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 120) : 30;
@@ -927,13 +924,12 @@ async function getAvgTimePerQuestion(req, res){
       totalTimeHours
     });
   } catch(err){
-    logger.error('getAvgTimePerQuestion error:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'AVG_TIME_PER_QUESTION_ERROR', err));
   }
 }
 
 // New: Extended history (up to 50 attempts) including full & quiz with completion status logic
-async function getAttemptsHistoryExtended(req, res){
+async function getAttemptsHistoryExtended(req, res, next){
   try {
     const limit = 50;
     const userIdParam = parseInt(req.query.idUsuario, 10);
@@ -944,7 +940,7 @@ async function getAttemptsHistoryExtended(req, res){
           : (req.user && Number.isFinite(parseInt(req.user?.id, 10))
               ? parseInt(req.user.id, 10)
               : null));
-    if (!userId) return res.status(400).json({ message: 'Usuário não identificado' });
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     const sql = `
       WITH base AS (
@@ -1009,8 +1005,7 @@ async function getAttemptsHistoryExtended(req, res){
 
     return res.json({ userId, limit, items });
   } catch(err){
-    logger.error('getAttemptsHistoryExtended error:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'ATTEMPTS_HISTORY_EXTENDED_ERROR', err));
   }
 }
 

@@ -1,5 +1,6 @@
 const sequelize = require('../config/database');
 const { logger } = require('../utils/logger');
+const { badRequest, conflict, notFound, unauthorized, internalError } = require('../middleware/errors');
 const { XMLParser } = require('fast-xml-parser');
 const fs = require('fs');
 const path = require('path');
@@ -13,11 +14,11 @@ function logQuestionSubmission(entry){
 	} catch(e){ logger.error('logQuestionSubmission error:', e); }
 }
 
-exports.createQuestion = async (req, res) => {
+exports.createQuestion = async (req, res, next) => {
 	try {
 		const b = req.body || {};
 		const descricao = (b.descricao || '').trim();
-		if (!descricao) return res.status(400).json({ error: 'descricao required' });
+		if (!descricao) return next(badRequest('descricao required', 'DESCRICAO_REQUIRED'));
 		// Decide tipo e multiplaescolha
 		const tiposlug = (b.tiposlug || '').trim().toLowerCase() || null;
 		let multipla = null;
@@ -52,18 +53,18 @@ exports.createQuestion = async (req, res) => {
 				if (row && row[0] && row[0].id != null) resolvedExamTypeId = Number(row[0].id);
 			} catch(_) { /* ignore */ }
 		}
-			if (!resolvedExamTypeId) return res.status(400).json({ error: 'examType required' });
+			if (!resolvedExamTypeId) return next(badRequest('examType required', 'EXAM_TYPE_REQUIRED'));
 
 		// Validate createdByUserId antes de iniciar transação (evita falha tardia na FK)
 		if (!Number.isFinite(createdByUserId) || createdByUserId <= 0) {
-			return res.status(400).json({ error: 'createdByUserId required' });
+			return next(badRequest('createdByUserId required', 'CREATED_BY_REQUIRED'));
 		}
 		try {
 			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: createdByUserId }, type: sequelize.QueryTypes.SELECT });
 			if (!urow || !urow[0] || urow[0].Id == null) {
-				return res.status(400).json({ error: 'createdByUserId not found' });
+				return next(badRequest('createdByUserId not found', 'CREATED_BY_NOT_FOUND'));
 			}
-		} catch(e){ return res.status(500).json({ error: 'user lookup failed' }); }
+		} catch(e){ return next(internalError('user lookup failed', 'USER_LOOKUP_FAILED', e)); }
 
 		// Duplicate check (case-insensitive, trimmed) scoped to exam_type_id, ignoring excluidos
 		try {
@@ -72,8 +73,9 @@ exports.createQuestion = async (req, res) => {
 				{ replacements: { examTypeId: resolvedExamTypeId, descricao }, type: sequelize.QueryTypes.SELECT }
 			);
 			if (dupRows && dupRows[0] && dupRows[0].id != null) {
-				logQuestionSubmission({ route: 'createQuestion:duplicate', descricao, examTypeId: resolvedExamTypeId, existingId: Number(dupRows[0].id) });
-				return res.status(409).json({ error: 'duplicate', id: Number(dupRows[0].id) });
+				const dupId = Number(dupRows[0].id);
+				logQuestionSubmission({ route: 'createQuestion:duplicate', descricao, examTypeId: resolvedExamTypeId, existingId: dupId });
+				return next(conflict('duplicate', 'QUESTION_DUPLICATE', { id: dupId }));
 			}
 		} catch(_){ /* silent duplicate lookup failure */ }
 		let createdId = null;
@@ -127,12 +129,12 @@ exports.createQuestion = async (req, res) => {
 		return res.status(201).json({ id: createdId });
 	} catch (err) {
 		logger.error('createQuestion error:', err);
-		return res.status(500).json({ error: 'Internal error' });
+		return next(internalError('Internal error', 'CREATE_QUESTION_ERROR', err));
 	}
 };
 
 // List questions (IDs) with pagination and ordering
-exports.listQuestions = async (req, res) => {
+exports.listQuestions = async (req, res, next) => {
 	try {
 		const page = Math.max(1, parseInt(req.query.page || '1', 10));
 		const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize || '20', 10)));
@@ -174,15 +176,15 @@ exports.listQuestions = async (req, res) => {
 		return res.json({ items, total, page, pageSize });
 	} catch (e) {
 		logger.error('listQuestions error:', e);
-		return res.status(500).json({ error: 'internal error' });
+		return next(internalError('internal error', 'LIST_QUESTIONS_ERROR', e));
 	}
 };
 
 // Get single question with options and explanation
-exports.getQuestionById = async (req, res) => {
+exports.getQuestionById = async (req, res, next) => {
 	try {
 		const id = Number(req.params.id);
-		if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid id' });
+		if (!Number.isFinite(id)) return next(badRequest('invalid id', 'INVALID_ID'));
 
 	const qsql = `SELECT q.id, q.descricao, q.tiposlug, q.iddominio, q.codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
 												 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
@@ -192,7 +194,7 @@ exports.getQuestionById = async (req, res) => {
 								LEFT JOIN public.exam_type et ON et.id = q.exam_type_id
 								WHERE q.id = :id`;
 		const row = await sequelize.query(qsql, { replacements: { id }, type: sequelize.QueryTypes.SELECT });
-		if (!row || !row[0]) return res.status(404).json({ error: 'not found' });
+		if (!row || !row[0]) return next(notFound('not found', 'QUESTION_NOT_FOUND'));
 		const base = row[0];
 
 		const osql = `SELECT descricao, iscorreta AS correta
@@ -230,20 +232,20 @@ exports.getQuestionById = async (req, res) => {
 		});
 	} catch (e) {
 		logger.error('getQuestionById error:', e);
-		return res.status(500).json({ error: 'internal error' });
+		return next(internalError('internal error', 'GET_QUESTION_ERROR', e));
 	}
 };
 
 // Update a question and replace options/explicacao
-exports.updateQuestion = async (req, res) => {
+exports.updateQuestion = async (req, res, next) => {
 	try {
 		const id = Number(req.params.id);
-		if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid id' });
+		if (!Number.isFinite(id)) return next(badRequest('invalid id', 'INVALID_ID'));
 		const b = req.body || {};
 		logQuestionSubmission({ route: 'updateQuestion:start', id, body: b });
 
 		const descricao = (b.descricao || '').trim();
-		if (!descricao) return res.status(400).json({ error: 'descricao required' });
+		if (!descricao) return next(badRequest('descricao required', 'DESCRICAO_REQUIRED'));
 		const tiposlug = (b.tiposlug || '').trim().toLowerCase() || null;
 		let multipla = null;
 		if (typeof b.multiplaescolha === 'boolean') multipla = b.multiplaescolha;
@@ -267,14 +269,14 @@ exports.updateQuestion = async (req, res) => {
 		const updatedByUserId = Number.isFinite(Number(b.updatedByUserId)) ? Number(b.updatedByUserId) : null;
 		// Validate updatedByUserId (must exist in Usuario)
 		if (!Number.isFinite(updatedByUserId) || updatedByUserId <= 0) {
-			return res.status(400).json({ error: 'updatedByUserId required' });
+			return next(badRequest('updatedByUserId required', 'UPDATED_BY_REQUIRED'));
 		}
 		try {
 			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: updatedByUserId }, type: sequelize.QueryTypes.SELECT });
 			if (!urow || !urow[0] || urow[0].Id == null) {
-				return res.status(400).json({ error: 'updatedByUserId not found' });
+				return next(badRequest('updatedByUserId not found', 'UPDATED_BY_NOT_FOUND'));
 			}
-		} catch(e){ return res.status(500).json({ error: 'user lookup failed' }); }
+		} catch(e){ return next(internalError('user lookup failed', 'USER_LOOKUP_FAILED', e)); }
 		const examTypeId = Number.isFinite(Number(b.examTypeId)) ? Number(b.examTypeId) : null;
 		const examTypeSlug = (b.examTypeSlug || b.examType || '').trim().toLowerCase() || null;
 		let resolvedExamTypeId = examTypeId || null;
@@ -373,17 +375,17 @@ exports.updateQuestion = async (req, res) => {
 	} catch (e) {
 		logger.error('updateQuestion error:', e);
 		logQuestionSubmission({ route: 'updateQuestion:error', id: Number(req.params.id), error: e && e.message });
-		return res.status(500).json({ error: 'internal error' });
+		return next(internalError('internal error', 'UPDATE_QUESTION_ERROR', e));
 	}
 };
 
 // Check if a question exists by exact descricao (case-insensitive, trimmed) and exam type (id or slug)
-exports.existsQuestion = async (req, res) => {
+exports.existsQuestion = async (req, res, next) => {
 	try {
 		const rawDesc = (req.query.descricao || '').trim();
-		if (!rawDesc) return res.status(400).json({ error: 'descricao required' });
+		if (!rawDesc) return next(badRequest('descricao required', 'DESCRICAO_REQUIRED'));
 		const examTypeRaw = (req.query.examType || '').trim();
-		if (!examTypeRaw) return res.status(400).json({ error: 'examType required' });
+		if (!examTypeRaw) return next(badRequest('examType required', 'EXAM_TYPE_REQUIRED'));
 		logQuestionSubmission({ route: 'existsQuestion:start', descricao: rawDesc, examType: examTypeRaw });
 		let examTypeId = null;
 		if (/^\d+$/.test(examTypeRaw)) {
@@ -407,7 +409,7 @@ exports.existsQuestion = async (req, res) => {
 	} catch (e) {
 		logger.error('existsQuestion error:', e);
 		logQuestionSubmission({ route: 'existsQuestion:error', error: e && e.message });
-		return res.status(500).json({ error: 'internal error' });
+		return next(internalError('internal error', 'EXISTS_QUESTION_ERROR', e));
 	}
 };
 
@@ -474,7 +476,7 @@ function parseQuestionsFromXml(xmlText){
 }
 
 // POST /api/questions/bulk (JSON body) or multipart/form-data with file (JSON or XML)
-exports.bulkCreateQuestions = async (req, res) => {
+exports.bulkCreateQuestions = async (req, res, next) => {
 	try {
 		let payload = null;
 		let format = 'json';
@@ -510,7 +512,7 @@ exports.bulkCreateQuestions = async (req, res) => {
 			const qs = Array.isArray(payload.questions) ? payload.questions : [];
 			items = qs.map(q => normalizeQuestionJson(q, defaults));
 		} else {
-			return res.status(400).json({ error: 'Invalid payload' });
+			return next(badRequest('Invalid payload', 'INVALID_PAYLOAD'));
 		}
 
 		// Must have examType (batch-level or per-item)
@@ -523,7 +525,7 @@ exports.bulkCreateQuestions = async (req, res) => {
 			else if (defaults.examTypeSlug) uniqueSlugs.add(String(defaults.examTypeSlug));
 		});
 		if (!uniqueSlugs.size && !uniqueIds.size) {
-			return res.status(400).json({ error: 'examType required at batch or per question' });
+			return next(badRequest('examType required at batch or per question', 'EXAM_TYPE_REQUIRED'));
 		}
 
 		// Resolve slugs -> ids in one query
@@ -537,14 +539,14 @@ exports.bulkCreateQuestions = async (req, res) => {
 		// Audit user for bulk explanation rows (required now)
 		const bulkCreatedByUserId = Number.isFinite(Number((req.body && req.body.createdByUserId) || (payload && payload.createdByUserId))) ? Number((req.body && req.body.createdByUserId) || (payload && payload.createdByUserId)) : null;
 		if (!Number.isFinite(bulkCreatedByUserId) || bulkCreatedByUserId <= 0) {
-			return res.status(400).json({ error: 'createdByUserId required for bulk' });
+			return next(badRequest('createdByUserId required for bulk', 'CREATED_BY_REQUIRED'));
 		}
 		try {
 			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: bulkCreatedByUserId }, type: sequelize.QueryTypes.SELECT });
 			if (!urow || !urow[0] || urow[0].Id == null) {
-				return res.status(400).json({ error: 'createdByUserId not found' });
+				return next(badRequest('createdByUserId not found', 'CREATED_BY_NOT_FOUND'));
 			}
-		} catch(e){ return res.status(500).json({ error: 'user lookup failed' }); }
+		} catch(e){ return next(internalError('user lookup failed', 'USER_LOOKUP_FAILED', e)); }
 		const results = [];
 		let inserted = 0;
 		await sequelize.transaction(async (t) => {
@@ -605,6 +607,6 @@ exports.bulkCreateQuestions = async (req, res) => {
 		return res.status(201).json({ inserted, total: items.length, failed: items.length - inserted, results });
 	} catch (err) {
 		logger.error('bulkCreateQuestions error:', err);
-		return res.status(500).json({ error: 'Internal error' });
+		return next(internalError('Internal error', 'BULK_CREATE_QUESTIONS_ERROR', err));
 	}
 };

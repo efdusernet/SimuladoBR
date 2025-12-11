@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/security');
 const { authSchemas, validate } = require('../middleware/validation');
 const { security, audit } = require('../utils/logger');
+const { badRequest, unauthorized, forbidden, notFound, internalError } = require('../middleware/errors');
 
 // Explicitly set bcrypt rounds for password hashing security
 const BCRYPT_ROUNDS = 12;
@@ -56,14 +57,14 @@ const registerLimiter = rateLimit({
 });
 
 // POST /api/auth/login
-router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res) => {
+router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res, next) => {
     try {
         const body = req.body || {};
         if (!body.Email || typeof body.Email !== 'string') {
-            return res.status(400).json({ message: 'Email obrigatório' });
+            return next(badRequest('Email obrigatório', 'EMAIL_REQUIRED'));
         }
         if (!body.SenhaHash || typeof body.SenhaHash !== 'string') {
-            return res.status(400).json({ message: 'Senha obrigatória' });
+            return next(badRequest('Senha obrigatória', 'PASSWORD_REQUIRED'));
         }
 
         const email = body.Email.trim().toLowerCase();
@@ -71,7 +72,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
         if (!user) {
             // Usuário inexistente: não há onde registrar falha
             security.loginFailure(req, email, 'user_not_found');
-            return res.status(401).json({ message: 'Credenciais inválidas' });
+            return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
         }
 
         // Verifica bloqueio temporário por FimBloqueio
@@ -82,11 +83,12 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 const secondsLeft = Math.ceil((until - now) / 1000);
                 security.loginFailure(req, email, 'account_locked');
                 security.suspiciousActivity(req, `Account locked until ${new Date(until).toISOString()} - repeated failed attempts`);
-                return res.status(423).json({
-                    message: 'Muitas tentativas de login. Sua conta foi bloqueada temporariamente. Aguarde 5 minutos antes de tentar novamente.',
-                    lockoutUntil: new Date(until).toISOString(),
-                    lockoutSecondsLeft: secondsLeft
-                });
+                                return next(new (require('../middleware/errorHandler').AppError)(
+                                    'Muitas tentativas de login. Sua conta foi bloqueada temporariamente. Aguarde 5 minutos antes de tentar novamente.',
+                                    423,
+                                    'ACCOUNT_LOCKED',
+                                    { lockoutUntil: new Date(until).toISOString(), lockoutSecondsLeft: secondsLeft }
+                                ));
             }
         } catch (_) { /* ignore */ }
 
@@ -123,7 +125,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 logger.error('Erro criando/enviando token verificação no login:', e);
             }
             security.loginFailure(req, email, 'email_not_confirmed');
-            return res.status(403).json({ message: 'E-mail não confirmado. Enviamos um token para o seu e-mail.' });
+            return next(forbidden('E-mail não confirmado. Enviamos um token para o seu e-mail.', 'EMAIL_NOT_CONFIRMED'));
         }
 
         if (!user.SenhaHash) {
@@ -139,7 +141,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 }
                 await user.update(patch);
             } catch (_) { /* ignore */ }
-            return res.status(401).json({ message: 'Usuário sem senha cadastrada' });
+            return next(unauthorized('Usuário sem senha cadastrada', 'USER_WITHOUT_PASSWORD'));
         }
 
         const match = await bcrypt.compare(body.SenhaHash, user.SenhaHash);
@@ -156,7 +158,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 }
                 await user.update(patch);
             } catch (_) { /* ignore */ }
-            return res.status(401).json({ message: 'Credenciais inválidas' });
+            return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
         }
 
         // Successful login - return minimal user info
@@ -205,20 +207,20 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
         });
     } catch (err) {
         logger.error('Erro em /api/auth/login:', err);
-        return res.status(500).json({ message: 'Erro interno' });
+        return next(internalError('Erro interno', 'INTERNAL_ERROR_LOGIN'));
     }
 });
 
 // POST /api/auth/verify - body: { token }
-router.post('/verify', validate(authSchemas.verify), async (req, res) => {
+router.post('/verify', validate(authSchemas.verify), async (req, res, next) => {
     try {
         const token = req.body.token.trim().toUpperCase();
 
         const now = new Date();
         const record = await EmailVerification.findOne({ where: { Token: token, Used: false } });
-        if (!record) return res.status(400).json({ message: 'Token inválido ou já utilizado' });
-        if (record.ForcedExpiration) return res.status(400).json({ message: 'Este código foi invalidado porque você solicitou um novo. Use o código mais recente.' });
-        if (record.ExpiresAt && new Date(record.ExpiresAt) < now) return res.status(400).json({ message: 'Token expirado' });
+        if (!record) return next(badRequest('Token inválido ou já utilizado', 'INVALID_TOKEN'));
+        if (record.ForcedExpiration) return next(badRequest('Este código foi invalidado porque você solicitou um novo. Use o código mais recente.', 'TOKEN_FORCED_EXPIRED'));
+        if (record.ExpiresAt && new Date(record.ExpiresAt) < now) return next(badRequest('Token expirado', 'TOKEN_EXPIRED'));
 
         // mark used and set user email confirmed
         record.Used = true;
@@ -234,13 +236,13 @@ router.post('/verify', validate(authSchemas.verify), async (req, res) => {
         return res.json({ message: 'E-mail confirmado com sucesso', userId: record.UserId });
     } catch (err) {
         logger.error('Erro em /api/auth/verify:', err);
-        return res.status(500).json({ message: 'Erro interno' });
+        return next(internalError('Erro interno', 'INTERNAL_ERROR_VERIFY'));
     }
 });
 
 // POST /api/auth/forgot-password
 // Solicita código de reset de senha
-router.post('/forgot-password', resetLimiter, validate(authSchemas.forgotPassword), async (req, res) => {
+router.post('/forgot-password', resetLimiter, validate(authSchemas.forgotPassword), async (req, res, next) => {
     try {
         logger.info('[forgot-password] Iniciando processo de recuperação de senha');
         const { email } = req.body;
@@ -308,13 +310,13 @@ router.post('/forgot-password', resetLimiter, validate(authSchemas.forgotPasswor
         return res.json({ message: 'Código enviado para o e-mail informado.' });
     } catch (err) {
         logger.error('Erro em /api/auth/forgot-password:', err);
-        return res.status(500).json({ message: 'Erro ao processar solicitação' });
+        return next(internalError('Erro ao processar solicitação', 'INTERNAL_ERROR_FORGOT_PASSWORD'));
     }
 });
 
 // POST /api/auth/reset-password
 // Reseta senha usando código de verificação
-router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword), async (req, res) => {
+router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword), async (req, res, next) => {
     try {
         const { email, token, senhaHash } = req.body;
 
@@ -324,7 +326,7 @@ router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword)
         // Buscar usuário
         const user = await User.findOne({ where: { Email: emailLower } });
         if (!user) {
-            return res.status(404).json({ message: 'Usuário não encontrado' });
+            return next(notFound('Usuário não encontrado', 'USER_NOT_FOUND'));
         }
 
         // Primeiro, buscar qualquer código com este token para este usuário (independente de Used)
@@ -337,7 +339,7 @@ router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword)
         });
 
         if (!allVerifications || allVerifications.length === 0) {
-            return res.status(400).json({ message: 'Código inválido. Verifique se digitou corretamente.' });
+            return next(badRequest('Código inválido. Verifique se digitou corretamente.', 'INVALID_CODE'));
         }
 
         // Pegar o mais recente
@@ -345,28 +347,28 @@ router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword)
 
         // Verificar se já foi usado
         if (verification.Used) {
-            return res.status(400).json({ message: 'Este código já foi utilizado. Solicite um novo código.' });
+            return next(badRequest('Este código já foi utilizado. Solicite um novo código.', 'CODE_ALREADY_USED'));
         }
 
         // Verificar se foi forçadamente expirado
         if (verification.ForcedExpiration) {
-            return res.status(400).json({ message: 'Este código foi invalidado porque você solicitou um novo. Use o código mais recente.' });
+            return next(badRequest('Este código foi invalidado porque você solicitou um novo. Use o código mais recente.', 'CODE_FORCED_EXPIRED'));
         }
 
         // Verificar se código expirou naturalmente
         if (new Date() > new Date(verification.ExpiresAt)) {
-            return res.status(400).json({ message: 'Código expirado. Solicite um novo código.' });
+            return next(badRequest('Código expirado. Solicite um novo código.', 'CODE_EXPIRED'));
         }
 
         // Verificar se o código é realmente para reset de senha
         try {
             const meta = verification.Meta ? JSON.parse(verification.Meta) : {};
             if (meta.type !== 'password_reset') {
-                return res.status(400).json({ message: 'Este código não é válido para recuperação de senha.' });
+                return next(badRequest('Este código não é válido para recuperação de senha.', 'CODE_NOT_FOR_PASSWORD_RESET'));
             }
         } catch (_) {
             // Se não tem meta, considerar inválido para reset
-            return res.status(400).json({ message: 'Este código não é válido para recuperação de senha.' });
+            return next(badRequest('Este código não é válido para recuperação de senha.', 'CODE_NOT_FOR_PASSWORD_RESET'));
         }
 
         // Hash da senha com bcrypt (servidor)
@@ -384,18 +386,18 @@ router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword)
         return res.json({ message: 'Senha alterada com sucesso' });
     } catch (err) {
         logger.error('Erro em /api/auth/reset-password:', err);
-        return res.status(500).json({ message: 'Erro ao resetar senha' });
+        return next(internalError('Erro ao resetar senha', 'INTERNAL_ERROR_RESET_PASSWORD'));
     }
 });
 
 module.exports = router;
 
 // GET /api/auth/me - resolve user by cookie sessionToken, X-Session-Token header or query parameter
-router.get('/me', async (req, res) => {
+router.get('/me', async (req, res, next) => {
     try {
         // Read token from cookie (preferred), header, or query parameter (legacy)
         const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return res.status(400).json({ message: 'Session token required' });
+        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
 
         let user = null;
         // If token looks like JWT, try to decode
@@ -424,7 +426,7 @@ router.get('/me', async (req, res) => {
             user = await User.findOne({ where });
         }
 
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
         return res.json({
             Id: user.Id,
@@ -436,12 +438,12 @@ router.get('/me', async (req, res) => {
         });
     } catch (err) {
         logger.error('Erro em /api/auth/me:', err);
-        return res.status(500).json({ message: 'Erro interno' });
+        return next(internalError('Erro interno', 'INTERNAL_ERROR_ME'));
     }
 });
 
 // POST /api/auth/logout - Clear httpOnly cookie and cleanup session
-router.post('/logout', (req, res) => {
+router.post('/logout', (req, res, next) => {
     try {
         // Clear the httpOnly cookie
         res.clearCookie('sessionToken', {
@@ -457,6 +459,6 @@ router.post('/logout', (req, res) => {
         });
     } catch (err) {
         logger.error('Erro em /api/auth/logout:', err);
-        return res.status(500).json({ message: 'Erro interno' });
+        return next(internalError('Erro interno', 'INTERNAL_ERROR_LOGOUT'));
     }
 });

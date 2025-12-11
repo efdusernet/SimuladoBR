@@ -10,11 +10,16 @@ require('dotenv').config();
 // Initialize structured logging system
 const { logger } = require('./utils/logger');
 const { requestLogger, errorLogger } = require('./middleware/logging');
+const { AppError, errorHandler } = require('./middleware/errorHandler');
 
 // Validate security configuration early (will exit if JWT_SECRET invalid)
 require('./config/security');
 
 const app = express();
+
+// API versioning
+const API_BASE = '/api';
+const API_V1 = '/api/v1';
 
 // Request ID tracking - must be first
 // Request ID middleware
@@ -97,9 +102,28 @@ if (process.env.DB_SYNC === 'true') {
 }
 
 // Rotas
-// Basic API rate limiting
+// Basic API rate limiting (apply to both legacy and versioned paths)
 const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
-app.use('/api/', apiLimiter);
+app.use(`${API_V1}/`, apiLimiter);
+app.use(`${API_BASE}/`, apiLimiter);
+
+// API version response headers and legacy deprecation notice
+app.use(`${API_V1}`, (req, res, next) => {
+	res.set('X-API-Version', '1');
+	next();
+});
+// Mark unversioned API as deprecated but keep it working
+app.use(`${API_BASE}`, (req, res, next) => {
+	// If the request is actually for a versioned route under /api, skip deprecation header
+	if (req.originalUrl && req.originalUrl.startsWith(`${API_V1}`)) return next();
+	res.set('X-API-Version', '0');
+	res.set('Deprecation', 'true');
+	// Optional: planned removal date can be overridden via env var
+	const sunset = process.env.API_V0_SUNSET || '2026-03-01T00:00:00Z';
+	res.set('Sunset', sunset);
+	res.set('Link', '</api/v1>; rel="successor-version"');
+	next();
+});
 
 // Serve frontend estático: sirva dist (se existir) primeiro para assets otimizados,
 // mas mantenha a pasta frontend como fallback para HTML e demais arquivos.
@@ -131,14 +155,24 @@ app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
 // Rota de login: serve a página dedicada de login
 app.get('/login', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'login.html')));
 
-// CSRF token endpoint
-app.get('/api/csrf-token', (req, res) => {
+// CSRF token endpoint (versioned and legacy)
+app.get(`${API_V1}/csrf-token`, (req, res) => {
   const token = req.csrfToken();
   res.json({ csrfToken: token });
 });
+app.get(`${API_BASE}/csrf-token`, (req, res) => {
+	const token = req.csrfToken();
+	res.json({ csrfToken: token });
+});
 
-// CSRF protection for state-changing methods
-app.use('/api/', (req, res, next) => {
+// CSRF protection for state-changing methods (versioned and legacy)
+app.use(`${API_V1}/`, (req, res, next) => {
+	if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+		return next();
+	}
+	csrfProtection(req, res, next);
+});
+app.use(`${API_BASE}/`, (req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return next();
   }
@@ -146,34 +180,37 @@ app.use('/api/', (req, res, next) => {
 });
 
 // Monta rotas de API (colocar antes da rota catch-all)
-app.use('/api/users', require('./routes/users'));
-// Auth routes (login)
-app.use('/api/auth', require('./routes/auth'));
-// Exams (select questions)
-app.use('/api/exams', require('./routes/exams'));
-// Exams admin lifecycle endpoints
-app.use('/api/admin/exams', require('./routes/exams_admin'));
-// Questions (admin)
-app.use('/api/questions', require('./routes/questions'));
-// Meta lists for exam setup
-app.use('/api/meta', require('./routes/meta'));
-// Play Integrity
-app.use('/api/integrity', require('./routes/integrity'));
-// Indicators API
-app.use('/api/indicators', require('./routes/indicators'));
-// Feedback reporting
-app.use('/api/feedback', require('./routes/feedback'));
-// Admin feedback responses
-app.use('/api/admin/feedback', require('./routes/admin_feedback'));
-// Admin notifications
-app.use('/api/admin/notifications', require('./routes/admin_notifications'));
-// Admin users (list for selection)
-app.use('/api/admin/users', require('./routes/admin_users'));
-// User notifications
-app.use('/api/notifications', require('./routes/notifications'));
-// Admin: roles management (removed)
-// Mount debug routes (development only)
-app.use('/api/debug', require('./routes/debug'));
+// Versioned (v1) routes
+app.use(`${API_V1}/users`, require('./routes/users'));
+app.use(`${API_V1}/auth`, require('./routes/auth'));
+app.use(`${API_V1}/exams`, require('./routes/exams'));
+app.use(`${API_V1}/admin/exams`, require('./routes/exams_admin'));
+app.use(`${API_V1}/questions`, require('./routes/questions'));
+app.use(`${API_V1}/meta`, require('./routes/meta'));
+app.use(`${API_V1}/integrity`, require('./routes/integrity'));
+app.use(`${API_V1}/indicators`, require('./routes/indicators'));
+app.use(`${API_V1}/feedback`, require('./routes/feedback'));
+app.use(`${API_V1}/admin/feedback`, require('./routes/admin_feedback'));
+app.use(`${API_V1}/admin/notifications`, require('./routes/admin_notifications'));
+app.use(`${API_V1}/admin/users`, require('./routes/admin_users'));
+app.use(`${API_V1}/notifications`, require('./routes/notifications'));
+app.use(`${API_V1}/debug`, require('./routes/debug'));
+
+// Legacy (unversioned) routes kept for backward compatibility (deprecated)
+app.use(`${API_BASE}/users`, require('./routes/users'));
+app.use(`${API_BASE}/auth`, require('./routes/auth'));
+app.use(`${API_BASE}/exams`, require('./routes/exams'));
+app.use(`${API_BASE}/admin/exams`, require('./routes/exams_admin'));
+app.use(`${API_BASE}/questions`, require('./routes/questions'));
+app.use(`${API_BASE}/meta`, require('./routes/meta'));
+app.use(`${API_BASE}/integrity`, require('./routes/integrity'));
+app.use(`${API_BASE}/indicators`, require('./routes/indicators'));
+app.use(`${API_BASE}/feedback`, require('./routes/feedback'));
+app.use(`${API_BASE}/admin/feedback`, require('./routes/admin_feedback'));
+app.use(`${API_BASE}/admin/notifications`, require('./routes/admin_notifications'));
+app.use(`${API_BASE}/admin/users`, require('./routes/admin_users'));
+app.use(`${API_BASE}/notifications`, require('./routes/notifications'));
+app.use(`${API_BASE}/debug`, require('./routes/debug'));
 
 // Para rotas não-API, devolve index.html (SPA fallback)
 // NOTE: avoid using app.get('*') which can trigger path-to-regexp errors in some setups.
@@ -185,20 +222,17 @@ app.use((req, res, next) => {
 			res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
+// API 404 handler (after all API routes)
+app.use(['/api', '/api/v1'], (req, res, next) => {
+  // If reached here, no API route matched
+  next(new AppError('Endpoint não encontrado', 404, 'NOT_FOUND'));
+});
+
 // Error logging middleware (must be after all routes)
 app.use(errorLogger);
 
-// Global error handler
-app.use((err, req, res, next) => {
-	const statusCode = err.statusCode || 500;
-	const message = err.message || 'Internal server error';
-	
-	res.status(statusCode).json({
-		success: false,
-		message,
-		...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-	});
-});
+// Centralized error handler
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -1,6 +1,7 @@
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 
 const { logger } = require('../utils/logger');
+const { badRequest, internalError } = require('../middleware/errors');
 // Minimal Play Integrity verification scaffold.
 // Expect a signed JWS token in req.body.token.
 // Uses JWKS URL from env INTEGRITY_JWKS_URL when provided.
@@ -12,11 +13,11 @@ function getEnv(name, def = undefined) {
   return process.env[name] || def;
 }
 
-exports.verify = async (req, res) => {
+exports.verify = async (req, res, next) => {
   try {
     const { token } = req.body || {};
     if (!token || typeof token !== 'string') {
-      return res.status(400).json({ ok: false, error: 'token required' });
+      return next(badRequest('token required', 'TOKEN_REQUIRED'));
     }
 
     const expectedPkg = getEnv('ANDROID_PACKAGE_NAME');
@@ -51,13 +52,13 @@ exports.verify = async (req, res) => {
         header = JSON.parse(hdr);
         warnings.push('Token decoded without signature verification (JWKS not configured).');
       } catch (e) {
-        return res.status(400).json({ ok: false, error: 'invalid JWS format' });
+        return next(badRequest('invalid JWS format', 'INVALID_JWS_FORMAT'));
       }
     }
 
     // Optional semantic checks (adapt to your chosen attestation format)
     if (expectedPkg && payload && payload.apkPackageName && payload.apkPackageName !== expectedPkg) {
-      return res.status(400).json({ ok: false, error: 'package mismatch' });
+      return next(badRequest('package mismatch', 'PACKAGE_MISMATCH'));
     }
 
     // Timestamp check if present (example claim names vary by API version)
@@ -70,6 +71,6 @@ exports.verify = async (req, res) => {
     return res.json({ ok: verified, header, payload, warnings });
   } catch (err) {
     logger.error('Integrity verify error:', err);
-    return res.status(500).json({ ok: false, error: 'internal error' });
+    return next(internalError('internal error', 'INTEGRITY_VERIFY_ERROR', err));
   }
 };

@@ -17,17 +17,17 @@ class SyncManager {
    * Inicia monitoramento de conectividade e sync automático
    */
   init() {
-    console.log('[SyncManager] Inicializando...');
+    logger.info('[SyncManager] Inicializando...');
 
     // Listener de conectividade
     window.addEventListener('online', () => {
-      console.log('[SyncManager] Conexão restaurada');
+      logger.info('[SyncManager] Conexão restaurada');
       this.notify('online');
       this.syncAll();
     });
 
     window.addEventListener('offline', () => {
-      console.log('[SyncManager] Conexão perdida');
+      logger.info('[SyncManager] Conexão perdida');
       this.notify('offline');
     });
 
@@ -60,7 +60,7 @@ class SyncManager {
       try {
         callback({ event, data, timestamp: Date.now() });
       } catch (e) {
-        console.error('[SyncManager] Erro ao notificar listener:', e);
+        logger.error('[SyncManager] Erro ao notificar listener:', e);
       }
     });
   }
@@ -70,12 +70,12 @@ class SyncManager {
    */
   async syncAll() {
     if (this.isSyncing) {
-      console.log('[SyncManager] Sync já em andamento, pulando...');
+      logger.info('[SyncManager] Sync já em andamento, pulando...');
       return;
     }
 
     if (!navigator.onLine) {
-      console.log('[SyncManager] Offline, sync adiado');
+      logger.info('[SyncManager] Offline, sync adiado');
       return;
     }
 
@@ -86,12 +86,12 @@ class SyncManager {
       const items = await offlineDB.getPendingSyncItems();
       
       if (items.length === 0) {
-        console.log('[SyncManager] Nenhum item pendente');
+        logger.info('[SyncManager] Nenhum item pendente');
         this.notify('syncComplete', { synced: 0, failed: 0 });
         return;
       }
 
-      console.log(`[SyncManager] Sincronizando ${items.length} itens...`);
+      logger.info(`[SyncManager] Sincronizando ${items.length} itens...`);
       
       let synced = 0;
       let failed = 0;
@@ -103,7 +103,7 @@ class SyncManager {
           synced++;
           this.notify('itemSynced', { item, synced, total: items.length });
         } catch (error) {
-          console.error('[SyncManager] Erro ao sincronizar item:', item.id, error);
+          logger.error('[SyncManager] Erro ao sincronizar item:', item.id, error);
           await offlineDB.incrementRetry(item.id);
           failed++;
           this.notify('itemFailed', { item, error });
@@ -113,11 +113,11 @@ class SyncManager {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      console.log(`[SyncManager] Sync completo: ${synced} ok, ${failed} falhou`);
+      logger.info(`[SyncManager] Sync completo: ${synced} ok, ${failed} falhou`);
       this.notify('syncComplete', { synced, failed, total: items.length });
 
     } catch (error) {
-      console.error('[SyncManager] Erro no sync:', error);
+      logger.error('[SyncManager] Erro no sync:', error);
       this.notify('syncError', { error });
     } finally {
       this.isSyncing = false;
@@ -141,7 +141,7 @@ class SyncManager {
         return await this.syncProgress(data);
       
       default:
-        console.warn('[SyncManager] Operação desconhecida:', operation);
+        logger.warn('[SyncManager] Operação desconhecida:', operation);
     }
   }
 
@@ -257,7 +257,7 @@ class SyncManager {
       this.syncInterval = null;
     }
     this.listeners.clear();
-    console.log('[SyncManager] Destruído');
+    logger.info('[SyncManager] Destruído');
   }
 }
 

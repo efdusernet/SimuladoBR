@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 require('dotenv').config();
+const { logger } = require('./logger');
 
 const createTransporter = () => {
   const host = process.env.SMTP_HOST;
@@ -61,8 +62,8 @@ async function sendVerificationEmail(toEmail, token, context = 'verificação de
 
   if (!transporter) {
     // Fallback for dev: log the token and URL so developer can copy it
-    console.log('[mailer] SMTP não configurado. Token de verificação: ', token);
-    console.log('[mailer] URL de verificação: ', verifyUrl);
+    logger.info('[mailer] SMTP não configurado. Token de verificação: ', token);
+    logger.info('[mailer] URL de verificação: ', verifyUrl);
     return { ok: true, debug: true, token, verifyUrl };
   }
 
@@ -74,12 +75,12 @@ async function sendVerificationEmail(toEmail, token, context = 'verificação de
     await transporter.verify();
   } catch (vErr) {
     verifyError = vErr;
-    console.error('[mailer] transporter.verify() failed:', vErr);
+    logger.error('[mailer] transporter.verify() failed:', vErr);
     // If the failure is due to a self-signed certificate and the env allows it, continue and attempt sendMail.
     const allowSelf = process.env.SMTP_ALLOW_SELF_SIGNED === 'true';
     const msg = String(vErr || '');
     if (allowSelf && /self-signed certificate/i.test(msg)) {
-      console.warn('[mailer] transporter.verify() failed with self-signed certificate, but SMTP_ALLOW_SELF_SIGNED=true — attempting sendMail anyway.');
+      logger.warn('[mailer] transporter.verify() failed with self-signed certificate, but SMTP_ALLOW_SELF_SIGNED=true — attempting sendMail anyway.');
       // continue to sendMail
     } else {
       // return verify error to caller
@@ -92,7 +93,7 @@ async function sendVerificationEmail(toEmail, token, context = 'verificação de
     // include verifyError if present (so caller can know verify failed but send may have succeeded)
     return verifyError ? { ok: true, info, verifyError: String(verifyError) } : { ok: true, info };
   } catch (sendErr) {
-    console.error('[mailer] sendMail failed:', sendErr);
+    logger.error('[mailer] sendMail failed:', sendErr);
     // prefer to surface send error, but include verifyError if any
     return verifyError ? { ok: false, error: String(sendErr), verifyError: String(verifyError) } : { ok: false, error: String(sendErr) };
   }

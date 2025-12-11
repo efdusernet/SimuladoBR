@@ -393,7 +393,7 @@
         }
       }
     } catch (error) {
-      console.error('Erro ao carregar dados do usuário:', error);
+      logger.error('Erro ao carregar dados do usuário:', error);
     }
   }
 
@@ -467,7 +467,7 @@
     configItems.forEach(item => {
       item.addEventListener('click', () => {
         const config = item.dataset.config;
-        console.log('[Sidebar] Config item clicked:', config);
+        logger.info('[Sidebar] Config item clicked:', config);
         navigateToSection('configuracoes', config);
       });
     });
@@ -489,7 +489,7 @@
 
   // Load settings.html content into profile section
   async function loadSettingsIntoProfile() {
-    console.log('[Sidebar] loadSettingsIntoProfile called');
+    logger.info('[Sidebar] loadSettingsIntoProfile called');
     
     // Save navigation state
     try {
@@ -498,19 +498,19 @@
     } catch(e) {}
     
     try {
-      console.log('[Sidebar] Fetching /pages/settings.html');
+      logger.info('[Sidebar] Fetching /pages/settings.html');
       const response = await fetch('/pages/settings.html');
-      console.log('[Sidebar] Fetch response:', response.status, response.ok);
+      logger.info('[Sidebar] Fetch response:', response.status, response.ok);
       if (!response.ok) throw new Error('Failed to load settings');
       
       const html = await response.text();
-      console.log('[Sidebar] HTML received, length:', html.length);
+      logger.info('[Sidebar] HTML received, length:', html.length);
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       
       // Extrair estilos do head
       const styles = doc.querySelectorAll('style');
-      console.log('[Sidebar] Styles found:', styles.length);
+      logger.info('[Sidebar] Styles found:', styles.length);
       styles.forEach(style => {
         // Adicionar estilos ao head do documento principal se ainda não existir
         if (!document.querySelector(`style[data-settings-style]`)) {
@@ -523,24 +523,24 @@
       
       // Extrair apenas o conteúdo do body (sem header/nav)
       const content = doc.body.innerHTML;
-      console.log('[Sidebar] Content extracted, length:', content.length);
+      logger.info('[Sidebar] Content extracted, length:', content.length);
       
       // Injetar no profile section
       const profileSection = document.getElementById('profile');
-      console.log('[Sidebar] Profile section found:', !!profileSection);
+      logger.info('[Sidebar] Profile section found:', !!profileSection);
       if (profileSection) {
         profileSection.innerHTML = content;
-        console.log('[Sidebar] Content injected');
+        logger.info('[Sidebar] Content injected');
         
         // Executar scripts inline da página settings
         const scripts = doc.querySelectorAll('script');
-        console.log('[Sidebar] Scripts found:', scripts.length);
+        logger.info('[Sidebar] Scripts found:', scripts.length);
         scripts.forEach(script => {
           if (script.innerHTML) {
             try {
               eval(script.innerHTML);
             } catch (e) {
-              console.error('Error executing settings script:', e);
+              logger.error('Error executing settings script:', e);
             }
           }
         });
@@ -548,10 +548,10 @@
         // Ativar a seção profile no index.html
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         profileSection.classList.add('active');
-        console.log('[Sidebar] Profile section activated');
+        logger.info('[Sidebar] Profile section activated');
       }
     } catch (error) {
-      console.error('[Sidebar] Error loading settings:', error);
+      logger.error('[Sidebar] Error loading settings:', error);
       // Fallback: redirecionar para a página
       window.location.href = '/pages/settings.html';
     }
@@ -559,7 +559,7 @@
 
   // Load examSetup.html content into exam-setup section
   async function loadExamSetupIntoSection() {
-    console.log('[Sidebar] loadExamSetupIntoSection called');
+    logger.info('[Sidebar] loadExamSetupIntoSection called');
     
     // Save navigation state
     try {
@@ -568,19 +568,19 @@
     } catch(e) {}
     
     try {
-      console.log('[Sidebar] Fetching /pages/examSetup.html');
+      logger.info('[Sidebar] Fetching /pages/examSetup.html');
       const response = await fetch('/pages/examSetup.html');
-      console.log('[Sidebar] Fetch response:', response.status, response.ok);
+      logger.info('[Sidebar] Fetch response:', response.status, response.ok);
       if (!response.ok) throw new Error('Failed to load exam setup');
       
       const html = await response.text();
-      console.log('[Sidebar] HTML received, length:', html.length);
+      logger.info('[Sidebar] HTML received, length:', html.length);
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       
       // Extrair estilos do head
       const styles = doc.querySelectorAll('style');
-      console.log('[Sidebar] Styles found:', styles.length);
+      logger.info('[Sidebar] Styles found:', styles.length);
       styles.forEach(style => {
         // Adicionar estilos ao head do documento principal se ainda não existir
         if (!document.querySelector(`style[data-exam-setup-style]`)) {
@@ -593,24 +593,24 @@
       
       // Extrair apenas o conteúdo do body
       const content = doc.body.innerHTML;
-      console.log('[Sidebar] Content extracted, length:', content.length);
+      logger.info('[Sidebar] Content extracted, length:', content.length);
       
       // Injetar no exam-setup section
       const examSetupSection = document.getElementById('exam-setup');
-      console.log('[Sidebar] Exam-setup section found:', !!examSetupSection);
+      logger.info('[Sidebar] Exam-setup section found:', !!examSetupSection);
       if (examSetupSection) {
         examSetupSection.innerHTML = content;
-        console.log('[Sidebar] Content injected');
+        logger.info('[Sidebar] Content injected');
         
         // Executar scripts inline da página examSetup
         const scripts = doc.querySelectorAll('script');
-        console.log('[Sidebar] Scripts found:', scripts.length);
+        logger.info('[Sidebar] Scripts found:', scripts.length);
         scripts.forEach(script => {
           if (script.innerHTML) {
             try {
               eval(script.innerHTML);
             } catch (e) {
-              console.error('Error executing exam setup script:', e);
+              logger.error('Error executing exam setup script:', e);
             }
           }
         });
@@ -618,10 +618,10 @@
         // Ativar a seção exam-setup no index.html
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         examSetupSection.classList.add('active');
-        console.log('[Sidebar] Exam-setup section activated');
+        logger.info('[Sidebar] Exam-setup section activated');
       }
     } catch (error) {
-      console.error('[Sidebar] Error loading exam setup:', error);
+      logger.error('[Sidebar] Error loading exam setup:', error);
       // Fallback: redirecionar para a página
       window.location.href = '/pages/examSetup.html';
     }
@@ -632,7 +632,7 @@
 
   // Load progressoGeral.html content into progresso-geral section
   async function loadProgressoGeralIntoSection() {
-    console.log('[Sidebar] loadProgressoGeralIntoSection called');
+    logger.info('[Sidebar] loadProgressoGeralIntoSection called');
     
     // Save navigation state
     try {
@@ -641,19 +641,19 @@
     } catch(e) {}
     
     try {
-      console.log('[Sidebar] Fetching /pages/progressoGeral.html');
+      logger.info('[Sidebar] Fetching /pages/progressoGeral.html');
       const response = await fetch('/pages/progressoGeral.html');
-      console.log('[Sidebar] Fetch response:', response.status, response.ok);
+      logger.info('[Sidebar] Fetch response:', response.status, response.ok);
       if (!response.ok) throw new Error('Failed to load progresso geral');
       
       const html = await response.text();
-      console.log('[Sidebar] HTML received, length:', html.length);
+      logger.info('[Sidebar] HTML received, length:', html.length);
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       
       // Extrair estilos do head
       const styles = doc.querySelectorAll('style');
-      console.log('[Sidebar] Styles found:', styles.length);
+      logger.info('[Sidebar] Styles found:', styles.length);
       styles.forEach(style => {
         // Adicionar estilos ao head do documento principal se ainda não existir
         if (!document.querySelector(`style[data-progresso-geral-style]`)) {
@@ -666,24 +666,24 @@
       
       // Extrair apenas o conteúdo do body
       const content = doc.body.innerHTML;
-      console.log('[Sidebar] Content extracted, length:', content.length);
+      logger.info('[Sidebar] Content extracted, length:', content.length);
       
       // Injetar no progresso-geral section
       const progressoSection = document.getElementById('progresso-geral');
-      console.log('[Sidebar] Progresso-geral section found:', !!progressoSection);
+      logger.info('[Sidebar] Progresso-geral section found:', !!progressoSection);
       if (progressoSection) {
         progressoSection.innerHTML = content;
-        console.log('[Sidebar] Content injected');
+        logger.info('[Sidebar] Content injected');
         
         // Executar scripts inline da página progressoGeral
         const scripts = doc.querySelectorAll('script');
-        console.log('[Sidebar] Scripts found:', scripts.length);
+        logger.info('[Sidebar] Scripts found:', scripts.length);
         scripts.forEach(script => {
           if (script.innerHTML) {
             try {
               eval(script.innerHTML);
             } catch (e) {
-              console.error('Error executing progresso geral script:', e);
+              logger.error('Error executing progresso geral script:', e);
             }
           }
         });
@@ -691,10 +691,10 @@
         // Ativar a seção progresso-geral no index.html
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         progressoSection.classList.add('active');
-        console.log('[Sidebar] Progresso-geral section activated');
+        logger.info('[Sidebar] Progresso-geral section activated');
       }
     } catch (error) {
-      console.error('[Sidebar] Error loading progresso geral:', error);
+      logger.error('[Sidebar] Error loading progresso geral:', error);
       // Fallback: redirecionar para a página
       window.location.href = '/pages/progressoGeral.html';
     }
@@ -748,51 +748,51 @@
         window.location.href = '/pages/Indicadores.html';
       },
       'progresso-geral': () => {
-        console.log('[Sidebar] Progresso-geral clicked');
+        logger.info('[Sidebar] Progresso-geral clicked');
         const layout = document.body.getAttribute('data-layout');
-        console.log('[Sidebar] Current layout:', layout);
+        logger.info('[Sidebar] Current layout:', layout);
         
         // No modo desktop, carregar dentro do index.html
         if (layout === 'desktop') {
-          console.log('[Sidebar] Desktop mode - loading progresso geral into section');
+          logger.info('[Sidebar] Desktop mode - loading progresso geral into section');
           loadProgressoGeralIntoSection();
         } else {
           // No mobile, redirecionar normalmente
-          console.log('[Sidebar] Mobile mode - redirecting to progressoGeral.html');
+          logger.info('[Sidebar] Mobile mode - redirecting to progressoGeral.html');
           window.location.href = '/pages/progressoGeral.html';
         }
       },
       'configuracoes': (sub) => {
-        console.log('[Sidebar] Configuracoes clicked, subsection:', sub);
+        logger.info('[Sidebar] Configuracoes clicked, subsection:', sub);
         const layout = document.body.getAttribute('data-layout');
-        console.log('[Sidebar] Current layout:', layout);
+        logger.info('[Sidebar] Current layout:', layout);
         
         // No modo desktop, não precisa verificar senha (usuário já está autenticado)
         if (layout === 'desktop') {
-          console.log('[Sidebar] Desktop mode - loading settings directly');
+          logger.info('[Sidebar] Desktop mode - loading settings directly');
           loadSettingsIntoProfile();
         } else {
           // No mobile, verificar senha antes de redirecionar
           if (window.verifyPasswordForSettings) {
-            console.log('[Sidebar] Mobile mode - verifying password');
+            logger.info('[Sidebar] Mobile mode - verifying password');
             window.verifyPasswordForSettings()
               .then(() => {
-                console.log('[Sidebar] Password verified - redirecting');
+                logger.info('[Sidebar] Password verified - redirecting');
                 window.location.href = '/pages/settings.html';
               })
               .catch((err) => {
-                console.log('[Sidebar] Password verification failed or cancelled:', err);
+                logger.info('[Sidebar] Password verification failed or cancelled:', err);
               });
           } else {
-            console.log('[Sidebar] verifyPasswordForSettings not available - redirecting directly');
+            logger.info('[Sidebar] verifyPasswordForSettings not available - redirecting directly');
             window.location.href = '/pages/settings.html';
           }
         }
       },
       'simulados': (sub) => {
-        console.log('[Sidebar] Simulados clicked, subsection:', sub);
+        logger.info('[Sidebar] Simulados clicked, subsection:', sub);
         const layout = document.body.getAttribute('data-layout');
-        console.log('[Sidebar] Current layout:', layout);
+        logger.info('[Sidebar] Current layout:', layout);
         
         // Mapear simulados para cards específicos
         const cardMap = {
@@ -808,11 +808,11 @@
             
             // No modo desktop, carregar dentro do index.html
             if (layout === 'desktop') {
-              console.log('[Sidebar] Desktop mode - loading exam setup into section');
+              logger.info('[Sidebar] Desktop mode - loading exam setup into section');
               loadExamSetupIntoSection();
             } else {
               // No mobile, redirecionar normalmente
-              console.log('[Sidebar] Mobile mode - redirecting to examSetup.html');
+              logger.info('[Sidebar] Mobile mode - redirecting to examSetup.html');
               window.location.href = '/pages/examSetup.html';
             }
           },
@@ -1031,16 +1031,16 @@
       
       // Não restaurar se for 'indicadores' ou 'home' (Indicadores tem página própria)
       if (savedSection && savedSection !== 'home' && savedSection !== 'indicadores') {
-        console.log('[Sidebar] Restoring navigation state:', savedSection, savedSubsection);
+        logger.info('[Sidebar] Restoring navigation state:', savedSection, savedSubsection);
         // Small delay to ensure DOM is ready
         setTimeout(() => {
           navigateToSection(savedSection, savedSubsection);
         }, 100);
       } else if (savedSection === 'indicadores') {
-        console.log('[Sidebar] Skipping restore for indicadores (has own page)');
+        logger.info('[Sidebar] Skipping restore for indicadores (has own page)');
       }
     } catch(e) {
-      console.error('[Sidebar] Error restoring navigation state:', e);
+      logger.error('[Sidebar] Error restoring navigation state:', e);
     }
   }
 

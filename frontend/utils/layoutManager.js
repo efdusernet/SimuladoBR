@@ -22,7 +22,7 @@ const LayoutManager = {
    * Inicializa o gerenciador de layouts
    */
   init() {
-    console.log('[LayoutManager] Inicializando...');
+    logger.info('[LayoutManager] Inicializando...');
     
     // Detectar e aplicar layout inicial
     this.detectAndApply();
@@ -38,7 +38,7 @@ const LayoutManager = {
       }
     });
     
-    console.log('[LayoutManager] Inicializado. Layout:', this.currentLayout);
+    logger.info('[LayoutManager] Inicializado. Layout:', this.currentLayout);
   },
   
   /**
@@ -46,7 +46,7 @@ const LayoutManager = {
    */
   detectAndApply() {
     if (this.isFullscreen) {
-      console.log('[LayoutManager] Em modo fullscreen, pulando detecção');
+      logger.info('[LayoutManager] Em modo fullscreen, pulando detecção');
       return;
     }
     
@@ -54,7 +54,7 @@ const LayoutManager = {
     const newLayout = width >= this.BREAKPOINT ? 'desktop' : 'mobile';
     
     if (newLayout !== this.currentLayout) {
-      console.log(`[LayoutManager] Mudando layout: ${this.currentLayout} → ${newLayout}`);
+      logger.info(`[LayoutManager] Mudando layout: ${this.currentLayout} → ${newLayout}`);
       this.switchLayout(newLayout);
     }
   },
@@ -84,7 +84,7 @@ const LayoutManager = {
    * Carrega layout desktop (sidebar + content area)
    */
   async loadDesktopLayout() {
-    console.log('[LayoutManager] Carregando layout desktop...');
+    logger.info('[LayoutManager] Carregando layout desktop...');
     
     try {
       // Carregar sidebar se não existir
@@ -98,7 +98,7 @@ const LayoutManager = {
           // Executar scripts dentro do componente
           this.executeScripts(sidebarMount);
           
-          console.log('[LayoutManager] Sidebar carregada');
+          logger.info('[LayoutManager] Sidebar carregada');
         }
       }
       
@@ -107,7 +107,7 @@ const LayoutManager = {
       if (bottomNav) bottomNav.style.display = 'none';
       
     } catch (error) {
-      console.error('[LayoutManager] Erro ao carregar desktop:', error);
+      logger.error('[LayoutManager] Erro ao carregar desktop:', error);
     }
   },
   
@@ -115,7 +115,7 @@ const LayoutManager = {
    * Carrega layout mobile (bottom-nav + cards)
    */
   loadMobileLayout() {
-    console.log('[LayoutManager] Carregando layout mobile...');
+    logger.info('[LayoutManager] Carregando layout mobile...');
     
     // Ocultar sidebar
     const sidebar = document.getElementById('sidebarMount');
@@ -130,7 +130,7 @@ const LayoutManager = {
     const adminBtn = document.getElementById('adminMenuBtn');
     if (adminBtn && adminBtn.style.display === 'inline-flex') {
       // Já está visível, não fazer nada
-      console.log('[LayoutManager] Botão admin mantido visível no mobile');
+      logger.info('[LayoutManager] Botão admin mantido visível no mobile');
     }
   },
   
@@ -138,7 +138,7 @@ const LayoutManager = {
    * Entra em modo fullscreen
    */
   enterFullscreen(pageName = 'unknown') {
-    console.log(`[LayoutManager] Entrando em fullscreen: ${pageName}`);
+    logger.info(`[LayoutManager] Entrando em fullscreen: ${pageName}`);
     
     this.isFullscreen = true;
     this.fullscreenPage = pageName;
@@ -159,7 +159,7 @@ const LayoutManager = {
    * Sai do modo fullscreen
    */
   exitFullscreen() {
-    console.log('[LayoutManager] Saindo de fullscreen');
+    logger.info('[LayoutManager] Saindo de fullscreen');
     
     this.isFullscreen = false;
     this.fullscreenPage = null;
@@ -223,7 +223,7 @@ const LayoutManager = {
       try {
         callback(newLayout, oldLayout);
       } catch (error) {
-        console.error('[LayoutManager] Erro em callback:', error);
+        logger.error('[LayoutManager] Erro em callback:', error);
       }
     });
   },

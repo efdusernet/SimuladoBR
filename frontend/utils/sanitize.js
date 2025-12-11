@@ -15,7 +15,7 @@
 function sanitizeHTML(dirty, config = {}) {
   // Check if DOMPurify is available
   if (typeof DOMPurify === 'undefined') {
-    console.error('DOMPurify not loaded! Falling back to basic sanitization.');
+    logger.error('DOMPurify not loaded! Falling back to basic sanitization.');
     return basicSanitize(dirty);
   }
 
@@ -42,7 +42,7 @@ function sanitizeHTML(dirty, config = {}) {
   try {
     return DOMPurify.sanitize(dirty, finalConfig);
   } catch (error) {
-    console.error('DOMPurify sanitization failed:', error);
+    logger.error('DOMPurify sanitization failed:', error);
     return basicSanitize(dirty);
   }
 }
@@ -90,7 +90,7 @@ function basicSanitize(html) {
     
     return container.innerHTML;
   } catch (e) {
-    console.error('Basic sanitization failed:', e);
+    logger.error('Basic sanitization failed:', e);
     return String(html || '');
   }
 }

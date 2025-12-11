@@ -1,4 +1,5 @@
 const express = require('express');
+const { logger } = require('../utils/logger');
 const router = express.Router();
 const db = require('../models');
 const requireUserSession = require('../middleware/requireUserSession');
@@ -9,7 +10,7 @@ router.get('/categories', requireUserSession, async (req, res) => {
 		const list = await db.CategoriaFeedback.findAll({ attributes: ['id', 'descricao'], order: [['descricao','ASC']] });
 		res.json(list);
 	} catch (e) {
-		console.error('feedback.categories error', e);
+		logger.error('feedback.categories error', e);
 		res.status(500).json({ error: 'Erro ao listar categorias' });
 	}
 });
@@ -39,7 +40,7 @@ router.post('/', requireUserSession, async (req, res) => {
 		const created = await db.Feedback.create(payload);
 		res.status(201).json({ id: created.id, idcategoria: created.idcategoria, idquestao: created.idquestao, reportadopor: created.reportadopor ?? null });
 	} catch (e) {
-		console.error('feedback.create error', e);
+		logger.error('feedback.create error', e);
 		res.status(500).json({ error: 'Erro ao criar feedback' });
 	}
 });

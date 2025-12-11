@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cadastrar Questão</title>
   <link rel="stylesheet" href="/styles.css" />
@@ -359,7 +361,7 @@
         try {
           if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1;
         } catch(_){ }
-      } catch(e){ console.error('[loadVersoesExame] error:', e); }
+      } catch(e){ logger.error('[loadVersoesExame] error:', e); }
     }
 
     // Image upload handlers
@@ -557,7 +559,7 @@
           }
         } catch(e){}
       } catch (e) {
-        console.error('[loadExamTypes] error:', e);
+        logger.error('[loadExamTypes] error:', e);
       }
     }
 
@@ -600,7 +602,7 @@
           sel.appendChild(o);
         });
       } catch(e) {
-        console.error('[loadDominios] error:', e);
+        logger.error('[loadDominios] error:', e);
       }
     }
 
@@ -621,7 +623,7 @@
           sel.appendChild(o);
         });
       } catch(e) {
-        console.error('[loadAreas] error:', e);
+        logger.error('[loadAreas] error:', e);
       }
     }
 
@@ -642,7 +644,7 @@
           sel.appendChild(o);
         });
       } catch(e) {
-        console.error('[loadGrupos] error:', e);
+        logger.error('[loadGrupos] error:', e);
       }
     }
 
@@ -663,7 +665,7 @@
           sel.appendChild(o);
         });
       } catch(e) {
-        console.error('[loadPrincipios] error:', e);
+        logger.error('[loadPrincipios] error:', e);
       }
     }
 
@@ -684,7 +686,7 @@
           sel.appendChild(o);
         });
       } catch(e) {
-        console.error('[loadCategorias] error:', e);
+        logger.error('[loadCategorias] error:', e);
       }
     }
 
@@ -705,7 +707,7 @@
           sel.appendChild(o);
         });
       } catch(e) {
-        console.error('[loadNiveisDificuldade] error:', e);
+        logger.error('[loadNiveisDificuldade] error:', e);
       }
     }
 
@@ -730,7 +732,7 @@
         // Attach filter if matching filter input exists
         attachTaskFilter(targetId, targetId === 'idtask' ? 'idtaskFilter' : (targetId === 'idtaskNav' ? 'idtaskNavFilter' : null));
       } catch(e) {
-        console.error('[loadTasks] error:', e);
+        logger.error('[loadTasks] error:', e);
       }
     }
 
@@ -901,14 +903,14 @@
         if (target === 'sec-nav' && !navInitialized) {
           navInitialized = true;
           await Promise.all([ loadVersoesExame('versaoExameNav') ]);
-          console.log('[initTabs] Loading first question for Navegação tab...');
+          logger.info('[initTabs] Loading first question for Navegação tab...');
           const firstId = await navGetFirstId(); 
-          console.log('[initTabs] firstId result:', firstId);
+          logger.info('[initTabs] firstId result:', firstId);
           if (firstId) {
-            console.log('[initTabs] Calling navLoadById with:', firstId);
+            logger.info('[initTabs] Calling navLoadById with:', firstId);
             await navLoadById(firstId);
           } else {
-            console.warn('[initTabs] No first ID found');
+            logger.warn('[initTabs] No first ID found');
             navSetStatus('Nenhuma questão encontrada');
           }
         }
@@ -923,20 +925,20 @@
       try {
         const token = localStorage.getItem('sessionToken') || '';
         const url = (BACKEND_BASE||'').replace(/\/$/, '') + '/api/questions?page=1&pageSize=1&order=id%20asc';
-        console.log('[navGetFirstId] fetching:', url);
+        logger.info('[navGetFirstId] fetching:', url);
         const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
-        console.log('[navGetFirstId] status:', resp.status);
+        logger.info('[navGetFirstId] status:', resp.status);
         if (!resp.ok) { 
-          console.error('[navGetFirstId] error response:', await resp.text());
+          logger.error('[navGetFirstId] error response:', await resp.text());
           return null; 
         }
         const data = await resp.json();
-        console.log('[navGetFirstId] data:', data);
+        logger.info('[navGetFirstId] data:', data);
         const firstId = (data.items && data.items.length) ? data.items[0] : null;
-        console.log('[navGetFirstId] firstId:', firstId);
+        logger.info('[navGetFirstId] firstId:', firstId);
         return firstId;
       } catch(e){ 
-        console.error('[navGetFirstId] exception:', e);
+        logger.error('[navGetFirstId] exception:', e);
         return null; 
       }
     }
@@ -1030,10 +1032,10 @@
         
         navState.allIds = allIds;
         navState.lastFetch = now;
-        console.log('[navLoadAllIds] Loaded', allIds.length, 'question IDs');
+        logger.info('[navLoadAllIds] Loaded', allIds.length, 'question IDs');
         return allIds;
       } catch(e) {
-        console.error('[navLoadAllIds] error:', e);
+        logger.error('[navLoadAllIds] error:', e);
         return navState.allIds; // Return cached if fetch fails
       }
     }
@@ -1069,7 +1071,7 @@
           return currentIndex < allIds.length - 1 ? allIds[currentIndex + 1] : null;
         }
       } catch(e){ 
-        console.error('[navFindAdjacentId] error:', e);
+        logger.error('[navFindAdjacentId] error:', e);
         return null; 
       }
     }

@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Progresso Geral - SimuladosBR</title>
     <style>
@@ -127,7 +129,7 @@
             try {
                 const token = (localStorage.getItem('sessionToken') || '').trim();
                 if (!token) {
-                    console.warn('Sem token de sessão');
+                    logger.warn('Sem token de sessão');
                     return;
                 }
                 
@@ -138,7 +140,7 @@
                 });
                 
                 if (!response.ok) {
-                    console.error('Erro ao buscar dados:', response.status);
+                    logger.error('Erro ao buscar dados:', response.status);
                     return;
                 }
                 
@@ -147,12 +149,12 @@
                 if (data.domains && data.domains.length > 0) {
                     updateChart(data.domains);
                 } else {
-                    console.warn('Nenhum dado de domínio encontrado');
+                    logger.warn('Nenhum dado de domínio encontrado');
                     // Set chart to 0
                     updateChart([]);
                 }
             } catch (error) {
-                console.error('Erro ao carregar dados do radar:', error);
+                logger.error('Erro ao carregar dados do radar:', error);
             }
         }
         

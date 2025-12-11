@@ -294,7 +294,7 @@ class OfflineIndicator {
           }, 2000);
         }
       } catch (error) {
-        console.error('Erro ao sincronizar:', error);
+        logger.error('Erro ao sincronizar:', error);
         syncBtn.textContent = 'Erro - Tente novamente';
         setTimeout(() => {
           syncBtn.textContent = 'Sincronizar agora';
@@ -365,7 +365,7 @@ class OfflineIndicator {
         }
       }
     } catch (error) {
-      console.error('Erro ao atualizar stats:', error);
+      logger.error('Erro ao atualizar stats:', error);
     }
   }
 }

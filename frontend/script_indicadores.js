@@ -31,7 +31,7 @@
       renderSummary(summary);
       renderDailyChart(daily);
       renderScoreChart(daily);
-    } catch(e){ console.error(e); setError(true); }
+    } catch(e){ logger.error(e); setError(true); }
     setLoading(false);
   }
 

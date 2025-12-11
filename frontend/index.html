@@ -23,6 +23,8 @@
     
     <!-- Layout Manager -->
     <script src="/utils/layoutManager.js"></script>
+    <!-- Controlled Logging System (must load before other scripts) -->
+    <script src="/utils/logger.js"></script>
     <!-- Logout Utility -->
     <script src="/utils/logout.js"></script>
     <!-- CSRF Protection -->
@@ -249,12 +251,12 @@
         
         // Função para esconder spinner e prevenir loop
         function cleanupAfterReturn() {
-            console.log('[index.html] cleanupAfterReturn executado');
+            logger.info('[index.html] cleanupAfterReturn executado');
             
             // Marcar flag de retorno
             const wentToSetup = sessionStorage.getItem('wentToExamSetup') === 'true';
             if (wentToSetup) {
-                console.log('[index.html] Detectado retorno do examSetup');
+                logger.info('[index.html] Detectado retorno do examSetup');
                 sessionStorage.setItem('justReturnedFromExamSetup', 'true');
                 sessionStorage.removeItem('wentToExamSetup');
             }
@@ -264,7 +266,7 @@
                 const spinner = document.getElementById('redirectSpinner');
                 if (spinner) {
                     spinner.remove(); // Remove completamente em vez de só esconder
-                    console.log('[index.html] Spinner removido');
+                    logger.info('[index.html] Spinner removido');
                 }
                 
                 // Fechar TODOS os modais/overlays que possam estar abertos
@@ -280,7 +282,7 @@
                         modal.classList.remove('active');
                         modal.setAttribute('aria-hidden', 'true');
                         modal.style.display = 'none';
-                        console.log('[index.html] Modal fechado:', modalId);
+                        logger.info('[index.html] Modal fechado:', modalId);
                     }
                 });
                 
@@ -290,7 +292,7 @@
                     overlay.classList.remove('active');
                     overlay.setAttribute('aria-hidden', 'true');
                     overlay.style.display = 'none';
-                    console.log('[index.html] Overlay fechado');
+                    logger.info('[index.html] Overlay fechado');
                 });
                 
                 // Restaurar scroll do body
@@ -303,7 +305,7 @@
         
         // Executar também no pageshow (para detectar navegação back/forward)
         window.addEventListener('pageshow', (event) => {
-            console.log('[index.html] pageshow event, persisted:', event.persisted);
+            logger.info('[index.html] pageshow event, persisted:', event.persisted);
             cleanupAfterReturn();
         });
     })();
@@ -357,7 +359,7 @@
                         let list = [];
                         if (r.ok) {
                             list = await r.json();
-                            console.debug('[history] fetched attempts count=', Array.isArray(list)?list.length:'(non-array)', list);
+                            logger.debug('[history] fetched attempts count=', Array.isArray(list)?list.length:'(non-array)', list);
                         } else {
                             // Silenced debug log for history HTTP status
                         }
@@ -711,20 +713,20 @@
               }
               // Reset Password button handler
               const resetPasswordBtn = document.getElementById('btnAdminResetPassword');
-              console.log('[DEBUG] Reset password button:', resetPasswordBtn);
+              logger.debug('[DEBUG] Reset password button:', resetPasswordBtn);
               if (resetPasswordBtn){
                   resetPasswordBtn.addEventListener('click', ()=>{
-                      console.log('[DEBUG] Reset password clicked!');
+                      logger.debug('[DEBUG] Reset password clicked!');
                       close(); // Fecha o menu admin
                       const adminModal = document.getElementById('adminModal');
-                      console.log('[DEBUG] Admin modal element:', adminModal);
+                      logger.debug('[DEBUG] Admin modal element:', adminModal);
                       if (adminModal){
                           adminModal.classList.add('active');
                           adminModal.setAttribute('aria-hidden','false');
                           // Force display - remove any inline display:none
                           adminModal.style.display = '';
-                          console.log('[DEBUG] Modal classes:', adminModal.className);
-                          console.log('[DEBUG] Modal display after fix:', window.getComputedStyle(adminModal).display);
+                          logger.debug('[DEBUG] Modal classes:', adminModal.className);
+                          logger.debug('[DEBUG] Modal display after fix:', window.getComputedStyle(adminModal).display);
                           const nav = document.querySelector('.bottom-nav'); if (nav) nav.style.display='none';
                           // Focus email field & highlight reset password box
                           try {
@@ -1060,7 +1062,7 @@
                                                 pctsFullTop3: full.slice(0,3).map(x => x && x.scorePercent),
                                                 modesTop3: full.slice(0,3).map(x => x && x.examMode)
                                             };
-                                            console.debug('[gauge:lastExamResults] history debug', dbg);
+                                            logger.debug('[gauge:lastExamResults] history debug', dbg);
                                         } catch(_){}
                                         const clearStyle = () => {
                                             try {
@@ -1089,7 +1091,7 @@
                                                 const allGte70Lt75 = pcts.every(x => x >= 70 && x < 75);
                                                 const allGt85 = pcts.every(x => x > 85);
                                                 const allGt75 = pcts.every(x => x > 75);
-                                                try { console.debug('[gauge:lastExamResults] branch', { pcts, allLt70, allGte70Lt75, allGt75, allGt85 }); } catch(_){}
+                                                try { logger.debug('[gauge:lastExamResults] branch', { pcts, allLt70, allGte70Lt75, allGt75, allGt85 }); } catch(_){}
                                                 // Clear previous thumb if any
                                                 const header = host.querySelector('.ler-header');
                                                 const kpi = host.querySelector('.ler-icon');
@@ -1141,7 +1143,7 @@
                                                     try { host.style.setProperty('background-image', grad, 'important'); } catch(_){ }
                                                     try { mount.style.setProperty('background-color', '#0A7A0A', 'important'); } catch(_){ }
                                                     try { host.style.setProperty('background-color', '#0A7A0A', 'important'); } catch(_){ }
-                                                    try { console.debug('[gauge:lastExamResults] applied perf-gt85', { background: grad }); } catch(_){}
+                                                    try { logger.debug('[gauge:lastExamResults] applied perf-gt85', { background: grad }); } catch(_){}
                                                     mount.classList.add('perf-gt85');
                                                     host.classList.add('perf-gt85');
                                                     mount.classList.add('dark-perf');
@@ -1160,8 +1162,8 @@
                                                             try {
                                                                 const cm = window.getComputedStyle(mount);
                                                                 const ch = window.getComputedStyle(host);
-                                                                console.debug('[gauge:lastExamResults] lock perf-gt85 background reapplied', { mountBg: cm.backgroundImage||cm.background, hostBg: ch.backgroundImage||ch.background });
-                                                            } catch(_){ console.debug('[gauge:lastExamResults] lock perf-gt85 background reapplied'); }
+                                                                logger.debug('[gauge:lastExamResults] lock perf-gt85 background reapplied', { mountBg: cm.backgroundImage||cm.background, hostBg: ch.backgroundImage||ch.background });
+                                                            } catch(_){ logger.debug('[gauge:lastExamResults] lock perf-gt85 background reapplied'); }
                                                         }, 0);
                                                     } catch(_){}
                                                     // Observa mudanças e reaplica por alguns segundos, caso algo limpe estilos
@@ -1201,7 +1203,7 @@
                                                     try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; }
                                                     try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){}
                                                     try { host.style.setProperty('background-image', grad, 'important'); } catch(_){}
-                                                    try { console.debug('[gauge:lastExamResults] applied 70-74', { background: grad }); } catch(_){}
+                                                    try { logger.debug('[gauge:lastExamResults] applied 70-74', { background: grad }); } catch(_){}
                                                     mount.classList.remove('dark-perf');
                                                     host.classList.remove('dark-perf');
                                                 } else if (allLt70){
@@ -1211,7 +1213,7 @@
                                                     try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; }
                                                     try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){}
                                                     try { host.style.setProperty('background-image', grad, 'important'); } catch(_){}
-                                                    try { console.debug('[gauge:lastExamResults] applied <70', { background: grad }); } catch(_){}
+                                                    try { logger.debug('[gauge:lastExamResults] applied <70', { background: grad }); } catch(_){}
                                                     mount.classList.remove('dark-perf');
                                                     host.classList.remove('dark-perf');
                                                     if (header && kpi){
@@ -1229,7 +1231,7 @@
                                                     try { host.style.setProperty('background', grad, 'important'); } catch(_){ host.style.background = grad; }
                                                     try { mount.style.setProperty('background-image', grad, 'important'); } catch(_){}
                                                     try { host.style.setProperty('background-image', grad, 'important'); } catch(_){}
-                                                    try { console.debug('[gauge:lastExamResults] applied 75-85', { background: grad }); } catch(_){}
+                                                    try { logger.debug('[gauge:lastExamResults] applied 75-85', { background: grad }); } catch(_){}
                                                     mount.classList.add('dark-perf');
                                                     host.classList.add('dark-perf');
                                                      if (header && kpi){
@@ -1255,7 +1257,7 @@
                                                         const v = Number(top.correct || 0);
                                                         const m = Number(top.total || 0);
                                                         window.initLastExamResults(host, { value: v, max: m });
-                                                        try { console.debug('[gauge:lastExamResults] set gauge from last FULL', { value: v, max: m, pct: m>0 ? Math.round((v*100)/m) : null }); } catch(_){}
+                                                        try { logger.debug('[gauge:lastExamResults] set gauge from last FULL', { value: v, max: m, pct: m>0 ? Math.round((v*100)/m) : null }); } catch(_){}
                                                                                                                 // Ensure help hidden and values visible when showing data
                                                                                                                 try {
                                                                                                                     const help = host.querySelector('.ler-help'); if (help) help.style.display='none';
@@ -1318,7 +1320,7 @@
                                     try {
                                         const cm = window.getComputedStyle(mount);
                                         const ch = window.getComputedStyle(host2);
-                                        console.debug('[gauge:lastExamResults] final lock', { mountBg: cm.backgroundImage||cm.background, hostBg: ch.backgroundImage||ch.background });
+                                        logger.debug('[gauge:lastExamResults] final lock', { mountBg: cm.backgroundImage||cm.background, hostBg: ch.backgroundImage||ch.background });
                                     } catch(_){}
                                 }
                             } catch(_){}
@@ -1630,7 +1632,7 @@
                 const card = e.target.closest && e.target.closest('.card');
                 if (!card) return;
                 
-                console.log('[index.html] Card clicado:', card.id, card.getAttribute('data-card'));
+                logger.info('[index.html] Card clicado:', card.id, card.getAttribute('data-card'));
                 
                 // Prioridade: interceptar clique no exame completo (mock) antes do handler genérico
                 if (card.id === 'card-exam-mock' || card.getAttribute('data-card') === 'exam-mock'){
@@ -1656,12 +1658,12 @@
                     // Configurações: intercepta e redireciona para página de settings (com verificação de senha)
                     const isSettings = (card.id === 'card-settings') || (card.id === 'card-profile-settings') || (card.getAttribute('data-card') === 'settings') || (card.getAttribute('data-card') === 'profile-settings');
                     if (isSettings) {
-                        console.log('[Settings Card] Clicked, card id:', card.id);
+                        logger.info('[Settings Card] Clicked, card id:', card.id);
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
                         
                         // Redirecionar diretamente para settings sem verificação de senha
                         // O usuário já está autenticado com JWT token
-                        console.log('[Settings Card] Redirecting to settings page');
+                        logger.info('[Settings Card] Redirecting to settings page');
                         window.location.assign('/pages/settings.html');
                         return;
                     }
@@ -1675,7 +1677,7 @@
                             const now = Date.now();
                             
                             if (preventLoop && (now - loopTime) < 2000) {
-                                console.log('[index.html] Detectado possível loop para Indicadores, ignorando clique');
+                                logger.info('[index.html] Detectado possível loop para Indicadores, ignorando clique');
                                 sessionStorage.removeItem('preventIndicadoresLoop');
                                 sessionStorage.removeItem('preventIndicadoresLoopTime');
                                 return;
@@ -1683,7 +1685,7 @@
                         } catch(_) {}
                         
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
-                        console.log('[index.html] Navegando para Indicadores.html');
+                        logger.info('[index.html] Navegando para Indicadores.html');
                         window.location.assign('/pages/Indicadores.html');
                         return;
                     }
@@ -1769,7 +1771,7 @@
                     try {
                         const justReturned = sessionStorage.getItem('justReturnedFromExamSetup') === 'true';
                         if (justReturned) {
-                            console.log('[index.html] Card clicado mas usuário acabou de voltar, ignorando');
+                            logger.info('[index.html] Card clicado mas usuário acabou de voltar, ignorando');
                             sessionStorage.removeItem('justReturnedFromExamSetup');
                             return;
                         }
@@ -1897,7 +1899,7 @@
                         }
                     }
                 } catch(e) {
-                    console.warn('Admin check failed:', e);
+                    logger.warn('Admin check failed:', e);
                 }
             })();
             
@@ -2192,18 +2194,18 @@
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register('/sw.js')
                         .then(registration => {
-                            console.log('[SW] Registered successfully:', registration.scope);
+                            logger.info('[SW] Registered successfully:', registration.scope);
                             registration.addEventListener('updatefound', () => {
                                 const newWorker = registration.installing;
-                                console.log('[SW] Update found');
+                                logger.info('[SW] Update found');
                                 newWorker.addEventListener('statechange', () => {
                                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        console.log('[SW] New version available, reload to update');
+                                        logger.info('[SW] New version available, reload to update');
                                     }
                                 });
                             });
                         })
-                        .catch(err => console.error('[SW] Registration failed:', err));
+                        .catch(err => logger.error('[SW] Registration failed:', err));
                 });
             } catch(e){ /* ignore in unsupported contexts */ }
         })();

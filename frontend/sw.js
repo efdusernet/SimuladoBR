@@ -1,5 +1,12 @@
 // Service Worker v2.0.5 - PWA Offline-First Robusto
 // Estratégias: Cache-First (assets), Network-First + Cache Fallback (API), Stale-While-Revalidate (images)
+// SW context does not have window; ensure logger shim
+const logger = (self && self.logger) ? self.logger : {
+  debug: (...args) => { try { console.debug(...args); } catch(_){} },
+  info:  (...args) => { try { console.info(...args); } catch(_){} },
+  warn:  (...args) => { try { console.warn(...args); } catch(_){} },
+  error: (...args) => { try { console.error(...args); } catch(_){} }
+};
 
 const VERSION = '2.0.8';
 const CACHE_PREFIX = 'simuladosbr';
@@ -46,20 +53,20 @@ const CACHE_CONFIG = {
 // INSTALL
 // ============================================
 self.addEventListener('install', event => {
-  console.log(`[SW v${VERSION}] Installing...`);
+  logger.info(`[SW v${VERSION}] Installing...`);
   
   event.waitUntil(
     caches.open(CACHES.STATIC)
       .then(cache => {
-        console.log('[SW] Caching static assets');
+        logger.info('[SW] Caching static assets');
         return cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' })));
       })
       .then(() => {
-        console.log('[SW] Static assets cached, skipping waiting');
+        logger.info('[SW] Static assets cached, skipping waiting');
         return self.skipWaiting();
       })
       .catch(err => {
-        console.error('[SW] Install failed:', err);
+        logger.error('[SW] Install failed:', err);
         return Promise.reject(err);
       })
   );
@@ -69,7 +76,7 @@ self.addEventListener('install', event => {
 // ACTIVATE
 // ============================================
 self.addEventListener('activate', event => {
-  console.log(`[SW v${VERSION}] Activating...`);
+  logger.info(`[SW v${VERSION}] Activating...`);
   
   event.waitUntil(
     Promise.all([
@@ -81,14 +88,14 @@ self.addEventListener('activate', event => {
                      !Object.values(CACHES).includes(name);
             })
             .map(name => {
-              console.log('[SW] Deleting old cache:', name);
+              logger.info('[SW] Deleting old cache:', name);
               return caches.delete(name);
             })
         );
       }),
       self.clients.claim()
     ]).then(() => {
-      console.log('[SW] Activation complete, controlling all clients');
+      logger.info('[SW] Activation complete, controlling all clients');
     })
   );
 });
@@ -154,7 +161,7 @@ async function cacheFirst(request, cacheName) {
 
     return await fetchAndCache(request, cacheName);
   } catch (error) {
-    console.log('[SW] Cache-first failed:', request.url);
+    logger.info('[SW] Cache-first failed:', request.url);
     // Permitir que o navegador tente buscar normalmente
     return fetch(request).catch(() => {
       // Se tudo falhar, retornar resposta vazia ao invés de undefined
@@ -186,13 +193,13 @@ async function networkFirstWithCache(request, cacheName) {
         await cache.put(request, cachedResponse);
         cleanCache(cacheName).catch(() => {});
       } catch (cacheError) {
-        console.log('[SW] Cache put failed:', cacheError);
+        logger.info('[SW] Cache put failed:', cacheError);
       }
     }
     
     return response;
   } catch (error) {
-    console.log('[SW] Network failed, trying cache:', request.url);
+    logger.info('[SW] Network failed, trying cache:', request.url);
     
     try {
       const cache = await caches.open(cacheName);
@@ -200,7 +207,7 @@ async function networkFirstWithCache(request, cacheName) {
       
       if (cached) return cached;
     } catch (cacheError) {
-      console.log('[SW] Cache match failed:', cacheError);
+      logger.info('[SW] Cache match failed:', cacheError);
     }
     
     // Fallback para API
@@ -232,13 +239,13 @@ async function staleWhileRevalidate(request, cacheName) {
         return response;
       })
       .catch(() => {
-        console.log('[SW] Stale-while-revalidate fetch failed:', request.url);
+        logger.info('[SW] Stale-while-revalidate fetch failed:', request.url);
         return cached || new Response('', { status: 404 });
       });
     
     return cached || fetchPromise;
   } catch (error) {
-    console.log('[SW] Stale-while-revalidate error:', error);
+    logger.info('[SW] Stale-while-revalidate error:', error);
     return fetch(request).catch(() => new Response('', { status: 404 }));
   }
 }
@@ -255,7 +262,7 @@ async function fetchAndCache(request, cacheName) {
     }
     return response;
   } catch (error) {
-    console.log('[SW] Fetch failed for:', request.url);
+    logger.info('[SW] Fetch failed for:', request.url);
     throw error;
   }
 }
@@ -269,10 +276,10 @@ async function cleanCache(cacheName) {
     if (requests.length > maxEntries) {
       const toDelete = requests.slice(0, requests.length - maxEntries);
       await Promise.all(toDelete.map(request => cache.delete(request)));
-      console.log(`[SW] Cleaned ${toDelete.length} entries from ${cacheName}`);
+      logger.info(`[SW] Cleaned ${toDelete.length} entries from ${cacheName}`);
     }
   } catch (error) {
-    console.log('[SW] Clean cache failed:', error);
+    logger.info('[SW] Clean cache failed:', error);
   }
 }
 
@@ -280,14 +287,14 @@ async function cleanCache(cacheName) {
 // BACKGROUND SYNC
 // ============================================
 self.addEventListener('sync', event => {
-  console.log('[SW] Background sync:', event.tag);
+  logger.info('[SW] Background sync:', event.tag);
   if (event.tag === 'sync-answers') {
     event.waitUntil(syncAnswers());
   }
 });
 
 async function syncAnswers() {
-  console.log('[SW] Syncing answers...');
+  logger.info('[SW] Syncing answers...');
   // Delegado ao syncManager.js no client
 }
 
@@ -329,4 +336,4 @@ self.addEventListener('message', event => {
   }
 });
 
-console.log(`[SW v${VERSION}] Loaded and ready`);
+logger.info(`[SW v${VERSION}] Loaded and ready`);

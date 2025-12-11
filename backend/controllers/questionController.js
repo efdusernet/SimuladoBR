@@ -1,4 +1,5 @@
 const sequelize = require('../config/database');
+const { logger } = require('../utils/logger');
 const { XMLParser } = require('fast-xml-parser');
 const fs = require('fs');
 const path = require('path');
@@ -9,7 +10,7 @@ function logQuestionSubmission(entry){
 		if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 		const payload = { ts: new Date().toISOString(), ...entry };
 		fs.appendFileSync(path.join(logDir, 'question_submissions.log'), JSON.stringify(payload) + '\n');
-	} catch(e){ console.error('logQuestionSubmission error:', e); }
+	} catch(e){ logger.error('logQuestionSubmission error:', e); }
 }
 
 exports.createQuestion = async (req, res) => {
@@ -125,7 +126,7 @@ exports.createQuestion = async (req, res) => {
 
 		return res.status(201).json({ id: createdId });
 	} catch (err) {
-		console.error('createQuestion error:', err);
+		logger.error('createQuestion error:', err);
 		return res.status(500).json({ error: 'Internal error' });
 	}
 };
@@ -172,7 +173,7 @@ exports.listQuestions = async (req, res) => {
 		const total = (totResult && totResult[0] && totResult[0].c != null) ? Number(totResult[0].c) : 0;
 		return res.json({ items, total, page, pageSize });
 	} catch (e) {
-		console.error('listQuestions error:', e);
+		logger.error('listQuestions error:', e);
 		return res.status(500).json({ error: 'internal error' });
 	}
 };
@@ -228,7 +229,7 @@ exports.getQuestionById = async (req, res) => {
 			examType: { id: base.exam_type_id, slug: base.exam_type_slug, nome: base.exam_type_nome }
 		});
 	} catch (e) {
-		console.error('getQuestionById error:', e);
+		logger.error('getQuestionById error:', e);
 		return res.status(500).json({ error: 'internal error' });
 	}
 };
@@ -370,7 +371,7 @@ exports.updateQuestion = async (req, res) => {
 		logQuestionSubmission({ route: 'updateQuestion:done', id, descricao, optionsCount: Array.isArray(b.options) ? b.options.length : 0 });
 		return res.json({ ok: true, id });
 	} catch (e) {
-		console.error('updateQuestion error:', e);
+		logger.error('updateQuestion error:', e);
 		logQuestionSubmission({ route: 'updateQuestion:error', id: Number(req.params.id), error: e && e.message });
 		return res.status(500).json({ error: 'internal error' });
 	}
@@ -404,7 +405,7 @@ exports.existsQuestion = async (req, res) => {
 		logQuestionSubmission({ route: 'existsQuestion:notFound', descricao: rawDesc, examType: examTypeId });
 		return res.json({ exists: false });
 	} catch (e) {
-		console.error('existsQuestion error:', e);
+		logger.error('existsQuestion error:', e);
 		logQuestionSubmission({ route: 'existsQuestion:error', error: e && e.message });
 		return res.status(500).json({ error: 'internal error' });
 	}
@@ -603,7 +604,7 @@ exports.bulkCreateQuestions = async (req, res) => {
 
 		return res.status(201).json({ inserted, total: items.length, failed: items.length - inserted, results });
 	} catch (err) {
-		console.error('bulkCreateQuestions error:', err);
+		logger.error('bulkCreateQuestions error:', err);
 		return res.status(500).json({ error: 'Internal error' });
 	}
 };

@@ -1,4 +1,5 @@
 const db = require('../models');
+const { logger } = require('../utils/logger');
 const sequelize = require('../config/database');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/security');
@@ -73,7 +74,7 @@ exports.listExams = async (req, res) => {
     const registry = require('../services/exams/ExamRegistry');
     return res.json(registry.getTypes());
   } catch (err) {
-    console.error('Erro listExams:', err);
+    logger.error('Erro listExams:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 };
@@ -90,7 +91,7 @@ exports.listExamTypes = async (_req, res) => {
     const registry = require('../services/exams/ExamRegistry');
     return res.json(registry.getTypes());
   } catch (err) {
-    console.error('Erro listExamTypes:', err);
+    logger.error('Erro listExamTypes:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 };
@@ -452,7 +453,7 @@ exports.selectQuestions = async (req, res) => {
       // Stats: increment started count
       try { if (attempt && attempt.Id) await userStatsService.incrementStarted(attempt.UserId || (user && (user.Id || user.id))); } catch(_) {}
     } catch (e) {
-      console.warn('selectQuestions: could not persist attempt', e);
+      logger.warn('selectQuestions: could not persist attempt', e);
     }
 
     // Keep session state in memory to support later submit and pause
@@ -498,7 +499,7 @@ exports.selectQuestions = async (req, res) => {
         // Debug after enrichment for Q266
         try {
           const enrichedQ266 = payloadQuestions.find(q => q && Number(q.id) === 266);
-          if (enrichedQ266) console.debug('[selectQuestions] enriched Q266 imagem_url length=', enrichedQ266.imagem_url ? String(enrichedQ266.imagem_url).length : 0, 'prefix50=', enrichedQ266.imagem_url ? String(enrichedQ266.imagem_url).slice(0,50) : null);
+          if (enrichedQ266) logger.debug('[selectQuestions] enriched Q266 imagem_url length=', enrichedQ266.imagem_url ? String(enrichedQ266.imagem_url).length : 0, 'prefix50=', enrichedQ266.imagem_url ? String(enrichedQ266.imagem_url).slice(0,50) : null);
         } catch(_) {}
       }
     } catch(e) { /* ignore enrichment errors */ }
@@ -514,7 +515,7 @@ exports.selectQuestions = async (req, res) => {
 
     return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, examMode: examMode || null, attemptId: attempt ? attempt.Id : null, exam: blueprint, questions: payloadQuestions });
   } catch (err) {
-    console.error('Erro selectQuestions:', err);
+    logger.error('Erro selectQuestions:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };
@@ -524,7 +525,7 @@ exports.startExam = async (req, res) => {
   try {
     return res.status(501).json({ message: 'startExam not implemented yet' });
   } catch (err) {
-    console.error('Erro startExam:', err);
+    logger.error('Erro startExam:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 };
@@ -773,13 +774,13 @@ exports.submitAnswers = async (req, res) => {
           try { if (attemptId) await userStatsService.incrementFinished(user.Id || user.id, percent); } catch(_) {}
         }
       }
-    } catch (e) { console.warn('submitAnswers persistence warning:', e); }
+    } catch (e) { logger.warn('submitAnswers persistence warning:', e); }
 
     // For partial submissions, just acknowledge ok and include counts that were computed
     if (partial) return res.json({ ok: true, sessionId, saved: (answers || []).length, totalKnown: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect });
     return res.json(result);
   } catch (err) {
-    console.error('Erro submitAnswers:', err);
+    logger.error('Erro submitAnswers:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };
@@ -922,7 +923,7 @@ exports.startOnDemand = async (req, res) => {
       multiplaSelecao: examCfg.multiplaSelecao,
     }});
   } catch (err) {
-    console.error('Erro startOnDemand:', err);
+    logger.error('Erro startOnDemand:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };
@@ -978,7 +979,7 @@ exports.getQuestion = async (req, res) => {
     }
     return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: { id: q.id, type, descricao: q.descricao || q.Descricao, explicacao: q.explicacao || q.Explicacao, options: opts } });
   } catch (err) {
-    console.error('Erro getQuestion:', err);
+    logger.error('Erro getQuestion:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };
@@ -1004,7 +1005,7 @@ exports.pauseStart = async (req, res) => {
     await updateSession(sessionId, { pauses: { ...s.pauses, pauseUntil: until, consumed }, pausePolicy: policy });
     return res.json({ ok: true, pauseUntil: until });
   } catch (err) {
-    console.error('Erro pauseStart:', err);
+    logger.error('Erro pauseStart:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };
@@ -1027,7 +1028,7 @@ exports.pauseSkip = async (req, res) => {
     await updateSession(sessionId, { pauses: { ...s.pauses, consumed } });
     return res.json({ ok: true });
   } catch (err) {
-    console.error('Erro pauseSkip:', err);
+    logger.error('Erro pauseSkip:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };
@@ -1041,7 +1042,7 @@ exports.pauseStatus = async (req, res) => {
     if (!s) return res.status(404).json({ error: 'session not found' });
     return res.json({ pauses: s.pauses || {}, policy: s.pausePolicy || null, examType: s.examType || 'pmp' });
   } catch (err) {
-    console.error('Erro pauseStatus:', err);
+    logger.error('Erro pauseStatus:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };
@@ -1128,7 +1129,7 @@ exports.resumeSession = async (req, res) => {
 
     return res.json({ ok: true, sessionId: newSessionId, attemptId: attempt.Id, total: questionIds.length, examType: (attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp' });
   } catch (err) {
-    console.error('Erro resumeSession:', err);
+    logger.error('Erro resumeSession:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };
@@ -1257,7 +1258,7 @@ exports.resumeSession = async (req, res) => {
         examMode: attempt.ExamMode || null
       });
     } catch (err) {
-      console.error('Erro lastAttemptSummary:', err);
+      logger.error('Erro lastAttemptSummary:', err);
       return res.status(500).json({ error: 'Internal error' });
     }
   };
@@ -1387,7 +1388,7 @@ exports.resumeSession = async (req, res) => {
       });
       return res.json(out);
     } catch (err) {
-      console.error('Erro lastAttemptsHistory:', err);
+      logger.error('Erro lastAttemptsHistory:', err);
       return res.status(500).json({ error: 'Internal error' });
     }
   };
@@ -1425,7 +1426,7 @@ exports.resumeSession = async (req, res) => {
       }
       return res.json({ ok: true, processed, markedTimeout, markedLowProgress });
     } catch (err) {
-      console.error('Erro markAbandonedAttempts:', err);
+      logger.error('Erro markAbandonedAttempts:', err);
       return res.status(500).json({ error: 'Internal error' });
     }
   };
@@ -1477,7 +1478,7 @@ exports.resumeSession = async (req, res) => {
       }
       return res.json({ ok: true, inspected, purged });
     } catch (err) {
-      console.error('Erro purgeAbandonedAttempts:', err);
+      logger.error('Erro purgeAbandonedAttempts:', err);
       return res.status(500).json({ error: 'Internal error' });
     }
   };
@@ -1610,7 +1611,7 @@ exports.getAttemptResult = async (req, res) => {
 
     return res.json({ total, questions, answers });
   } catch (err) {
-    console.error('Erro getAttemptResult:', err);
+    logger.error('Erro getAttemptResult:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 };

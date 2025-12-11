@@ -1,4 +1,5 @@
 const express = require('express');
+const { logger } = require('../utils/logger');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const db = require('../models');
@@ -85,10 +86,10 @@ router.post('/', registerLimiter, validate(authSchemas.register), async (req, re
                     // Se não tem meta ou se é verificação de email inicial
                     if (!oldMeta.type || (oldMeta.type !== 'password_reset' && oldMeta.type !== 'email_change')) {
                         await oldToken.update({ ForcedExpiration: true });
-                        console.log(`[register] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${created.Id}`);
+                        logger.info(`[register] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${created.Id}`);
                     }
                 } catch (e) {
-                    console.warn('[register] Erro ao processar meta de token antigo:', e);
+                    logger.warn('[register] Erro ao processar meta de token antigo:', e);
                 }
             }
 
@@ -100,7 +101,7 @@ router.post('/', registerLimiter, validate(authSchemas.register), async (req, re
             // send email (if configured); in dev this may log the token
             await sendVerificationEmail(created.Email, token);
         } catch (mailErr) {
-            console.error('Erro criando/enviando token de verificação:', mailErr);
+            logger.error('Erro criando/enviando token de verificação:', mailErr);
         }
 
         // Return the DB fields in the final format the frontend expects.
@@ -116,7 +117,7 @@ router.post('/', registerLimiter, validate(authSchemas.register), async (req, re
             Excluido: created.Excluido ?? null
         });
     } catch (err) {
-        console.error('Erro criando usuário (DB):', err);
+        logger.error('Erro criando usuário (DB):', err);
         return res.status(500).json({ message: 'Erro interno' });
     }
 });
@@ -141,7 +142,7 @@ router.get('/', async (req, res) => {
 
         return res.json(users);
     } catch (err) {
-        console.error('Erro listando usuários (dev):', err);
+        logger.error('Erro listando usuários (dev):', err);
         return res.status(500).json({ message: 'Erro interno' });
     }
 });
@@ -196,7 +197,7 @@ router.get('/me', async (req, res) => {
             TipoUsuario: isAdmin ? 'admin' : 'user'
         });
     } catch (err) {
-        console.error('Erro /users/me:', err);
+        logger.error('Erro /users/me:', err);
         return res.status(500).json({ error: 'Internal error' });
     }
 });
@@ -231,7 +232,7 @@ router.get('/me/stats/daily', async (req, res) => {
         const rows = await userStatsService.getDailyStats(user.Id || user.id, days);
         return res.json({ days, data: rows });
     } catch (err) {
-        console.error('Erro user daily stats:', err);
+        logger.error('Erro user daily stats:', err);
         return res.status(500).json({ error: 'Internal error' });
     }
 });
@@ -265,7 +266,7 @@ router.get('/me/stats/summary', async (req, res) => {
         const summary = await userStatsService.getSummary(user.Id || user.id, days);
         return res.json(summary);
     } catch (err) {
-        console.error('Erro user stats summary:', err);
+        logger.error('Erro user stats summary:', err);
         return res.status(500).json({ error: 'Internal error' });
     }
 });
@@ -312,7 +313,7 @@ router.put('/me/profile', async (req, res) => {
         
         return res.json({ message: 'Perfil atualizado com sucesso', user: { Id: user.Id, Nome: user.Nome, NomeUsuario: user.NomeUsuario } });
     } catch (err) {
-        console.error('Erro ao atualizar perfil:', err);
+        logger.error('Erro ao atualizar perfil:', err);
         return res.status(500).json({ error: 'Erro interno' });
     }
 });
@@ -360,7 +361,7 @@ router.post('/me/email/request-change', async (req, res) => {
             const existingId = Number(existing.Id || existing.id);
             const currentUserId = Number(user.Id || user.id);
             if (existingId !== currentUserId) {
-                console.warn(`[SECURITY] User ${currentUserId} attempted to change email to already registered email: ${emailLower} (owner: ${existingId})`);
+                logger.warn(`[SECURITY] User ${currentUserId} attempted to change email to already registered email: ${emailLower} (owner: ${existingId})`);
                 return res.status(409).json({ message: 'Este email já está em uso' });
             }
             // If same user, they already have this email - no change needed
@@ -381,10 +382,10 @@ router.post('/me/email/request-change', async (req, res) => {
                 if (oldMeta.type === 'email_change') {
                     // Força expiração do token
                     await oldToken.update({ ForcedExpiration: true });
-                    console.log(`[email-change] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${user.Id}`);
+                    logger.info(`[email-change] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${user.Id}`);
                 }
             } catch (e) {
-                console.warn('[email-change] Erro ao processar meta de token antigo:', e);
+                logger.warn('[email-change] Erro ao processar meta de token antigo:', e);
             }
         }
 
@@ -407,7 +408,7 @@ router.post('/me/email/request-change', async (req, res) => {
         
         return res.json({ message: 'Código de verificação enviado para o novo email' });
     } catch (err) {
-        console.error('Erro ao solicitar alteração de email:', err);
+        logger.error('Erro ao solicitar alteração de email:', err);
         return res.status(500).json({ error: 'Erro interno' });
     }
 });
@@ -489,7 +490,7 @@ router.post('/me/email/verify-change', async (req, res) => {
 
         return res.json({ message: 'Email alterado com sucesso' });
     } catch (err) {
-        console.error('Erro ao verificar alteração de email:', err);
+        logger.error('Erro ao verificar alteração de email:', err);
         return res.status(500).json({ error: 'Erro interno' });
     }
 });
@@ -526,15 +527,15 @@ router.post('/me/verify-password', async (req, res) => {
         }
 
         // Debug logging
-        console.log('[verify-password] User:', user.Email);
-        console.log('[verify-password] SHA-256 received (first 20 chars):', password.substring(0, 20));
-        console.log('[verify-password] Bcrypt stored (first 20 chars):', user.SenhaHash.substring(0, 20));
+        logger.info('[verify-password] User:', user.Email);
+        logger.info('[verify-password] SHA-256 received (first 20 chars):', password.substring(0, 20));
+        logger.info('[verify-password] Bcrypt stored (first 20 chars):', user.SenhaHash.substring(0, 20));
 
         // Password comes as SHA-256 hash from client (same as login)
         // Server stored hash is bcrypt(SHA-256)
         const isValid = await bcrypt.compare(password, user.SenhaHash);
         
-        console.log('[verify-password] Comparison result:', isValid);
+        logger.info('[verify-password] Comparison result:', isValid);
         
         if (!isValid) {
             return res.status(401).json({ message: 'Senha incorreta' });
@@ -542,7 +543,7 @@ router.post('/me/verify-password', async (req, res) => {
 
         return res.json({ message: 'Senha verificada com sucesso' });
     } catch (err) {
-        console.error('Erro ao verificar senha:', err);
+        logger.error('Erro ao verificar senha:', err);
         return res.status(500).json({ error: 'Erro interno' });
     }
 });
@@ -596,7 +597,7 @@ router.put('/me/password', async (req, res) => {
 
         return res.json({ message: 'Senha alterada com sucesso' });
     } catch (err) {
-        console.error('Erro ao alterar senha:', err);
+        logger.error('Erro ao alterar senha:', err);
         return res.status(500).json({ error: 'Erro interno' });
     }
 });

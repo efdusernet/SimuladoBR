@@ -6,6 +6,7 @@
 
 const redis = require('redis');
 
+const { logger } = require('../utils/logger');
 class SessionManager {
   constructor() {
     this.client = null;
@@ -23,7 +24,7 @@ class SessionManager {
     const useRedis = process.env.USE_REDIS !== 'false'; // Default to true in production
 
     if (!useRedis) {
-      console.log('[SessionManager] Redis disabled - using in-memory storage (development mode)');
+      logger.info('[SessionManager] Redis disabled - using in-memory storage (development mode)');
       return;
     }
 
@@ -33,7 +34,7 @@ class SessionManager {
         socket: {
           reconnectStrategy: (retries) => {
             if (retries > 10) {
-              console.error('[SessionManager] Redis reconnection failed after 10 attempts');
+              logger.error('[SessionManager] Redis reconnection failed after 10 attempts');
               return new Error('Redis reconnection limit exceeded');
             }
             return Math.min(retries * 100, 3000); // Exponential backoff, max 3s
@@ -42,22 +43,22 @@ class SessionManager {
       });
 
       this.client.on('error', (err) => {
-        console.error('[SessionManager] Redis error:', err.message);
+        logger.error('[SessionManager] Redis error:', err.message);
         this.isRedisAvailable = false;
       });
 
       this.client.on('connect', () => {
-        console.log('[SessionManager] Redis connected successfully');
+        logger.info('[SessionManager] Redis connected successfully');
         this.isRedisAvailable = true;
       });
 
       this.client.on('ready', () => {
-        console.log('[SessionManager] Redis ready for operations');
+        logger.info('[SessionManager] Redis ready for operations');
         this.isRedisAvailable = true;
       });
 
       this.client.on('reconnecting', () => {
-        console.log('[SessionManager] Redis reconnecting...');
+        logger.info('[SessionManager] Redis reconnecting...');
         this.isRedisAvailable = false;
       });
 
@@ -66,10 +67,10 @@ class SessionManager {
       // Test connection
       await this.client.ping();
       this.isRedisAvailable = true;
-      console.log('[SessionManager] Redis connection verified');
+      logger.info('[SessionManager] Redis connection verified');
 
     } catch (error) {
-      console.warn('[SessionManager] Redis connection failed, falling back to in-memory storage:', error.message);
+      logger.warn('[SessionManager] Redis connection failed, falling back to in-memory storage:', error.message);
       this.isRedisAvailable = false;
       this.client = null;
     }
@@ -109,7 +110,7 @@ class SessionManager {
         await this.client.setEx(key, ttlSeconds, JSON.stringify(sessionData));
         return true;
       } catch (error) {
-        console.error('[SessionManager] Redis putSession error:', error.message);
+        logger.error('[SessionManager] Redis putSession error:', error.message);
         // Fallback to memory
         this.isRedisAvailable = false;
       }
@@ -135,7 +136,7 @@ class SessionManager {
         
         return JSON.parse(data);
       } catch (error) {
-        console.error('[SessionManager] Redis getSession error:', error.message);
+        logger.error('[SessionManager] Redis getSession error:', error.message);
         this.isRedisAvailable = false;
       }
     }
@@ -179,7 +180,7 @@ class SessionManager {
         await this.client.setEx(key, ttlSeconds, JSON.stringify(updated));
         return updated;
       } catch (error) {
-        console.error('[SessionManager] Redis updateSession error:', error.message);
+        logger.error('[SessionManager] Redis updateSession error:', error.message);
         this.isRedisAvailable = false;
       }
     }
@@ -201,7 +202,7 @@ class SessionManager {
         await this.client.del(key);
         return true;
       } catch (error) {
-        console.error('[SessionManager] Redis deleteSession error:', error.message);
+        logger.error('[SessionManager] Redis deleteSession error:', error.message);
         this.isRedisAvailable = false;
       }
     }
@@ -224,7 +225,7 @@ class SessionManager {
         await this.client.expire(key, ttlSeconds);
         return true;
       } catch (error) {
-        console.error('[SessionManager] Redis extendSession error:', error.message);
+        logger.error('[SessionManager] Redis extendSession error:', error.message);
         this.isRedisAvailable = false;
       }
     }
@@ -249,7 +250,7 @@ class SessionManager {
         const keys = await this.client.keys(pattern);
         return keys.map(k => k.replace('exam:session:', ''));
       } catch (error) {
-        console.error('[SessionManager] Redis getAllSessionIds error:', error.message);
+        logger.error('[SessionManager] Redis getAllSessionIds error:', error.message);
       }
     }
 
@@ -274,7 +275,7 @@ class SessionManager {
     }
 
     if (cleanedCount > 0) {
-      console.log(`[SessionManager] Cleaned up ${cleanedCount} expired sessions from memory`);
+      logger.info(`[SessionManager] Cleaned up ${cleanedCount} expired sessions from memory`);
     }
   }
 
@@ -310,9 +311,9 @@ class SessionManager {
     if (this.client) {
       try {
         await this.client.quit();
-        console.log('[SessionManager] Redis connection closed gracefully');
+        logger.info('[SessionManager] Redis connection closed gracefully');
       } catch (error) {
-        console.error('[SessionManager] Error closing Redis connection:', error.message);
+        logger.error('[SessionManager] Error closing Redis connection:', error.message);
       }
     }
   }
@@ -328,13 +329,13 @@ setInterval(() => {
 
 // Graceful shutdown handler
 process.on('SIGINT', async () => {
-  console.log('[SessionManager] Shutting down...');
+  logger.info('[SessionManager] Shutting down...');
   await sessionManager.shutdown();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('[SessionManager] Shutting down...');
+  logger.info('[SessionManager] Shutting down...');
   await sessionManager.shutdown();
   process.exit(0);
 });

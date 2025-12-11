@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Personalização de Simulado</title>
   <style>
@@ -327,7 +329,7 @@
           const el = wrapper.firstElementChild;
           if (el) document.body.appendChild(el);
         } catch (e) {
-          console.warn('Não foi possível carregar o componente fullExamConfirm:', e);
+          logger.warn('Não foi possível carregar o componente fullExamConfirm:', e);
         }
       }
       // load asynchronously but early
@@ -874,7 +876,7 @@
         meta.areas = Array.isArray(ars) ? ars : [];
         meta.categorias = Array.isArray(cats) ? cats : [];
       } catch (e) {
-        console.warn('Falha ao carregar metadados, usando listas vazias.', e);
+        logger.warn('Falha ao carregar metadados, usando listas vazias.', e);
         meta.dominios = meta.dominios || [];
         meta.grupos = meta.grupos || [];
         meta.areas = meta.areas || [];

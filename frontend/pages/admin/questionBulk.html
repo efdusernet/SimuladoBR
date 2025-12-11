@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Carga de Questões (JSON/XML)</title>
   <link rel="stylesheet" href="/styles.css" />
@@ -145,7 +147,7 @@
         const none = document.createElement('option'); none.value = ''; none.textContent = '— Selecione —'; sel.appendChild(none);
         (list||[]).forEach(t=>{ const o = document.createElement('option'); o.value = t.id; o.textContent = t.descricao; sel.appendChild(o); });
       } catch(e) {
-        console.error('[loadTasks] error:', e);
+        logger.error('[loadTasks] error:', e);
       }
     }
 

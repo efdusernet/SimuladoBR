@@ -5,6 +5,7 @@ const examController = require('../controllers/examController');
 const db = require('../models');
 const { ExamAttempt, ExamAttemptPurgeLog, ExamAttemptUserStats } = db;
 const { Op } = require('sequelize');
+const { badRequest, internalError, notFound } = require('../middleware/errors');
 
 // Admin-only endpoints for lifecycle management
 // Lightweight probe endpoint for front-end admin menu detection (returns 204 if admin)
@@ -16,16 +17,16 @@ router.post('/purge-abandoned', requireAdmin, examController.purgeAbandonedAttem
 // Body: { userId, overallPct, totalQuestions, examTypeSlug, peoplePct?, processPct?, businessPct? }
 // Cria tentativa finalizada diretamente (fixture) para testes sem percorrer questões.
 // NOTE: Mounted at /api/admin/exams, so path here must NOT repeat '/exams'
-router.post('/fixture-attempt', requireAdmin, async (req, res) => {
+router.post('/fixture-attempt', requireAdmin, async (req, res, next) => {
     try {
         const { userId, overallPct = 65, totalQuestions = 180, examTypeSlug = 'pmp', peoplePct, processPct, businessPct } = req.body || {};
-        if(!userId) return res.status(400).json({ error: 'userId obrigatório' });
+        if(!userId) return next(badRequest('userId obrigatório', 'USER_ID_REQUIRED'));
         const uid = Number(userId);
-        if(!Number.isFinite(uid) || uid <= 0) return res.status(400).json({ error: 'userId inválido' });
+        if(!Number.isFinite(uid) || uid <= 0) return next(badRequest('userId inválido', 'USER_ID_INVALID'));
         const user = await db.User.findByPk(uid);
-        if(!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+        if(!user) return next(notFound('Usuário não encontrado', 'USER_NOT_FOUND'));
         const examType = await db.ExamType.findOne({ where: { Slug: examTypeSlug } });
-        if(!examType) return res.status(404).json({ error: 'ExamType não encontrado' });
+        if(!examType) return next(notFound('ExamType não encontrado', 'EXAM_TYPE_NOT_FOUND'));
         const qt = Math.max(1, Math.min(500, Number(totalQuestions)));
         const pct = Math.max(0, Math.min(100, Number(overallPct)));
         const corretas = Math.round(qt * (pct/100));
@@ -43,10 +44,10 @@ router.post('/fixture-attempt', requireAdmin, async (req, res) => {
         if(allProvided){
             const meanDom = (peopleVal + processVal + businessVal) / 3;
             const tolerance = Number(req.query.tolerance != null ? req.query.tolerance : 2);
-            if(!Number.isFinite(tolerance) || tolerance < 0) return res.status(400).json({ error: 'Tolerance inválida' });
+            if(!Number.isFinite(tolerance) || tolerance < 0) return next(badRequest('Tolerance inválida', 'TOLERANCE_INVALID'));
             const diff = Math.abs(meanDom - pct);
             if(diff > tolerance){
-                return res.status(400).json({ error: `Incoerência: média domínios (${meanDom.toFixed(2)}%) difere de overallPct (${pct.toFixed(2)}%) além da tolerância (${tolerance}).`, details: { meanDom: meanDom.toFixed(2), overall: pct.toFixed(2), diff: diff.toFixed(2), tolerance } });
+                return next(badRequest('Incoerência de percentuais por domínio', 'DOMAIN_PERCENTS_INCOHERENT', { meanDom: meanDom.toFixed(2), overall: pct.toFixed(2), diff: diff.toFixed(2), tolerance }));
             }
         }
         function labelFromPct(p){ if(p==null) return '—'; if(p<=25) return 'Needs Improvement'; if(p<=50) return 'Below Target'; if(p<=75) return 'Target'; return 'Above Target'; }
@@ -57,7 +58,7 @@ router.post('/fixture-attempt', requireAdmin, async (req, res) => {
         const selectRowsQ = `SELECT id, iddominiogeral FROM questao WHERE ${whereSql} ORDER BY random() LIMIT :limit`;
         const questRows = await db.sequelize.query(selectRowsQ, { replacements: { limit: qt }, type: db.Sequelize.QueryTypes.SELECT });
         const questionIds = questRows.map(r => Number(r.id)).filter(n => Number.isFinite(n));
-        if(questionIds.length < qt) return res.status(400).json({ error: 'Quantidade de questões insuficiente', available: questionIds.length });
+        if(questionIds.length < qt) return next(badRequest('Quantidade de questões insuficiente', 'INSUFFICIENT_QUESTIONS', { available: questionIds.length }));
         // Mapear domínios brutos
         const domainMap = {};
         questRows.forEach((r, idx) => {
@@ -266,7 +267,7 @@ router.post('/fixture-attempt', requireAdmin, async (req, res) => {
         return res.json({ attemptId, userId: uid, totalQuestions: questionIds.length, corretas: correctIndexSet.size, scorePercent: scorePercent.toFixed(2), domainCounts, domainCorrects: perDomainTargets });
     } catch (err) {
         console.error('Erro fixture-attempt:', err);
-        return res.status(500).json({ error: 'Internal error' });
+        return next(internalError('Internal error', 'FIXTURE_ATTEMPT_ERROR', err));
     }
 });
 
@@ -275,12 +276,12 @@ router.post('/fixture-attempt', requireAdmin, async (req, res) => {
  * Reconciliação de estatísticas de usuários
  * Query params: from, to, mode (rebuild|merge), dryRun (true|false)
  */
-router.post('/reconcile-stats', requireAdmin, async (req, res) => {
+router.post('/reconcile-stats', requireAdmin, async (req, res, next) => {
     try {
         const { from, to, mode = 'rebuild', dryRun = 'false' } = req.query;
         
         if (!from || !to) {
-            return res.status(400).json({ error: 'Parâmetros from e to são obrigatórios (formato YYYY-MM-DD)' });
+            return next(badRequest('Parâmetros from e to são obrigatórios (formato YYYY-MM-DD)', 'DATE_RANGE_REQUIRED'));
         }
         
         const fromDate = new Date(from);
@@ -288,11 +289,11 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
         toDate.setHours(23, 59, 59, 999);
         
         if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-            return res.status(400).json({ error: 'Datas inválidas' });
+            return next(badRequest('Datas inválidas', 'DATES_INVALID'));
         }
         
         if (fromDate > toDate) {
-            return res.status(400).json({ error: 'Data inicial deve ser anterior à data final' });
+            return next(badRequest('Data inicial deve ser anterior à data final', 'DATE_ORDER_INVALID'));
         }
         
         const isDryRun = dryRun === 'true';
@@ -506,7 +507,7 @@ router.post('/reconcile-stats', requireAdmin, async (req, res) => {
         
     } catch (err) {
         console.error('Erro na reconciliação:', err);
-        res.status(500).json({ error: err.message });
+        return next(internalError('Erro interno', 'RECONCILE_STATS_ERROR', err));
     }
 });
 

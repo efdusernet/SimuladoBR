@@ -31,20 +31,20 @@ class OfflineDB {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
-        console.error('[OfflineDB] Erro ao abrir DB:', request.error);
+        logger.error('[OfflineDB] Erro ao abrir DB:', request.error);
         reject(request.error);
       };
 
       request.onsuccess = () => {
         this.db = request.result;
         this.isReady = true;
-        console.log('[OfflineDB] DB inicializado com sucesso');
+        logger.info('[OfflineDB] DB inicializado com sucesso');
         resolve(this.db);
       };
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        console.log('[OfflineDB] Upgrade necessário:', event.oldVersion, '→', event.newVersion);
+        logger.info('[OfflineDB] Upgrade necessário:', event.oldVersion, '→', event.newVersion);
 
         // Store: Questions (cache de questões)
         if (!db.objectStoreNames.contains(STORES.QUESTIONS)) {
@@ -52,7 +52,7 @@ class OfflineDB {
           questionsStore.createIndex('examType', 'examType', { unique: false });
           questionsStore.createIndex('domain', 'iddominio', { unique: false });
           questionsStore.createIndex('cached', 'cachedAt', { unique: false });
-          console.log('[OfflineDB] Store "questions" criado');
+          logger.info('[OfflineDB] Store "questions" criado');
         }
 
         // Store: Attempts (tentativas offline)
@@ -61,7 +61,7 @@ class OfflineDB {
           attemptsStore.createIndex('userId', 'userId', { unique: false });
           attemptsStore.createIndex('status', 'status', { unique: false });
           attemptsStore.createIndex('created', 'createdAt', { unique: false });
-          console.log('[OfflineDB] Store "attempts" criado');
+          logger.info('[OfflineDB] Store "attempts" criado');
         }
 
         // Store: Answers (respostas pendentes de sync)
@@ -70,7 +70,7 @@ class OfflineDB {
           answersStore.createIndex('sessionId', 'sessionId', { unique: false });
           answersStore.createIndex('synced', 'synced', { unique: false });
           answersStore.createIndex('timestamp', 'timestamp', { unique: false });
-          console.log('[OfflineDB] Store "answers" criado');
+          logger.info('[OfflineDB] Store "answers" criado');
         }
 
         // Store: Sync Queue (operações pendentes)
@@ -80,13 +80,13 @@ class OfflineDB {
           syncStore.createIndex('priority', 'priority', { unique: false });
           syncStore.createIndex('timestamp', 'timestamp', { unique: false });
           syncStore.createIndex('retries', 'retries', { unique: false });
-          console.log('[OfflineDB] Store "syncQueue" criado');
+          logger.info('[OfflineDB] Store "syncQueue" criado');
         }
 
         // Store: Meta (configurações e estado)
         if (!db.objectStoreNames.contains(STORES.META)) {
           db.createObjectStore(STORES.META, { keyPath: 'key' });
-          console.log('[OfflineDB] Store "meta" criado');
+          logger.info('[OfflineDB] Store "meta" criado');
         }
       };
     });
@@ -112,7 +112,7 @@ class OfflineDB {
     });
 
     await Promise.all(promises);
-    console.log(`[OfflineDB] ${questions.length} questões em cache (${examType})`);
+    logger.info(`[OfflineDB] ${questions.length} questões em cache (${examType})`);
     return questions.length;
   }
 
@@ -140,7 +140,7 @@ class OfflineDB {
           questions = questions.slice(0, filters.limit);
         }
 
-        console.log(`[OfflineDB] ${questions.length} questões recuperadas do cache`);
+        logger.info(`[OfflineDB] ${questions.length} questões recuperadas do cache`);
         resolve(questions);
       };
       request.onerror = () => reject(request.error);
@@ -164,7 +164,7 @@ class OfflineDB {
     return new Promise((resolve, reject) => {
       const request = store.put(attemptData);
       request.onsuccess = () => {
-        console.log('[OfflineDB] Tentativa salva:', attempt.sessionId);
+        logger.info('[OfflineDB] Tentativa salva:', attempt.sessionId);
         resolve(request.result);
       };
       request.onerror = () => reject(request.error);
@@ -190,7 +190,7 @@ class OfflineDB {
     return new Promise((resolve, reject) => {
       const request = store.add(answerData);
       request.onsuccess = () => {
-        console.log('[OfflineDB] Resposta salva offline:', questionId);
+        logger.info('[OfflineDB] Resposta salva offline:', questionId);
         resolve(request.result);
       };
       request.onerror = () => reject(request.error);
@@ -218,7 +218,7 @@ class OfflineDB {
     return new Promise((resolve, reject) => {
       const request = store.add(queueItem);
       request.onsuccess = () => {
-        console.log('[OfflineDB] Operação adicionada à fila:', operation);
+        logger.info('[OfflineDB] Operação adicionada à fila:', operation);
         resolve(request.result);
       };
       request.onerror = () => reject(request.error);
@@ -239,7 +239,7 @@ class OfflineDB {
         const items = (request.result || [])
           .filter(item => item.status === 'pending' && item.retries < item.maxRetries)
           .sort((a, b) => b.priority - a.priority || a.timestamp - b.timestamp);
-        console.log(`[OfflineDB] ${items.length} itens pendentes de sincronização`);
+        logger.info(`[OfflineDB] ${items.length} itens pendentes de sincronização`);
         resolve(items);
       };
       request.onerror = () => reject(request.error);
@@ -353,7 +353,7 @@ class OfflineDB {
           deleted++;
           cursor.continue();
         } else {
-          console.log(`[OfflineDB] ${deleted} questões antigas removidas do cache`);
+          logger.info(`[OfflineDB] ${deleted} questões antigas removidas do cache`);
           resolve(deleted);
         }
       };
@@ -379,7 +379,7 @@ class OfflineDB {
       });
     }
 
-    console.log('[OfflineDB] Estatísticas:', stats);
+    logger.info('[OfflineDB] Estatísticas:', stats);
     return stats;
   }
 }

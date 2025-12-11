@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
-const addRequestId = require('express-request-id')();
+const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
 // Initialize structured logging system
@@ -16,7 +16,13 @@ require('./config/security');
 const app = express();
 
 // Request ID tracking - must be first
-app.use(addRequestId);
+// Request ID middleware
+app.use((req, res, next) => {
+	const id = req.get('X-Request-Id') || uuidv4();
+	res.set('X-Request-Id', id);
+	req.id = id;
+	next();
+});
 
 // HTTP request logging
 app.use(requestLogger);

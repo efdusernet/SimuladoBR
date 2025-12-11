@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Simulado — Exame Completo</title>
   <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
@@ -104,7 +106,7 @@
       window.ExamMultiplaSelecao = !!(bp && bp.multiplaSelecao);
       window.ExamCheckpoints = (bp && bp.pausas && Array.isArray(bp.pausas.checkpoints)) ? bp.pausas.checkpoints.slice() : [60,120];
     } catch (e) {
-      console.warn('Falha ao definir variáveis de sessão:', e);
+      logger.warn('Falha ao definir variáveis de sessão:', e);
     }
   </script>
   <!-- Exibir imagem da questão (campo imagem_url / imagemUrl) abaixo do enunciado -->
@@ -248,7 +250,7 @@
           }
           // Diagnostic
           try {
-            console.debug('[examFull] renderImage idx', idx, 'id', q && q.id, 'hasRaw?', !!raw, 'srcResolved?', !!src, 'origin', origin);
+            logger.debug('[examFull] renderImage idx', idx, 'id', q && q.id, 'hasRaw?', !!raw, 'srcResolved?', !!src, 'origin', origin);
             // suprimir logs específicos da questão 266
           } catch(_){ }
           // If no image, hide wrapper
@@ -264,7 +266,7 @@
             if (needsHint && q) {
               wrap.innerHTML = '<div class="question-image-missing" style="max-width:680px;margin:0 auto;padding:12px;border:1px dashed #94a3b8;border-radius:6px;background:#f8fafc;color:#475569;font-size:13px;line-height:1.4;">Imagem original desta questão não está disponível no banco de dados. Continue respondendo normalmente selecionando a alternativa correta. Se você possuir o arquivo da imagem, associe-o preenchendo <code>imagem_url</code> para a questão ID '+ q.id + '.</div>';
               wrap.style.display='block';
-              try { console.debug('[examFull] imagem ausente, exibindo placeholder para questão', q.id); } catch(_){ }
+              try { logger.debug('[examFull] imagem ausente, exibindo placeholder para questão', q.id); } catch(_){ }
             } else {
               wrap.style.display='none';
               wrap.innerHTML='';
@@ -307,12 +309,12 @@
             const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : [];
           })();
           const idx = qs.findIndex(q => q && q.id === 266);
-          if (idx < 0){ console.debug('[debug266] Questão 266 não encontrada ainda (len=', qs.length, ')'); return; }
+          if (idx < 0){ logger.debug('[debug266] Questão 266 não encontrada ainda (len=', qs.length, ')'); return; }
           const labelEl = document.getElementById('questionNumber');
           if (labelEl) labelEl.textContent = String(idx + 1);
           document.dispatchEvent(new CustomEvent('exam:question-index-changed',{ detail:{ index: idx } }));
-          console.debug('[debug266] Jump realizado para idx', idx, 'questão', qs[idx]);
-        } catch(e){ console.debug('[debug266] Falha ao tentar pular para 266:', e); }
+          logger.debug('[debug266] Jump realizado para idx', idx, 'questão', qs[idx]);
+        } catch(e){ logger.debug('[debug266] Falha ao tentar pular para 266:', e); }
       }
       function scheduleJump(){ setTimeout(tryJump266, 800); setTimeout(tryJump266, 1600); setTimeout(tryJump266, 4000); }
       if (localStorage.getItem('debugQ266') === 'true') scheduleJump();
@@ -321,7 +323,7 @@
         if (ev.key === 'F9') {
           const cur = localStorage.getItem('debugQ266') === 'true';
           localStorage.setItem('debugQ266', cur ? 'false' : 'true');
-          console.debug('[debug266] debugQ266 agora =', !cur);
+          logger.debug('[debug266] debugQ266 agora =', !cur);
           if (!cur) scheduleJump();
         }
       });
@@ -954,7 +956,7 @@
           // submitExam já redireciona para examPmiResults.html (>=180 questões) ou home
         }
       } catch(err){ 
-        console.error('Erro ao submeter exame:', err);
+        logger.error('Erro ao submeter exame:', err);
         alert('Erro ao enviar resultados. Tente novamente.');
         try { yes.disabled = false; yes.textContent = 'Sim, enviar e encerrar'; } catch(_){}
       }
@@ -1063,7 +1065,7 @@
             writeMarkedList(key, list);
             try { if (typeof showToast === 'function') showToast(`Questão marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
           }
-        } catch(err){ console.warn('Falha ao salvar letra da opção marcada:', err); }
+        } catch(err){ logger.warn('Falha ao salvar letra da opção marcada:', err); }
       }
       function onAnswerChanged(){
         try {

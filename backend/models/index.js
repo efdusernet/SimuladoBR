@@ -1,4 +1,5 @@
 const { Sequelize, DataTypes } = require('sequelize');
+const { logger } = require('../utils/logger');
 const path = require('path');
 const fs = require('fs');
 
@@ -17,8 +18,8 @@ const { validateOnLoad } = require('../config/validateEnv');
 try {
   validateOnLoad();
 } catch (error) {
-  console.error('❌ Failed to initialize models: Invalid environment configuration');
-  console.error('   Error:', error.message);
+  logger.error('❌ Failed to initialize models: Invalid environment configuration');
+  logger.error('   Error:', error.message);
   process.exit(1);
 }
 
@@ -31,7 +32,7 @@ const dbPort = process.env.DB_PORT || 5432;
 
 // Additional safety check
 if (!dbName || !dbUser || !dbPass) {
-  console.error('❌ FATAL: Missing required database credentials');
+  logger.error('❌ FATAL: Missing required database credentials');
   process.exit(1);
 }
 

@@ -107,10 +107,10 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                         // Se não tem meta ou se é verificação de email (não tem type ou type não é password_reset/email_change)
                         if (!oldMeta.type || (oldMeta.type !== 'password_reset' && oldMeta.type !== 'email_change')) {
                             await oldToken.update({ ForcedExpiration: true });
-                            console.log(`[login-email-verification] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${user.Id}`);
+                            logger.info(`[login-email-verification] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${user.Id}`);
                         }
                     } catch (e) {
-                        console.warn('[login-email-verification] Erro ao processar meta de token antigo:', e);
+                        logger.warn('[login-email-verification] Erro ao processar meta de token antigo:', e);
                     }
                 }
 
@@ -120,7 +120,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 
                 await sendVerificationEmail(user.Email, token);
             } catch (e) {
-                console.error('Erro criando/enviando token verificação no login:', e);
+                logger.error('Erro criando/enviando token verificação no login:', e);
             }
             security.loginFailure(req, email, 'email_not_confirmed');
             return res.status(403).json({ message: 'E-mail não confirmado. Enviamos um token para o seu e-mail.' });
@@ -168,7 +168,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
             // Normalização: se NomeUsuario ainda é um guest_*#, renomeia para o e-mail
             if (user.NomeUsuario && /^guest_/.test(user.NomeUsuario) && user.Email) {
                 patch.NomeUsuario = user.Email.toLowerCase();
-                console.debug('[auth:login] Normalizando NomeUsuario guest_* para email:', patch.NomeUsuario);
+                logger.debug('[auth:login] Normalizando NomeUsuario guest_* para email:', patch.NomeUsuario);
             }
             await user.update(patch);
         } catch (_) { /* ignore */ }
@@ -188,7 +188,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 path: '/'
             };
             res.cookie('sessionToken', token, cookieOptions);
-        } catch (e) { console.warn('JWT sign error, token omitido:', e && e.message); }
+        } catch (e) { logger.warn('JWT sign error, token omitido:', e && e.message); }
 
         // Log successful login
         security.loginSuccess(req, user);
@@ -204,7 +204,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
             tokenType: token ? 'Bearer' : null
         });
     } catch (err) {
-        console.error('Erro em /api/auth/login:', err);
+        logger.error('Erro em /api/auth/login:', err);
         return res.status(500).json({ message: 'Erro interno' });
     }
 });
@@ -233,7 +233,7 @@ router.post('/verify', validate(authSchemas.verify), async (req, res) => {
 
         return res.json({ message: 'E-mail confirmado com sucesso', userId: record.UserId });
     } catch (err) {
-        console.error('Erro em /api/auth/verify:', err);
+        logger.error('Erro em /api/auth/verify:', err);
         return res.status(500).json({ message: 'Erro interno' });
     }
 });
@@ -242,20 +242,20 @@ router.post('/verify', validate(authSchemas.verify), async (req, res) => {
 // Solicita código de reset de senha
 router.post('/forgot-password', resetLimiter, validate(authSchemas.forgotPassword), async (req, res) => {
     try {
-        console.log('[forgot-password] Iniciando processo de recuperação de senha');
+        logger.info('[forgot-password] Iniciando processo de recuperação de senha');
         const { email } = req.body;
         
         const emailLower = email.trim().toLowerCase();
-        console.log('[forgot-password] Buscando usuário com email:', emailLower);
+        logger.info('[forgot-password] Buscando usuário com email:', emailLower);
         const user = await User.findOne({ where: { Email: emailLower } });
         
         if (!user) {
-            console.log('[forgot-password] Usuário não encontrado, retornando resposta genérica');
+            logger.info('[forgot-password] Usuário não encontrado, retornando resposta genérica');
             // Por segurança, não revelar se o email existe ou não
             return res.json({ message: 'Se o e-mail estiver cadastrado, você receberá um código de recuperação.' });
         }
 
-        console.log('[forgot-password] Usuário encontrado, UserId:', user.Id);
+        logger.info('[forgot-password] Usuário encontrado, UserId:', user.Id);
         
         // Invalidar tokens anteriores não usados do mesmo tipo para este usuário
         const existingTokens = await EmailVerification.findAll({
@@ -265,25 +265,25 @@ router.post('/forgot-password', resetLimiter, validate(authSchemas.forgotPasswor
             }
         });
 
-        console.log(`[forgot-password] Encontrados ${existingTokens.length} tokens não usados`);
+        logger.info(`[forgot-password] Encontrados ${existingTokens.length} tokens não usados`);
 
         let expiredCount = 0;
         for (const oldToken of existingTokens) {
             try {
                 const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
-                console.log(`[forgot-password] Verificando token ${oldToken.Token}, meta:`, oldMeta);
+                logger.info(`[forgot-password] Verificando token ${oldToken.Token}, meta:`, oldMeta);
                 if (oldMeta.type === 'password_reset') {
                     // Força expiração do token ajustando ForcedExpiration
                     await oldToken.update({ ForcedExpiration: true });
                     expiredCount++;
-                    console.log(`[forgot-password] ✓ Token ${oldToken.Token} forçadamente expirado (ForcedExpiration=true)`);
+                    logger.info(`[forgot-password] ✓ Token ${oldToken.Token} forçadamente expirado (ForcedExpiration=true)`);
                 }
             } catch (e) {
-                console.warn('[forgot-password] Erro ao processar meta de token antigo:', e);
+                logger.warn('[forgot-password] Erro ao processar meta de token antigo:', e);
             }
         }
         
-        console.log(`[forgot-password] Total de tokens expirados: ${expiredCount}`);
+        logger.info(`[forgot-password] Total de tokens expirados: ${expiredCount}`);
 
         // Gerar novo código de verificação
         const token = require('../utils/codegen').generateVerificationCode(6).toUpperCase();
@@ -307,7 +307,7 @@ router.post('/forgot-password', resetLimiter, validate(authSchemas.forgotPasswor
 
         return res.json({ message: 'Código enviado para o e-mail informado.' });
     } catch (err) {
-        console.error('Erro em /api/auth/forgot-password:', err);
+        logger.error('Erro em /api/auth/forgot-password:', err);
         return res.status(500).json({ message: 'Erro ao processar solicitação' });
     }
 });
@@ -383,7 +383,7 @@ router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword)
 
         return res.json({ message: 'Senha alterada com sucesso' });
     } catch (err) {
-        console.error('Erro em /api/auth/reset-password:', err);
+        logger.error('Erro em /api/auth/reset-password:', err);
         return res.status(500).json({ message: 'Erro ao resetar senha' });
     }
 });
@@ -435,7 +435,7 @@ router.get('/me', async (req, res) => {
             BloqueioAtivado: user.BloqueioAtivado
         });
     } catch (err) {
-        console.error('Erro em /api/auth/me:', err);
+        logger.error('Erro em /api/auth/me:', err);
         return res.status(500).json({ message: 'Erro interno' });
     }
 });
@@ -456,7 +456,7 @@ router.post('/logout', (req, res) => {
             message: 'Logout realizado com sucesso' 
         });
     } catch (err) {
-        console.error('Erro em /api/auth/logout:', err);
+        logger.error('Erro em /api/auth/logout:', err);
         return res.status(500).json({ message: 'Erro interno' });
     }
 });

@@ -37,7 +37,7 @@ function simpleDecrypt(encrypted, key = 'SimuladosBR_v1') {
     }
     return JSON.parse(result);
   } catch (e) {
-    console.warn('Failed to decrypt data:', e);
+    logger.warn('Failed to decrypt data:', e);
     return null;
   }
 }
@@ -55,8 +55,8 @@ const SecureStorage = {
   setItem(key, value, options = {}) {
     // Block forbidden keys
     if (FORBIDDEN_KEYS.some(k => key.toLowerCase().includes(k))) {
-      console.error(`[SecureStorage] Blocked attempt to store forbidden key: ${key}`);
-      console.warn('[SecureStorage] Tokens should be stored in httpOnly cookies only!');
+      logger.error(`[SecureStorage] Blocked attempt to store forbidden key: ${key}`);
+      logger.warn('[SecureStorage] Tokens should be stored in httpOnly cookies only!');
       return false;
     }
 
@@ -68,7 +68,7 @@ const SecureStorage = {
       storage.setItem(key, dataToStore);
       return true;
     } catch (e) {
-      console.error(`[SecureStorage] Failed to store ${key}:`, e);
+      logger.error(`[SecureStorage] Failed to store ${key}:`, e);
       return false;
     }
   },
@@ -86,7 +86,7 @@ const SecureStorage = {
       
       return encrypted ? simpleDecrypt(data) : JSON.parse(data);
     } catch (e) {
-      console.warn(`[SecureStorage] Failed to retrieve ${key}:`, e);
+      logger.warn(`[SecureStorage] Failed to retrieve ${key}:`, e);
       return null;
     }
   },
@@ -103,7 +103,7 @@ const SecureStorage = {
    * Clear all sensitive data on logout
    */
   clearSensitiveData() {
-    console.log('[SecureStorage] Clearing sensitive data...');
+    logger.info('[SecureStorage] Clearing sensitive data...');
     
     // Clear sessionStorage completely
     sessionStorage.clear();
@@ -119,7 +119,7 @@ const SecureStorage = {
     }
     
     keysToRemove.forEach(key => {
-      console.log(`[SecureStorage] Removing: ${key}`);
+      logger.info(`[SecureStorage] Removing: ${key}`);
       localStorage.removeItem(key);
     });
     
@@ -136,14 +136,14 @@ const SecureStorage = {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
       if (FORBIDDEN_KEYS.some(fk => key.toLowerCase().includes(fk))) {
-        console.warn(`[SecureStorage] Migrating away from localStorage: ${key}`);
+        logger.warn(`[SecureStorage] Migrating away from localStorage: ${key}`);
         localStorage.removeItem(key);
         migratedKeys.push(key);
       }
     }
     
     if (migratedKeys.length > 0) {
-      console.log('[SecureStorage] Migration complete. Tokens now use httpOnly cookies.');
+      logger.info('[SecureStorage] Migration complete. Tokens now use httpOnly cookies.');
     }
     
     return migratedKeys;

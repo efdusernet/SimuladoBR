@@ -1,5 +1,6 @@
 const sequelize = require('../config/database');
 
+const { logger } = require('../utils/logger');
 // Helper to run a robust select id, descricao from a table, adapting to column name casing
 async function listSimple(req, res, table) {
   try {
@@ -16,7 +17,7 @@ async function listSimple(req, res, table) {
     let descCol = null;
     if (names.has('descricao')) descCol = 'descricao'; else if (names.has('Descricao')) descCol = '"Descricao"';
     if (!idCol || !descCol) {
-      console.warn(`[meta] ${table} missing expected id/descricao columns. columns=`, Array.from(names));
+      logger.warn(`[meta] ${table} missing expected id/descricao columns. columns=`, Array.from(names));
       return res.status(500).json({ error: `table ${table} missing id/descricao` });
     }
 
@@ -29,7 +30,7 @@ async function listSimple(req, res, table) {
     const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
     return res.json(rows || []);
   } catch (e) {
-    console.error(`[meta] list ${table} error`, e);
+    logger.error(`[meta] list ${table} error`, e);
     return res.status(500).json({ error: 'internal error' });
   }
 }
@@ -41,7 +42,7 @@ exports.listGruposProcesso = async (req, res) => {
     return await listSimple(req, res, 'grupoprocesso');
   } catch (e) {
     try { return await listSimple(req, res, 'gruprocesso'); } catch (e2) {
-      console.error('[meta] both grupoprocesso/gruprocesso failed');
+      logger.error('[meta] both grupoprocesso/gruprocesso failed');
       return res.status(500).json({ error: 'internal error' });
     }
   }
@@ -59,7 +60,7 @@ exports.listNiveisDificuldade = async (req, res) => {
     );
     return res.json(rows || []);
   } catch (e) {
-    console.error('[meta] listNiveisDificuldade error', e);
+    logger.error('[meta] listNiveisDificuldade error', e);
     return res.status(500).json({ error: 'internal error' });
   }
 };
@@ -80,7 +81,7 @@ exports.listTasks = async (req, res) => {
     );
     return res.json(rows || []);
   } catch (e) {
-    console.error('[meta] listTasks error', e);
+    logger.error('[meta] listTasks error', e);
     return res.status(500).json({ error: 'internal error' });
   }
 };
@@ -117,7 +118,7 @@ exports.listVersoesExame = async (_req, res) => {
     const items = (rows || []).map(r => ({ id: r.descricao, descricao: r.descricao }));
     return res.json(items);
   } catch (e) {
-    console.error('[meta] listVersoesExame error', e);
+    logger.error('[meta] listVersoesExame error', e);
     return res.status(500).json({ error: 'internal error' });
   }
 };

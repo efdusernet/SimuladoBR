@@ -35,14 +35,14 @@
         // Ignore network errors, still cleanup locally
       });
     } catch (e) {
-      console.warn('[Logout] Failed to call backend logout:', e);
+      logger.warn('[Logout] Failed to call backend logout:', e);
     }
 
     // Clear sessionStorage completely (contains temporary sensitive data)
     try {
       sessionStorage.clear();
     } catch (e) {
-      console.warn('[Logout] Failed to clear sessionStorage:', e);
+      logger.warn('[Logout] Failed to clear sessionStorage:', e);
     }
 
     // Selectively clear sensitive keys from localStorage
@@ -68,7 +68,7 @@
         }
       }
     } catch (e) {
-      console.warn('[Logout] Failed to clear localStorage:', e);
+      logger.warn('[Logout] Failed to clear localStorage:', e);
     }
 
     // Show notification if requested
@@ -86,7 +86,7 @@
           }
         }, 1200);
       } catch (e) {
-        console.warn('Failed to show notification:', e);
+        logger.warn('Failed to show notification:', e);
       }
     }
 

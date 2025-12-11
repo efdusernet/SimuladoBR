@@ -82,7 +82,7 @@ async function getAreaConhecimentoStats(req, res){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, areas });
   } catch(err){
-    console.error('getAreaConhecimentoStats error:', err);
+    logger.error('getAreaConhecimentoStats error:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 }
@@ -169,11 +169,12 @@ async function getAbordagemStats(req, res){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, abordagens });
   } catch(err){
-    console.error('getAbordagemStats error:', err);
+    logger.error('getAbordagemStats error:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 }
 const db = require('../models');
+const { logger } = require('../utils/logger');
 const sequelize = require('../config/database');
 
 function getFullExamQuestionCount(){
@@ -559,7 +560,7 @@ async function getProcessGroupStats(req, res){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, grupos });
   } catch(err){
-    console.error('getProcessGroupStats error:', err);
+    logger.error('getProcessGroupStats error:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 }
@@ -694,7 +695,7 @@ async function getDetailsLast(req, res){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, itens });
   } catch(err) {
-    console.error('getDetailsLast error:', err);
+    logger.error('getDetailsLast error:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 }
@@ -798,7 +799,7 @@ async function getPerformancePorDominio(req, res){
               selectedExam = exams[0];
             }
         } catch(e) {
-          console.error('Falha ao calcular melhor exame (agregado):', e.message);
+          logger.error('Falha ao calcular melhor exame (agregado):', e.message);
           selectedExam = exams[0];
         }
       }
@@ -870,7 +871,7 @@ async function getPerformancePorDominio(req, res){
     });
 
   } catch(err) {
-    console.error('getPerformancePorDominio error:', err);
+    logger.error('getPerformancePorDominio error:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 }
@@ -926,7 +927,7 @@ async function getAvgTimePerQuestion(req, res){
       totalTimeHours
     });
   } catch(err){
-    console.error('getAvgTimePerQuestion error:', err);
+    logger.error('getAvgTimePerQuestion error:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 }
@@ -1008,7 +1009,7 @@ async function getAttemptsHistoryExtended(req, res){
 
     return res.json({ userId, limit, items });
   } catch(err){
-    console.error('getAttemptsHistoryExtended error:', err);
+    logger.error('getAttemptsHistoryExtended error:', err);
     return res.status(500).json({ message: 'Erro interno' });
   }
 }

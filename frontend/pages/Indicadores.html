@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Indicadores</title>
   <script src="/components/sb-hbar.js" defer></script>
@@ -346,11 +348,11 @@
       menuLinks.forEach(link => {
         link.addEventListener('click', (e) => {
           const href = link.getAttribute('href');
-          console.log('[Indicadores.html] Link clicado:', href);
+          logger.info('[Indicadores.html] Link clicado:', href);
           
           // Se for o link "Início", limpar estado de navegação e marcar flag para evitar loop
           if (href === '/' || href === '/index.html') {
-            console.log('[Indicadores.html] Navegando para Início, limpando estado e marcando flag preventLoop');
+            logger.info('[Indicadores.html] Navegando para Início, limpando estado e marcando flag preventLoop');
             try {
               sessionStorage.removeItem('currentSection');
               sessionStorage.removeItem('currentSubsection');

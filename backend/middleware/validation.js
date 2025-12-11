@@ -4,6 +4,7 @@
  */
 
 const Joi = require('joi');
+const { logger } = require('../utils/logger');
 
 // Common field validations
 const commonSchemas = {
@@ -385,9 +386,9 @@ function validate(schema, source = 'body') {
         message: detail.message
       }));
       
-      console.log('[VALIDATION ERROR] Route:', req.path);
-      console.log('[VALIDATION ERROR] Data received:', JSON.stringify(data, null, 2));
-      console.log('[VALIDATION ERROR] Errors:', JSON.stringify(details, null, 2));
+      logger.debug('[VALIDATION ERROR] Route:', req.path);
+      logger.debug('[VALIDATION ERROR] Data received:', JSON.stringify(data, null, 2));
+      logger.debug('[VALIDATION ERROR] Errors:', JSON.stringify(details, null, 2));
       
       return res.status(400).json({
         success: false,

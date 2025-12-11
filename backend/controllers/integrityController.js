@@ -1,5 +1,6 @@
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 
+const { logger } = require('../utils/logger');
 // Minimal Play Integrity verification scaffold.
 // Expect a signed JWS token in req.body.token.
 // Uses JWKS URL from env INTEGRITY_JWKS_URL when provided.
@@ -68,7 +69,7 @@ exports.verify = async (req, res) => {
 
     return res.json({ ok: verified, header, payload, warnings });
   } catch (err) {
-    console.error('Integrity verify error:', err);
+    logger.error('Integrity verify error:', err);
     return res.status(500).json({ ok: false, error: 'internal error' });
   }
 };

@@ -57,11 +57,11 @@ module.exports = async function requireAdmin(req, res, next){
       const msg = (err && (err.message || err.toString())) || '';
       const missingTable = code === '42P01' || /relation .* does not exist/i.test(msg);
       if (missingTable) {
-        console.warn('requireAdmin: RBAC tables missing; denying with 403');
+        logger.warn('requireAdmin: RBAC tables missing; denying with 403');
         security.authorizationFailure(req, 'admin_resource', 'rbac_tables_missing');
         return res.status(403).json({ error: 'Admin role required' });
       }
-      console.warn('requireAdmin: role check failed; denying with 403. Error:', msg);
+      logger.warn('requireAdmin: role check failed; denying with 403. Error:', msg);
       security.authorizationFailure(req, 'admin_resource', 'role_check_error');
       return res.status(403).json({ error: 'Admin role required' });
     }
@@ -69,7 +69,7 @@ module.exports = async function requireAdmin(req, res, next){
     req.user = user;
     next();
   } catch (e) {
-    console.error('requireAdmin error:', e);
+    logger.error('requireAdmin error:', e);
     return res.status(500).json({ error: 'Internal error' });
   }
 }

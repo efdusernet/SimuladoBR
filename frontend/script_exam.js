@@ -1,18 +1,21 @@
 // Protótipo atualizado: simulação com texto de 280 caracteres e ajuste automático de CSS
+// Import controlled logging system
+// <script src="/utils/logger.js"></script> must be loaded first in HTML
+
   // load questions from backend then initialize exam
             // QUESTIONS will be populated from the backend via /api/exams/select
             let QUESTIONS = [];
                       try {
                         const withImg = QUESTIONS.filter(q => q.imagem_url || q.imagemUrl);
                         if (withImg.length) {
-                          console.debug('[exam] questions with image count', withImg.length);
+                          window.logger?.debug('[exam] questions with image count', withImg.length) || logger.debug('[exam] questions with image count', withImg.length);
                           const q266 = withImg.find(q => q.id === 266);
                           if (q266) {
                             const rawImg = q266.imagem_url || q266.imagemUrl;
-                            console.debug('[exam] q266 image len', rawImg ? rawImg.length : 0, 'startsWith(data:)?', /^data:/i.test(rawImg), 'prefix50', rawImg ? rawImg.slice(0,50) : null);
+                            window.logger?.debug('[exam] q266 image len', rawImg ? rawImg.length : 0, 'startsWith(data:)?', /^data:/i.test(rawImg), 'prefix50', rawImg ? rawImg.slice(0,50) : null) || logger.debug('[exam] q266 image len', rawImg ? rawImg.length : 0, 'startsWith(data:)?', /^data:/i.test(rawImg), 'prefix50', rawImg ? rawImg.slice(0,50) : null);
                           }
                         } else {
-                          console.debug('[exam] no questions have imagem_url/imagemUrl');
+                          window.logger?.debug('[exam] no questions have imagem_url/imagemUrl') || logger.debug('[exam] no questions have imagem_url/imagemUrl');
                         }
                       } catch(e) {}
 
@@ -40,9 +43,45 @@
               return a;
             }
 
+            // Memoization cache for shuffled options: prevents repeated shuffling on every render
+            const shuffledOptionsCache = new Map();
+
+            // Load cached shuffle order from sessionStorage (persists across page reloads)
+            function loadShuffleCache(){
+              try {
+                if (!window.currentSessionId) return;
+                const key = `shuffleCache_${window.currentSessionId}`;
+                const raw = sessionStorage.getItem(key);
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (parsed && typeof parsed === 'object') {
+                    Object.keys(parsed).forEach(qId => {
+                      shuffledOptionsCache.set(qId, parsed[qId]);
+                    });
+                  }
+                }
+              } catch(e) { logger.warn('[shuffle] Failed to load cache', e); }
+            }
+
+            // Save shuffle cache to sessionStorage for persistence
+            function saveShuffleCache(){
+              try {
+                if (!window.currentSessionId || shuffledOptionsCache.size === 0) return;
+                const key = `shuffleCache_${window.currentSessionId}`;
+                const obj = {};
+                shuffledOptionsCache.forEach((value, qId) => { obj[qId] = value; });
+                sessionStorage.setItem(key, JSON.stringify(obj));
+              } catch(e) { logger.warn('[shuffle] Failed to save cache', e); }
+            }
+
             // Normalize question options to shape { id, text } and ensure a single shuffled order
+            // Uses memoization to prevent repeated shuffles on every render
             function ensureShuffledOptionsForQuestion(q){
               if (!q) return q;
+              
+              // Generate unique cache key for this question
+              const qId = (q.id !== undefined && q.id !== null) ? `q_${q.id}` : `idx_${QUESTIONS.indexOf(q)}`;
+              
               // normalize options to {id, text}
               const rawOpts = Array.isArray(q.options) ? q.options : [];
               const normalized = rawOpts.map(o => {
@@ -51,19 +90,41 @@
                 return { id: (o.id || o.Id || null), text: (o.text || o.descricao || o.Descricao || o.Descricao || '') };
               });
               q.options = normalized;
-              if (!Array.isArray(q.shuffledOptions) || q.shuffledOptions.length !== normalized.length) {
-                q.shuffledOptions = shuffleArray(normalized);
+              
+              // Check memoization cache first (fastest path)
+              if (shuffledOptionsCache.has(qId)) {
+                q.shuffledOptions = shuffledOptionsCache.get(qId);
+                return q;
               }
+              
+              // Check if already shuffled on the question object
+              if (Array.isArray(q.shuffledOptions) && q.shuffledOptions.length === normalized.length) {
+                shuffledOptionsCache.set(qId, q.shuffledOptions);
+                return q;
+              }
+              
+              // Only shuffle if not cached - this should happen once per question per session
+              q.shuffledOptions = shuffleArray(normalized);
+              shuffledOptionsCache.set(qId, q.shuffledOptions);
               return q;
             }
 
             function ensureShuffledOptionsForAll(questionsArray){
               try {
                 if (!Array.isArray(questionsArray)) return;
+                
+                // Load cache once before processing all questions
+                if (shuffledOptionsCache.size === 0) {
+                  loadShuffleCache();
+                }
+                
                 for (let i = 0; i < questionsArray.length; i++) {
                   ensureShuffledOptionsForQuestion(questionsArray[i]);
                 }
-              } catch(e) { console.warn('ensureShuffledOptionsForAll failed', e); }
+                
+                // Save cache after shuffling all questions
+                saveShuffleCache();
+              } catch(e) { logger.warn('ensureShuffledOptionsForAll failed', e); }
             }
 
             // restore or create a session id (use a temporary id until server returns a real one)
@@ -115,7 +176,7 @@
                 // small timeout to give a visible 'saving' state before switching to saved
                 setTimeout(()=>{ updateAutosaveIndicatorSaved(now); }, 120);
                 try { saveProgressForCurrentSession(); } catch(e){}
-              } catch(e) { console.warn('saveAnswersForCurrentSession failed', e); }
+              } catch(e) { logger.warn('saveAnswersForCurrentSession failed', e); }
             }
 
             // toast helper (now supports centered positioning)
@@ -162,7 +223,7 @@
                 try { payload.elapsedSeconds = timerSeconds || payload.elapsedSeconds || 0; } catch(e){ payload.elapsedSeconds = payload.elapsedSeconds || 0; }
                 localStorage.setItem(key, JSON.stringify(payload));
                 localStorage.setItem(`${key}_savedAt`, new Date().toISOString());
-              } catch(e) { console.warn('saveProgressForCurrentSession failed', e); }
+              } catch(e) { logger.warn('saveProgressForCurrentSession failed', e); }
             }
 
             // when server returns a real session id, migrate answers if we used a temp id
@@ -212,17 +273,17 @@
                 }
                 window.currentSessionId = newId;
                 try { localStorage.setItem('currentSessionId', newId); } catch(e){}
-              } catch(e) { console.warn('migrateToServerSession failed', e); }
+              } catch(e) { logger.warn('migrateToServerSession failed', e); }
             }
 
             // Diagnostic: indicate the file was loaded
             try {
-              console.debug('[exam] script_exam.js loaded');
+              logger.debug('[exam] script_exam.js loaded');
             } catch(e) {}
 
             // Global error handler to surface runtime errors in console (helps detect silent failures)
             window.addEventListener && window.addEventListener('error', function (ev) {
-              try { console.error('[exam] window error:', ev && ev.message, ev && ev.filename, ev && ev.lineno, ev && ev.error); } catch(e){}
+              try { logger.error('[exam] window error:', ev && ev.message, ev && ev.filename, ev && ev.lineno, ev && ev.error); } catch(e){}
             });
 
             let currentIdx = 0;
@@ -398,7 +459,7 @@
 
               // Diagnostic log for first render of each question (once)
               try {
-                if (!q.__logged) { console.debug('[exam] renderQuestion idx', idx, 'id', q.id, 'has imagem_url?', !!(q.imagem_url||q.imagemUrl)); q.__logged = true; }
+                if (!q.__logged) { logger.debug('[exam] renderQuestion idx', idx, 'id', q.id, 'has imagem_url?', !!(q.imagem_url||q.imagemUrl)); q.__logged = true; }
               } catch(_){}
 
                 // Render dynamic options
@@ -613,7 +674,7 @@
                 // end of exam: collect answers and submit to backend
                 clearInterval(timerInterval);
                 submitExam().catch(err=>{
-                  try { console.error('submitExam error', err); alert('Erro ao enviar respostas.'); } catch(e){}
+                  try { logger.error('submitExam error', err); alert('Erro ao enviar respostas.'); } catch(e){}
                 });
               }
             }
@@ -659,7 +720,7 @@
                   } else {
                     try { showToast(`Resultado: ${data.totalCorrect} / ${data.totalQuestions}`, 1800, true); } catch(_){ /* fallback */ }
                   }
-                } catch(e){ console.warn('show result failed', e); }
+                } catch(e){ logger.warn('show result failed', e); }
 
                 // disable controls to prevent re-submission
                 try {
@@ -742,7 +803,7 @@
 
                 return data;
               } catch (err) {
-                console.error('submitExam error', err);
+                logger.error('submitExam error', err);
                 throw err;
               }
             }
@@ -780,7 +841,7 @@
                 const data = await resp.json();
                 return data;
               } catch (e) {
-                console.warn('submitPartial error', e);
+                logger.warn('submitPartial error', e);
                 return { ok: false, error: String(e && e.message || e) };
               }
             }
@@ -820,7 +881,7 @@
                   if (localStorage.getItem(key) === 'true') return; // avoid duplicate submissions for same checkpoint
                   const res = await submitPartial();
                   if (res && res.ok) { try { localStorage.setItem(key, 'true'); } catch(_){} }
-                } catch(e){ console.warn('auto partial submit failed', e); }
+                } catch(e){ logger.warn('auto partial submit failed', e); }
               });
             } catch(e){}
 
@@ -1006,7 +1067,7 @@
               // load questions from backend then initialize exam
               async function prepareAndInit(){
                 try {
-                  console.debug('[exam] prepareAndInit start');
+                  logger.debug('[exam] prepareAndInit start');
                   // Initialize session-scoped pause flags at the start of a fresh exam (no prior progress/questions)
                   try {
                     const sid = window.currentSessionId || null;
@@ -1022,7 +1083,7 @@
                   } catch(e){}
                   // attempt to fetch questions from backend
                   const count = Number(window.QtdQuestoes) || (localStorage.getItem('examQuestionCount') ? Number(localStorage.getItem('examQuestionCount')) : 0);
-                  console.debug('[exam] QtdQuestoes=', window.QtdQuestoes, 'localStorage.examQuestionCount=', localStorage.getItem('examQuestionCount'));
+                  logger.debug('[exam] QtdQuestoes=', window.QtdQuestoes, 'localStorage.examQuestionCount=', localStorage.getItem('examQuestionCount'));
 
                   // 1) Sempre tente usar o cache da sessão primeiro, independentemente de count
                   try {
@@ -1030,7 +1091,7 @@
                       const qraw = localStorage.getItem(`questions_${window.currentSessionId}`);
                       if (qraw) {
                         try { QUESTIONS = JSON.parse(qraw); } catch(e) { QUESTIONS = []; }
-                        // ensure options are normalized and frozen (in case older cache lacked shuffledOptions)
+                        // ensure options are normalized and frozen (loads from cache, no re-shuffle)
                         try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
                         try { window.QUESTIONS = QUESTIONS; } catch(_){}
                         // rehydrate answers and progress for this cached set
@@ -1064,7 +1125,7 @@
                     // fallback to sample questions
                     QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
                     try { window.QUESTIONS = QUESTIONS; } catch(_){}
-                    // normalize and freeze option order once
+                    // normalize and shuffle once (memoized for subsequent renders)
                     try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
                     initExam();
                     return;
@@ -1075,9 +1136,9 @@
                     const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
                     if (alt) { try { localStorage.setItem('sessionToken', alt); } catch(e){} token = alt; }
                   }
-                  console.debug('[exam] using sessionToken=', token);
+                  logger.debug('[exam] using sessionToken=', token);
                   const fetchUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/select';
-                  console.debug('[exam] fetching questions from', fetchUrl, 'count=', count);
+                  logger.debug('[exam] fetching questions from', fetchUrl, 'count=', count);
                   // attach optional filters saved by examSetup (bypass when full exam)
                   let areas = null, grupos = null, dominios = null;
                   try {
@@ -1124,8 +1185,8 @@
                             const data2 = await resp2.json();
                             // mimic normal success path by setting data and proceeding
                             const data = data2;
-                            console.debug('[exam] fetched data (fallback ignoreExamType)', data && { total: data.total, questions: (data.questions||[]).length });
-                            try { if (data && Array.isArray(data.questions) && data.questions.length) { console.debug('[exam] sample question[0] raw (fallback)', data.questions[0]); } } catch(e){}
+                            logger.debug('[exam] fetched data (fallback ignoreExamType)', data && { total: data.total, questions: (data.questions||[]).length });
+                            try { if (data && Array.isArray(data.questions) && data.questions.length) { logger.debug('[exam] sample question[0] raw (fallback)', data.questions[0]); } } catch(e){}
                             try {
                               if (data.exam && typeof data.exam === 'object') {
                                 EXAM_BP = data.exam;
@@ -1139,7 +1200,7 @@
                                   sessionStorage.setItem('FullExam', JSON.stringify(Number(EXAM_BP.numeroQuestoes)));
                                 }
                               }
-                            } catch(e) { console.warn('failed to persist blueprint', e); }
+                            } catch(e) { logger.warn('failed to persist blueprint', e); }
                             try {
                               if (data.sessionId) {
                                 const prev = window.currentSessionId;
@@ -1178,14 +1239,14 @@
                               try {
                                 const withImg = QUESTIONS.filter(q => q.imagem_url || q.imagemUrl);
                                 if (withImg.length) {
-                                  console.debug('[exam] (fallback) questions with image count', withImg.length);
+                                  logger.debug('[exam] (fallback) questions with image count', withImg.length);
                                   const q266 = withImg.find(q => q.id === 266);
                                   if (q266) {
                                     const rawImg = q266.imagem_url || q266.imagemUrl;
-                                    console.debug('[exam] (fallback) q266 image len', rawImg ? rawImg.length : 0, 'startsWith(data:)?', /^data:/i.test(rawImg), 'prefix50', rawImg ? rawImg.slice(0,50) : null);
+                                    logger.debug('[exam] (fallback) q266 image len', rawImg ? rawImg.length : 0, 'startsWith(data:)?', /^data:/i.test(rawImg), 'prefix50', rawImg ? rawImg.slice(0,50) : null);
                                   }
                                 } else {
-                                  console.debug('[exam] (fallback) no questions have imagem_url/imagemUrl');
+                                  logger.debug('[exam] (fallback) no questions have imagem_url/imagemUrl');
                                 }
                               } catch(e) {}
                               try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
@@ -1271,15 +1332,15 @@
                       } catch(_){}
                       return; // stop here, do not initialize fallback questions
                     }
-                    console.warn('Failed to fetch questions', resp.status);
+                    logger.warn('Failed to fetch questions', resp.status);
                     // fallback to sample questions so the UI remains usable in other error cases
                     QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
                     initExam();
                     return;
                   }
                   const data = await resp.json();
-                  console.debug('[exam] fetched data', data && { total: data.total, questions: (data.questions||[]).length });
-                  try { if (data && Array.isArray(data.questions) && data.questions.length) { console.debug('[exam] sample question[0] raw', data.questions[0]); } } catch(e){}
+                  logger.debug('[exam] fetched data', data && { total: data.total, questions: (data.questions||[]).length });
+                  try { if (data && Array.isArray(data.questions) && data.questions.length) { logger.debug('[exam] sample question[0] raw', data.questions[0]); } } catch(e){}
                   // if count came from default (user didn't inform), persist the effective quantity now
                   try {
                     const fromDefault = localStorage.getItem('examCountFromDefault');
@@ -1295,8 +1356,8 @@
                     // Debug: log questão 266 antes do mapeamento
                     try {
                       const preQ266 = data.questions.find(q => q && q.id === 266);
-                      if (preQ266) console.debug('[exam] pre-map q266 raw', { id: preQ266.id, imagem_url: preQ266.imagem_url, imagemUrl: preQ266.imagemUrl, len_imagem_url: preQ266.imagem_url ? String(preQ266.imagem_url).length : 0 });
-                      else console.debug('[exam] pre-map q266 not found in response');
+                      if (preQ266) logger.debug('[exam] pre-map q266 raw', { id: preQ266.id, imagem_url: preQ266.imagem_url, imagemUrl: preQ266.imagemUrl, len_imagem_url: preQ266.imagem_url ? String(preQ266.imagem_url).length : 0 });
+                      else logger.debug('[exam] pre-map q266 not found in response');
                     } catch(_){}
                     // Update blueprint from response if provided
                     try {
@@ -1312,7 +1373,7 @@
                           sessionStorage.setItem('FullExam', JSON.stringify(Number(EXAM_BP.numeroQuestoes)));
                         }
                       }
-                    } catch(e) { console.warn('failed to persist blueprint', e); }
+                    } catch(e) { logger.warn('failed to persist blueprint', e); }
                     // persist / migrate session id: if server returned a real session id, migrate answers from temp
                     try {
                       if (data.sessionId) {
@@ -1354,8 +1415,8 @@
                     // Debug: log questão 266 após mapeamento
                     try {
                       const postQ266 = QUESTIONS.find(q => q && q.id === 266);
-                      if (postQ266) console.debug('[exam] post-map q266', { id: postQ266.id, imagem_url: postQ266.imagem_url, imagemUrl: postQ266.imagemUrl, len_imagem_url: postQ266.imagem_url ? String(postQ266.imagem_url).length : 0 });
-                      else console.debug('[exam] post-map q266 not found');
+                      if (postQ266) logger.debug('[exam] post-map q266', { id: postQ266.id, imagem_url: postQ266.imagem_url, imagemUrl: postQ266.imagemUrl, len_imagem_url: postQ266.imagem_url ? String(postQ266.imagem_url).length : 0 });
+                      else logger.debug('[exam] post-map q266 not found');
                     } catch(_){}
                     // ensure each question has a single shuffledOptions array (frozen order)
                     try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
@@ -1385,7 +1446,7 @@
                                 QUESTIONS = merged;
                                 try {
                                   const mergeQ266 = QUESTIONS.find(q => q && q.id === 266);
-                                  if (mergeQ266) console.debug('[exam] merged q266', { id: mergeQ266.id, imagem_url: mergeQ266.imagem_url, imagemUrl: mergeQ266.imagemUrl, len_imagem_url: mergeQ266.imagem_url ? String(mergeQ266.imagem_url).length : 0 });
+                                  if (mergeQ266) logger.debug('[exam] merged q266', { id: mergeQ266.id, imagem_url: mergeQ266.imagem_url, imagemUrl: mergeQ266.imagemUrl, len_imagem_url: mergeQ266.imagem_url ? String(mergeQ266.imagem_url).length : 0 });
                                 } catch(_){}
                               }
                             }
@@ -1395,7 +1456,7 @@
                           localStorage.setItem(`${qkey}_savedAt`, new Date().toISOString());
                           try {
                             const storeQ266 = QUESTIONS.find(q => q && q.id === 266);
-                            if (storeQ266) console.debug('[exam] stored q266', { id: storeQ266.id, imagem_url: storeQ266.imagem_url, imagemUrl: storeQ266.imagemUrl, len_imagem_url: storeQ266.imagem_url ? String(storeQ266.imagem_url).length : 0 });
+                            if (storeQ266) logger.debug('[exam] stored q266', { id: storeQ266.id, imagem_url: storeQ266.imagem_url, imagemUrl: storeQ266.imagemUrl, len_imagem_url: storeQ266.imagem_url ? String(storeQ266.imagem_url).length : 0 });
                           } catch(_){}
                         }
                       }
@@ -1430,7 +1491,7 @@
                     try { window.QUESTIONS = QUESTIONS; } catch(_){}
                   }
                 } catch (e) {
-                  console.warn('prepareAndInit error', e);
+                  logger.warn('prepareAndInit error', e);
                 }
                 initExam();
               }

@@ -1,3 +1,6 @@
+// Import controlled logging system
+// <script src="/utils/logger.js"></script> must be loaded first in HTML
+
 // SafeRedirect: Security utility to prevent open redirect vulnerabilities
 class SafeRedirect {
     constructor() {
@@ -49,7 +52,7 @@ class SafeRedirect {
                     return url;
                 }
                 
-                console.warn('[SafeRedirect] Rejected non-whitelisted path:', path);
+                window.logger?.warn('[SafeRedirect] Rejected non-whitelisted path:', path) || console.warn('[SafeRedirect] Rejected non-whitelisted path:', path);
                 return fallback;
             }
 
@@ -58,7 +61,7 @@ class SafeRedirect {
             
             // Only allow same-origin redirects
             if (parsedUrl.origin !== window.location.origin) {
-                console.warn('[SafeRedirect] Rejected external redirect:', parsedUrl.href);
+                window.logger?.warn('[SafeRedirect] Rejected external redirect:', parsedUrl.href) || console.warn('[SafeRedirect] Rejected external redirect:', parsedUrl.href);
                 return fallback;
             }
 
@@ -75,11 +78,11 @@ class SafeRedirect {
                 return parsedUrl.href;
             }
 
-            console.warn('[SafeRedirect] Rejected non-whitelisted URL:', parsedUrl.href);
+            window.logger?.warn('[SafeRedirect] Rejected non-whitelisted URL:', parsedUrl.href) || console.warn('[SafeRedirect] Rejected non-whitelisted URL:', parsedUrl.href);
             return fallback;
 
         } catch (e) {
-            console.error('[SafeRedirect] Error validating redirect:', e);
+            window.logger?.error('[SafeRedirect] Error validating redirect:', e) || console.error('[SafeRedirect] Error validating redirect:', e);
             return fallback;
         }
     }
@@ -115,6 +118,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const forgotPasswordLink = document.getElementById('forgotPasswordLink');
     const pathNow = window.location.pathname || '';
     const onLoginPage = pathNow.replace(/\/+$/, '') === '/login';
+
+    // Accessible modal helpers to avoid aria-hidden focus issues
+    const ModalA11y = (() => {
+        let lastTrigger = null;
+        const focusFirst = (modal) => {
+            const focusable = modal && modal.querySelector(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            if (focusable) focusable.focus();
+        };
+        const open = (modal) => {
+            if (!modal) return;
+            if (document.activeElement && !modal.contains(document.activeElement)) {
+                lastTrigger = document.activeElement;
+            }
+            modal.removeAttribute('aria-hidden');
+            modal.removeAttribute('inert');
+            if (getComputedStyle(modal).display === 'none') {
+                modal.style.display = 'flex';
+            }
+            setTimeout(() => focusFirst(modal), 0);
+        };
+        const close = (modal) => {
+            if (!modal) return;
+            if (modal.contains(document.activeElement) && lastTrigger) {
+                lastTrigger.focus();
+            }
+            modal.setAttribute('aria-hidden', 'true');
+            modal.setAttribute('inert', '');
+            modal.style.display = 'none';
+        };
+        return { open, close };
+    })();
 
     // Configuration: allow overriding from the page by setting window.SIMULADOS_CONFIG
     // Example (optional): window.SIMULADOS_CONFIG = { BACKEND_BASE: 'http://localhost:3000', EXAM_PATH: '/pages/exam.html' };
@@ -154,6 +190,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideRedirectSpinner(){
         const s = document.getElementById('redirectSpinner');
         if (s) s.style.display = 'none';
+    }
+
+    // Wire admin modal open/close if present to enforce a11y rules
+    const adminModal = document.getElementById('adminModal');
+    const adminModalOpen = document.getElementById('adminModalOpen');
+    const adminModalClose = document.getElementById('adminModalClose');
+    if (adminModal && adminModalOpen) {
+        adminModalOpen.addEventListener('click', (e) => {
+            e.preventDefault();
+            ModalA11y.open(adminModal);
+        });
+    }
+    if (adminModal && adminModalClose) {
+        adminModalClose.addEventListener('click', (e) => {
+            e.preventDefault();
+            ModalA11y.close(adminModal);
+        });
     }
 
     // Load and show the exam setup modal (fragment at ./pages/examSetup.html)

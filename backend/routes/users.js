@@ -1,5 +1,6 @@
 const express = require('express');
 const { logger } = require('../utils/logger');
+const { badRequest, unauthorized, forbidden, conflict, notFound, internalError } = require('../middleware/errors');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const db = require('../models');
@@ -30,7 +31,7 @@ const registerLimiter = rateLimit({
  * POST /api/users
  * Cria usuário persistido no banco (tabela Usuario)
  */
-router.post('/', registerLimiter, validate(authSchemas.register), async (req, res) => {
+router.post('/', registerLimiter, validate(authSchemas.register), async (req, res, next) => {
     try {
         const body = req.body;
 
@@ -39,7 +40,7 @@ router.post('/', registerLimiter, validate(authSchemas.register), async (req, re
         // verifica duplicidade
         const existing = await User.findOne({ where: { Email: email } });
         if (existing) {
-            return res.status(409).json({ message: 'Usuário com este e-mail já existe' });
+            return next(conflict('Usuário com este e-mail já existe', 'EMAIL_ALREADY_EXISTS'));
         }
 
         const sessionToken = (req.get('X-Session-Token') || '').trim();
@@ -118,16 +119,16 @@ router.post('/', registerLimiter, validate(authSchemas.register), async (req, re
         });
     } catch (err) {
         logger.error('Erro criando usuário (DB):', err);
-        return res.status(500).json({ message: 'Erro interno' });
+        return next(internalError('Erro interno', 'USER_CREATE_ERROR', err));
     }
 });
 
 // GET /api/users
 // Dev-only: lista usuários (omitindo SenhaHash). Desabilitado em produção.
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
     try {
         if (process.env.NODE_ENV === 'production') {
-            return res.status(403).json({ message: 'Forbidden in production' });
+            return next(forbidden('Forbidden in production', 'FORBIDDEN_IN_PRODUCTION'));
         }
 
         const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
@@ -143,18 +144,18 @@ router.get('/', async (req, res) => {
         return res.json(users);
     } catch (err) {
         logger.error('Erro listando usuários (dev):', err);
-        return res.status(500).json({ message: 'Erro interno' });
+        return next(internalError('Erro interno', 'USER_LIST_ERROR', err));
     }
 });
 
 // GET /api/users/me
 // Retorna dados básicos do usuário autenticado (deduzido pelo cookie sessionToken, X-Session-Token header ou query sessionToken)
 // Inclui flag TipoUsuario derivada (admin|user) baseada em lista de e-mails configurada ou nome de usuário.
-router.get('/me', async (req, res) => {
+router.get('/me', async (req, res, next) => {
     try {
         // Read token from cookie (preferred), header, or query parameter (legacy)
         const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'Session token required' });
+        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
         let user = null;
         // If token looks like JWT, try to decode
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
@@ -180,7 +181,7 @@ router.get('/me', async (req, res) => {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });
         }
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
         const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
         const emailLower = String(user.Email || '').toLowerCase();
         const nomeLower = String(user.NomeUsuario || '').toLowerCase();
@@ -198,7 +199,7 @@ router.get('/me', async (req, res) => {
         });
     } catch (err) {
         logger.error('Erro /users/me:', err);
-        return res.status(500).json({ error: 'Internal error' });
+        return next(internalError('Internal error', 'USER_ME_ERROR', err));
     }
 });
 
@@ -207,10 +208,10 @@ router.get('/me', async (req, res) => {
  * Retorna série diária de métricas de tentativas (started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent).
  * Requer header X-Session-Token (id numérico ou NomeUsuario/Email).
  */
-router.get('/me/stats/daily', async (req, res) => {
+router.get('/me/stats/daily', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
@@ -225,7 +226,7 @@ router.get('/me/stats/daily', async (req, res) => {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });
         }
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
         let days = Number(req.query.days) || 30;
         if (!Number.isFinite(days) || days <= 0) days = 30;
         days = Math.min(Math.max(days, 1), 180); // clamp 1..180
@@ -233,7 +234,7 @@ router.get('/me/stats/daily', async (req, res) => {
         return res.json({ days, data: rows });
     } catch (err) {
         logger.error('Erro user daily stats:', err);
-        return res.status(500).json({ error: 'Internal error' });
+        return next(internalError('Internal error', 'USER_DAILY_STATS_ERROR', err));
     }
 });
 
@@ -241,10 +242,10 @@ router.get('/me/stats/daily', async (req, res) => {
  * GET /api/users/me/stats/summary?days=30
  * Retorna resumo agregado do período (totais e rates).
  */
-router.get('/me/stats/summary', async (req, res) => {
+router.get('/me/stats/summary', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
@@ -259,7 +260,7 @@ router.get('/me/stats/summary', async (req, res) => {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });
         }
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
         let days = Number(req.query.days) || 30;
         if (!Number.isFinite(days) || days <= 0) days = 30;
         days = Math.min(Math.max(days, 1), 180);
@@ -267,7 +268,7 @@ router.get('/me/stats/summary', async (req, res) => {
         return res.json(summary);
     } catch (err) {
         logger.error('Erro user stats summary:', err);
-        return res.status(500).json({ error: 'Internal error' });
+        return next(internalError('Internal error', 'USER_STATS_SUMMARY_ERROR', err));
     }
 });
 
@@ -275,10 +276,10 @@ router.get('/me/stats/summary', async (req, res) => {
  * PUT /api/users/me/profile
  * Atualiza Nome e NomeUsuario do usuário autenticado
  */
-router.put('/me/profile', async (req, res) => {
+router.put('/me/profile', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
@@ -294,12 +295,12 @@ router.put('/me/profile', async (req, res) => {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });
         }
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
         const { Nome, NomeUsuario } = req.body || {};
         
         if (!Nome || !Nome.trim()) {
-            return res.status(400).json({ message: 'Nome é obrigatório' });
+            return next(badRequest('Nome é obrigatório', 'NAME_REQUIRED'));
         }
 
         // Update fields
@@ -314,7 +315,7 @@ router.put('/me/profile', async (req, res) => {
         return res.json({ message: 'Perfil atualizado com sucesso', user: { Id: user.Id, Nome: user.Nome, NomeUsuario: user.NomeUsuario } });
     } catch (err) {
         logger.error('Erro ao atualizar perfil:', err);
-        return res.status(500).json({ error: 'Erro interno' });
+        return next(internalError('Erro interno', 'USER_PROFILE_UPDATE_ERROR', err));
     }
 });
 
@@ -322,10 +323,10 @@ router.put('/me/profile', async (req, res) => {
  * POST /api/users/me/email/request-change
  * Solicita alteração de email e envia código de verificação
  */
-router.post('/me/email/request-change', async (req, res) => {
+router.post('/me/email/request-change', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
@@ -341,12 +342,12 @@ router.post('/me/email/request-change', async (req, res) => {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });
         }
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
         const { newEmail } = req.body || {};
         
         if (!newEmail || !newEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) {
-            return res.status(400).json({ message: 'Email inválido' });
+            return next(badRequest('Email inválido', 'INVALID_EMAIL'));
         }
 
         const emailLower = newEmail.trim().toLowerCase();
@@ -362,10 +363,10 @@ router.post('/me/email/request-change', async (req, res) => {
             const currentUserId = Number(user.Id || user.id);
             if (existingId !== currentUserId) {
                 logger.warn(`[SECURITY] User ${currentUserId} attempted to change email to already registered email: ${emailLower} (owner: ${existingId})`);
-                return res.status(409).json({ message: 'Este email já está em uso' });
+                return next(conflict('Este email já está em uso', 'EMAIL_IN_USE'));
             }
             // If same user, they already have this email - no change needed
-            return res.status(400).json({ message: 'Este já é o seu email atual' });
+            return next(badRequest('Este já é o seu email atual', 'EMAIL_SAME_AS_CURRENT'));
         }
 
         // Invalidar tokens anteriores não usados de troca de email para este usuário
@@ -409,7 +410,7 @@ router.post('/me/email/request-change', async (req, res) => {
         return res.json({ message: 'Código de verificação enviado para o novo email' });
     } catch (err) {
         logger.error('Erro ao solicitar alteração de email:', err);
-        return res.status(500).json({ error: 'Erro interno' });
+        return next(internalError('Erro interno', 'USER_EMAIL_REQUEST_CHANGE_ERROR', err));
     }
 });
 
@@ -417,10 +418,10 @@ router.post('/me/email/request-change', async (req, res) => {
  * POST /api/users/me/email/verify-change
  * Verifica código e efetua alteração de email
  */
-router.post('/me/email/verify-change', async (req, res) => {
+router.post('/me/email/verify-change', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
@@ -436,12 +437,12 @@ router.post('/me/email/verify-change', async (req, res) => {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });
         }
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
         const { newEmail, token } = req.body || {};
         
         if (!token || !token.trim()) {
-            return res.status(400).json({ message: 'Código de verificação obrigatório' });
+            return next(badRequest('Código de verificação obrigatório', 'VERIFICATION_CODE_REQUIRED'));
         }
 
         const tokenUpper = token.trim().toUpperCase();
@@ -457,15 +458,15 @@ router.post('/me/email/verify-change', async (req, res) => {
         });
 
         if (!verification) {
-            return res.status(400).json({ message: 'Código inválido ou já utilizado' });
+            return next(badRequest('Código inválido ou já utilizado', 'INVALID_OR_USED_CODE'));
         }
 
         if (verification.ForcedExpiration) {
-            return res.status(400).json({ message: 'Este código foi invalidado porque você solicitou um novo. Use o código mais recente.' });
+            return next(badRequest('Este código foi invalidado porque você solicitou um novo. Use o código mais recente.', 'CODE_FORCED_EXPIRED'));
         }
 
         if (new Date() > new Date(verification.ExpiresAt)) {
-            return res.status(400).json({ message: 'Código expirado' });
+            return next(badRequest('Código expirado', 'CODE_EXPIRED'));
         }
 
         // Verify metadata matches
@@ -475,7 +476,7 @@ router.post('/me/email/verify-change', async (req, res) => {
         } catch(_) { }
 
         if (meta.type !== 'email_change' || meta.newEmail !== newEmail.trim().toLowerCase()) {
-            return res.status(400).json({ message: 'Código não corresponde à solicitação' });
+            return next(badRequest('Código não corresponde à solicitação', 'CODE_MISMATCH'));
         }
 
         // Update email and mark as confirmed
@@ -491,7 +492,7 @@ router.post('/me/email/verify-change', async (req, res) => {
         return res.json({ message: 'Email alterado com sucesso' });
     } catch (err) {
         logger.error('Erro ao verificar alteração de email:', err);
-        return res.status(500).json({ error: 'Erro interno' });
+        return next(internalError('Erro interno', 'USER_EMAIL_VERIFY_CHANGE_ERROR', err));
     }
 });
 
@@ -499,10 +500,10 @@ router.post('/me/email/verify-change', async (req, res) => {
  * POST /api/users/me/verify-password
  * Verifica se a senha fornecida está correta (para autenticação adicional)
  */
-router.post('/me/verify-password', async (req, res) => {
+router.post('/me/verify-password', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
@@ -518,12 +519,12 @@ router.post('/me/verify-password', async (req, res) => {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });
         }
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
         const { password } = req.body || {};
         
         if (!password) {
-            return res.status(400).json({ message: 'Senha é obrigatória' });
+            return next(badRequest('Senha é obrigatória', 'PASSWORD_REQUIRED'));
         }
 
         // Debug logging
@@ -538,13 +539,13 @@ router.post('/me/verify-password', async (req, res) => {
         logger.info('[verify-password] Comparison result:', isValid);
         
         if (!isValid) {
-            return res.status(401).json({ message: 'Senha incorreta' });
+            return next(unauthorized('Senha incorreta', 'INVALID_PASSWORD'));
         }
 
         return res.json({ message: 'Senha verificada com sucesso' });
     } catch (err) {
         logger.error('Erro ao verificar senha:', err);
-        return res.status(500).json({ error: 'Erro interno' });
+        return next(internalError('Erro interno', 'USER_VERIFY_PASSWORD_ERROR', err));
     }
 });
 
@@ -552,10 +553,10 @@ router.post('/me/verify-password', async (req, res) => {
  * PUT /api/users/me/password
  * Altera senha do usuário autenticado
  */
-router.put('/me/password', async (req, res) => {
+router.put('/me/password', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
@@ -571,22 +572,22 @@ router.put('/me/password', async (req, res) => {
             const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
             user = await User.findOne({ where });
         }
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
         const { currentPassword, newPassword } = req.body || {};
         
         if (!currentPassword || !newPassword) {
-            return res.status(400).json({ message: 'Senha atual e nova senha são obrigatórias' });
+            return next(badRequest('Senha atual e nova senha são obrigatórias', 'PASSWORDS_REQUIRED'));
         }
 
         if (newPassword.length < 6) {
-            return res.status(400).json({ message: 'Nova senha deve ter no mínimo 6 caracteres' });
+            return next(badRequest('Nova senha deve ter no mínimo 6 caracteres', 'PASSWORD_TOO_SHORT'));
         }
 
         // Verify current password
         const isValid = await bcrypt.compare(currentPassword, user.SenhaHash);
         if (!isValid) {
-            return res.status(401).json({ message: 'Senha atual incorreta' });
+            return next(unauthorized('Senha atual incorreta', 'INVALID_PASSWORD'));
         }
 
         // Hash new password
@@ -598,7 +599,7 @@ router.put('/me/password', async (req, res) => {
         return res.json({ message: 'Senha alterada com sucesso' });
     } catch (err) {
         logger.error('Erro ao alterar senha:', err);
-        return res.status(500).json({ error: 'Erro interno' });
+        return next(internalError('Erro interno', 'USER_CHANGE_PASSWORD_ERROR', err));
     }
 });
 

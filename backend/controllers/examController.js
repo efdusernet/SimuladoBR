@@ -3,6 +3,8 @@ const { logger } = require('../utils/logger');
 const sequelize = require('../config/database');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/security');
+const { badRequest, unauthorized, notFound, internalError } = require('../middleware/errors');
+const { AppError } = require('../middleware/errorHandler');
 // Daily user exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
@@ -80,26 +82,26 @@ exports.listExams = async (req, res) => {
 };
 
 // GET /api/exams/types -> returns configured exam types (for UI)
-exports.listExamTypes = async (_req, res) => {
+exports.listExamTypes = async (_req, res, next) => {
   try {
     const types = await loadExamTypesFromDb();
     if (types && types.length) return res.json(types);
     const disableFallback = String(process.env.EXAM_TYPES_DISABLE_FALLBACK || '').toLowerCase() === 'true';
     if (disableFallback) {
-      return res.status(404).json({ error: 'No exam types configured in DB' });
+      return next(notFound('No exam types configured in DB', 'NO_EXAM_TYPES'));
     }
     const registry = require('../services/exams/ExamRegistry');
     return res.json(registry.getTypes());
   } catch (err) {
     logger.error('Erro listExamTypes:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'INTERNAL_ERROR_LIST_EXAM_TYPES'));
   }
 };
 
 // POST /api/exams/select
 // Body: { count: number, dominios?: [ids], areas?: [ids], grupos?: [ids] }
 // Used by: frontend/pages/examSetup.html (para contar/selecionar) e wrappers em exam.html/examFull.html
-exports.selectQuestions = async (req, res) => {
+exports.selectQuestions = async (req, res, next) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   // Resolve exam mode from header or infer by count (quiz/full). Header wins if valid.
@@ -107,7 +109,7 @@ exports.selectQuestions = async (req, res) => {
   if (!(headerMode === 'quiz' || headerMode === 'full')) headerMode = null;
   const examCfg = await getExamTypeBySlugOrDefault(examType);
   let count = Number((req.body && req.body.count) || 0) || 0;
-    if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
+    if (!count || count <= 0) return next(badRequest('count required', 'COUNT_REQUIRED'));
     // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (or env-configured), quiz when count < full threshold
     let examMode = headerMode;
     try {
@@ -120,7 +122,7 @@ exports.selectQuestions = async (req, res) => {
 
     // resolve user via X-Session-Token (same logic as /api/auth/me)
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
-    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+    if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
     let user = null;
     // If token looks like JWT, try to decode
@@ -149,7 +151,7 @@ exports.selectQuestions = async (req, res) => {
       const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
       user = await User.findOne({ where });
     }
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
     const bloqueio = Boolean(user.BloqueioAtivado);
     // Enforce hard cap for blocked users
@@ -246,7 +248,7 @@ exports.selectQuestions = async (req, res) => {
     }
 
     if (available < 1) {
-      return res.status(400).json({ error: 'Not enough questions available', available });
+      return next(badRequest('Not enough questions available', 'NOT_ENOUGH_QUESTIONS', { available }));
     }
     // New selection path for full exam mode (distribution + pretest) else legacy random selection
     let payloadQuestions = [];
@@ -516,27 +518,27 @@ exports.selectQuestions = async (req, res) => {
     return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, examMode: examMode || null, attemptId: attempt ? attempt.Id : null, exam: blueprint, questions: payloadQuestions });
   } catch (err) {
     logger.error('Erro selectQuestions:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_SELECT_QUESTIONS'));
   }
 };
 
 // Placeholder for starting a persisted exam/session (not implemented yet)
-exports.startExam = async (req, res) => {
+exports.startExam = async (req, res, next) => {
   try {
-    return res.status(501).json({ message: 'startExam not implemented yet' });
+    return next(new AppError('startExam not implemented yet', 501, 'NOT_IMPLEMENTED'));
   } catch (err) {
     logger.error('Erro startExam:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'INTERNAL_ERROR_START_EXAM'));
   }
 };
 
 // POST /api/exams/submit
 // Body: { sessionId: string, answers: [{ questionId: number, optionId?: number, optionIds?: number[], response?: any }] }
 // Used by: frontend/assets/build/script_exam.js e frontend/script_exam.js quando o usuário finaliza ou salva parcialmente
-exports.submitAnswers = async (req, res) => {
+exports.submitAnswers = async (req, res, next) => {
   try {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
-    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+    if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
     // resolve user (aceita JWT ou ID/email)
     let user = null;
@@ -546,7 +548,7 @@ exports.submitAnswers = async (req, res) => {
       try {
         tokenPayload = jwt.verify(sessionToken, jwtSecret);
       } catch (e) {
-        return res.status(401).json({ error: 'Invalid session token' });
+        return next(unauthorized('Invalid session token', 'INVALID_SESSION_TOKEN'));
       }
       // Tenta buscar por sub (ID), email ou nome
       if (tokenPayload && tokenPayload.sub) {
@@ -569,12 +571,12 @@ exports.submitAnswers = async (req, res) => {
         user = await User.findOne({ where });
       }
     }
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
   const { sessionId, answers } = req.body || {};
     const partial = Boolean(req.body && req.body.partial);
-    if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
-    if (!Array.isArray(answers)) return res.status(400).json({ error: 'answers required' });
+    if (!sessionId) return next(badRequest('sessionId required', 'SESSION_ID_REQUIRED'));
+    if (!Array.isArray(answers)) return next(badRequest('answers required', 'ANSWERS_REQUIRED'));
   const s = await getSession(sessionId);
   let attemptId = s && s.attemptId ? Number(s.attemptId) : null;
   // Fallback: recover attemptId from DB when memory session is missing (e.g., server restart)
@@ -607,7 +609,7 @@ exports.submitAnswers = async (req, res) => {
     if (!qids.length) {
       qids = Array.from(new Set(answers.map(a => Number(a.questionId)).filter(n => !Number.isNaN(n))));
     }
-    if (!qids.length) return res.status(400).json({ error: 'no valid questionIds' });
+    if (!qids.length) return next(badRequest('no valid questionIds', 'NO_VALID_QUESTION_IDS'));
 
     // Fetch IsPreTest flags for questions to exclude from scoring
     let pretestQids = new Set();
@@ -781,7 +783,7 @@ exports.submitAnswers = async (req, res) => {
     return res.json(result);
   } catch (err) {
     logger.error('Erro submitAnswers:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_SUBMIT_ANSWERS'));
   }
 };
 
@@ -789,7 +791,7 @@ exports.submitAnswers = async (req, res) => {
 // Body: { count, filters... }
 // Returns { sessionId, total }
 // Used by: (reservado para fluxo alternativo; não há chamada ativa no frontend no momento)
-exports.startOnDemand = async (req, res) => {
+exports.startOnDemand = async (req, res, next) => {
   try {
   const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
   const examCfg = await getExamTypeBySlugOrDefault(examType);
@@ -797,9 +799,9 @@ exports.startOnDemand = async (req, res) => {
   let headerMode = (req.get('X-Exam-Mode') || '').trim().toLowerCase();
   if (!(headerMode === 'quiz' || headerMode === 'full')) headerMode = null;
   let count = Number((req.body && req.body.count) || 0) || 0;
-    if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
+    if (!count || count <= 0) return next(badRequest('count required', 'COUNT_REQUIRED'));
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
-    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+    if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
     let user = null;
     if (/^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
@@ -808,7 +810,7 @@ exports.startOnDemand = async (req, res) => {
       const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
       user = await User.findOne({ where });
     }
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
     const bloqueio = Boolean(user.BloqueioAtivado);
     if (bloqueio && count > 25) count = 25;
@@ -854,7 +856,7 @@ exports.startOnDemand = async (req, res) => {
 
     // Always respect exam type; no fallback that drops exam_type
     const whereSqlUsed = whereSql;
-    if (available < 1) return res.status(400).json({ error: 'Not enough questions available', available });
+    if (available < 1) return next(badRequest('Not enough questions available', 'NOT_ENOUGH_QUESTIONS', { available }));
     const limitUsed = Math.min(count, available);
 
     queryReplacements.limit = limitUsed;
@@ -924,18 +926,18 @@ exports.startOnDemand = async (req, res) => {
     }});
   } catch (err) {
     logger.error('Erro startOnDemand:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_START_ON_DEMAND'));
   }
 };
 
 // GET /api/exams/:sessionId/question/:index
 // Used by: fluxo on-demand (quando ativo) para buscar questão a questão
-exports.getQuestion = async (req, res) => {
+exports.getQuestion = async (req, res, next) => {
   try {
     const { sessionId, index } = { sessionId: req.params.sessionId, index: Number(req.params.index) };
     const s = await getSession(sessionId);
-    if (!s) return res.status(404).json({ error: 'session not found' });
-    if (!Number.isInteger(index) || index < 0 || index >= s.questionIds.length) return res.status(400).json({ error: 'invalid index' });
+    if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
+    if (!Number.isInteger(index) || index < 0 || index >= s.questionIds.length) return next(badRequest('invalid index', 'INVALID_INDEX'));
     const qid = s.questionIds[index];
     const qQ = `
       SELECT q.id, q.descricao, q.tiposlug, q.interacaospec, q.multiplaescolha AS multiplaescolha,
@@ -949,7 +951,7 @@ exports.getQuestion = async (req, res) => {
        WHERE q.id = :id
        LIMIT 1`;
     const qRows = await sequelize.query(qQ, { replacements: { id: qid }, type: sequelize.QueryTypes.SELECT });
-    if (!qRows || !qRows.length) return res.status(404).json({ error: 'question not found' });
+    if (!qRows || !qRows.length) return next(notFound('question not found', 'QUESTION_NOT_FOUND'));
     const q = qRows[0];
     // If tiposlug is present but refers to advanced type, return interaction payload.
     // For basic types ('single'/'multi' or synonyms), keep legacy options path below.
@@ -980,25 +982,25 @@ exports.getQuestion = async (req, res) => {
     return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: { id: q.id, type, descricao: q.descricao || q.Descricao, explicacao: q.explicacao || q.Explicacao, options: opts } });
   } catch (err) {
     logger.error('Erro getQuestion:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_GET_QUESTION'));
   }
 };
 
 // POST /api/exams/:sessionId/pause/start { index }
 // Used by: frontend/pages/examFull.html para iniciar pausa nos checkpoints
-exports.pauseStart = async (req, res) => {
+exports.pauseStart = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
     const index = Number(req.body && req.body.index);
     const s = await getSession(sessionId);
-    if (!s) return res.status(404).json({ error: 'session not found' });
-    if (!Number.isInteger(index)) return res.status(400).json({ error: 'index required' });
+    if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
+    if (!Number.isInteger(index)) return next(badRequest('index required', 'INDEX_REQUIRED'));
     const policy = s.pausePolicy || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
-    if (!policy.permitido) return res.status(400).json({ error: 'pause not permitted for this exam' });
+    if (!policy.permitido) return next(badRequest('pause not permitted for this exam', 'PAUSE_NOT_PERMITTED'));
     const cps = Array.isArray(policy.checkpoints) ? policy.checkpoints : [];
-    if (!cps.includes(index)) return res.status(400).json({ error: 'pause not allowed at this index' });
+    if (!cps.includes(index)) return next(badRequest('pause not allowed at this index', 'PAUSE_NOT_ALLOWED'));
     const consumed = s.pauses && s.pauses.consumed ? s.pauses.consumed : {};
-    if (consumed[index]) return res.status(400).json({ error: 'pause already consumed' });
+    if (consumed[index]) return next(badRequest('pause already consumed', 'PAUSE_ALREADY_CONSUMED'));
     const ms = (Number(policy.duracaoMinutosPorPausa) || 0) * 60 * 1000;
     const until = Date.now() + ms;
     consumed[index] = true;
@@ -1006,22 +1008,22 @@ exports.pauseStart = async (req, res) => {
     return res.json({ ok: true, pauseUntil: until });
   } catch (err) {
     logger.error('Erro pauseStart:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_PAUSE_START'));
   }
 };
 
 // POST /api/exams/:sessionId/pause/skip { index }
 // Used by: frontend/pages/examFull.html para pular pausa no checkpoint
-exports.pauseSkip = async (req, res) => {
+exports.pauseSkip = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
     const index = Number(req.body && req.body.index);
     const s = await getSession(sessionId);
-    if (!s) return res.status(404).json({ error: 'session not found' });
-    if (!Number.isInteger(index)) return res.status(400).json({ error: 'index required' });
+    if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
+    if (!Number.isInteger(index)) return next(badRequest('index required', 'INDEX_REQUIRED'));
     const policy = s.pausePolicy || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
     const cps = Array.isArray(policy.checkpoints) ? policy.checkpoints : [];
-    if (!cps.includes(index)) return res.status(400).json({ error: 'skip not allowed at this index' });
+    if (!cps.includes(index)) return next(badRequest('skip not allowed at this index', 'SKIP_NOT_ALLOWED'));
     const consumed = s.pauses && s.pauses.consumed ? s.pauses.consumed : {};
     if (consumed[index]) return res.status(200).json({ ok: true, already: true });
     consumed[index] = true;
@@ -1029,21 +1031,21 @@ exports.pauseSkip = async (req, res) => {
     return res.json({ ok: true });
   } catch (err) {
     logger.error('Erro pauseSkip:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_PAUSE_SKIP'));
   }
 };
 
 // GET /api/exams/:sessionId/pause/status
 // Used by: frontend/pages/examFull.html para consultar o estado da pausa
-exports.pauseStatus = async (req, res) => {
+exports.pauseStatus = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
     const s = await getSession(sessionId);
-    if (!s) return res.status(404).json({ error: 'session not found' });
+    if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
     return res.json({ pauses: s.pauses || {}, policy: s.pausePolicy || null, examType: s.examType || 'pmp' });
   } catch (err) {
     logger.error('Erro pauseStatus:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_PAUSE_STATUS'));
   }
 };
 
@@ -1051,11 +1053,11 @@ exports.pauseStatus = async (req, res) => {
 // Body: { sessionId?: string, attemptId?: number }
 // Rebuilds in-memory session state after server restart, using DB as source of truth
 // Used by: frontend/pages/exam.html e frontend/pages/examFull.html no auto-resume ao detectar 404 de sessão
-exports.resumeSession = async (req, res) => {
+exports.resumeSession = async (req, res, next) => {
   try {
     // Resolve user (same policy as other endpoints)
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
-    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+    if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
     let user = null;
     if (/^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
@@ -1064,7 +1066,7 @@ exports.resumeSession = async (req, res) => {
       const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
       user = await db.User.findOne({ where });
     }
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
     const reqSessionId = (req.body && req.body.sessionId) ? String(req.body.sessionId) : null;
     const reqAttemptId = (req.body && req.body.attemptId) ? Number(req.body.attemptId) : null;
@@ -1088,7 +1090,7 @@ exports.resumeSession = async (req, res) => {
         });
       } catch(_) { attempt = null; }
     }
-    if (!attempt) return res.status(404).json({ error: 'attempt not found' });
+    if (!attempt) return next(notFound('attempt not found', 'ATTEMPT_NOT_FOUND'));
 
     // Load ordered question ids
     const rows = await db.ExamAttemptQuestion.findAll({
@@ -1130,7 +1132,7 @@ exports.resumeSession = async (req, res) => {
     return res.json({ ok: true, sessionId: newSessionId, attemptId: attempt.Id, total: questionIds.length, examType: (attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp' });
   } catch (err) {
     logger.error('Erro resumeSession:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_RESUME_SESSION'));
   }
 };
 
@@ -1138,7 +1140,7 @@ exports.resumeSession = async (req, res) => {
   // Returns summary of the last finished attempt for the resolved user
   // Response: { correct, total, scorePercent, approved, finishedAt, examTypeId }
   // Used by: frontend/index.html (loadLastExamResults) para alimentar o gauge de "Último exame"
-  exports.lastAttemptSummary = async (req, res) => {
+  exports.lastAttemptSummary = async (req, res, next) => {
     try {
       // Resolve user using the same policy applied in selection endpoints
       const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
@@ -1146,7 +1148,7 @@ exports.resumeSession = async (req, res) => {
       let bearerToken = '';
       if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
       const sessionToken = bearerToken || legacyToken;
-      if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token or Authorization required' });
+      if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
       let user = null;
       
@@ -1216,7 +1218,7 @@ exports.resumeSession = async (req, res) => {
         user = await db.User.findOne({ where });
       }
       
-      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
       const attempt = await db.ExamAttempt.findOne({
         where: { UserId: user.Id || user.id, Status: 'finished' },
@@ -1259,7 +1261,7 @@ exports.resumeSession = async (req, res) => {
       });
     } catch (err) {
       logger.error('Erro lastAttemptSummary:', err);
-      return res.status(500).json({ error: 'Internal error' });
+      return next(internalError('Internal error', 'INTERNAL_ERROR_LAST_SUMMARY'));
     }
   };
 
@@ -1267,7 +1269,7 @@ exports.resumeSession = async (req, res) => {
   // Returns the last N finished attempts for the resolved user (default 3)
   // Response: [{ correct,total,scorePercent,approved,startedAt,finishedAt,examTypeId,durationSeconds }]
   // Used by: frontend/index.html (loadLastExamResults) para estilizar o gauge conforme regra dos últimos 3
-  exports.lastAttemptsHistory = async (req, res) => {
+  exports.lastAttemptsHistory = async (req, res, next) => {
     try {
       // Allow up to 50 history items instead of previous cap 10
       const limitRequested = Number(req.query.limit) || 3;
@@ -1278,7 +1280,7 @@ exports.resumeSession = async (req, res) => {
       let bearerToken = '';
       if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
       const sessionToken = bearerToken || legacyToken;
-      if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token or Authorization required' });
+      if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
       let user = null;
       
@@ -1347,7 +1349,7 @@ exports.resumeSession = async (req, res) => {
         user = await db.User.findOne({ where });
       }
       
-      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
       const attempts = await db.ExamAttempt.findAll({
         where: { UserId: user.Id || user.id, Status: 'finished' },
@@ -1389,7 +1391,7 @@ exports.resumeSession = async (req, res) => {
       return res.json(out);
     } catch (err) {
       logger.error('Erro lastAttemptsHistory:', err);
-      return res.status(500).json({ error: 'Internal error' });
+      return next(internalError('Internal error', 'INTERNAL_ERROR_LAST_HISTORY'));
     }
   };
 
@@ -1487,10 +1489,10 @@ exports.resumeSession = async (req, res) => {
 // Returns the finished attempt's questions with correct flags and selected answers for review
 // Response shape expected by frontend pages examReviewFull.html/examReviewQuiz.html:
 // { total, questions: [{ id, descricao, texto, options: [{ id, texto, isCorrect|correta }] }], answers: { q_<id>: { optionId|optionIds } } }
-exports.getAttemptResult = async (req, res) => {
+exports.getAttemptResult = async (req, res, next) => {
   try {
     const attemptId = Number(req.params.attemptId);
-    if (!Number.isFinite(attemptId) || attemptId <= 0) return res.status(400).json({ error: 'invalid attemptId' });
+    if (!Number.isFinite(attemptId) || attemptId <= 0) return next(badRequest('invalid attemptId', 'INVALID_ATTEMPT_ID'));
 
     // Resolve user using Authorization Bearer or X-Session-Token (same policy as history)
     const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
@@ -1498,7 +1500,7 @@ exports.getAttemptResult = async (req, res) => {
     let bearerToken = '';
     if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
     const sessionToken = bearerToken || legacyToken;
-    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token or Authorization required' });
+    if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
     let user = null;
     async function tryResolveFromJwt(raw) {
@@ -1531,14 +1533,14 @@ exports.getAttemptResult = async (req, res) => {
       const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
       user = await db.User.findOne({ where });
     }
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
     // Load attempt and ensure it belongs to resolved user and is finished
     const attempt = await db.ExamAttempt.findOne({ where: { Id: attemptId, UserId: user.Id || user.id } });
-    if (!attempt) return res.status(404).json({ error: 'attempt not found' });
+    if (!attempt) return next(notFound('attempt not found', 'ATTEMPT_NOT_FOUND'));
     if (String(attempt.Status || '').toLowerCase() !== 'finished') {
       // Allow viewing only finished attempts
-      return res.status(400).json({ error: 'attempt not finished' });
+      return next(badRequest('attempt not finished', 'ATTEMPT_NOT_FINISHED'));
     }
 
     // Load ordered questions for this attempt
@@ -1612,6 +1614,6 @@ exports.getAttemptResult = async (req, res) => {
     return res.json({ total, questions, answers });
   } catch (err) {
     logger.error('Erro getAttemptResult:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'INTERNAL_ERROR_GET_ATTEMPT_RESULT'));
   }
 };

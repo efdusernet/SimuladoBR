@@ -340,6 +340,27 @@
       document.addEventListener('click', (e)=>{
         if (!panel.contains(e.target) && e.target !== btn) close();
       });
+      
+      // Interceptar cliques em links do menu
+      const menuLinks = panel.querySelectorAll('a[href]');
+      menuLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          const href = link.getAttribute('href');
+          console.log('[Indicadores.html] Link clicado:', href);
+          
+          // Se for o link "Início", limpar estado de navegação e marcar flag para evitar loop
+          if (href === '/' || href === '/index.html') {
+            console.log('[Indicadores.html] Navegando para Início, limpando estado e marcando flag preventLoop');
+            try {
+              sessionStorage.removeItem('currentSection');
+              sessionStorage.removeItem('currentSubsection');
+              sessionStorage.setItem('preventIndicadoresLoop', 'true');
+              sessionStorage.setItem('preventIndicadoresLoopTime', Date.now().toString());
+            } catch(_) {}
+          }
+        });
+      });
+      
       const logout = panel.querySelector('.page-logout');
       if (logout) logout.addEventListener('click', (e)=>{
         e.preventDefault();

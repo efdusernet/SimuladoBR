@@ -2,33 +2,25 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models');
 const { User, EmailVerification } = db;
+const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../config/security');
 // User daily exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const crypto = require('crypto');
 const { generateVerificationCode } = require('../utils/codegen');
 const { sendVerificationEmail } = require('../utils/mailer');
 const bcrypt = require('bcryptjs');
+const { authSchemas, userSchemas, validate } = require('../middleware/validation');
 
 /**
  * POST /api/users
  * Cria usuário persistido no banco (tabela Usuario)
  */
-router.post('/', async (req, res) => {
+router.post('/', validate(authSchemas.register), async (req, res) => {
     try {
-        const body = req.body || {};
-
-        if (!body.Nome || typeof body.Nome !== 'string' || !body.Nome.trim()) {
-            return res.status(400).json({ message: 'Nome obrigatório' });
-        }
-
-        if (!body.Email || typeof body.Email !== 'string') {
-            return res.status(400).json({ message: 'Email obrigatório' });
-        }
+        const body = req.body;
 
         const email = body.Email.trim().toLowerCase();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            return res.status(400).json({ message: 'Email inválido' });
-        }
 
         // verifica duplicidade
         const existing = await User.findOne({ where: { Email: email } });
@@ -92,6 +84,7 @@ router.post('/', async (req, res) => {
             const token = generateVerificationCode(6).toUpperCase();
             const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
             await EmailVerification.create({ UserId: created.Id, Token: token, ExpiresAt: expiresAt, Used: false, CreatedAt: new Date() });
+            
             // send email (if configured); in dev this may log the token
             await sendVerificationEmail(created.Email, token);
         } catch (mailErr) {
@@ -142,18 +135,18 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/users/me
-// Retorna dados básicos do usuário autenticado (deduzido pelo X-Session-Token ou query sessionToken)
+// Retorna dados básicos do usuário autenticado (deduzido pelo cookie sessionToken, X-Session-Token header ou query sessionToken)
 // Inclui flag TipoUsuario derivada (admin|user) baseada em lista de e-mails configurada ou nome de usuário.
 router.get('/me', async (req, res) => {
     try {
-        const jwt = require('jsonwebtoken');
-        const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+        // Read token from cookie (preferred), header, or query parameter (legacy)
+        const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+        if (!sessionToken) return res.status(400).json({ error: 'Session token required' });
         let user = null;
         // If token looks like JWT, try to decode
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 // Try by sub (user id) first
                 if (decoded && decoded.sub) {
                     user = await User.findByPk(Number(decoded.sub));
@@ -203,13 +196,12 @@ router.get('/me', async (req, res) => {
  */
 router.get('/me/stats/daily', async (req, res) => {
     try {
-        const jwt = require('jsonwebtoken');
         const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
         if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
                 if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
             } catch(_) { /* ignore */ }
@@ -238,13 +230,12 @@ router.get('/me/stats/daily', async (req, res) => {
  */
 router.get('/me/stats/summary', async (req, res) => {
     try {
-        const jwt = require('jsonwebtoken');
         const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
         if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
                 if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
             } catch(_) { /* ignore */ }
@@ -273,14 +264,13 @@ router.get('/me/stats/summary', async (req, res) => {
  */
 router.put('/me/profile', async (req, res) => {
     try {
-        const jwt = require('jsonwebtoken');
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
                 if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
             } catch(_) { /* ignore */ }
@@ -321,14 +311,13 @@ router.put('/me/profile', async (req, res) => {
  */
 router.post('/me/email/request-change', async (req, res) => {
     try {
-        const jwt = require('jsonwebtoken');
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
                 if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
             } catch(_) { /* ignore */ }
@@ -417,14 +406,13 @@ router.post('/me/email/request-change', async (req, res) => {
  */
 router.post('/me/email/verify-change', async (req, res) => {
     try {
-        const jwt = require('jsonwebtoken');
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
                 if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
             } catch(_) { /* ignore */ }
@@ -500,14 +488,13 @@ router.post('/me/email/verify-change', async (req, res) => {
  */
 router.post('/me/verify-password', async (req, res) => {
     try {
-        const jwt = require('jsonwebtoken');
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
                 if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
             } catch(_) { /* ignore */ }
@@ -554,14 +541,13 @@ router.post('/me/verify-password', async (req, res) => {
  */
 router.put('/me/password', async (req, res) => {
     try {
-        const jwt = require('jsonwebtoken');
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
         
         let user = null;
         if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
             try {
-                const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+                const decoded = jwt.verify(sessionToken, jwtSecret);
                 if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
                 if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
             } catch(_) { /* ignore */ }

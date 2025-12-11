@@ -739,7 +739,14 @@
 
     // Mapeamento de seções da sidebar para seções do index.html
     const sectionMap = {
-      'indicadores': () => window.location.href = '/pages/Indicadores.html',
+      'indicadores': () => {
+        // Salvar estado antes de redirecionar
+        try {
+          sessionStorage.setItem('currentSection', 'indicadores');
+          sessionStorage.removeItem('currentSubsection');
+        } catch(e) {}
+        window.location.href = '/pages/Indicadores.html';
+      },
       'progresso-geral': () => {
         console.log('[Sidebar] Progresso-geral clicked');
         const layout = document.body.getAttribute('data-layout');
@@ -1022,12 +1029,15 @@
       const savedSection = sessionStorage.getItem('currentSection');
       const savedSubsection = sessionStorage.getItem('currentSubsection');
       
-      if (savedSection && savedSection !== 'home') {
+      // Não restaurar se for 'indicadores' ou 'home' (Indicadores tem página própria)
+      if (savedSection && savedSection !== 'home' && savedSection !== 'indicadores') {
         console.log('[Sidebar] Restoring navigation state:', savedSection, savedSubsection);
         // Small delay to ensure DOM is ready
         setTimeout(() => {
           navigateToSection(savedSection, savedSubsection);
         }, 100);
+      } else if (savedSection === 'indicadores') {
+        console.log('[Sidebar] Skipping restore for indicadores (has own page)');
       }
     } catch(e) {
       console.error('[Sidebar] Error restoring navigation state:', e);

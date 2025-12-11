@@ -1,32 +1,25 @@
 const db = require('../models');
 const sequelize = require('../config/database');
 const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../config/security');
 // Daily user exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
-// lightweight session id generator (no external dependency)
-function genSessionId(){
-  return 's-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10);
-}
+// Session Manager (Redis-backed with memory fallback)
+const sessionManager = require('../services/SessionManager');
 
-// In-memory exam sessions (prototype only). Consider using Redis/DB in production.
-const SESSIONS = new Map();
-function putSession(sessionId, data, ttlMs = 6 * 60 * 60 * 1000) { // 6h TTL default
-  const expiresAt = Date.now() + ttlMs;
-  SESSIONS.set(sessionId, { ...data, expiresAt });
+// Wrapper functions for backward compatibility
+function genSessionId() {
+  return sessionManager.generateSessionId();
 }
-function getSession(sessionId) {
-  const s = SESSIONS.get(sessionId);
-  if (!s) return null;
-  if (s.expiresAt && s.expiresAt < Date.now()) { SESSIONS.delete(sessionId); return null; }
-  return s;
+async function putSession(sessionId, data, ttlMs = 6 * 60 * 60 * 1000) {
+  return await sessionManager.putSession(sessionId, data, ttlMs);
 }
-function updateSession(sessionId, patch) {
-  const s = getSession(sessionId);
-  if (!s) return null;
-  const ns = { ...s, ...patch };
-  SESSIONS.set(sessionId, ns);
-  return ns;
+async function getSession(sessionId) {
+  return await sessionManager.getSession(sessionId);
+}
+async function updateSession(sessionId, patch) {
+  return await sessionManager.updateSession(sessionId, patch);
 }
 
 // DB-backed exam types cache (5 min TTL)
@@ -125,7 +118,6 @@ exports.selectQuestions = async (req, res) => {
     } catch(_) { /* keep null if inference fails */ }
 
     // resolve user via X-Session-Token (same logic as /api/auth/me)
-    const jwt = require('jsonwebtoken');
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
     if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
 
@@ -133,7 +125,7 @@ exports.selectQuestions = async (req, res) => {
     // If token looks like JWT, try to decode
     if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
       try {
-        const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+        const decoded = jwt.verify(sessionToken, jwtSecret);
         // Try by sub (user id) first
         if (decoded && decoded.sub) {
           user = await User.findByPk(Number(decoded.sub));
@@ -173,26 +165,45 @@ exports.selectQuestions = async (req, res) => {
   const onlyNew = (!bloqueio) && (req.body.onlyNew === true || req.body.onlyNew === 'true');
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length) || (categorias && categorias.length));
 
-  // Build WHERE clause
+  // Build WHERE clause with parameterized queries to prevent SQL injection
   // Prefix with q. to avoid ambiguity when joining tables that also have 'excluido'
   const whereClauses = [`q.excluido = false`, `q.idstatus = 1`];
+  const replacements = {};
+  
   // Optional exam version filter from environment (EXAM_VER)
   const examVersion = (process.env.EXAM_VER || '').trim();
   if (examVersion) {
-    // Use parameter binding to avoid injection; will add to replacements later
     whereClauses.push(`q.versao_exame = :examVersion`);
+    replacements.examVersion = examVersion;
   }
+  
   // Filter by exam type linkage if available in DB (1:N)
   if (examCfg && examCfg._dbId) {
-    whereClauses.push(`q.exam_type_id = ${Number(examCfg._dbId)}`);
+    whereClauses.push(`q.exam_type_id = :examTypeId`);
+    replacements.examTypeId = Number(examCfg._dbId);
   }
+  
   if (bloqueio) whereClauses.push(`q.seed = true`);
+  
   // AND semantics across tabs; OR within each list
-  // i.e., if user chose dominios AND grupos, a question must match both a selected domínio AND a selected grupo
-  if (dominios && dominios.length) whereClauses.push(`q.iddominio IN (${dominios.join(',')})`);
-  if (areas && areas.length) whereClauses.push(`q.codareaconhecimento IN (${areas.join(',')})`);
-  if (grupos && grupos.length) whereClauses.push(`q.codgrupoprocesso IN (${grupos.join(',')})`);
-  if (categorias && categorias.length) whereClauses.push(`q.codigocategoria IN (${categorias.join(',')})`);
+  // Using ANY() for safe array parameter binding
+  if (dominios && dominios.length) {
+    whereClauses.push(`q.iddominio = ANY(ARRAY[:dominios])`);
+    replacements.dominios = dominios;
+  }
+  if (areas && areas.length) {
+    whereClauses.push(`q.codareaconhecimento = ANY(ARRAY[:areas])`);
+    replacements.areas = areas;
+  }
+  if (grupos && grupos.length) {
+    whereClauses.push(`q.codgrupoprocesso = ANY(ARRAY[:grupos])`);
+    replacements.grupos = grupos;
+  }
+  if (categorias && categorias.length) {
+    whereClauses.push(`q.codigocategoria = ANY(ARRAY[:categorias])`);
+    replacements.categorias = categorias;
+  }
+  
   // Excluir questões já respondidas se onlyNew ativo (premium)
   if (onlyNew) {
     try {
@@ -205,7 +216,8 @@ exports.selectQuestions = async (req, res) => {
       const answeredIds = (answeredRows || []).map(r => Number(r.qid)).filter(n => Number.isFinite(n));
       if (answeredIds.length) {
         const limited = answeredIds.slice(0, 10000); // limite defensivo
-        whereClauses.push(`q.id NOT IN (${limited.join(',')})`);
+        whereClauses.push(`q.id != ALL(ARRAY[:answeredIds])`);
+        replacements.answeredIds = limited;
       }
     } catch(e) { /* ignore */ }
   }
@@ -213,7 +225,7 @@ exports.selectQuestions = async (req, res) => {
 
     // Count available (with exam_type when applicable)
   const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao q WHERE ${whereSql}`;
-    const countRes = await sequelize.query(countQuery, { replacements: examVersion ? { examVersion } : {}, type: sequelize.QueryTypes.SELECT });
+    const countRes = await sequelize.query(countQuery, { replacements, type: sequelize.QueryTypes.SELECT });
     let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
 
     // Always respect exam type; no fallback that drops exam_type
@@ -242,15 +254,14 @@ exports.selectQuestions = async (req, res) => {
     const PRETEST_COUNT_TARGET = (examMode === 'full') ? 5 : 0; // fixed 5 for full exam
     const REGULAR_TARGET = Math.max(FULL_TOTAL - PRETEST_COUNT_TARGET, 0);
 
-    const baseQuestionSelect = (extraWhere, limit) => {
-      const replacements = { limit };
-      if (examVersion) replacements.examVersion = examVersion;
+    const baseQuestionSelect = (extraWhere, limit, extraReplacements = {}) => {
+      const queryReplacements = { ...replacements, limit, ...extraReplacements };
       return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl", eg.descricao AS explicacao
         FROM questao q
         LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg.excluido = false OR eg.excluido IS NULL)
         WHERE ${whereSqlUsed} ${extraWhere ? ' AND ' + extraWhere : ''}
         ORDER BY random()
-        LIMIT :limit`, { replacements, type: sequelize.QueryTypes.SELECT });
+        LIMIT :limit`, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
     };
 
     if (examMode === 'full') {
@@ -292,12 +303,19 @@ exports.selectQuestions = async (req, res) => {
       const excludeIds = new Set(pretestRows.map(r => r.id));
       for (const alloc of allocations) {
         if (alloc.count <= 0) continue;
-        const domWhere = alloc.id_dominio != null ? `q.iddominiogeral = ${Number(alloc.id_dominio)}` : null;
         const extraWhereParts = [`q.is_pretest = FALSE`];
-        if (domWhere) extraWhereParts.push(domWhere);
-        if (excludeIds.size) extraWhereParts.push(`q.id NOT IN (${Array.from(excludeIds).join(',')})`);
+        const extraReplacements = {};
+        
+        if (alloc.id_dominio != null) {
+          extraWhereParts.push(`q.iddominiogeral = :domainId`);
+          extraReplacements.domainId = Number(alloc.id_dominio);
+        }
+        if (excludeIds.size) {
+          extraWhereParts.push(`q.id != ALL(ARRAY[:excludeIds])`);
+          extraReplacements.excludeIds = Array.from(excludeIds);
+        }
         const extraWhere = extraWhereParts.join(' AND ');
-        const rows = await baseQuestionSelect(extraWhere, alloc.count);
+        const rows = await baseQuestionSelect(extraWhere, alloc.count, extraReplacements);
         rows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });
       }
 
@@ -306,9 +324,13 @@ exports.selectQuestions = async (req, res) => {
       if (currentRegularCount < REGULAR_TARGET) {
         const needed = REGULAR_TARGET - currentRegularCount;
         const topUpWhereParts = [`q.is_pretest = FALSE`];
-        if (excludeIds.size) topUpWhereParts.push(`q.id NOT IN (${Array.from(excludeIds).join(',')})`);
+        const topUpReplacements = {};
+        if (excludeIds.size) {
+          topUpWhereParts.push(`q.id != ALL(ARRAY[:excludeIds])`);
+          topUpReplacements.excludeIds = Array.from(excludeIds);
+        }
         const topUpWhere = topUpWhereParts.join(' AND ');
-        const topRows = await baseQuestionSelect(topUpWhere, needed);
+        const topRows = await baseQuestionSelect(topUpWhere, needed, topUpReplacements);
         topRows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });
       }
 
@@ -435,7 +457,7 @@ exports.selectQuestions = async (req, res) => {
 
     // Keep session state in memory to support later submit and pause
     try {
-      putSession(sessionId, {
+      await putSession(sessionId, {
         userId: user.Id || user.id,
         examType: examCfg.id,
         examTypeId: examCfg._dbId || null,
@@ -521,7 +543,7 @@ exports.submitAnswers = async (req, res) => {
     // Se for JWT, decodifica
     if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
       try {
-        tokenPayload = jwt.verify(sessionToken, process.env.JWT_SECRET || 'segredo');
+        tokenPayload = jwt.verify(sessionToken, jwtSecret);
       } catch (e) {
         return res.status(401).json({ error: 'Invalid session token' });
       }
@@ -552,7 +574,7 @@ exports.submitAnswers = async (req, res) => {
     const partial = Boolean(req.body && req.body.partial);
     if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
     if (!Array.isArray(answers)) return res.status(400).json({ error: 'answers required' });
-  const s = getSession(sessionId);
+  const s = await getSession(sessionId);
   let attemptId = s && s.attemptId ? Number(s.attemptId) : null;
   // Fallback: recover attemptId from DB when memory session is missing (e.g., server restart)
   if (!attemptId) {
@@ -804,17 +826,29 @@ exports.startOnDemand = async (req, res) => {
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
     const whereClauses = [`excluido = false`, `idstatus = 1`];
+    const queryReplacements = {};
+    
     if (examCfg && examCfg._dbId) {
-      whereClauses.push(`exam_type_id = ${Number(examCfg._dbId)}`);
+      whereClauses.push(`exam_type_id = :examTypeId`);
+      queryReplacements.examTypeId = Number(examCfg._dbId);
     }
     if (bloqueio) whereClauses.push(`seed = true`);
-    if (dominios && dominios.length) whereClauses.push(`iddominio IN (${dominios.join(',')})`);
-    if (areas && areas.length) whereClauses.push(`codareaconhecimento IN (${areas.join(',')})`);
-    if (grupos && grupos.length) whereClauses.push(`codgrupoprocesso IN (${grupos.join(',')})`);
+    if (dominios && dominios.length) {
+      whereClauses.push(`iddominio = ANY(ARRAY[:dominios])`);
+      queryReplacements.dominios = dominios;
+    }
+    if (areas && areas.length) {
+      whereClauses.push(`codareaconhecimento = ANY(ARRAY[:areas])`);
+      queryReplacements.areas = areas;
+    }
+    if (grupos && grupos.length) {
+      whereClauses.push(`codgrupoprocesso = ANY(ARRAY[:grupos])`);
+      queryReplacements.grupos = grupos;
+    }
     const whereSql = whereClauses.join(' AND ');
 
     const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;
-    const countRes = await sequelize.query(countQuery, { type: sequelize.QueryTypes.SELECT });
+    const countRes = await sequelize.query(countQuery, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
     let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
 
     // Always respect exam type; no fallback that drops exam_type
@@ -822,8 +856,9 @@ exports.startOnDemand = async (req, res) => {
     if (available < 1) return res.status(400).json({ error: 'Not enough questions available', available });
     const limitUsed = Math.min(count, available);
 
+    queryReplacements.limit = limitUsed;
     const selectIdsQ = `SELECT q.id FROM questao q WHERE ${whereSqlUsed} ORDER BY random() LIMIT :limit`;
-    const rows = await sequelize.query(selectIdsQ, { replacements: { limit: limitUsed }, type: sequelize.QueryTypes.SELECT });
+    const rows = await sequelize.query(selectIdsQ, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
     const questionIds = rows.map(r => r.id || r.Id);
     const sessionId = genSessionId();
     // initialize pause state based on policy
@@ -867,7 +902,7 @@ exports.startOnDemand = async (req, res) => {
     // Stats: increment started count
     try { if (attempt && attempt.Id) await userStatsService.incrementStarted(attempt.UserId || (user && (user.Id || user.id))); } catch(_) {}
 
-    putSession(sessionId, {
+    await putSession(sessionId, {
       userId: user.Id || user.id,
       examType: examCfg.id,
       examTypeId: examCfg._dbId || null,
@@ -897,7 +932,7 @@ exports.startOnDemand = async (req, res) => {
 exports.getQuestion = async (req, res) => {
   try {
     const { sessionId, index } = { sessionId: req.params.sessionId, index: Number(req.params.index) };
-    const s = getSession(sessionId);
+    const s = await getSession(sessionId);
     if (!s) return res.status(404).json({ error: 'session not found' });
     if (!Number.isInteger(index) || index < 0 || index >= s.questionIds.length) return res.status(400).json({ error: 'invalid index' });
     const qid = s.questionIds[index];
@@ -954,7 +989,7 @@ exports.pauseStart = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const index = Number(req.body && req.body.index);
-    const s = getSession(sessionId);
+    const s = await getSession(sessionId);
     if (!s) return res.status(404).json({ error: 'session not found' });
     if (!Number.isInteger(index)) return res.status(400).json({ error: 'index required' });
     const policy = s.pausePolicy || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
@@ -966,7 +1001,7 @@ exports.pauseStart = async (req, res) => {
     const ms = (Number(policy.duracaoMinutosPorPausa) || 0) * 60 * 1000;
     const until = Date.now() + ms;
     consumed[index] = true;
-    updateSession(sessionId, { pauses: { ...s.pauses, pauseUntil: until, consumed }, pausePolicy: policy });
+    await updateSession(sessionId, { pauses: { ...s.pauses, pauseUntil: until, consumed }, pausePolicy: policy });
     return res.json({ ok: true, pauseUntil: until });
   } catch (err) {
     console.error('Erro pauseStart:', err);
@@ -980,7 +1015,7 @@ exports.pauseSkip = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const index = Number(req.body && req.body.index);
-    const s = getSession(sessionId);
+    const s = await getSession(sessionId);
     if (!s) return res.status(404).json({ error: 'session not found' });
     if (!Number.isInteger(index)) return res.status(400).json({ error: 'index required' });
     const policy = s.pausePolicy || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
@@ -989,7 +1024,7 @@ exports.pauseSkip = async (req, res) => {
     const consumed = s.pauses && s.pauses.consumed ? s.pauses.consumed : {};
     if (consumed[index]) return res.status(200).json({ ok: true, already: true });
     consumed[index] = true;
-    updateSession(sessionId, { pauses: { ...s.pauses, consumed } });
+    await updateSession(sessionId, { pauses: { ...s.pauses, consumed } });
     return res.json({ ok: true });
   } catch (err) {
     console.error('Erro pauseSkip:', err);
@@ -1002,7 +1037,7 @@ exports.pauseSkip = async (req, res) => {
 exports.pauseStatus = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const s = getSession(sessionId);
+    const s = await getSession(sessionId);
     if (!s) return res.status(404).json({ error: 'session not found' });
     return res.json({ pauses: s.pauses || {}, policy: s.pausePolicy || null, examType: s.examType || 'pmp' });
   } catch (err) {
@@ -1081,7 +1116,7 @@ exports.resumeSession = async (req, res) => {
     const newSessionId = reqSessionId || genSessionId();
 
     // Put in-memory session
-    putSession(newSessionId, {
+    await putSession(newSessionId, {
       userId: user.Id || user.id,
       examType: (attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp',
       examTypeId: attempt.ExamTypeId || null,
@@ -1118,7 +1153,7 @@ exports.resumeSession = async (req, res) => {
       async function tryResolveFromJwt(raw) {
         if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
         let decoded = null;
-        try { decoded = jwt.verify(raw, process.env.JWT_SECRET || 'dev-secret'); }
+        try { decoded = jwt.verify(raw, jwtSecret); }
         catch(e){
           try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
         }
@@ -1250,7 +1285,7 @@ exports.resumeSession = async (req, res) => {
       async function tryResolveFromJwtHistory(raw) {
         if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
         let decoded = null;
-        try { decoded = jwt.verify(raw, process.env.JWT_SECRET || 'dev-secret'); }
+        try { decoded = jwt.verify(raw, jwtSecret); }
         catch(e){
           try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
         }
@@ -1468,7 +1503,7 @@ exports.getAttemptResult = async (req, res) => {
     async function tryResolveFromJwt(raw) {
       if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
       let decoded = null;
-      try { decoded = jwt.verify(raw, process.env.JWT_SECRET || 'dev-secret'); }
+      try { decoded = jwt.verify(raw, jwtSecret); }
       catch(e){ try { decoded = jwt.decode(raw); } catch(_) { decoded = null; } }
       if (!decoded) return;
       const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];

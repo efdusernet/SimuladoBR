@@ -1,19 +1,19 @@
 /**
- * Centralized Logout Utility
- * Clears all session data and redirects to login
+ * Centralized Secure Logout Utility
+ * Clears sensitive session data, calls backend logout, and redirects to login
  */
 
 (function() {
   'use strict';
 
   /**
-   * Perform complete logout
+   * Perform complete secure logout
    * @param {Object} options - Logout options
    * @param {boolean} options.confirm - Show confirmation dialog (default: true)
    * @param {boolean} options.showNotification - Show logout notification (default: false)
    * @param {string} options.redirectUrl - URL to redirect after logout (default: '/login.html')
    */
-  function performLogout(options = {}) {
+  async function performLogout(options = {}) {
     const {
       confirm: shouldConfirm = true,
       showNotification = false,
@@ -22,27 +22,53 @@
 
     // Ask for confirmation if needed
     if (shouldConfirm && !window.confirm('Deseja realmente sair?')) {
-      return;
+      return false;
     }
 
-    // Clear all storage
+    // Call backend logout endpoint to clear httpOnly cookies
     try {
-      localStorage.clear();
+      const BACKEND_BASE = window.SIMULADOS_CONFIG?.BACKEND_BASE || 'http://localhost:3000';
+      await fetch(`${BACKEND_BASE}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include' // Important: send cookies
+      }).catch(() => {
+        // Ignore network errors, still cleanup locally
+      });
     } catch (e) {
-      console.warn('Failed to clear localStorage:', e);
+      console.warn('[Logout] Failed to call backend logout:', e);
     }
 
+    // Clear sessionStorage completely (contains temporary sensitive data)
     try {
       sessionStorage.clear();
     } catch (e) {
-      console.warn('Failed to clear sessionStorage:', e);
+      console.warn('[Logout] Failed to clear sessionStorage:', e);
     }
 
-    // Clear cookies
+    // Selectively clear sensitive keys from localStorage
+    // Keep non-sensitive preferences like theme, settings, etc.
     try {
-      document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;';
+      const sensitiveKeys = [
+        'sessionToken', 'token', 'jwt', 'authToken', 'accessToken', 'refreshToken',
+        'userId', 'userEmail', 'userName', 'userRealName',
+        'lockoutUntil'
+      ];
+      
+      sensitiveKeys.forEach(key => {
+        localStorage.removeItem(key);
+      });
+      
+      // Also remove any keys that contain sensitive patterns
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && (key.toLowerCase().includes('token') || 
+                   key.toLowerCase().includes('password') ||
+                   key.toLowerCase().includes('user') && key.toLowerCase().includes('email'))) {
+          localStorage.removeItem(key);
+        }
+      }
     } catch (e) {
-      console.warn('Failed to clear cookies:', e);
+      console.warn('[Logout] Failed to clear localStorage:', e);
     }
 
     // Show notification if requested

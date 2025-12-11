@@ -36,15 +36,15 @@ document.addEventListener('DOMContentLoaded', () => {
             s.style.justifyContent = 'center';
             s.style.background = 'rgba(0,0,0,0.45)';
             s.style.zIndex = '9999';
-            s.innerHTML = `<div style="background:#fff;padding:18px 22px;border-radius:8px;display:flex;align-items:center;gap:12px;font-family:system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,0.2)">
+            s.innerHTML = sanitizeHTML(`<div style="background:#fff;padding:18px 22px;border-radius:8px;display:flex;align-items:center;gap:12px;font-family:system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,0.2)">
                     <svg width=32 height=32 viewBox="0 0 50 50" style="animation:spin 1s linear infinite"><circle cx="25" cy="25" r="20" fill="none" stroke="#2b6cb0" stroke-width="5" stroke-linecap="round" stroke-dasharray="31.4 31.4"/></svg>
-                    <div>${message}</div>
-                </div>`;
+                    <div>${sanitizeText(message)}</div>
+                </div>`, { ALLOWED_TAGS: ['div', 'svg', 'circle'], ALLOWED_ATTR: ['style', 'width', 'height', 'viewBox', 'cx', 'cy', 'r', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-dasharray'] });
             document.body.appendChild(s);
 
             const style = document.createElement('style');
             style.id = 'redirectSpinnerStyle';
-            style.innerHTML = `@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`;
+            style.textContent = `@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`;
             document.head.appendChild(style);
         } else {
             s.style.display = 'flex';
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!resp.ok) throw new Error('Failed to load exam setup');
             const html = await resp.text();
             const container = document.createElement('div');
-            container.innerHTML = html;
+            container.innerHTML = sanitizeHTML(html);
             // append children to body
             while (container.firstChild) document.body.appendChild(container.firstChild);
             existing = document.getElementById('examSetupModal');
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const resp = await fetch('/components/sidebar.html', { cache: 'no-store' });
             if (!resp.ok) return;
             const html = await resp.text();
-            mount.innerHTML = html;
+            mount.innerHTML = sanitizeHTML(html);
             // apply layout shift only for legacy sidebar; mcd-menu handles its own width
             if (!/\bmcd-menu\b/.test(html)) {
                 document.body.classList.add('has-sidebar');
@@ -505,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!token) return null;
             const BACKEND_BASE = SIMULADOS_CONFIG.BACKEND_BASE || 'http://localhost:3000';
             const url = `${BACKEND_BASE.replace(/\/$/, '')}/api/auth/me`;
-            const res = await fetch(url, { headers: { 'X-Session-Token': token } });
+            const res = await fetch(url, { headers: { 'X-Session-Token': token }, credentials: 'include' });
             if (!res.ok) {
                 console.warn('[syncBloqueio] /api/auth/me returned', res.status);
                 return null;
@@ -897,6 +897,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include', // Important: send/receive cookies
                     body: JSON.stringify({ Email: email, SenhaHash: senhaHashClient })
                 });
                 const text = await res.text();
@@ -940,14 +941,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userId = user.Id || user.id || null;
                 const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
 
-                // Save real session token (JWT) for regular users
-                if (user.token) {
-                    localStorage.setItem('sessionToken', user.token);
-                    sessionStorage.setItem('X-Session-Token', user.token);
-                } else {
-                    localStorage.setItem('sessionToken', nomeUsuarioStored);
-                    sessionStorage.setItem('X-Session-Token', nomeUsuarioStored);
-                }
+                // Token is now stored in httpOnly cookie by the server
+                // We only store non-sensitive user info in sessionStorage for UI purposes
+                sessionStorage.setItem('userId', userId);
+                sessionStorage.setItem('userName', nomeUsuarioStored);
+                sessionStorage.setItem('userEmail', user.Email || email);
+                sessionStorage.setItem('userRealName', nomeReal);
+                
+                // Keep backward compatibility: store username in localStorage for non-sensitive features
+                // But NEVER store tokens here anymore
+                localStorage.setItem('nomeUsuario', nomeUsuarioStored);
                 if (userId) localStorage.setItem('userId', String(userId));
                 localStorage.setItem('nomeUsuario', nomeUsuarioStored);
                 if (nomeReal) localStorage.setItem('nome', nomeReal);

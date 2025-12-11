@@ -2,12 +2,30 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
+
+// Validate security configuration early (will exit if JWT_SECRET invalid)
+require('./config/security');
 
 const app = express();
 // Security headers (CSP disabled initially to avoid breaking inline assets; can be tightened later)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
-app.use(cors());
+
+// CORS configuration with credentials support for cookies
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+
+// Cookie parser for reading httpOnly cookies
+app.use(cookieParser());
+
+// CSRF Protection middleware - TEMPORARILY DISABLED
+// TODO: Re-enable after proper frontend integration
+// const { attachCsrfToken, csrfProtection } = require('./middleware/csrf');
+// app.use(attachCsrfToken);
+
 // Increase JSON body limit to 10MB to support base64 images
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -59,6 +77,22 @@ app.use(express.static(FRONTEND_DIR));
 app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
 // Rota de login: serve a página dedicada de login
 app.get('/login', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'login.html')));
+
+// CSRF token endpoint - TEMPORARILY DISABLED
+// TODO: Re-enable after proper frontend integration
+// app.get('/api/csrf-token', (req, res) => {
+//   const token = req.csrfToken();
+//   res.json({ csrfToken: token });
+// });
+
+// CSRF protection - TEMPORARILY DISABLED
+// TODO: Re-enable after proper frontend integration
+// app.use('/api/', (req, res, next) => {
+//   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+//     return next();
+//   }
+//   csrfProtection(req, res, next);
+// });
 
 // Monta rotas de API (colocar antes da rota catch-all)
 app.use('/api/users', require('./routes/users'));

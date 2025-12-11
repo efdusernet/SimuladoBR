@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
@@ -26,6 +27,36 @@ app.use((req, res, next) => {
 
 // HTTP request logging
 app.use(requestLogger);
+
+// HTTP Compression (gzip/brotli) - must be before routes
+app.use(compression({
+  // Filter function to determine what should be compressed
+  filter: (req, res) => {
+    // Don't compress responses with x-no-compression header
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    // Skip compression for already-compressed content types
+    const contentType = res.getHeader('Content-Type');
+    if (contentType && (
+      contentType.includes('image/') ||
+      contentType.includes('video/') ||
+      contentType.includes('audio/') ||
+      contentType.includes('application/zip') ||
+      contentType.includes('application/gzip')
+    )) {
+      return false;
+    }
+    // Use compression filter for everything else
+    return compression.filter(req, res);
+  },
+  // Compression level: 6 balances speed and compression ratio
+  level: 6,
+  // Only compress responses larger than 1KB
+  threshold: 1024,
+  // Memory level for compression (1-9, higher = more memory, better compression)
+  memLevel: 8
+}));
 
 // Security headers (CSP disabled initially to avoid breaking inline assets; can be tightened later)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));

@@ -1,7 +1,7 @@
-// Service Worker v2.0.4 - PWA Offline-First Robusto
+// Service Worker v2.0.5 - PWA Offline-First Robusto
 // Estratégias: Cache-First (assets), Network-First + Cache Fallback (API), Stale-While-Revalidate (images)
 
-const VERSION = '2.0.4';
+const VERSION = '2.0.5';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,

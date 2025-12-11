@@ -21,8 +21,11 @@ class CSRFManager {
    * Fetch fresh CSRF token from server
    */
   async fetchToken() {
+    console.log('[CSRF] Fetching new token from server');
+    
     // Avoid multiple simultaneous fetches
     if (this.fetching) {
+      console.log('[CSRF] Already fetching, waiting for existing request');
       return this.fetching;
     }
 
@@ -31,16 +34,18 @@ class CSRFManager {
       credentials: 'include'
     })
       .then(res => {
+        console.log('[CSRF] Token fetch response:', res.status, res.ok);
         if (!res.ok) throw new Error('Failed to fetch CSRF token');
         return res.json();
       })
       .then(data => {
+        console.log('[CSRF] Token received:', data.csrfToken ? 'YES' : 'NO');
         this.token = data.csrfToken;
         this.fetching = null;
         return this.token;
       })
       .catch(err => {
-        console.error('CSRF token fetch failed:', err);
+        console.error('[CSRF] Token fetch failed:', err);
         this.fetching = null;
         throw err;
       });
@@ -55,11 +60,13 @@ class CSRFManager {
     // Try cookie first
     const cookieToken = this.getTokenFromCookie();
     if (cookieToken) {
+      console.log('[CSRF] Token found in cookie');
       this.token = cookieToken;
       return cookieToken;
     }
 
     // Fetch from server
+    console.log('[CSRF] No token in cookie, fetching from server');
     return this.fetchToken();
   }
 
@@ -69,13 +76,17 @@ class CSRFManager {
   async addTokenToFetch(url, options = {}) {
     const method = (options.method || 'GET').toUpperCase();
     
+    console.log('[CSRF] Adding token to request:', method, url);
+    
     // Skip for safe methods
     if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      console.log('[CSRF] Skipping safe method:', method);
       return options;
     }
 
     // Get token
     const token = await this.getToken();
+    console.log('[CSRF] Adding token to headers:', token ? 'YES' : 'NO');
     
     // Add to headers
     options.headers = options.headers || {};
@@ -106,11 +117,13 @@ window.fetch = async function(url, options = {}) {
   const isSameOrigin = urlObj.origin === window.location.origin;
   const isAPI = urlObj.pathname.startsWith('/api/');
   
+  console.log('[CSRF Wrapper] Intercepting fetch:', urlObj.pathname, 'isAPI:', isAPI, 'isSameOrigin:', isSameOrigin);
+  
   if (isSameOrigin && isAPI) {
     try {
       options = await window.csrfManager.addTokenToFetch(url, options);
     } catch (err) {
-      console.warn('Failed to add CSRF token:', err);
+      console.warn('[CSRF Wrapper] Failed to add CSRF token:', err);
     }
   }
   
@@ -120,13 +133,15 @@ window.fetch = async function(url, options = {}) {
 // Initialize on page load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
+    console.log('[CSRF] Initializing on DOMContentLoaded');
     window.csrfManager.getToken().catch(() => {
-      console.warn('Initial CSRF token fetch failed');
+      console.warn('[CSRF] Initial CSRF token fetch failed');
     });
   });
 } else {
+  console.log('[CSRF] Initializing immediately (DOM already loaded)');
   window.csrfManager.getToken().catch(() => {
-    console.warn('Initial CSRF token fetch failed');
+    console.warn('[CSRF] Initial CSRF token fetch failed');
   });
 }
 

@@ -21,10 +21,9 @@ app.use(cors({
 // Cookie parser for reading httpOnly cookies
 app.use(cookieParser());
 
-// CSRF Protection middleware - TEMPORARILY DISABLED
-// TODO: Re-enable after proper frontend integration
-// const { attachCsrfToken, csrfProtection } = require('./middleware/csrf');
-// app.use(attachCsrfToken);
+// CSRF Protection middleware
+const { attachCsrfToken, csrfProtection } = require('./middleware/csrfProtection');
+app.use(attachCsrfToken);
 
 // Increase JSON body limit to 10MB to support base64 images
 app.use(express.json({ limit: '10mb' }));
@@ -78,21 +77,19 @@ app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
 // Rota de login: serve a página dedicada de login
 app.get('/login', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'login.html')));
 
-// CSRF token endpoint - TEMPORARILY DISABLED
-// TODO: Re-enable after proper frontend integration
-// app.get('/api/csrf-token', (req, res) => {
-//   const token = req.csrfToken();
-//   res.json({ csrfToken: token });
-// });
+// CSRF token endpoint
+app.get('/api/csrf-token', (req, res) => {
+  const token = req.csrfToken();
+  res.json({ csrfToken: token });
+});
 
-// CSRF protection - TEMPORARILY DISABLED
-// TODO: Re-enable after proper frontend integration
-// app.use('/api/', (req, res, next) => {
-//   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-//     return next();
-//   }
-//   csrfProtection(req, res, next);
-// });
+// CSRF protection for state-changing methods
+app.use('/api/', (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+  csrfProtection(req, res, next);
+});
 
 // Monta rotas de API (colocar antes da rota catch-all)
 app.use('/api/users', require('./routes/users'));

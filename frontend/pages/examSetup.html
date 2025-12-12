@@ -479,13 +479,28 @@
       if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
       if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
+      
+      // DEBUG: Log do payload sendo enviado
+      console.log('[examSetup] Contando questões com filtros:', {
+        aba: abaAtual,
+        payload: JSON.parse(JSON.stringify(payload)),
+        selecionados: JSON.parse(JSON.stringify(selecionados))
+      });
+      
       try {
-        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType, 'X-Debug-SQL': 'true' }, body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
+        
+        // DEBUG: Log da resposta
+        console.log('[examSetup] Resposta do backend:', data);
+        
         if (data && typeof data.available === 'number') return data.available;
         return null;
-      } catch (_) { return null; }
+      } catch (err) { 
+        console.error('[examSetup] Erro ao contar questões:', err);
+        return null; 
+      }
     }
 
     // Contagem de inéditas independentemente do checkbox (para exibir potencial)
@@ -511,11 +526,17 @@
     // Debounced updater disponível globalmente para ser chamado ao clicar nos filtros
     scheduleAtualizarDisponiveis = debounce(async () => {
       const temFiltros = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length) > 0;
-      if (!temFiltros) { return; }
+      if (!temFiltros) { 
+        // Se não há filtros, limpar o contador
+        try { resumoQtd.textContent = quantidadeInput.value || '-'; } catch(_){ }
+        return; 
+      }
       try { resumoQtd.textContent = '...'; } catch(_){ }
       const disponiveis = await countForCurrentFilters();
       if (typeof disponiveis === 'number') {
         resumoQtd.textContent = String(disponiveis);
+      } else {
+        resumoQtd.textContent = '-';
       }
       // Atualiza indicador de inéditas
       try {
@@ -576,40 +597,45 @@
     }
 
     async function atualizarResumo() {
-      resumoQtd.textContent = quantidadeInput.value || '-';
-        // Se não houver filtros selecionados, manter o comportamento anterior (mostrar quantidade digitada)
+        // Primeiro, atualizar os focos selecionados
+        const nomes = [];
+        const pushFrom = (list, ids) => {
+          const map = new Map(list.map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
+          ids.forEach(id => { if (map.has(Number(id))) nomes.push(map.get(Number(id))); });
+        };
+        pushFrom(meta.dominios, selecionados.dominios);
+        pushFrom(meta.grupos, selecionados.grupos);
+        pushFrom(meta.areas, selecionados.areas);
+        pushFrom(meta.categorias, selecionados.categorias);
+        resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
+        
+        // Verificar se há filtros selecionados
         const filtrosSelecionados = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length) > 0;
+        
         if (!filtrosSelecionados) {
+          // Se não houver filtros, mostrar a quantidade digitada
           resumoQtd.textContent = quantidadeInput.value || '-';
+        } else {
+          // Se houver filtros, agendar a atualização do contador
+          scheduleAtualizarDisponiveis();
         }
-      const nomes = [];
-      const pushFrom = (list, ids) => {
-        const map = new Map(list.map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
-        ids.forEach(id => { if (map.has(Number(id))) nomes.push(map.get(Number(id))); });
-      };
-      pushFrom(meta.dominios, selecionados.dominios);
-      pushFrom(meta.grupos, selecionados.grupos);
-      pushFrom(meta.areas, selecionados.areas);
-      pushFrom(meta.categorias, selecionados.categorias);
-      resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
-        // Atualiza a contagem disponível para os filtros (se houver)
-        scheduleAtualizarDisponiveis();
-      // Se premium e sem filtros, mostrar total de inéditas gerais (sem filtros)
-      if (!bloqueado && !(selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length)) {
-        try {
-          resumoIneditas.textContent = '...';
-          // consulta sem filtros
-          const base = (BACKEND_BASE || '').replace(/\/$/, '');
-          const url = base + '/api/exams/select';
-          const token = getSessionToken();
-          const payload = { count: 1, onlyCount: true, examType: currentExamType, onlyNew: true };
-          const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
-          const txt = await resp.text();
-          let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
-          if (data && typeof data.available === 'number') resumoIneditas.textContent = String(data.available);
-          else resumoIneditas.textContent = '-';
-        } catch(e){ resumoIneditas.textContent='-'; }
-      }
+        
+        // Se premium e sem filtros, mostrar total de inéditas gerais (sem filtros)
+        if (!bloqueado && !filtrosSelecionados) {
+          try {
+            resumoIneditas.textContent = '...';
+            // consulta sem filtros
+            const base = (BACKEND_BASE || '').replace(/\/$/, '');
+            const url = base + '/api/exams/select';
+            const token = getSessionToken();
+            const payload = { count: 1, onlyCount: true, examType: currentExamType, onlyNew: true };
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
+            const txt = await resp.text();
+            let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
+            if (data && typeof data.available === 'number') resumoIneditas.textContent = String(data.available);
+            else resumoIneditas.textContent = '-';
+          } catch(e){ resumoIneditas.textContent='-'; }
+        }
     }
 
     function salvarSelecoes() {

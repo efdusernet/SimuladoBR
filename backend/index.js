@@ -75,9 +75,10 @@ app.use(cors({
 // Cookie parser for reading httpOnly cookies
 app.use(cookieParser());
 
-// CSRF Protection middleware
-const { attachCsrfToken, csrfProtection } = require('./middleware/csrfProtection');
-app.use(attachCsrfToken);
+// CSRF Protection middleware - TEMPORARILY DISABLED (Issue #5)
+// TODO: Fix frontend integration issues before re-enabling
+// const { attachCsrfToken, csrfProtection } = require('./middleware/csrfProtection');
+// app.use(attachCsrfToken);
 
 // Increase JSON body limit to 10MB to support base64 images
 app.use(express.json({ limit: '10mb' }));
@@ -155,7 +156,9 @@ app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
 // Rota de login: serve a página dedicada de login
 app.get('/login', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'login.html')));
 
-// CSRF token endpoint (versioned and legacy)
+// CSRF token endpoint (versioned and legacy) - TEMPORARILY DISABLED
+// TODO: Re-enable when CSRF protection is fixed (Issue #5)
+/*
 app.get(`${API_V1}/csrf-token`, (req, res) => {
   const token = req.csrfToken();
   res.json({ csrfToken: token });
@@ -164,8 +167,11 @@ app.get(`${API_BASE}/csrf-token`, (req, res) => {
 	const token = req.csrfToken();
 	res.json({ csrfToken: token });
 });
+*/
 
-// CSRF protection for state-changing methods (versioned and legacy)
+// CSRF protection for state-changing methods - TEMPORARILY DISABLED
+// TODO: Re-enable when frontend integration is fixed (Issue #5)
+/*
 app.use(`${API_V1}/`, (req, res, next) => {
 	if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
 		return next();
@@ -178,6 +184,7 @@ app.use(`${API_BASE}/`, (req, res, next) => {
   }
   csrfProtection(req, res, next);
 });
+*/
 
 // Monta rotas de API (colocar antes da rota catch-all)
 // Versioned (v1) routes

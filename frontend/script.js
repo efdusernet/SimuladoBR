@@ -11,7 +11,6 @@ class SafeRedirect {
             '/login',
             '/login.html',
             '/pages/exam.html',
-            '/pages/examFull.html',
             '/pages/examSetup.html',
             '/pages/Indicadores.html',
             '/pages/admin/users.html',

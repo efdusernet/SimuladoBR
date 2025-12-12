@@ -8,7 +8,7 @@ const logger = (self && self.logger) ? self.logger : {
   error: (...args) => { try { console.error(...args); } catch(_){} }
 };
 
-const VERSION = '2.0.8';
+const VERSION = '2.0.9';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -29,7 +29,6 @@ const STATIC_ASSETS = [
   '/assets/icon-512.png',
   '/assets/pmi.png',
   '/pages/exam.html',
-  '/pages/examFull.html',
   '/pages/examSetup.html',
   '/components/examCleanup.js'
 ];

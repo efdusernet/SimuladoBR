@@ -785,7 +785,8 @@
             } catch(e) {}
             salvarSelecoes();
             try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-            window.location.href = './examFull.html';
+            const targetPath = window.EXAM_SETUP_IN_SIDEBAR ? '/pages/exam.html' : './exam.html';
+            window.location.href = targetPath;
           });
           return;
         }
@@ -795,7 +796,8 @@
         } catch(e) {}
         salvarSelecoes();
         try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-        window.location.href = './exam.html';
+        const targetPath = window.EXAM_SETUP_IN_SIDEBAR ? '/pages/exam.html' : './exam.html';
+        window.location.href = targetPath;
         return;
       }
 
@@ -819,7 +821,8 @@
                 } catch(e) {}
                 salvarSelecoes();
                 try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-                window.location.href = './examFull.html';
+                const targetPath = window.EXAM_SETUP_IN_SIDEBAR ? '/pages/exam.html' : './exam.html';
+                window.location.href = targetPath;
               });
               return;
             }
@@ -830,7 +833,8 @@
             } catch(e) {}
             salvarSelecoes();
             try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-            window.location.href = './exam.html';
+            const targetPath = window.EXAM_SETUP_IN_SIDEBAR ? '/pages/exam.html' : './exam.html';
+            window.location.href = targetPath;
             return;
           } else {
             if (errorBox) {
@@ -869,7 +873,8 @@
           } catch(e) {}
           salvarSelecoes();
           try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-          window.location.href = './examFull.html';
+          const targetPath = window.EXAM_SETUP_IN_SIDEBAR ? '/pages/exam.html' : './exam.html';
+          window.location.href = targetPath;
         });
         return;
       }
@@ -879,7 +884,8 @@
       } catch(e) {}
       salvarSelecoes();
       try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-      window.location.href = './exam.html';
+      const targetPath = window.EXAM_SETUP_IN_SIDEBAR ? '/pages/exam.html' : './exam.html';
+      window.location.href = targetPath;
     });
 
     async function fetchJson(url){

@@ -54,7 +54,12 @@ async function loadExamTypesFromDb() {
 async function getExamTypeBySlugOrDefault(slug) {
   const registry = require('../services/exams/ExamRegistry');
   const types = await loadExamTypesFromDb();
-  if (types && types.length) return types.find(t => t.id === slug) || types[0];
+  const slugLower = String(slug || '').toLowerCase();
+  if (types && types.length) {
+    // Case-insensitive comparison
+    const found = types.find(t => String(t.id).toLowerCase() === slugLower);
+    return found || types[0];
+  }
   const reg = registry.getTypeById(slug);
   return reg ? { ...reg, _dbId: null } : null;
 }
@@ -103,7 +108,9 @@ exports.listExamTypes = async (_req, res, next) => {
 // Used by: frontend/pages/examSetup.html (para contar/selecionar) e wrappers em exam.html/examFull.html
 exports.selectQuestions = async (req, res, next) => {
   try {
-  const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
+  const examTypeFromBody = (req.body && req.body.examType);
+  const examTypeFromHeader = (req.get('X-Exam-Type') || '').trim();
+  const examType = examTypeFromBody || examTypeFromHeader || 'pmp';
   // Resolve exam mode from header or infer by count (quiz/full). Header wins if valid.
   let headerMode = (req.get('X-Exam-Mode') || '').trim().toLowerCase();
   if (!(headerMode === 'quiz' || headerMode === 'full')) headerMode = null;
@@ -168,6 +175,8 @@ exports.selectQuestions = async (req, res, next) => {
   const onlyNew = (!bloqueio) && (req.body.onlyNew === true || req.body.onlyNew === 'true');
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length) || (categorias && categorias.length));
 
+  // (removed TEMP debug logs)
+
   // Build WHERE clause with parameterized queries to prevent SQL injection
   // Prefix with q. to avoid ambiguity when joining tables that also have 'excluido'
   const whereClauses = [`q.excluido = false`, `q.idstatus = 1`];
@@ -231,20 +240,15 @@ exports.selectQuestions = async (req, res, next) => {
     const countRes = await sequelize.query(countQuery, { replacements, type: sequelize.QueryTypes.SELECT });
     let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
 
+    // (removed TEMP debug logs)
+
     // Always respect exam type; no fallback that drops exam_type
     const whereSqlUsed = whereSql;
 
     // Support preflight count-only check
     const onlyCount = Boolean(req.body && req.body.onlyCount) || String(req.query && req.query.onlyCount).toLowerCase() === 'true';
     if (onlyCount) {
-      const wantDebugSql = String(req.get('X-Debug-SQL') || '').toLowerCase() === 'true';
-      const out = { available };
-      if (wantDebugSql) {
-        out.where = whereSqlUsed;
-        out.query = `SELECT COUNT(*)::int AS cnt FROM questao q WHERE ${whereSqlUsed}`;
-        out.filters = { dominios, areas, grupos, categorias, bloqueio, examType };
-      }
-      return res.json(out);
+      return res.json({ available });
     }
 
     if (available < 1) {

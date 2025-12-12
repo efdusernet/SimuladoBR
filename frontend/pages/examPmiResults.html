@@ -201,17 +201,27 @@
 
       function labelFromPct(p){
         if(p == null) return '—';
-        if(p <= 25) return 'Needs Improvement';
-        if(p <= 50) return 'Below Target';
-        if(p <= 75) return 'Target';
-        return 'Above Target';
+        // New ranges:
+        // 0–25 → Needs Improvement
+        // 50–74 → Below Target
+        // 75–85 → Target
+        // 86–100 → Above Target
+        if(p >= 0 && p <= 25) return 'Needs Improvement';
+        if(p >= 50 && p <= 74) return 'Below Target';
+        if(p >= 75 && p <= 85) return 'Target';
+        if(p >= 86 && p <= 100) return 'Above Target';
+        // Fallback for values not covered explicitly (e.g., 26–49)
+        return 'Needs Improvement';
       }
       function keyFromPct(p){
         if(p == null) return null;
-        if(p <= 25) return 'needs';
-        if(p <= 50) return 'below';
-        if(p <= 75) return 'target';
-        return 'above';
+        // Match new ranges to keys
+        if(p >= 0 && p <= 25) return 'needs';
+        if(p >= 50 && p <= 74) return 'below';
+        if(p >= 75 && p <= 85) return 'target';
+        if(p >= 86 && p <= 100) return 'above';
+        // Fallback for values not covered explicitly
+        return 'needs';
       }
 
       // Fill candidate name and other dynamic segments
@@ -249,9 +259,30 @@
       $('#Result2').textContent = labelFromPct(processPct);
       $('#Result3').textContent = labelFromPct(businessPct);
 
-      // Optional overwrite of next text
+      // Set dynamic next text based on overall performance rating
+      function getNextTextByRating(key){
+        if(key === 'needs'){
+          return "Your results show you must still focus on key areas of the fundamentals of the Project Management. Try to focus on each area of fundamentals and strength your knowledge towards them before sitting for a new try.";
+        }
+        if(key === 'below'){
+          return "Your results show have gaps to be addressed on some areas. Take a look on your report and try to focus on those specific areas. Try to focus on each area of the report and strength your knowledge towards them before sitting for a new try.";
+        }
+        if(key === 'target'){
+          return "Your results show have a good understanding of the core principals of the project management and it's fundamentals. Take a look on your report and try improve your skills for those area where you have not done good and celebrate your certification status!";
+        }
+        if(key === 'above'){
+          return "Celebrate your accomplishment and reward yourself for all your hard work!";
+        }
+        return "Celebrate your accomplishment and reward yourself for all your hard work!";
+      }
+
+      // Optional overwrite of next text (URL param takes precedence)
       const nextOverride = get('next');
-      if (nextOverride && nextOverride !== '—') $('#nextText').textContent = nextOverride;
+      if (nextOverride && nextOverride !== '—'){
+        $('#nextText').textContent = nextOverride;
+      } else if(activeKey){
+        $('#nextText').textContent = getNextTextByRating(activeKey);
+      }
 
       // Botão Encerrar: tenta fechar a aba (se permitido) e sempre navega para index
       const endBtn = $('#btnEnd');

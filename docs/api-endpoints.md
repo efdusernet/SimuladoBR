@@ -100,6 +100,7 @@ Lista de tipos para UI (similar ao endpoint acima; interface estável).
 ## POST /api/exams/select
 Seleciona e retorna um conjunto de questões (com opções) e cria uma tentativa (`exam_attempt`).
 - Usado por: `frontend/pages/examSetup.html` (contar/selecionar), wrappers em `exam.html`/`examFull.html`.
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 - Headers:
   - `X-Session-Token: <sessionToken>` (obrigatório)
   - `X-Exam-Mode: quiz | full` (opcional; se ausente o backend infere: `full` quando `count` >= número total de questões do tipo (ex.: 180), `quiz` quando `count` <= 50)
@@ -134,29 +135,34 @@ Registra respostas (parciais ou finais), computa nota na submissão final e ence
 - Response (final): `{ sessionId, totalQuestions, totalCorrect, details }`
 - Efeitos colaterais (final): atualiza `exam_attempt` com `Corretas`, `Total`, `ScorePercent`, `Aprovado`, `FinishedAt`, `Status='finished'`.
 - **Validação de completude (frontend)**: Ao finalizar exame completo (`examFull.html`), valida-se se pelo menos 95% das questões foram respondidas:
+  <!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
   - Se ≥ 95%: prossegue com submit normal
   - Se < 95%: exibe modal de aviso; usuário pode sair sem salvar (não chama submit) ou continuar respondendo
 
 ## POST /api/exams/:sessionId/pause/start
 Inicia pausa (exame completo com checkpoints).
 - Usado por: `frontend/pages/examFull.html`.
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 - Body: `{ index: number }` (checkpoint)
 - Response: `{ ok: true, pauseUntil }`
 
 ## POST /api/exams/:sessionId/pause/skip
 Pula pausa do checkpoint atual.
 - Usado por: `frontend/pages/examFull.html`.
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 - Body: `{ index: number }`
 - Response: `{ ok: true }`
 
 ## GET /api/exams/:sessionId/pause/status
 Estado atual de pausa e política configurada.
 - Usado por: `frontend/pages/examFull.html`.
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 - Response: `{ pauses, policy, examType }`
 
 ## POST /api/exams/resume
 Reconstrói a sessão em memória a partir do banco (após restart do servidor).
 - Usado por: `frontend/pages/exam.html` e `frontend/pages/examFull.html` (auto-resume).
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 - Headers: `X-Session-Token`
 - Body: `{ sessionId?: string, attemptId?: number }`
 - Response: `{ ok: true, sessionId, attemptId, total, examType }`

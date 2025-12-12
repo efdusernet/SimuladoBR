@@ -257,6 +257,7 @@ Arquivos modificados:
 - `frontend/pages/examSetup.html`
 - `backend/controllers/examController.js` (suporte a filtro `categorias`)
 - `frontend/pages/exam.html`, `examFull.html` (bypass de categorias em exames completos)
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 
 Commits principais (branch `melhorias_adicionais-interface`):
 - `69452af`: feat(exam-setup): adicionar aba Abordagem (categorias)

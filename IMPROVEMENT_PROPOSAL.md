@@ -176,8 +176,11 @@ module.exports = { jwtSecret: getJWTSecret() };
 
 ### 5. CSRF Protection Implementation (Disabled)
 
-**Category:** Security  
-**Location:** Backend - CSRF middleware implemented but TEMPORARILY DISABLED (lines 24-95 in `backend/index.js`)  
+**Category:** Securitycsrf.js:156 Uncaught SyntaxError: Unexpected token 'export' (at csrf.js:156:1)
+requests.js:1  POST http://localhost:3000/api/auth/login 403 (Forbidden)
+s.fetch @ requests.js:1
+(anonymous) @ script.js:897
+EMPORARILY DISABLED (lines 24-95 in `backend/index.js`)  
 **Issue:** CSRF protection exists but was disabled due to frontend integration issues
 
 **Current State:**
@@ -688,6 +691,7 @@ app.use(compression({
 
 **Category:** Code Quality  
 **Location:** `script_exam.js`, exam.html, examFull.html  
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 **Issue:** Massive code duplication (1400+ lines similar logic)
 
 **Impact:**

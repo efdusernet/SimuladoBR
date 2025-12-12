@@ -25,6 +25,31 @@
         <div class="knowledge-area" id="knowledgeArea" aria-live="polite">Exemplo</div>
         <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
           <span id="timerDisplay">00:00</span>
+          <span id="pauseBadge" class="pause-badge" style="display:none; margin-left:8px; background:#fff3cd; color:#8a6d3b; border:1px solid #ffeeba; border-radius:999px; padding:2px 8px; font-size:12px; line-height:1.2;">Em pausa 10:00</span>
+        </div>
+        <div class="resource-Buttons" id="resource-buttons" aria-live="polite" style="display:none;">
+          <div class="inline-flex">
+            <button class="rounded-l-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bmark">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M6 2h12c.55 0 1 .45 1 1v17l-7-3-7 3V3c0-.55.45-1 1-1z"></path>
+              </svg>
+              Marcar questão
+            </button>
+            <button class="-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bgrid">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="3" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="3" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="3" y="17" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="17" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="17" width="4" height="4" rx="0.8"></rect>
+              </svg>
+              Grid de questões
+            </button>
+          </div>
         </div>
       </div>
 
@@ -44,7 +69,7 @@
     <section class="question-panel" aria-labelledby="questionNumber">
       <div class="meta-row">
         <div id="qStatus" class="q-status">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
-        <div class="feedback-buttons">
+        <div class="feedback-buttons" id="quizFeedbackRow">
           <button id="bhighlight" class="icon-btn" type="button" title="Destacar/Remover destaque">
             <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M14 3.2L3.2 14 2 22l8-1.2L22.8 10 14 3.2z"></path>
@@ -185,6 +210,8 @@
   <script src="../script.js"></script>
   <!-- Shared exam cleanup utilities -->
   <script src="../components/examCleanup.js"></script>
+  <!-- Shared ExamEngine module for unified exam logic -->
+  <script src="../components/ExamEngine.js"></script>
   <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed -->
   <script>
     (function(){
@@ -236,6 +263,27 @@
   <script src="../script_exam.js"></script>
   <!-- (Optional) Keep build script disabled for now; uncomment if needed -->
   <!-- <script src="../assets/build/script_exam.js"></script> -->
+
+  <!-- Mode toggles: show full-only vs quiz-only UI -->
+  <script>
+    (function(){
+      function toggleByMode(){
+        try {
+          const count = Array.isArray(window.QUESTIONS) ? window.QUESTIONS.length : (Number(window.QtdQuestoes)||0);
+          const isFull = (count === 180);
+          window.EXAM_MODE = isFull ? 'full' : 'quiz';
+          const quizRow = document.getElementById('quizFeedbackRow');
+          const resButtons = document.getElementById('resource-buttons');
+          const pauseBadge = document.getElementById('pauseBadge');
+          if (quizRow) quizRow.style.display = isFull ? 'none' : '';
+          if (resButtons) resButtons.style.display = isFull ? '' : 'none';
+          if (pauseBadge) pauseBadge.style.display = isFull ? '' : 'none';
+        } catch(_){}
+      }
+      document.addEventListener('exam:engine-synced', toggleByMode);
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(toggleByMode, 150)); else setTimeout(toggleByMode,150);
+    })();
+  </script>
 
   <!-- initialize global QtdQuestoes and timer behavior -->
   <script>

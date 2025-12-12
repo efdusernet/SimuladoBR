@@ -230,22 +230,39 @@ const examSchemas = {
   }),
   
   submitAnswers: Joi.object({
-    sessionToken: commonSchemas.sessionToken,
+    // sessionToken is sent in X-Session-Token header, not in body
+    sessionToken: Joi.string().optional(),
+    sessionId: Joi.string().allow('', null).optional(),
+    partial: Joi.boolean().optional(),
     
     answers: Joi.array()
       .items(
         Joi.object({
           questionId: commonSchemas.questionId,
+          // Legacy format (deprecated but still supported)
           selectedOption: Joi.number()
             .integer()
             .min(1)
             .max(5)
-            .required()
+            .optional()
             .messages({
               'number.min': 'Opção deve ser entre 1 e 5',
-              'number.max': 'Opção deve ser entre 1 e 5',
-              'any.required': 'Opção selecionada é obrigatória'
+              'number.max': 'Opção deve ser entre 1 e 5'
             }),
+          // New format - single select
+          optionId: Joi.number()
+            .integer()
+            .allow(null)
+            .optional(),
+          // New format - multi select
+          optionIds: Joi.array()
+            .items(Joi.number().integer())
+            .optional(),
+          // Typed response (for essay questions)
+          response: Joi.string()
+            .max(5000)
+            .allow('', null)
+            .optional(),
           timeTaken: Joi.number()
             .integer()
             .min(0)

@@ -51,6 +51,7 @@ Migração completa de **268+ ocorrências** de `console.*` para o sistema de lo
 | `pages/Indicadores.html` | 2 |
 | `pages/exam.html` | 5 |
 | `pages/examFull.html` | 9 |
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 | `pages/settings.html` | 1 |
 | `pages/progressoGeral.html` | 4 |
 | `pages/admin/questionForm.html` | 22 |
@@ -140,6 +141,7 @@ logger.debug('[DEBUG] Detail:', detail);
 1. ✅ `index.html` (já tinha)
 2. ✅ `pages/exam.html`
 3. ✅ `pages/examFull.html`
+   <!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 4. ✅ `pages/examSetup.html`
 5. ✅ `pages/Indicadores.html`
 6. ✅ `pages/settings.html`

@@ -2,7 +2,7 @@
   "info": {
     "name": "SimuladosBR API",
     "_postman_id": "simuladosbr-collection",
-    "description": "Coleção com requests para registro/login/verificação e teste de envio de email.",
+    "description": "Coleção com requests para registro/login/verificação e teste de envio de email.\n\nObservação: a versão 'examFull.html' é inexistente/obsoleta — o exame foi unificado em 'exam.html' com a nova engine [ExamEngine.js].",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

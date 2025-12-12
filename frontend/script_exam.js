@@ -33,6 +33,20 @@
               } catch(e){ return null; }
             })();
 
+            function initSharedEngine(questions){
+              try {
+                if (!window.ExamEngine) return;
+                const mode = (Number(window.QtdQuestoes) === Number((window.FullExam||180))) ? 'full' : 'quiz';
+                const bp = EXAM_BP || (function(){ try { const raw = localStorage.getItem('examBlueprint'); return raw ? JSON.parse(raw) : null; } catch(e){ return null; } })();
+                const eng = new window.ExamEngine({ persist: true }).init(bp, mode, window.currentSessionId || null);
+                eng.setQuestions(Array.isArray(questions)? questions : []);
+                eng.shuffleOnce();
+                eng.save();
+                window.EXAM_ENGINE = eng;
+                window.EXAM_MODE = mode;
+              } catch(e){}
+            }
+
             // Utility: stable shuffle (Fisher-Yates) that returns a new array
             function shuffleArray(arr){
               const a = arr.slice();
@@ -335,6 +349,65 @@
               } catch(e){ return false; }
             }
 
+            function startMandatoryPause(checkpointInfo){
+              try {
+                const sid = window.currentSessionId || null;
+                if (!sid) return;
+                const pauseMinutes = (checkpointInfo && checkpointInfo.pauseMinutes) || 10;
+                const pauseMs = pauseMinutes * 60 * 1000;
+                const until = Date.now() + pauseMs;
+                localStorage.setItem(`pauseUntil_${sid}`, String(until));
+                
+                // Mark this checkpoint as handled (user chose to pause or skip)
+                const checkpoint = checkpointInfo.checkpoint || 0;
+                if (checkpoint > 0) {
+                  try {
+                    const key = `checkpoints_${sid}`;
+                    let handled = {};
+                    const raw = localStorage.getItem(key);
+                    if (raw) handled = JSON.parse(raw);
+                    handled[checkpoint] = true;
+                    localStorage.setItem(key, JSON.stringify(handled));
+                  } catch(e){ logger.warn('failed to mark checkpoint handled', e); }
+                }
+                
+                // Show pauseBadge and start countdown
+                const badge = document.getElementById('pauseBadge');
+                if (badge) {
+                  badge.style.display = 'inline-block';
+                  const updatePauseBadge = function(){
+                    try {
+                      const now = Date.now();
+                      const remaining = until - now;
+                      if (remaining <= 0) {
+                        badge.style.display = 'none';
+                        badge.textContent = '';
+                        clearInterval(window.pauseInterval);
+                        window.pauseInterval = null;
+                        try { showToast('Pausa concluída. Você pode continuar.', 2000, true); } catch(e){}
+                        // Re-enable continue button
+                        const contBtn = document.getElementById('continueBtn');
+                        if (contBtn) contBtn.disabled = false;
+                        return;
+                      }
+                      const mins = Math.floor(remaining / 60000);
+                      const secs = Math.floor((remaining % 60000) / 1000);
+                      badge.textContent = `Pausa: ${mins}:${String(secs).padStart(2, '0')}`;
+                    } catch(e){}
+                  };
+                  updatePauseBadge();
+                  if (window.pauseInterval) clearInterval(window.pauseInterval);
+                  window.pauseInterval = setInterval(updatePauseBadge, 1000);
+                }
+                
+                // Disable continue button during pause
+                const contBtn = document.getElementById('continueBtn');
+                if (contBtn) contBtn.disabled = true;
+                
+                try { showToast(`Pausa opcional de ${pauseMinutes} minutos iniciada.`, 3000, true); } catch(e){}
+              } catch(e){ logger.error('startMandatoryPause error', e); }
+            }
+
             function prevQuestion(){
               const barrier = getBackBarrier();
               if (currentIdx > barrier){
@@ -343,6 +416,8 @@
                 try{ saveProgressForCurrentSession(); } catch(e){}
               }
             }
+
+            // showGridModal removed - using official grid component instead
 
             function $(id){ return document.getElementById(id); }
 
@@ -546,6 +621,7 @@
                             }
                           });
                           ANSWERS[qKey] = { indices: selIdx, optionIds: selIds };
+                          try { if (window.EXAM_ENGINE && q && q.id) { window.EXAM_ENGINE.answerMulti(Number(q.id), selIds.map(Number)); window.EXAM_ENGINE.save(); } } catch(_){}
                           if (contBtn) {
                             const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
                             const atExtraGate = (typeof currentIdx === 'number' && (currentIdx === 59 || currentIdx === 119));
@@ -558,6 +634,7 @@
                         } else {
                           const chosenId = this.dataset && this.dataset.optionId ? this.dataset.optionId : '';
                           ANSWERS[qKey] = { index: i, optionId: chosenId };
+                          try { if (window.EXAM_ENGINE && q && q.id) { const oid = chosenId ? Number(chosenId) : null; window.EXAM_ENGINE.answerSingle(Number(q.id), oid); window.EXAM_ENGINE.save(); } } catch(_){}
                           if (contBtn) {
                             const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
                             const atExtraGate = (typeof currentIdx === 'number' && (currentIdx === 59 || currentIdx === 119));
@@ -638,6 +715,8 @@
                 const barrier = getBackBarrier();
                 const ev = new CustomEvent('exam:question-index-changed', { detail: { index: idx, barrier } });
                 document.dispatchEvent(ev);
+                // Emit diagnostic event for engine verification
+                try { if (window.EXAM_ENGINE) { const pg = window.EXAM_ENGINE.getProgress(); document.dispatchEvent(new CustomEvent('exam:engine-synced', { detail: pg })); } } catch(_){}
                 // Notificar checkpoints de pré-pausa
                 try {
                   const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
@@ -655,17 +734,46 @@
                 try { showToast('Pausa em andamento. Aguarde o término.'); } catch(e){}
                 return;
               }
-              // Guardar contra avanço em checkpoints (e nos índices 59/119 que representam as questões 60/120 1-based)
+              
+              // Check for checkpoint - NO automatic blocking, just emit event for modal display
+              // The modal (if implemented) will let user choose: Review, Continue without pause, or Take pause
               try {
-                const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
-                const isCheckpoint = cps.includes(currentIdx);
-                const atExtraGate = (currentIdx === 59 || currentIdx === 119);
-                const allowOverride = isContinueOverrideEnabled();
-                if ((isCheckpoint || atExtraGate) && !allowOverride){
-                  try { showToast('Revise neste ponto. Use os botões no topo para continuar ou fazer a pausa.'); } catch(_){}
-                  return;
+                const engine = window.EXAM_ENGINE;
+                if (engine && typeof engine.getCheckpoint === 'function') {
+                  const checkpointInfo = engine.getCheckpoint(currentIdx);
+                  if (checkpointInfo && window.EXAM_MODE === 'full') {
+                    // Check if this checkpoint was already acknowledged/handled
+                    const sid = window.currentSessionId || null;
+                    let alreadyHandled = false;
+                    if (sid) {
+                      try {
+                        const key = `checkpoints_${sid}`;
+                        const raw = localStorage.getItem(key);
+                        if (raw) {
+                          const handled = JSON.parse(raw);
+                          alreadyHandled = !!handled[checkpointInfo.checkpoint];
+                        }
+                      } catch(e){ logger.warn('failed to check checkpoint status', e); }
+                    }
+                    
+                    // Emit event for checkpoint UI (modal) but DON'T block navigation
+                    if (!alreadyHandled) {
+                      try {
+                        const ev = new CustomEvent('exam:checkpoint-reached', { 
+                          detail: { 
+                            checkpoint: checkpointInfo.checkpoint, 
+                            index: currentIdx,
+                            pauseMinutes: checkpointInfo.pauseMinutes 
+                          } 
+                        });
+                        document.dispatchEvent(ev);
+                      } catch(e){ logger.warn('failed to emit checkpoint event', e); }
+                      // Note: Navigation continues normally. User can choose to pause via modal buttons.
+                    }
+                  }
                 }
-              } catch(_){}
+              } catch(e){ logger.warn('checkpoint check error', e); }
+              
               if (currentIdx < QUESTIONS.length - 1){
                 currentIdx++;
                 renderQuestion(currentIdx);
@@ -702,13 +810,29 @@
 
                 const payload = { sessionId: window.currentSessionId || null, answers };
                 const token = localStorage.getItem('sessionToken') || '';
+                // Debug: log payload before sending
+                logger.debug('[submitExam] Payload:', JSON.stringify(payload, null, 2));
+                logger.debug('[submitExam] Token:', token ? '***' + token.slice(-8) : 'MISSING');
                 // Ensure BACKEND_BASE has a proper default value
                 const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                 const submitUrl = baseUrl.replace(/\/$/, '') + '/api/exams/submit';
                 const resp = await fetch(submitUrl, {
                   method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload)
                 });
-                if (!resp.ok) throw new Error('submit failed: ' + resp.status);
+                if (!resp.ok) {
+                  // Try to get error details from response
+                  let errorDetails = '';
+                  try {
+                    const errorData = await resp.json();
+                    errorDetails = JSON.stringify(errorData);
+                    logger.error('[submitExam] Server error:', errorDetails);
+                  } catch(e) {
+                    const errorText = await resp.text();
+                    errorDetails = errorText;
+                    logger.error('[submitExam] Server error (text):', errorText);
+                  }
+                  throw new Error('submit failed: ' + resp.status + ' - ' + errorDetails);
+                }
                 const data = await resp.json();
 
                 // show results in #status area
@@ -746,15 +870,14 @@
                   try { updateAutosaveIndicatorHidden(); } catch(e){}
                 } catch(e){}
 
-                // Calcular performance e redirecionar para examPmiResults.html (exames >=180 questões)
-                const totalQuestions = data.totalQuestions || 0;
-                if (totalQuestions >= 180 && data.details && Array.isArray(data.details)) {
-                  // Calcular percentuais
+                // Delegate submission routing to ExamEngine
+                const engine = window.EXAM_ENGINE || null;
+                const submitAction = engine ? engine.submit({ correct: data.totalCorrect, total: totalQuestions }) : null;
+                if (submitAction && submitAction.action === 'redirect' && submitAction.target === 'examPmiResults') {
+                  // Calcular percentuais para exame completo
                   const scorableQuestions = data.details.filter(d => !d.isPretest);
                   const totalScorableQuestions = scorableQuestions.length;
                   const overallPct = totalScorableQuestions > 0 ? Math.round((data.totalCorrect / totalScorableQuestions) * 100) : 0;
-                  
-                  // Performance por domínio
                   const domainStats = { 1: {correct:0, total:0}, 2: {correct:0, total:0}, 3: {correct:0, total:0} };
                   scorableQuestions.forEach(detail => {
                     const domainId = detail.domainId || detail.IdDominio;
@@ -763,15 +886,10 @@
                       if (detail.isCorrect) domainStats[domainId].correct++;
                     }
                   });
-                  
                   const peoplePct = domainStats[1].total > 0 ? Math.round((domainStats[1].correct / domainStats[1].total) * 100) : 0;
                   const processPct = domainStats[2].total > 0 ? Math.round((domainStats[2].correct / domainStats[2].total) * 100) : 0;
                   const businessPct = domainStats[3].total > 0 ? Math.round((domainStats[3].correct / domainStats[3].total) * 100) : 0;
-                  
-                  // Recuperar nome do usuário
                   const userName = localStorage.getItem('nome') || localStorage.getItem('userName') || localStorage.getItem('username') || 'Candidate';
-                  
-                  // Construir URL com parâmetros
                   const params = new URLSearchParams({
                     overallPct: overallPct,
                     peoplePct: peoplePct,
@@ -782,19 +900,15 @@
                     tcId: 'SIM-' + Date.now(),
                     date: new Date().toISOString().split('T')[0]
                   });
-                  
-                  // Limpar dados antes de redirecionar
                   try {
                     if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
                     else if (typeof clearExamData === 'function') { clearExamData(); }
                   } catch(_){}
-                  
-                  // Redirecionar para examPmiResults.html
                   window.location.href = `/pages/examPmiResults.html?${params.toString()}`;
                   return data;
                 }
                 
-                // Após envio no modo quiz (exam.html), limpar dados e redirecionar para a página inicial
+                // Quiz mode: clear and home
                 try {
                   if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
                   else if (typeof clearExamData === 'function') { clearExamData(); }
@@ -1047,6 +1161,41 @@
                 try { applyHighlightUI(questionKeyFor(currentIdx)); } catch(e){}
               }
 
+              // Mark button (full mode only) - toggle question marked status
+              const btnMark = $('bmark');
+              if (btnMark && window.EXAM_MODE === 'full') {
+                btnMark.addEventListener('click', ()=>{
+                  try {
+                    const q = QUESTIONS[currentIdx];
+                    if (!q) return;
+                    const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${currentIdx}`;
+                    const sid = window.currentSessionId || null;
+                    if (!sid) return;
+                    
+                    // Read marked questions for this session
+                    const markedKey = `marked_${sid}`;
+                    let marked = {};
+                    try {
+                      const raw = localStorage.getItem(markedKey);
+                      if (raw) marked = JSON.parse(raw);
+                    } catch(e){ marked = {}; }
+                    
+                    // Toggle marked state
+                    if (marked[qKey]) {
+                      delete marked[qKey];
+                      showToast('Questão desmarcada');
+                    } else {
+                      marked[qKey] = true;
+                      showToast('Questão marcada para revisão');
+                    }
+                    
+                    localStorage.setItem(markedKey, JSON.stringify(marked));
+                  } catch(e){ logger.error('mark button error', e); }
+                });
+              }
+
+              // Grid button (full mode only) - REMOVED dynamic modal, using official grid component
+
               // posicionar o timer inicialmente e ao redimensionar (debounced)
               positionTimer();
               adaptQuestionTypography();
@@ -1114,6 +1263,7 @@
                         } catch(e) {}
                         // ensure there's at least an answers object persisted for this session
                         try { if (window.currentSessionId && !localStorage.getItem(`answers_${window.currentSessionId}`)) saveAnswersForCurrentSession(); } catch(e){}
+                        try { initSharedEngine(QUESTIONS); } catch(_){}
                         initExam();
                         return;
                       }
@@ -1127,6 +1277,7 @@
                     try { window.QUESTIONS = QUESTIONS; } catch(_){}
                     // normalize and shuffle once (memoized for subsequent renders)
                     try { ensureShuffledOptionsForAll(QUESTIONS); } catch(e){}
+                    try { initSharedEngine(QUESTIONS); } catch(_){}
                     initExam();
                     return;
                   }
@@ -1288,6 +1439,7 @@
                               QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
                               try { window.QUESTIONS = QUESTIONS; } catch(_){}
                             }
+                            try { initSharedEngine(QUESTIONS); } catch(_){}
                             initExam();
                             return;
                           }
@@ -1335,6 +1487,7 @@
                     logger.warn('Failed to fetch questions', resp.status);
                     // fallback to sample questions so the UI remains usable in other error cases
                     QUESTIONS = [ { text: generateFixedLengthText(200), options: ['Opção A','Opção B','Opção C','Opção D'] } ];
+                    try { initSharedEngine(QUESTIONS); } catch(_){}
                     initExam();
                     return;
                   }
@@ -1493,6 +1646,7 @@
                 } catch (e) {
                   logger.warn('prepareAndInit error', e);
                 }
+                try { initSharedEngine(QUESTIONS); } catch(_){}
                 initExam();
               }
 

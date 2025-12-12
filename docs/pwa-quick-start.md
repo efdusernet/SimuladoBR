@@ -70,6 +70,7 @@ Quando navegar sem internet, aparece página bonita com:
 ## 🔧 Como Integrar nos Exames
 
 ### Em `exam.html` ou `examFull.html`:
+<!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 
 ```html
 <!-- Antes de </body> -->

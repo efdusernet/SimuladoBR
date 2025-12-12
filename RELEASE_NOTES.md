@@ -1,9 +1,16 @@
+# Unreleased
+
+## Changes
+- Removed: `frontend/pages/examFull.html` — exame unificado em `frontend/pages/exam.html` com a nova engine `ExamEngine.js`.
+- Docs/Postman: adicionadas anotações de depreciação indicando a unificação do fluxo em `exam.html`.
+
 # v1.0.0
 
 Date: 2025-11-12
 
 ## Highlights
-- Frontend aligned to baseline c611637 (index, exam, examFull, examSetup, components).
+ - Frontend aligned to baseline c611637 (index, exam, examFull, examSetup, components).
+	 <!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 - Backend endpoints for last exam widgets: GET /api/exams/last and GET /api/exams/history.
 - Exam attempt persistence restored (ExamAttempt, ExamAttemptQuestion, ExamAttemptAnswer) with BlueprintSnapshot, PauseState, FiltrosUsados, Meta.
 - Pause checkpoints with validation and countdown; session resume after restart.

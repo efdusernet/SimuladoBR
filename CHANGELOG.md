@@ -33,7 +33,8 @@ This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 ## [1.0.0] - 2025-11-12
 
 ### Highlights
-- Frontend aligned to historical baseline c611637 (index, exam, examFull, examSetup, components).
+ - Frontend aligned to historical baseline c611637 (index, exam, examFull, examSetup, components).
+   <!-- versão inexistente: o exame foi unificado em `exam.html` com a nova engine [ExamEngine.js] -->
 - Backend endpoints for last exam widgets:
   - GET /api/exams/last
   - GET /api/exams/history

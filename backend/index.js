@@ -146,13 +146,40 @@ app.get('/admin/questions/form', requireAdmin, (req, res) => {
 app.get('/admin/questions/bulk', requireAdmin, (req, res) => {
 	res.sendFile(path.join(FRONTEND_DIR, 'pages', 'admin', 'questionBulk.html'));
 });
+// Enforce login for HTML pages BEFORE static serving: if no session cookie, redirect to /login
+app.use((req, res, next) => {
+	try {
+		const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
+		const isHtmlRequest = acceptsHtml || /\.html$/.test(req.path) || req.path === '/';
+		const isLoginPath = req.path === '/login' || req.path === '/login.html';
+		const isAsset = /\.(css|js|png|jpg|jpeg|gif|svg|ico|json|webmanifest)$/i.test(req.path) || req.path.startsWith('/assets/') || req.path.startsWith('/components/');
+		if (isHtmlRequest && !isLoginPath && !isAsset) {
+			const token = (req.cookies && req.cookies.sessionToken) || '';
+			if (!token || /#$/.test(token)) {
+				return res.redirect('/login');
+			}
+		}
+	} catch(_) { /* ignore */ }
+	next();
+});
+
+// Static middleware comes AFTER login enforcement, so unauthenticated users
+// won't be able to fetch HTML pages directly (index and others).
 if (fs.existsSync(FRONTEND_DIST)) {
 	app.use(express.static(FRONTEND_DIST));
 }
 app.use(express.static(FRONTEND_DIR));
 
-// Rota raiz: sirva a home (index.html); o script.js redireciona usuários logados para /pages/examSetup.html
-app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
+// Rota raiz: se não autenticado, redireciona para login; caso contrário, sirva a home (index.html)
+app.get('/', (req, res) => {
+	try {
+		const token = (req.cookies && req.cookies.sessionToken) || '';
+		if (!token || /#$/.test(token)) {
+			return res.redirect('/login');
+		}
+	} catch(_) { /* ignore */ }
+	return res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+});
 // Rota de login: serve a página dedicada de login
 app.get('/login', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'login.html')));
 
@@ -222,11 +249,18 @@ app.use(`${API_BASE}/debug`, require('./routes/debug'));
 // Para rotas não-API, devolve index.html (SPA fallback)
 // NOTE: avoid using app.get('*') which can trigger path-to-regexp errors in some setups.
 app.use((req, res, next) => {
-		if (req.path.startsWith('/api/')) return next();
+	if (req.path.startsWith('/api/')) return next();
 	// Only serve index.html for GET navigation requests
 	if (req.method !== 'GET') return next();
-			// Use o index.html da pasta frontend (não copiamos HTMLs para dist)
-			res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+	// Enforce auth here too: avoid serving index.html to unauthenticated users
+	try {
+		const token = (req.cookies && req.cookies.sessionToken) || '';
+		if (!token || /#$/.test(token)) {
+			return res.redirect('/login');
+		}
+	} catch(_) { /* ignore */ }
+	// Use o index.html da pasta frontend (não copiamos HTMLs para dist)
+	res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
 // API 404 handler (after all API routes)

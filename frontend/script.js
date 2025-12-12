@@ -13,7 +13,7 @@ class SafeRedirect {
             '/pages/exam.html',
             '/pages/examFull.html',
             '/pages/examSetup.html',
-            '/pages/indicadores.html',
+            '/pages/Indicadores.html',
             '/pages/admin/users.html',
             '/pages/admin/questions.html',
             '/pages/admin/examTypes.html'
@@ -395,13 +395,26 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         // Consider only true landing as root: '/', '' or '/index.html' (avoid matching '/login')
         const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
-        const loggedIn = Boolean(hasUserId || hasNomeUsuario || hasNome);
+        const isLoginPage = pathNow.endsWith('/login.html') || pathNow === '/login';
+        // Consider sessionStorage as authoritative right after login (avoids redirect loop after cache clear)
+        const ssUserId = !!sessionStorage.getItem('userId');
+        const ssUserName = !!sessionStorage.getItem('userName');
+        const loggedIn = Boolean(hasUserId || hasNomeUsuario || hasNome || ssUserId || ssUserName);
         // treat guest tokens (ending with '#') as not-logged-in
-        const isGuest = !!(sessionToken && sessionToken.endsWith('#'));
+        // Treat as guest only if token ends with '#' AND we don't have session identifiers
+        const isGuest = !!(sessionToken && sessionToken.endsWith('#') && !(ssUserId || ssUserName));
         const hasSidebar = !!document.getElementById('appSidebar');
 
         // Diagnostics to help debugging when redirect does not occur
         console.debug('[redirect-check] pathNow=', pathNow, 'isLanding=', isLanding, 'loggedIn=', loggedIn, 'isGuest=', isGuest, 'hasSidebar=', hasSidebar);
+
+        // SECURITY: If not on login page and no valid session, redirect to login
+                if (!isLoginPage && (!loggedIn || isGuest)) {
+            console.log('[redirect-check] No valid session detected, redirecting to login');
+            try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){}
+            window.location.replace('/login.html');
+            return;
+        }
 
         if (isLanding) {
             // Não redirecionar mais a partir da index (home). Mantém usuário na página inicial.
@@ -432,10 +445,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Sync session token into a cookie so the server can authorize HTML GETs for admin pages
+    // Only set cookie when we have a real authenticated session (backed by sessionStorage markers)
     try {
-        if (sessionToken) {
-            // Write cookie for whole site; avoid Secure flag in http; SameSite=Lax for basic CSRF hardening
+        const ssUserIdNow = !!sessionStorage.getItem('userId');
+        const ssUserNameNow = !!sessionStorage.getItem('userName');
+        if (sessionToken && !sessionToken.endsWith('#') && (ssUserIdNow || ssUserNameNow)) {
             document.cookie = `sessionToken=${encodeURIComponent(sessionToken)}; Path=/; SameSite=Lax`;
+        } else {
+            // Ensure no leftover cookie keeps the server thinking we're authenticated
+            document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
         }
     } catch (e) { /* ignore cookie errors */ }
 
@@ -453,7 +471,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const guestUnregistered = (sessionToken && sessionToken.endsWith('#')) && !hasUserId && !hasNomeUsuario && !hasNome;
         const pathNow = window.location.pathname || '';
         const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');
+        const isLoginPage = pathNow.endsWith('/login.html') || pathNow === '/login';
         const hasSidebar = !!document.getElementById('appSidebar');
+
+        // On login page, always show the modal regardless of session state
+        if (isLoginPage && modal) {
+            showEmailModal();
+            return;
+        }
 
         if (guestUnregistered) {
             if (isLanding) {

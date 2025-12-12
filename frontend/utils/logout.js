@@ -38,6 +38,13 @@
       logger.warn('[Logout] Failed to call backend logout:', e);
     }
 
+    // Proactively delete client-managed session cookie
+    try {
+      document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+    } catch (e) {
+      logger?.warn?.('[Logout] Failed to delete session cookie:', e);
+    }
+
     // Clear sessionStorage completely (contains temporary sensitive data)
     try {
       sessionStorage.clear();
@@ -50,7 +57,10 @@
     try {
       const sensitiveKeys = [
         'sessionToken', 'token', 'jwt', 'authToken', 'accessToken', 'refreshToken',
+        'jwtToken', 'jwtTokenType',
         'userId', 'userEmail', 'userName', 'userRealName',
+        'nomeUsuario', 'nome',
+        'BloqueioAtivado',
         'lockoutUntil'
       ];
       
@@ -92,7 +102,7 @@
 
     // Redirect to login
     setTimeout(() => {
-      window.location.href = redirectUrl;
+      window.location.replace(redirectUrl);
     }, showNotification ? 300 : 0);
   }
 

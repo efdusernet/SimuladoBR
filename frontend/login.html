@@ -131,6 +131,40 @@
   <script>
     // Enhance: open modal on button click (fallback) and toggle password visibility
     document.addEventListener('DOMContentLoaded', function(){
+      // Toggle between Register and Login modes: hide name field on login
+      try{
+        const toggleBtn = document.getElementById('toggleModeBtn');
+        const title = document.getElementById('loginTitle');
+        const desc = document.getElementById('loginDesc');
+        const nameField = document.getElementById('field-name');
+        const submitBtn = document.getElementById('submitEmail');
+        const forgotLink = document.getElementById('forgotPasswordLink');
+        let mode = 'register'; // default screen is register
+        function applyMode(){
+          if (mode === 'login'){
+            if (nameField) nameField.style.display = 'none';
+            if (title) title.textContent = 'Entrar';
+            if (desc) desc.textContent = 'Informe seu e-mail e senha para entrar.';
+            if (submitBtn) submitBtn.textContent = 'Entrar';
+            if (toggleBtn) toggleBtn.textContent = 'Criar conta';
+            if (forgotLink) forgotLink.style.display = 'block';
+          } else {
+            if (nameField) nameField.style.display = '';
+            if (title) title.textContent = 'Registro obrigatório';
+            if (desc) desc.textContent = 'Por favor, informe seu e-mail para registrar o aplicativo.';
+            if (submitBtn) submitBtn.textContent = 'Registrar';
+            if (toggleBtn) toggleBtn.textContent = 'Já tenho conta';
+            if (forgotLink) forgotLink.style.display = 'none';
+          }
+        }
+        if (toggleBtn){
+          toggleBtn.addEventListener('click', function(){
+            mode = (mode === 'register') ? 'login' : 'register';
+            applyMode();
+          });
+        }
+        applyMode();
+      }catch(_){ }
       const btn = document.getElementById('openLoginBtn');
       if (btn) btn.addEventListener('click', function(){
         try { if (window.showEmailModal) window.showEmailModal(); } catch(_){}

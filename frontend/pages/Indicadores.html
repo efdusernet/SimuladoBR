@@ -332,6 +332,48 @@
       </section>
   </div>
   <script>
+  // Auto-activate "Probabilidade de Sucesso" tab via query parameter (?tab=prob)
+  (function(){
+    function getQueryTab(){
+      try{
+        const u = new URL(window.location.href);
+        return (u.searchParams.get('tab') || '').toLowerCase();
+      }catch(_){ return ''; }
+    }
+    function activateProbTab(){
+      try{
+        // Prefer the same click path the UI uses, so all handlers run
+        const btn = document.querySelector('#tab-prob, [data-tab="prob"], .tab-prob');
+        if (btn && typeof btn.click === 'function'){ btn.click(); return true; }
+        // Fallback: call page-level activator if exposed
+        if (window.activateTab){ window.activateTab('prob'); }
+        // As a safety net, directly invoke loader if available
+        if (window.loadProbabilityCards){ window.loadProbabilityCards(); }
+        return true;
+      }catch(_){ return false; }
+    }
+    function ready(fn){
+      if (document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', fn, { once:true });
+      } else { fn(); }
+    }
+    // Run on ready; also retry shortly in case components mount late
+    ready(function(){
+      if (getQueryTab() === 'prob'){
+        const ok = activateProbTab();
+        if (!ok){ setTimeout(activateProbTab, 150); }
+        // Optional: ensure tab is visible to the user
+        try{
+          const sec = document.querySelector('#sec-prob, .sec-prob');
+          if (sec && typeof sec.scrollIntoView === 'function'){
+            sec.scrollIntoView({ behavior:'smooth', block:'nearest' });
+          }
+        }catch(_){ }
+      }
+    });
+  })();
+  </script>
+  <script>
     // Lightweight menu toggle and logout for this page
     (function initTopMenu(){
       const btn = document.getElementById('menuToggle');
@@ -399,6 +441,21 @@
         if (sectionsMap[tab]) sectionsMap[tab].classList.add('active');
       });
     });
+    // Activate tab from query parameter (?tab=prob) on load
+    (function activateTabFromQuery(){
+      try {
+        const q = new URLSearchParams(window.location.search);
+        const tab = q.get('tab');
+        if (tab && sectionsMap[tab]) {
+          const btn = Array.from(tabButtons).find(b => b.getAttribute('data-tab') === tab);
+          if (btn) btn.click(); else { // fallback without triggering click
+            tabButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+            Object.keys(sectionsMap).forEach(k => sectionsMap[k] && sectionsMap[k].classList.remove('active'));
+            if (sectionsMap[tab]) sectionsMap[tab].classList.add('active');
+          }
+        }
+      } catch(_){}
+    })();
     // Simple helper to build Authorization header from localStorage (JWT)
     function getAuthHeadersLocal(){
       try {
@@ -500,7 +557,9 @@
     }
 
     // Load IND11 and render probability cards per domain
+    let _probLoadedOnce = false;
     async function loadProbabilityCards(){
+      if (_probLoadedOnce) return;
       const container = document.getElementById('probCards');
       if (!container) return;
       container.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b;">Carregando...</div>';
@@ -609,6 +668,7 @@
         </div>
       `;
       container.appendChild(expl);
+      _probLoadedOnce = true;
     }
 
     // Auto-load probability cards when switching to tab

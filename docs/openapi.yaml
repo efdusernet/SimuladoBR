@@ -1,0 +1,280 @@
+openapi: 3.0.3
+info:
+  title: SimuladosBR API
+  version: 1.0.0
+  description: OpenAPI spec (initial draft) for key endpoints.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+paths:
+  /api/exams/types:
+    get:
+      summary: List active exam types
+      tags: [Exams]
+      responses:
+        '200':
+          description: List of exam types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExamType'
+  /api/exams/select:
+    post:
+      summary: Select questions for an ephemeral exam session
+      tags: [Exams]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectRequest'
+      responses:
+        '200':
+          description: Selection result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectResponse'
+  /api/exams/start-on-demand:
+    post:
+      summary: Persist exam attempt and return session identifiers
+      tags: [Exams]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartOnDemandRequest'
+      responses:
+        '200':
+          description: Attempt created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartOnDemandResponse'
+  /api/exams/{sessionId}/question/{index}:
+    get:
+      summary: Fetch question and options by index for a session
+      tags: [Exams]
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: index
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Question payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionPayload'
+  /api/exams/submit:
+    post:
+      summary: Submit answers (supports partial)
+      tags: [Exams]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitRequest'
+      responses:
+        '200':
+          description: Submission result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+  /api/exams/resume:
+    post:
+      summary: Resume session after server restart
+      tags: [Exams]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeRequest'
+      responses:
+        '200':
+          description: Resume result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeResponse'
+  /api/admin/exams/fixture-attempt:
+    post:
+      summary: Generate a finalized fixture attempt
+      tags: [Admin]
+      security:
+        - sessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FixtureAttemptRequest'
+      responses:
+        '200':
+          description: Fixture created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FixtureAttemptResponse'
+components:
+  securitySchemes:
+    sessionToken:
+      type: apiKey
+      in: header
+      name: X-Session-Token
+  schemas:
+    ExamType:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        nome:
+          type: string
+    SelectRequest:
+      type: object
+      properties:
+        examType:
+          type: string
+          description: Slug (e.g., 'pmp')
+        count:
+          type: integer
+        dominios:
+          type: array
+          items:
+            type: integer
+        areas:
+          type: array
+          items:
+            type: integer
+        grupos:
+          type: array
+          items:
+            type: integer
+      required: [examType, count]
+    SelectResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        total:
+          type: integer
+        exam:
+          type: object
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionPayload'
+    StartOnDemandRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        examType:
+          type: string
+        blueprint:
+          type: array
+          items:
+            type: integer
+      required: [sessionId, examType, blueprint]
+    StartOnDemandResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        attemptId:
+          type: integer
+    QuestionPayload:
+      type: object
+      properties:
+        id:
+          type: integer
+        descricao:
+          type: string
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              descricao:
+                type: string
+              correta:
+                type: boolean
+    SubmitRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        attemptId:
+          type: integer
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              selected:
+                type: array
+                items:
+                  type: integer
+        partial:
+          type: boolean
+      required: [sessionId, answers]
+    SubmitResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        saved:
+          type: integer
+        status:
+          type: string
+    ResumeRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+      required: [sessionId]
+    ResumeResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        attemptId:
+          type: integer
+        restored:
+          type: boolean
+    FixtureAttemptRequest:
+      type: object
+      properties:
+        userId:
+          type: integer
+        overallPct:
+          type: integer
+        examType:
+          type: string
+        count:
+          type: integer
+      required: [userId, overallPct]
+    FixtureAttemptResponse:
+      type: object
+      properties:
+        attemptId:
+          type: integer
+        status:
+          type: string

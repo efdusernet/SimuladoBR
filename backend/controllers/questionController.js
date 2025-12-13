@@ -79,7 +79,8 @@ exports.createQuestion = async (req, res, next) => {
 			}
 		} catch(_){ /* silent duplicate lookup failure */ }
 		let createdId = null;
-		await sequelize.transaction(async (t) => {
+		const t = await sequelize.transaction();
+		try {
 		// Insert question
 		const insertQ = `INSERT INTO public.questao (
 			iddominio, idstatus, descricao, datacadastro, dataalteracao,
@@ -124,7 +125,11 @@ exports.createQuestion = async (req, res, next) => {
 									 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`;
 				await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao, uid: createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			}
-		});
+				await t.commit();
+			} catch (txErr) {
+				try { await t.rollback(); } catch (_) { /* ignore rollback errors */ }
+				throw txErr;
+			}
 
 		return res.status(201).json({ id: createdId });
 	} catch (err) {

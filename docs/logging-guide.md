@@ -143,6 +143,18 @@ logger.info('Processando operação', { someData: value });
 // Output: ... "requestId": "abc123", "someData": "value" ...
 ```
 
+## Tipagem e JSDoc (Type Hints)
+
+- Para melhorar autocomplete e detectar erros de tipo, habilitamos validação com TypeScript no JavaScript.
+- `jsconfig.json` está configurado com `"checkJs": true` e `"strict": true`.
+- Arquivos anotados:
+  - `backend/index.js` possui `// @ts-check` no topo.
+  - `backend/utils/logger.js` define `@typedef RequestContext` e anota `getRequestContext(req)` com tipos.
+- Como usar:
+  - Adicione `// @ts-check` no topo de novos arquivos.
+  - Use JSDoc `@param`, `@returns` e `@typedef` para funções e objetos.
+  - VS Code exibirá erros de tipo em tempo de desenvolvimento.
+
 ## Configuração
 
 ### Variáveis de Ambiente

@@ -1,0 +1,74 @@
+<style>
+  .pass-probability {
+    border: 1px solid #000;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    max-width: 320px;
+  }
+  .pass-probability h3 {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+</style>
+<div class="pass-probability" role="group" aria-label="Probabilidade de aprovação">
+  <h3>Probabilidade de passar no exame</h3>
+  <div id="passProbabilityMount" aria-live="polite"></div>
+</div>
+<script src="/components/sb-hbar.js"></script>
+<script>
+  (function initPassProbability(){
+    const mount = document.getElementById('passProbabilityMount');
+    if (!mount) return;
+    mount.style.minWidth = '220px';
+    mount.style.minHeight = '24px';
+    const sessionToken = (window.localStorage && window.localStorage.getItem('sessionToken')) || '';
+    const examType = (window.localStorage && window.localStorage.getItem('examType')) || '1';
+    const baseUrl = `/api/indicators/IND11?exam_type=${encodeURIComponent(examType)}` + (sessionToken ? `&sessionToken=${encodeURIComponent(sessionToken)}` : '');
+    const PASS_THRESHOLD = 75; // percentual médio esperado para aprovação
+
+    async function fetchInd11(){
+      try {
+        const resp = await fetch(baseUrl, { cache: 'no-store' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function computeProbability(dominios){
+      const totals = dominios.reduce((acc, d) => { acc.total += (d.total||0); acc.acertos += (d.acertos||0); return acc; }, { total:0, acertos:0 });
+      if (totals.total <= 0) return { overallPercent: null, probability: 5, dominios: [] };
+      const overallPercent = Number(((totals.acertos / totals.total) * 100).toFixed(2));
+      const probability = Math.max(0, Math.min(100, Number(((overallPercent / PASS_THRESHOLD) * 100).toFixed(0))));
+      return { overallPercent, probability };
+    }
+
+    function render(data){
+      mount.innerHTML = '';
+      // Overall probability bar
+      const bar = document.createElement('sb-hbar');
+      bar.setAttribute('value', String(data.probability ?? 5));
+      bar.setAttribute('max', '100');
+      bar.setAttribute('label', `Probabilidade de aprovação`);
+      bar.setAttribute('show-percent', '');
+      if ((data.probability||0) >= 75) bar.setAttribute('color', '#2b8a3e');
+      mount.appendChild(bar);
+      // Showing a single consolidated bar only
+    }
+
+    (async function(){
+      const ind11 = await fetchInd11();
+      if (!ind11 || !Array.isArray(ind11.dominios) || !ind11.dominios.length){
+        render({ probability: 5, dominios: [] });
+        return;
+      }
+      const calc = computeProbability(ind11.dominios);
+      render({ probability: calc.probability, dominios: ind11.dominios });
+    })();
+  })();
+</script>

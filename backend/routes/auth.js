@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const db = require('../models');
-const { User, EmailVerification } = db;
+const { User, EmailVerification, OAuthAccount } = db;
 const Op = db.Sequelize && db.Sequelize.Op;
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -12,6 +12,9 @@ const { jwtSecret } = require('../config/security');
 const { authSchemas, validate } = require('../middleware/validation');
 const { security, audit } = require('../utils/logger');
 const { badRequest, unauthorized, forbidden, notFound, internalError } = require('../middleware/errors');
+const passport = require('passport');
+const { getGoogleClient, genPKCE } = require('../services/googleOidc');
+const { initFacebookPassport } = require('../services/passportFacebook');
 
 // Explicitly set bcrypt rounds for password hashing security
 const BCRYPT_ROUNDS = 12;
@@ -462,3 +465,134 @@ router.post('/logout', (req, res, next) => {
         return next(internalError('Erro interno', 'INTERNAL_ERROR_LOGOUT'));
     }
 });
+
+// ===== Social Login: Google (OIDC + PKCE) =====
+router.get('/google', async (req, res, next) => {
+    try {
+        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+            return next(badRequest('Google OAuth não configurado', 'GOOGLE_NOT_CONFIGURED'));
+        }
+        const client = await getGoogleClient();
+        const state = crypto.randomUUID();
+        const { code_verifier, code_challenge } = genPKCE();
+        // Store transient values in httpOnly cookies (10min)
+        res.cookie('g_state', state, { httpOnly: true, sameSite: 'lax', maxAge: 10 * 60 * 1000, path: '/' });
+        res.cookie('g_verifier', code_verifier, { httpOnly: true, sameSite: 'lax', maxAge: 10 * 60 * 1000, path: '/' });
+        const redirectUri = `${process.env.BACKEND_BASE || 'http://localhost:3000'}/api/auth/google/callback`;
+        logger.info(`[OAuth] Google start: redirect_uri=${redirectUri}`);
+        const url = client.authorizationUrl({
+            scope: 'openid email profile',
+            code_challenge,
+            code_challenge_method: 'S256',
+            state,
+            redirect_uri: redirectUri
+        });
+        res.redirect(url);
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.get('/google/callback', async (req, res, next) => {
+    try {
+        const client = await getGoogleClient();
+        const { state, code } = req.query;
+        const savedState = req.cookies['g_state'];
+        const verifier = req.cookies['g_verifier'];
+        if (!state || !savedState || state !== savedState || !verifier) {
+            return next(badRequest('State/PKCE inválidos', 'INVALID_STATE'));
+        }
+        const redirectUri = `${process.env.BACKEND_BASE || 'http://localhost:3000'}/api/auth/google/callback`;
+        logger.info(`[OAuth] Google callback: using redirect_uri=${redirectUri}`);
+        const tokenSet = await client.callback(redirectUri, { code, state, code_verifier: verifier }, { state });
+        const claims = tokenSet.claims();
+        const email = (claims && claims.email) ? String(claims.email).toLowerCase() : null;
+        const emailVerified = !!(claims && claims.email_verified);
+        const providerUserId = claims && claims.sub;
+        const name = (claims && claims.name) || '';
+
+        const user = await linkOrCreateUser({ provider: 'google', providerUserId, email, emailVerified, name });
+        issueSessionCookie(res, user);
+        // cleanup transient cookies
+        res.clearCookie('g_state', { path: '/' });
+        res.clearCookie('g_verifier', { path: '/' });
+        res.redirect(process.env.FRONTEND_URL || '/');
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ===== Social Login: Facebook (Passport) =====
+initFacebookPassport(async ({ provider, providerUserId, email, emailVerified, name }) => {
+    return await linkOrCreateUser({ provider, providerUserId, email, emailVerified, name });
+});
+
+router.get('/facebook', (req, res, next) => {
+    if (!process.env.FACEBOOK_CLIENT_ID || !process.env.FACEBOOK_CLIENT_SECRET) {
+        return next(badRequest('Facebook OAuth não configurado', 'FACEBOOK_NOT_CONFIGURED'));
+    }
+    logger.info('[OAuth] Facebook start');
+    return passport.authenticate('facebook', { scope: ['email'], session: false })(req, res, next);
+});
+
+router.get('/facebook/callback', (req, res, next) => {
+    return passport.authenticate('facebook', { failureRedirect: (process.env.FRONTEND_URL || '/login'), session: false }, async (err, user) => {
+        if (err) return next(err);
+        if (!user) return res.redirect(process.env.FRONTEND_URL || '/login');
+        issueSessionCookie(res, user);
+        logger.info('[OAuth] Facebook callback: issuing session cookie and redirecting to FRONTEND_URL');
+        res.redirect(process.env.FRONTEND_URL || '/');
+    })(req, res, next);
+});
+
+// ===== Helpers: link/create + cookie issuance =====
+async function linkOrCreateUser({ provider, providerUserId, email, emailVerified, name }) {
+    if (!provider || !providerUserId) throw new Error('Provider e providerUserId são obrigatórios');
+    // Try existing oauth link
+    let account = await OAuthAccount.findOne({ where: { Provider: provider, ProviderUserId: providerUserId }, include: [{ model: User, required: false }] });
+    if (account) {
+        // Load user explicitly if not eager loaded
+        if (account.User) return account.User;
+        const u = await User.findByPk(account.UserId);
+        if (u) return u;
+    }
+    // Try user by verified email
+    let user = null;
+    if (email) {
+        user = await User.findOne({ where: { Email: String(email).toLowerCase() } });
+    }
+    if (!user) {
+        user = await User.create({
+            Email: email || `no-email+${provider}-${providerUserId}@example.local`,
+            EmailConfirmado: !!emailVerified,
+            NomeUsuario: email ? email.toLowerCase() : `${provider}_${providerUserId}`,
+            Nome: name || null,
+            DataCadastro: new Date(),
+            DataAlteracao: new Date(),
+            BloqueioAtivado: false,
+            Excluido: false
+        });
+    } else if (emailVerified && !user.EmailConfirmado) {
+        user.EmailConfirmado = true;
+        user.DataAlteracao = new Date();
+        await user.save();
+    }
+    await OAuthAccount.create({ UserId: user.Id, Provider: provider, ProviderUserId: providerUserId, Email: email || null });
+    return user;
+}
+
+function issueSessionCookie(res, user) {
+    try {
+        const payload = { sub: user.Id, email: user.Email, name: user.NomeUsuario };
+        const expiresIn = process.env.JWT_EXPIRES_IN || '12h';
+        const token = jwt.sign(payload, jwtSecret, { expiresIn });
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 12 * 60 * 60 * 1000,
+            path: '/'
+        };
+        res.cookie('sessionToken', token, cookieOptions);
+    } catch (_) { /* omit token on error */ }
+}

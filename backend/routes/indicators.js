@@ -18,6 +18,7 @@ router.get('/area-knowledge-stats', auth, indicatorController.getAreaConheciment
 router.get('/approach-stats', auth, indicatorController.getAbordagemStats);
 router.get('/details-last', auth, indicatorController.getDetailsLast);
 router.get('/IND10', requireUserSession, indicatorController.getPerformancePorDominio);
+router.get('/IND11', requireUserSession, indicatorController.getPerformancePorDominioAgregado);
 router.get('/avg-time-per-question', auth, indicatorController.getAvgTimePerQuestion);
 router.get('/attempts-history-extended', auth, indicatorController.getAttemptsHistoryExtended);
 

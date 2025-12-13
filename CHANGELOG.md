@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
+## [Unreleased]
+
+### Added
+- Client-side error boundary: capture JS errors and show fallback overlay with reload/home actions
+- Skeleton screens: lightweight utilities to avoid blank screens while loading
+  - Sidebar injection uses skeleton lines until HTML fragment arrives
+  - Exam setup modal shows a page-level skeleton overlay during fetch
+ - Comment cleanup: removed a legacy commented-out build script include from `frontend/pages/exam.html`
+
+### Changed
+- Graceful shutdown now uses `server.close()` instead of `app.close()` for proper HTTP server termination on signals.
+- Login: redesigned `frontend/login.html` with a modern, responsive layout (gradient hero), improved modal with labeled fields, accessibility tweaks, and password visibility toggles. Existing element IDs/JS hooks preserved for compatibility.
+
+### Notes
+- In development, unhandled rejections will exit the process to surface issues early; production logs and continues for rejections, but uncaught exceptions trigger graceful shutdown.
+- Default idle timeout is 20 minutes; override by setting `window.SIMULADOS_CONFIG = { SESSION_IDLE_MINUTES: 30 }` in the page when needed.
+
 ## [1.1.0] - 2025-11-23
 
 ### Added

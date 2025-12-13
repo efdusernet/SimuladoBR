@@ -21,37 +21,105 @@
   <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
   <link rel="stylesheet" href="./dist/styles.css">
   <link rel="stylesheet" href="./styles.css">
+  <style>
+    /* Login page minimal: gradient background */
+    body.login-bg {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 40%, #f5f3ff 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 12px;
+    }
+    /* Modal visual polish (scoped tweaks) */
+    .modal-content h2 { font-size: 1.35rem; color:#111827; }
+    .modal-content p { color:#4b5563; }
+    .field {
+      margin: 10px 0; position: relative;
+    }
+    .field label { display:block; font-weight:600; margin: 0 0 6px; color:#475569; font-size:0.9rem; }
+    .field input[type="email"], .field input[type="text"], .field input[type="password"]{
+      width:100%; padding: 12px 42px 12px 12px; border:1px solid #cbd5e1; border-radius: 10px;
+      font-size: 0.98rem; box-sizing:border-box; background:#fff;
+    }
+    .field input:focus{ outline:none; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); border-color:#6366f1; }
+    .toggle-visibility{
+      position:absolute; right:10px; top:34px; height:28px; border:none; background:transparent; cursor:pointer; color:#64748b;
+    }
+    .login-note { font-size: 0.85rem; color:#6b7280; text-align:center; margin-top: 10px; }
+  </style>
   
   <!-- Controlled Logging System (must load before other scripts) -->
   <script src="/utils/logger.js"></script>
 
   <!-- CSRF Protection - TEMPORARILY DISABLED (Issue #5) -->
   <!-- <script src="/utils/csrf.js"></script> -->
-</head>
-<body>
+  </head>
+<body class="login-bg">
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
     <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
   </header>
   <main>
+    <!-- Conteúdo intencionalmente vazio: modal abre automaticamente nesta página -->
   </main>
 
   <!-- Modal de Login / Registro -->
   <div id="emailModal" class="modal" aria-hidden="true" style="display:none;">
-    <div class="modal-content">
-      <h2>Registro obrigatório</h2>
-      <p>Por favor, informe seu e-mail para registrar o aplicativo.</p>
-      <input id="nameInput" type="text" placeholder="Seu nome completo" />
-      <input id="emailInput" type="email" placeholder="seu@exemplo.com" />
-      <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" />
-      <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" style="display:none;" />
-      <input id="newPasswordInput" type="password" placeholder="Nova senha (mínimo 6 caracteres)" style="display:none;" />
-      <input id="confirmPasswordInput" type="password" placeholder="Confirmar nova senha" style="display:none;" />
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+      <button type="button" id="modalCloseBtn" class="modal-close-btn" aria-label="Fechar" title="Fechar">×</button>
+      <h2 id="loginTitle">Registro obrigatório</h2>
+      <p id="loginDesc">Por favor, informe seu e-mail para registrar o aplicativo.</p>
+
+      <div class="field" id="field-name">
+        <label for="nameInput">Nome completo</label>
+        <input id="nameInput" type="text" placeholder="Seu nome completo" autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="emailInput">E-mail</label>
+        <input id="emailInput" type="email" placeholder="seu@exemplo.com" autocomplete="email" />
+      </div>
+
+      <div class="field" id="field-password">
+        <label for="passwordInput">Senha</label>
+        <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" autocomplete="current-password" />
+        <button type="button" class="toggle-visibility" data-target="passwordInput" aria-label="Mostrar ou ocultar senha">👁️</button>
+      </div>
+
+      <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" inputmode="numeric" style="display:none;" />
+      <input id="newPasswordInput" type="password" placeholder="Nova senha (mínimo 6 caracteres)" autocomplete="new-password" style="display:none;" />
+      <input id="confirmPasswordInput" type="password" placeholder="Confirmar nova senha" autocomplete="new-password" style="display:none;" />
+
       <div class="modal-actions">
         <button id="submitEmail">Registrar</button>
         <button id="toggleModeBtn" class="secondary-btn" type="button">Já tenho conta</button>
       </div>
       <a id="forgotPasswordLink" href="#" style="display:none;text-align:center;margin-top:8px;font-size:0.875rem;color:#4f46e5;text-decoration:none;">Esqueci minha senha</a>
-      <p id="modalError" style="color:crimson;display:none;"></p>
+      <p id="modalError" style="color:crimson;display:none;" aria-live="polite"></p>
+
+      <div class="or-divider" role="separator" aria-label="ou"><span>ou</span></div>
+
+      <div class="sso-row" style="margin-top:14px;">
+        <a class="sso-btn sso-google" href="/api/auth/google" aria-label="Entrar com Google">
+          <span class="icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20" height="20" role="img">
+              <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.156 7.961 3.039l5.657-5.657C34.869 6.053 29.7 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+              <path fill="#FF3D00" d="M6.306 14.691l6.571 4.817C14.655 16.108 18.961 12 24 12c3.059 0 5.842 1.156 7.961 3.039l5.657-5.657C34.869 6.053 29.7 4 24 4 16.319 4 9.656 8.337 6.306 14.691z"/>
+              <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.197l-6.192-5.238C29.134 35.091 26.691 36 24 36c-5.202 0-9.616-3.317-11.274-7.953l-6.54 5.036C9.49 39.556 16.19 44 24 44z"/>
+              <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.793 2.24-2.231 4.166-3.986 5.565.002-.001 6.192 5.238 6.192 5.238C40.298 35.262 44 29.333 44 22c0-1.341-.138-2.65-.389-3.917z"/>
+            </svg>
+          </span>
+          <span>Entrar com Google</span>
+        </a>
+        <a class="sso-btn sso-facebook" href="/api/auth/facebook" aria-label="Entrar com Facebook">
+          <span class="icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" role="img">
+              <path fill="#ffffff" d="M22.675 0H1.325C.593 0 0 .593 0 1.325v21.351C0 23.406.593 24 1.325 24H12.82V14.706H9.692v-3.62h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.794.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.312h3.587l-.467 3.62h-3.12V24h6.116C23.406 24 24 23.406 24 22.676V1.325C24 .593 23.406 0 22.675 0z"/>
+            </svg>
+          </span>
+          <span>Entrar com Facebook</span>
+        </a>
+      </div>
     </div>
   </div>
 
@@ -60,5 +128,25 @@
   <!-- Sanitization utilities -->
   <script src="./utils/sanitize.js"></script>
   <script src="./script.js" defer></script>
+  <script>
+    // Enhance: open modal on button click (fallback) and toggle password visibility
+    document.addEventListener('DOMContentLoaded', function(){
+      const btn = document.getElementById('openLoginBtn');
+      if (btn) btn.addEventListener('click', function(){
+        try { if (window.showEmailModal) window.showEmailModal(); } catch(_){}
+        // Fallback: mimic showEmailModal if not exposed globally
+        const modal = document.getElementById('emailModal');
+        if (modal) { modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
+      });
+      document.querySelectorAll('.toggle-visibility').forEach(function(el){
+        el.addEventListener('click', function(){
+          const id = el.getAttribute('data-target');
+          const input = id && document.getElementById(id);
+          if (!input) return;
+          input.type = input.type === 'password' ? 'text' : 'password';
+        });
+      });
+    });
+  </script>
 </body>
 </html>

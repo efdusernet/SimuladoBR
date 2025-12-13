@@ -186,6 +186,16 @@ DATABASE_URL=postgresql://user:pass@host:5432/dbname
 JWT_SECRET=sua_chave_secreta_muito_forte_aqui
 NODE_ENV=production
 PORT=3000
+FRONTEND_URL=http://localhost:3000
+BACKEND_BASE=http://localhost:3000
+
+# OAuth (opcional)
+# Google
+GOOGLE_CLIENT_ID=seu_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=seu_client_secret
+# Facebook
+FACEBOOK_CLIENT_ID=seu_app_id
+FACEBOOK_CLIENT_SECRET=seu_app_secret
 
 # Email (opcional)
 SMTP_HOST=smtp.gmail.com
@@ -208,6 +218,25 @@ MERCADOPAGO_ACCESS_TOKEN=seu_token
 - [ ] Rate limiting ativado
 - [ ] Helmet.js configurado
 - [ ] Variáveis sensíveis em secrets (nunca no código)
+- [ ] Configurar OAuth (se usado): adicionar Redirect URIs/Valid OAuth Redirect no provedor
+  - Google: Redirect URI deve ser exatamente `${BACKEND_BASE}/api/auth/google/callback`
+  - Facebook: Valid OAuth Redirect deve ser `${BACKEND_BASE}/api/auth/facebook/callback`
+  - Origins/autorização: inclua o domínio do frontend em "Authorized JavaScript origins" (Google) quando aplicável
+  - Produção: use HTTPS e o domínio público em `FRONTEND_URL` e `BACKEND_BASE`
+
+### Passos de Configuração do OAuth (Google/Facebook)
+1. Definir `FRONTEND_URL` e `BACKEND_BASE` conforme seu ambiente (ex.: `https://app.seudominio.com` e `https://api.seudominio.com` ou único domínio).
+2. Gerar credenciais no provedor:
+  - Google Cloud Console → OAuth consent + Credentials → Client ID/Secret
+  - Facebook Developers → App → Settings → Basic → App ID/Secret
+3. Registrar URIs de redirect (exatos):
+  - Google: `${BACKEND_BASE}/api/auth/google/callback`
+  - Facebook: `${BACKEND_BASE}/api/auth/facebook/callback`
+4. Injetar variáveis no backend:
+  - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET`
+5. Reiniciar o backend e validar os fluxos acessando os endpoints de início:
+  - `${BACKEND_BASE}/api/auth/google`
+  - `${BACKEND_BASE}/api/auth/facebook`
 
 ### Performance
 - [ ] Minificar CSS/JS (`npm run build` no frontend)

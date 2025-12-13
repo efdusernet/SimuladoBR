@@ -314,7 +314,28 @@ async function getFailureRate(req, res, next) {
 async function getOverviewDetailed(req, res, next) {
   try {
     const user = req.user || {};
-    const userId = Number.isFinite(parseInt(user.sub, 10)) ? parseInt(user.sub, 10) : null;
+    const userIdParam = Number.isFinite(parseInt(req.query.idUsuario, 10)) ? parseInt(req.query.idUsuario, 10) : null;
+    let userId = userIdParam || (Number.isFinite(parseInt(user.sub, 10)) ? parseInt(user.sub, 10) : (Number.isFinite(parseInt(user.id, 10)) ? parseInt(user.id, 10) : null));
+    // Fallback: resolver usuário a partir do X-Session-Token/Authorization se req.user não estiver populado
+    if (!userId) {
+      try {
+        const db = require('../models');
+        let token = (req.get('X-Session-Token') || '').toString().trim();
+        let authHeader = (req.headers && req.headers.authorization) ? req.headers.authorization.trim() : '';
+        if (!token && authHeader && /^Bearer\s+/i.test(authHeader)) token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        if (token) {
+          if (/^\d+$/.test(token)) {
+            const u = await db.User.findByPk(Number(token));
+            if (u && (u.Id || u.id)) userId = Number(u.Id || u.id);
+          } else {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: token }, { Email: token }] } : { NomeUsuario: token };
+            const u = await db.User.findOne({ where });
+            if (u && (u.Id || u.id)) userId = Number(u.Id || u.id);
+          }
+        }
+      } catch(_) { /* ignore fallback errors */ }
+    }
     if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
 
     const rawDays = parseInt(req.query.days, 10);
@@ -368,6 +389,88 @@ async function getOverviewDetailed(req, res, next) {
     });
   } catch (err) {
     return next(internalError('Erro interno', 'OVERVIEW_DETAILED_ERROR', err));
+  }
+}
+
+// IND11 - Média ponderada por Domínio (agregado em todos os exames completos do usuário)
+async function getPerformancePorDominioAgregado(req, res, next) {
+  try {
+    const user = req.user || {};
+    console.info('[IND11] incoming user/session', { user, idUsuario: req.query?.idUsuario, xSession: req.get('X-Session-Token'), auth: req.headers?.authorization });
+    // Resolve userId from middleware (`req.user.id`) or JWT-like `sub`, or `idUsuario` query fallback
+    let userId = null;
+    if (Number.isFinite(parseInt(user.id, 10))) userId = parseInt(user.id, 10);
+    else if (Number.isFinite(parseInt(user.sub, 10))) userId = parseInt(user.sub, 10);
+    else if (Number.isFinite(parseInt(req.query.idUsuario, 10))) userId = parseInt(req.query.idUsuario, 10);
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
+
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
+
+    const sql = `
+      WITH attempts AS (
+        SELECT a.id
+        FROM exam_attempt a
+        WHERE a.user_id = :userId
+          AND a.finished_at IS NOT NULL
+          AND (a.exam_mode = 'full' OR a.quantidade_questoes = :fullQ)
+          ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+      ),
+      per_question AS (
+        SELECT
+          aq.id AS aqid,
+          q.iddominiogeral AS dominio_id,
+          dg.descricao AS dominio_nome,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
+        FROM exam_attempt_question aq
+        JOIN attempts a ON a.id = aq.attempt_id
+        LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+        JOIN questao q ON q.id = aq.question_id
+        LEFT JOIN dominiogeral dg ON dg.id = q.iddominiogeral
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
+        WHERE q.iddominiogeral IS NOT NULL
+        GROUP BY aq.id, q.iddominiogeral, dg.descricao
+      )
+      SELECT
+        dominio_id,
+        dominio_nome,
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS acertos
+      FROM per_question
+      WHERE correct_count > 0
+      GROUP BY dominio_id, dominio_nome
+      ORDER BY dominio_nome;
+    `;
+    const replacements = hasExamType
+      ? { userId, examTypeId, fullQ: getFullExamQuestionCount() }
+      : { userId, fullQ: getFullExamQuestionCount() };
+
+    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    const dominios = (rows || []).map(r => {
+      const total = Number(r.total) || 1;
+      const acertos = Number(r.acertos) || 0;
+      const percent = Number(((acertos / total) * 100).toFixed(2));
+      return {
+        id: Number(r.dominio_id) || null,
+        descricao: r.dominio_nome || String(r.dominio_id || 'Sem domínio'),
+        total,
+        acertos,
+        percent
+      };
+    });
+
+    return res.json({
+      userId,
+      examTypeId: hasExamType ? examTypeId : null,
+      idExame: null,
+      dominios
+    });
+  } catch (err) {
+    return next(internalError('Erro interno', 'IND11_AGGREGATE_ERROR', err));
   }
 }
 
@@ -528,7 +631,7 @@ async function getProcessGroupStats(req, res, next){
         else if (names.has('Excluido')) whereSoft = 'WHERE ("Excluido" = false OR "Excluido" IS NULL)';
         break;
       }
-      if (chosen) {
+      if (!userId) {
         const mapRows = await sequelize.query(
           `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${chosen} ${whereSoft}`,
           { type: sequelize.QueryTypes.SELECT }
@@ -547,6 +650,7 @@ async function getProcessGroupStats(req, res, next){
       const erros = Number(r.erros) || 0;
       const percentAcertos = Number(((acertos / total) * 100).toFixed(2));
       const percentErros = Number(((erros / total) * 100).toFixed(2));
+      console.info('[IND11] resolved userId', userId);
       return {
         grupo: Number(r.grupo) || null,
         descricao: (groupMap && groupMap[Number(r.grupo)]) ? groupMap[Number(r.grupo)] : String(r.grupo || 'Sem grupo'),
@@ -1009,4 +1113,4 @@ async function getAttemptsHistoryExtended(req, res, next){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion, getAttemptsHistoryExtended };
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getPerformancePorDominioAgregado, getAvgTimePerQuestion, getAttemptsHistoryExtended };

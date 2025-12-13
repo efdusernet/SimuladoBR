@@ -8,6 +8,32 @@ Observações gerais
 - Autorização por token de sessão do app: header `X-Session-Token: <sessionToken>` quando indicado.
 - Responses em JSON; erros comuns: 400 (payload inválido), 404 (não encontrado), 500 (erro interno).
 
+## Autenticação Social (Google/Facebook)
+
+Fluxo geral
+- Botões na tela de login redirecionam para `/api/auth/google` ou `/api/auth/facebook`.
+- Após consentimento, o backend cria/vincula a conta à tabela `oauth_account` e emite cookie httpOnly `sessionToken` (mesma sessão do login por e‑mail), então redireciona de volta ao frontend (`FRONTEND_URL`).
+
+Endpoints
+- `GET /api/auth/google` → Inicia OAuth (OIDC + PKCE). Requer `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`.
+- `GET /api/auth/google/callback` → Callback do Google. Sem body; valida `state`/PKCE; cria/vincula usuário e seta sessão.
+- `GET /api/auth/facebook` → Inicia OAuth do Facebook. Requer `FACEBOOK_CLIENT_ID`/`FACEBOOK_CLIENT_SECRET`.
+- `GET /api/auth/facebook/callback` → Callback do Facebook; cria/vincula usuário e seta sessão.
+
+Segurança
+- Google usa PKCE e `state` guardados em cookies httpOnly por 10 min.
+- Cookie de sessão: httpOnly, `SameSite=Strict`, expira ~12h (configurável por `JWT_EXPIRES_IN`).
+- Tabela `oauth_account`: `UNIQUE (provider, provider_user_id)`; FK `user_id → Usuario.Id` com `ON DELETE CASCADE`.
+
+Variáveis de ambiente
+- Obrigatórias para SSO conforme o provedor usado:
+  - Google: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+  - Facebook: `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET`
+- URLs:
+  - `BACKEND_BASE` (opcional; default `http://localhost:3000`) — base usada nos callbacks
+  - `FRONTEND_URL` (ex.: `http://localhost:3000`) — destino do redirect pós-login
+
+
 ## POST /api/admin/exams/fixture-attempt
 Cria uma tentativa finalizada artificial ("fixture") para testes e estatísticas sem processo de resposta manual.
 
@@ -319,6 +345,37 @@ Estatísticas de acertos/erros por grupo de processos no último exame completo 
     "userId": 42,
     "examMode": "full",
     "idExame": 123,
+
+### GET /api/indicators/IND11?exam_type=1
+Média ponderada por domínio agregada em todos os exames completos do usuário.
+- Auth: `Authorization: Bearer <token>` ou sessão do app via `X-Session-Token`. Fallback aceita `idUsuario` numérico quando não há token.
+- Query:
+  - `exam_type` (opcional; inteiro > 0). Quando presente, restringe às tentativas daquele tipo.
+  - `idUsuario` (opcional; inteiro > 0). Usado quando não há token/sessão para resolver o usuário diretamente.
+- Regra de agregação:
+  - Considera todas as tentativas finalizadas do usuário em exame completo (`exam_mode='full'` ou `quantidade_questoes = FULL_EXAM_QUESTION_COUNT`).
+  - Para cada domínio (`dominiogeral`), computa:
+    - `total`: número de questões daquele domínio (across todas tentativas), considerando questões com pelo menos uma opção correta definida.
+    - `acertos`: número de questões onde as opções selecionadas igualam exatamente o conjunto de opções corretas (todas corretas selecionadas e nenhuma incorreta). 
+    - `percent`: $(acertos / total) * 100$, com duas casas decimais.
+- Response:
+  ```json
+  {
+    "userId": 42,
+    "examTypeId": 1,
+    "idExame": null,
+    "dominios": [
+      { "id": 10, "descricao": "People", "total": 60, "acertos": 41, "percent": 68.33 },
+      { "id": 20, "descricao": "Process", "total": 60, "acertos": 42, "percent": 70.00 },
+      { "id": 30, "descricao": "Business", "total": 60, "acertos": 43, "percent": 71.67 }
+    ]
+  }
+  ```
+Notas:
+- Formato compatível com o IND10, porém `idExame` retorna `null` por ser agregado.
+- Endpoint: `GET /api/indicators/IND11` (rota protegida por sessão do app via `requireUserSession`).
+  - Resolução de usuário: `requireUserSession` aceita cookie/header `sessionToken`, `Authorization: Bearer` (JWT), e email/username; quando ausente, aceita `idUsuario` numérico.
+
     "grupos": [
       {
         "grupo": "Iniciação",

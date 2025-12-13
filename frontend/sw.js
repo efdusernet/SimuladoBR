@@ -8,7 +8,7 @@ const logger = (self && self.logger) ? self.logger : {
   error: (...args) => { try { console.error(...args); } catch(_){} }
 };
 
-const VERSION = '2.0.9';
+const VERSION = '2.0.10';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -23,7 +23,6 @@ const STATIC_ASSETS = [
   '/login.html',
   '/styles.css',
   '/script.js',
-  '/script_exam.js',
   '/manifest.json',
   '/assets/icon-192.png',
   '/assets/icon-512.png',

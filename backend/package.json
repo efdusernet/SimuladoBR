@@ -31,12 +31,17 @@
     "mercadopago": "^2.9.0",
     "multer": "^2.0.2",
     "nodemailer": "^6.9.4",
+    "openid-client": "^6.8.1",
+    "passport": "^0.7.0",
+    "passport-facebook": "^3.0.0",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "redis": "^5.10.0",
     "sequelize": "^6.37.7",
     "simuladosbr-frontend": "file:../frontend",
-    "uuid": "^9.0.0",
-    "winston": "^3.19.0"
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^9.0.1",
+    "winston": "^3.19.0",
+    "yamljs": "^0.3.0"
   }
 }

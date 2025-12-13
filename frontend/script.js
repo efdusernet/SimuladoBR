@@ -1,7 +1,27 @@
 // Import controlled logging system
 // <script src="/utils/logger.js"></script> must be loaded first in HTML
+// Safe fallback: ensure a logger exists even if utils/logger.js isn't loaded yet
+(function(){
+    if (!window.logger) {
+        const fallback = {
+            info: (...args) => { try { console.log(...args); } catch(_){} },
+            warn: (...args) => { try { console.warn(...args); } catch(_){} },
+            error: (...args) => { try { console.error(...args); } catch(_){} },
+            debug: (...args) => { try { console.debug(...args); } catch(_){} }
+        };
+        window.logger = fallback;
+    }
+    // Also expose a local variable to avoid ReferenceErrors from bare `logger`
+    if (typeof logger === 'undefined') {
+        // eslint-disable-next-line no-var
+        var logger = window.logger;
+    }
+})();
 
 // SafeRedirect: Security utility to prevent open redirect vulnerabilities
+/**
+ * Utility to validate and perform safe redirects, preventing open-redirects.
+ */
 class SafeRedirect {
     constructor() {
         // Whitelist of allowed internal paths (relative URLs only)
@@ -89,7 +109,7 @@ class SafeRedirect {
     /**
      * Safely redirects to a URL after validation
      * @param {string} url - The URL to redirect to
-     * @param {string} fallback - Fallback URL if validation fails
+     * @param {string} [fallback='/'] - Fallback URL if validation fails
      */
     safeRedirect(url, fallback = '/') {
         const safeUrl = this.validateRedirect(url, fallback);
@@ -100,6 +120,201 @@ class SafeRedirect {
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize SafeRedirect utility
     const safeRedirect = new SafeRedirect();
+    
+    // Global Error Boundary: capture JS errors and show a fallback UI
+    (function setupErrorBoundary(){
+        // Public API to integrate with pages that have custom error flows
+        const BoundaryState = {
+            enabled: true,
+            delegate: null, // function(info, eventType)
+        };
+
+        try { window.ErrorBoundary = {
+            enable(){ BoundaryState.enabled = true; },
+            disable(){ BoundaryState.enabled = false; },
+            setHandler(fn){ if (typeof fn === 'function') BoundaryState.delegate = fn; },
+            clearHandler(){ BoundaryState.delegate = null; }
+        }; } catch(_){}
+
+        const overlayId = 'global-error-overlay';
+        function ensureOverlay() {
+            let overlay = document.getElementById(overlayId);
+            if (overlay) return overlay;
+            overlay = document.createElement('div');
+            overlay.id = overlayId;
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100%';
+            overlay.style.height = '100%';
+            overlay.style.background = 'rgba(0,0,0,0.75)';
+            overlay.style.color = '#fff';
+            overlay.style.zIndex = '9999';
+            overlay.style.display = 'none';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.padding = '24px';
+            overlay.style.boxSizing = 'border-box';
+
+            const box = document.createElement('div');
+            box.style.maxWidth = '640px';
+            box.style.width = '100%';
+            box.style.background = '#1e1e1e';
+            box.style.borderRadius = '12px';
+            box.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
+            box.style.padding = '20px';
+
+            const title = document.createElement('h2');
+            title.textContent = 'Ocorreu um erro inesperado';
+            title.style.margin = '0 0 8px 0';
+
+            const msg = document.createElement('p');
+            msg.textContent = 'A página encontrou um problema. Você pode tentar recarregar ou voltar à tela inicial.';
+            msg.style.margin = '0 0 16px 0';
+
+            const details = document.createElement('pre');
+            details.id = 'global-error-details';
+            details.style.whiteSpace = 'pre-wrap';
+            details.style.background = '#111';
+            details.style.padding = '12px';
+            details.style.borderRadius = '8px';
+            details.style.overflow = 'auto';
+            details.style.maxHeight = '40vh';
+
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.gap = '8px';
+            actions.style.flexWrap = 'wrap';
+
+            const btnReload = document.createElement('button');
+            btnReload.textContent = 'Recarregar';
+            btnReload.style.padding = '10px 14px';
+            btnReload.style.borderRadius = '8px';
+            btnReload.style.border = 'none';
+            btnReload.style.cursor = 'pointer';
+            btnReload.style.background = '#4CAF50';
+            btnReload.style.color = '#fff';
+            btnReload.addEventListener('click', function(){ location.reload(); });
+
+            const btnHome = document.createElement('button');
+            btnHome.textContent = 'Ir para Início';
+            btnHome.style.padding = '10px 14px';
+            btnHome.style.borderRadius = '8px';
+            btnHome.style.border = 'none';
+            btnHome.style.cursor = 'pointer';
+            btnHome.style.background = '#2196F3';
+            btnHome.style.color = '#fff';
+            btnHome.addEventListener('click', function(){
+                try {
+                    if (window.SafeRedirect) {
+                        window.SafeRedirect.safeRedirect('/', '/');
+                        return;
+                    }
+                } catch (e) {}
+                location.href = '/';
+            });
+
+            actions.appendChild(btnReload);
+            actions.appendChild(btnHome);
+
+            box.appendChild(title);
+            box.appendChild(msg);
+            box.appendChild(details);
+            box.appendChild(actions);
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+
+        function showError(info) {
+            // Delegate to page-specific handler if provided
+            if (BoundaryState.delegate) {
+                try { BoundaryState.delegate(info, 'error'); return; } catch(_){ }
+            }
+            if (!BoundaryState.enabled) return;
+            const overlay = ensureOverlay();
+            const details = document.getElementById('global-error-details');
+            if (details) details.textContent = info;
+            if (overlay) overlay.style.display = 'flex';
+        }
+
+        function formatError(message, source, lineno, colno, error) {
+            const parts = [];
+            if (message) parts.push('Mensagem: ' + String(message));
+            if (source) parts.push('Fonte: ' + source + ':' + lineno + ':' + colno);
+            if (error && error.stack) parts.push('Stack:\n' + error.stack);
+            return parts.join('\n');
+        }
+
+        function formatRejection(reason) {
+            const parts = [];
+            if (reason && reason.message) parts.push('Mensagem: ' + reason.message);
+            if (reason && reason.stack) parts.push('Stack:\n' + reason.stack);
+            try { if (!parts.length) parts.push('Detalhes: ' + JSON.stringify(reason)); } catch(_){}
+            return parts.join('\n');
+        }
+
+        window.addEventListener('error', function (event) {
+            try {
+                const info = formatError(event.message, event.filename, event.lineno, event.colno, event.error);
+                logger.error?.('GlobalError', info);
+                showError(info);
+            } catch (e) {
+                showError('Erro desconhecido');
+            }
+        });
+
+        window.addEventListener('unhandledrejection', function (event) {
+            try {
+                const info = formatRejection(event.reason);
+                // Delegate with distinct eventType so handlers can differentiate
+                if (typeof BoundaryState.delegate === 'function') {
+                    try { BoundaryState.delegate(info, 'unhandledrejection'); return; } catch(_){ }
+                }
+                if (!BoundaryState.enabled) return;
+                logger.error?.('UnhandledRejection', info);
+                showError(info);
+            } catch (e) {
+                showError('Erro em promessa não tratada');
+            }
+        });
+    })();
+
+    // Idle session manager: auto-logout after inactivity
+    (function setupIdleManager(){
+        const cfg = window.SIMULADOS_CONFIG || {};
+        const minutes = Number(cfg.SESSION_IDLE_MINUTES || 20);
+        const timeoutMs = Math.max(1, minutes) * 60 * 1000;
+        let timer = null;
+
+        function clearSessionAndRedirect(){
+            try {
+                // Clear known session artifacts
+                localStorage.removeItem('sessionToken');
+                localStorage.removeItem('userId');
+                // Optional: clear transient exam state keys if present
+                // localStorage.removeItem('currentExamSessionId');
+            } catch(_){}
+            logger.info('[IdleManager] Session expired due to inactivity');
+            safeRedirect.safeRedirect('/login');
+        }
+
+        function resetTimer(){
+            if (timer) { clearTimeout(timer); }
+            timer = setTimeout(clearSessionAndRedirect, timeoutMs);
+        }
+
+        // Activity events to reset timer
+        ['mousemove','keydown','touchstart','wheel','scroll'].forEach(evt => {
+            window.addEventListener(evt, resetTimer, { passive: true });
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) resetTimer();
+        });
+
+        // Start
+        resetTimer();
+    })();
 
     // Status banner removido do app — helpers mantidos como no-op para compatibilidade
     const setStatus = () => {};
@@ -157,6 +372,23 @@ document.addEventListener('DOMContentLoaded', () => {
         BACKEND_BASE: 'http://localhost:3000',
         EXAM_PATH: '/pages/exam.html'
     };
+
+    // Admin lists: show skeletons while data fetches (questions/users)
+    (function initAdminListSkeletons(){
+        try {
+            const qList = document.getElementById('adminQuestionsList');
+            const uList = document.getElementById('adminUsersList');
+            if (qList && window.showSkeleton) window.showSkeleton(qList, { lines: 8 });
+            if (uList && window.showSkeleton) window.showSkeleton(uList, { lines: 8 });
+            // Expose helpers to hide when data is rendered by page-specific scripts
+            window.finishAdminListLoad = function(id){
+                try {
+                    const el = document.getElementById(id);
+                    if (el && window.hideSkeleton) window.hideSkeleton(el);
+                } catch(_){ }
+            };
+        } catch(_){ }
+    })();
 
     // Spinner overlay used while redirecting to exam page
     function showRedirectSpinner(message = 'Entrando no simulado...'){
@@ -217,6 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Try to fetch the fragment from the server relative to current location
         const path = (SIMULADOS_CONFIG.EXAM_SETUP_PATH) ? SIMULADOS_CONFIG.EXAM_SETUP_PATH : './pages/examSetup.html';
         try {
+            try { window.showPageSkeleton && window.showPageSkeleton('Carregando configuração do simulado...'); } catch(_){}
             const resp = await fetch(path, { cache: 'no-store' });
             if (!resp.ok) throw new Error('Failed to load exam setup');
             const html = await resp.text();
@@ -225,6 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // append children to body
             while (container.firstChild) document.body.appendChild(container.firstChild);
             existing = document.getElementById('examSetupModal');
+            try { window.hidePageSkeleton && window.hidePageSkeleton(); } catch(_){}
 
             // attach handler for start button
             const startBtn = document.getElementById('startExamBtn');
@@ -261,7 +495,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (selectEl) {
                         premiumValues.forEach(v => {
                             const opt = selectEl.querySelector(`option[value="${v}"]`);
-                            if (opt) opt.disabled = bloqueioActive;
+                            if (opt && 'disabled' in opt) {
+                                /** @type {HTMLOptionElement} */(opt).disabled = bloqueioActive;
+                            }
                         });
                     }
                 }
@@ -295,6 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return document.getElementById('examSetupModal');
         } catch (e) {
             console.warn('Não foi possível carregar examSetup modal:', e);
+            try { window.hidePageSkeleton && window.hidePageSkeleton(); } catch(_){}
             return null;
         }
     }
@@ -346,6 +583,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const mount = document.getElementById('appSidebar');
             if (!mount) return; // only load when explicitly requested by the page
+            // Show skeleton while loading
+            try { window.showSkeleton && window.showSkeleton(mount, { lines: 6 }); } catch(_){}
             const resp = await fetch('/components/sidebar.html', { cache: 'no-store' });
             if (!resp.ok) return;
             const html = await resp.text();
@@ -354,6 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!/\bmcd-menu\b/.test(html)) {
                 document.body.classList.add('has-sidebar');
             }
+            try { window.hideSkeleton && window.hideSkeleton(mount); } catch(_){}
         } catch(e) { console.warn('sidebar load failed', e); }
     })();
 
@@ -473,8 +713,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLoginPage = pathNow.endsWith('/login.html') || pathNow === '/login';
         const hasSidebar = !!document.getElementById('appSidebar');
 
-        // On login page, always show the modal regardless of session state
+        // On login page, auto-open the modal; allow optional mode via query.
         if (isLoginPage && modal) {
+            try {
+                const url = new URL(window.location.href);
+                const modeParam = (url.searchParams.get('mode') || '').toLowerCase();
+                if (modeParam === 'login' || modeParam === 'register' || modeParam === 'forgot-password' || modeParam === 'reset-password') {
+                    setModalMode(modeParam);
+                }
+            } catch(_){ }
             showEmailModal();
             return;
         }
@@ -484,6 +731,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Na index, não força modal e não redireciona mais
                 setStatus('Visitante');
                 try { showUserHeader('Visitante'); } catch(_){}
+                return;
+            }
+            if (isLoginPage) {
+                // Já auto-abrimos o modal acima; nada a fazer aqui.
                 return;
             }
             // Fora da index, manter comportamento anterior (mostrar modal ou redirecionar)
@@ -613,6 +864,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modalError) modalError.style.display = 'none';
     }
 
+    // Expose modal controls for pages (e.g., login.html) to trigger explicitly
+    try {
+        window.showEmailModal = showEmailModal;
+        window.hideEmailModal = hideEmailModal;
+        window.setLoginModalMode = setModalMode;
+    } catch(_){ }
+
     function validateEmail(email) {
         // simples validação
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -727,7 +985,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectEl) {
                 premiumValues.forEach(v => {
                     const opt = selectEl.querySelector(`option[value="${v}"]`);
-                    if (opt) opt.disabled = blocked;
+                    if (opt && 'disabled' in opt) {
+                        /** @type {HTMLOptionElement} */(opt).disabled = blocked;
+                    }
                 });
             }
         } catch (e) { console.warn('applyBloqueioToModal error', e); }
@@ -1262,6 +1522,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (passwordInput && submitBtn) passwordInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
     if (nameInput && submitBtn) nameInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
 
+    // Normalize SSO links to BACKEND_BASE (dev/prod-safe)
+    try {
+        const BACKEND_BASE = (typeof SIMULADOS_CONFIG !== 'undefined' && SIMULADOS_CONFIG && SIMULADOS_CONFIG.BACKEND_BASE) ? SIMULADOS_CONFIG.BACKEND_BASE : 'http://localhost:3000';
+        const base = BACKEND_BASE.replace(/\/$/, '');
+        document.querySelectorAll('a.sso-google').forEach(a => { a.href = `${base}/api/auth/google`; });
+        document.querySelectorAll('a.sso-facebook').forEach(a => { a.href = `${base}/api/auth/facebook`; });
+    } catch(_){ }
+
+    // Close controls: button, overlay click, and Escape key
+    try {
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+        if (modalCloseBtn) modalCloseBtn.addEventListener('click', hideEmailModal);
+        if (modal) {
+            modal.addEventListener('click', (ev) => {
+                if (ev.target === modal) hideEmailModal();
+            });
+        }
+        document.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Escape' && modal && modal.style.display === 'flex') hideEmailModal();
+        });
+    } catch(_){ }
+
     // toggle mode button já configurado anteriormente (linha ~731)
     // Expor funções para uso externo (index.html - card Simulador)
     try {
@@ -1277,3 +1559,86 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     } catch(_){ }
 });
+
+// Skeleton utilities
+(function(){
+    const STYLE_ID = 'sim-skeleton-styles';
+    function ensureStyles(){
+        if (document.getElementById(STYLE_ID)) return;
+        const style = document.createElement('style');
+        style.id = STYLE_ID;
+        style.textContent = `
+        .skeleton-block{position:relative;overflow:hidden;background:#e2e8f0;border-radius:8px;margin:8px 0;height:16px}
+        .skeleton-block::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg, rgba(226,232,240,0) 0, rgba(255,255,255,0.6) 50%, rgba(226,232,240,0) 100%);animation:skeleton-shimmer 1.2s infinite}
+        @keyframes skeleton-shimmer{to{transform:translateX(100%)}}
+        .skeleton-container{display:flex;flex-direction:column}
+        .page-skeleton{position:fixed;inset:0;background:#f7fafc;z-index:9998;display:flex;align-items:center;justify-content:center}
+        .page-skeleton-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-width:560px;width:90%}
+        .page-skeleton-title{margin:0 0 12px;font-weight:600;color:#2d3748;font-family:system-ui,sans-serif}
+        `;
+        document.head.appendChild(style);
+    }
+
+    function buildLines(n){
+        const wrap = document.createElement('div');
+        wrap.className = 'skeleton-container';
+        const count = Math.max(1, Math.min(12, Number(n||4)));
+        for (let i=0;i<count;i++){
+            const line = document.createElement('div');
+            line.className = 'skeleton-block';
+            line.style.height = (i%3===0)?'18px':'14px';
+            wrap.appendChild(line);
+        }
+        return wrap;
+    }
+
+    function showSkeleton(mount, opts){
+        try {
+            ensureStyles();
+            if (!mount) return;
+            const id = 'skeleton-'+(mount.id||Math.random().toString(36).slice(2));
+            if (mount.querySelector('#'+id)) return;
+            const placeholder = buildLines(opts && opts.lines);
+            placeholder.id = id;
+            mount.innerHTML = '';
+            mount.appendChild(placeholder);
+        } catch(_){ }
+    }
+    function hideSkeleton(mount){
+        try {
+            if (!mount) return;
+            const child = mount.querySelector('[id^="skeleton-"]');
+            if (child) child.remove();
+        } catch(_){ }
+    }
+
+    let pageSkeleton;
+    function showPageSkeleton(message){
+        try {
+            ensureStyles();
+            if (pageSkeleton) return;
+            pageSkeleton = document.createElement('div');
+            pageSkeleton.className = 'page-skeleton';
+            const card = document.createElement('div');
+            card.className = 'page-skeleton-card';
+            const title = document.createElement('h3');
+            title.className = 'page-skeleton-title';
+            title.textContent = message || 'Carregando...';
+            const lines = buildLines(6);
+            card.appendChild(title);
+            card.appendChild(lines);
+            pageSkeleton.appendChild(card);
+            document.body.appendChild(pageSkeleton);
+        } catch(_){ }
+    }
+    function hidePageSkeleton(){
+        try { if (pageSkeleton) { pageSkeleton.remove(); pageSkeleton = null; } } catch(_){}
+    }
+
+    try {
+        window.showSkeleton = showSkeleton;
+        window.hideSkeleton = hideSkeleton;
+        window.showPageSkeleton = showPageSkeleton;
+        window.hidePageSkeleton = hidePageSkeleton;
+    } catch(_){ }
+})();

@@ -139,7 +139,20 @@ const logger = winston.createLogger({
 });
 
 /**
+ * @typedef {Object} RequestContext
+ * @property {string=} requestId
+ * @property {string} method
+ * @property {string} url
+ * @property {string=} ip
+ * @property {string=} userAgent
+ * @property {number=} userId
+ * @property {string=} email
+ */
+
+/**
  * Helper function to extract context from Express request
+ * @param {import('express').Request} req
+ * @returns {RequestContext}
  */
 function getRequestContext(req) {
   return {

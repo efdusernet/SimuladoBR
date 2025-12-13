@@ -18,6 +18,7 @@
     if(!token){ alert('Session token obrigatório'); return; }
     localStorage.setItem('sessionToken', token);
     setLoading(true); setError(false);
+    try { window.showPageSkeleton && window.showPageSkeleton('Carregando indicadores...'); } catch(_){}
     try {
       const days = 30;
       const [summaryResp,dailyResp] = await Promise.all([
@@ -33,6 +34,7 @@
       renderScoreChart(daily);
     } catch(e){ logger.error(e); setError(true); }
     setLoading(false);
+    try { window.hidePageSkeleton && window.hidePageSkeleton(); } catch(_){}
   }
 
   function setLoading(on){ loadingEl.style.display = on ? 'block':'none'; }

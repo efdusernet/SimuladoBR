@@ -113,6 +113,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | GET | `/api/indicators/approach-stats` | JWT | Query: `exam_mode?`, `idUsuario?`, `idExame?` | `{ userId, examMode, idExame, abordagens: [{ abordagem, acertos, erros, total, percentAcertos, percentErros }] }` | Acertos/erros por abordagem/categoria (último exame). |
 | GET | `/api/indicators/details-last` | JWT | Query: `exam_mode?`, `idUsuario?` | `{ userId, examMode, attempt: { ... }, questions: [...] }` | Detalhes completos do último exame. |
 | GET | `/api/indicators/IND10` | X-Session-Token | Query: `examMode` (`last`/`best`), `idUsuario?` Header: `X-Session-Token` | `{ userId, examMode, examAttemptId, examDate, domains: [{ id, name, corretas, total, percentage }] }` | Performance por domínio geral (último ou melhor exame). Usado pelo radar. |
+| GET | `/api/indicators/IND11` | X-Session-Token | Query: `exam_type?` | `{ userId, examTypeId, idExame: null, dominios: [{ id, descricao, total, acertos, percent }] }` | Média ponderada por domínio agregada em todos os exames completos do usuário. |
 | GET | `/api/indicators/avg-time-per-question` | JWT | Query: `exam_mode?`, `idUsuario?` | `{ userId, examMode, avgSeconds, avgMinutes }` | Tempo médio por questão. |
 | GET | `/api/indicators/attempts-history-extended` | JWT | Query: `limit?`, `offset?`, `status?` | `{ total, attempts: [{ id, examTypeId, startedAt, finishedAt, total, corretas, scorePercent, status, ... }] }` | Histórico detalhado de tentativas com paginação e filtros. |
 

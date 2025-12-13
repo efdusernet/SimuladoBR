@@ -55,7 +55,13 @@ function validateRequiredEnvVars() {
   }
 
   // Base URLs validation
-  const requiredUrls = ['APP_BASE_URL', 'FRONTEND_URL'];
+  // Prefer BACKEND_BASE; keep FRONTEND_URL. APP_BASE_URL is deprecated.
+  const requiredUrls = ['FRONTEND_URL'];
+
+  // Back-compat: if BACKEND_BASE is missing but APP_BASE_URL exists, adopt it
+  if (!process.env.BACKEND_BASE && process.env.APP_BASE_URL) {
+    process.env.BACKEND_BASE = process.env.APP_BASE_URL;
+  }
   requiredUrls.forEach(varName => {
     const value = process.env[varName];
     if (!value || value.trim() === '') {
@@ -77,6 +83,43 @@ function validateRequiredEnvVars() {
     } else if (!redisUrl.startsWith('redis://') && !redisUrl.startsWith('rediss://')) {
       errors.push('REDIS_URL must start with redis:// or rediss://');
     }
+  }
+
+  // Optional: OAuth providers
+  // If one var is present, require the pair
+  const googleVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+  if (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_SECRET) {
+    googleVars.forEach(v => { if (!process.env[v]) errors.push(`${v} is required for Google OAuth`); });
+  }
+  const fbVars = ['FACEBOOK_CLIENT_ID', 'FACEBOOK_CLIENT_SECRET'];
+  if (process.env.FACEBOOK_CLIENT_ID || process.env.FACEBOOK_CLIENT_SECRET) {
+    fbVars.forEach(v => { if (!process.env[v]) errors.push(`${v} is required for Facebook OAuth`); });
+  }
+  // Optional backend base for callbacks; default covers local dev
+  if (process.env.BACKEND_BASE) {
+    try { new URL(process.env.BACKEND_BASE); } catch (_) { errors.push('BACKEND_BASE must be a valid URL'); }
+  }
+
+  // If any OAuth is configured, require BACKEND_BASE for callback construction
+  const anyOAuthConfigured = Boolean(process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_SECRET || process.env.FACEBOOK_CLIENT_ID || process.env.FACEBOOK_CLIENT_SECRET);
+  if (anyOAuthConfigured) {
+    const backendBase = process.env.BACKEND_BASE;
+    if (!backendBase || backendBase.trim() === '') {
+      errors.push('BACKEND_BASE is required when OAuth providers are configured');
+    } else {
+      try { new URL(backendBase); } catch (_) { errors.push('BACKEND_BASE must be a valid URL when OAuth is configured'); }
+    }
+  }
+
+  // In production, enforce HTTPS for FRONTEND_URL and BACKEND_BASE
+  if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    const httpsWarn = (name, value) => {
+      if (value && typeof value === 'string' && !value.toLowerCase().startsWith('https://')) {
+        errors.push(`${name} should use HTTPS in production`);
+      }
+    };
+    httpsWarn('FRONTEND_URL', process.env.FRONTEND_URL);
+    httpsWarn('BACKEND_BASE', process.env.BACKEND_BASE);
   }
 
   // If any errors, fail startup

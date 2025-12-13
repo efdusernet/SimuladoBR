@@ -1,3 +1,4 @@
+// @ts-check
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -6,6 +7,7 @@ const cookieParser = require('cookie-parser');
 const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
+const passport = require('passport');
 
 // Initialize structured logging system
 const { logger } = require('./utils/logger');
@@ -74,6 +76,7 @@ app.use(cors({
 
 // Cookie parser for reading httpOnly cookies
 app.use(cookieParser());
+app.use(passport.initialize());
 
 // CSRF Protection middleware - TEMPORARILY DISABLED (Issue #5)
 // TODO: Fix frontend integration issues before re-enabling
@@ -165,9 +168,16 @@ app.use((req, res, next) => {
 
 // Static middleware comes AFTER login enforcement, so unauthenticated users
 // won't be able to fetch HTML pages directly (index and others).
-if (fs.existsSync(FRONTEND_DIST)) {
-	app.use(express.static(FRONTEND_DIST));
-}
+// Prefer async check to avoid blocking the event loop
+// Cache the presence of FRONTEND_DIST during initialization
+(async () => {
+	try {
+		await fs.promises.access(FRONTEND_DIST, fs.constants.F_OK | fs.constants.R_OK);
+		app.use(express.static(FRONTEND_DIST));
+	} catch (_) {
+		// FRONTEND_DIST not present or not readable; fall back to FRONTEND_DIR below
+	}
+})();
 app.use(express.static(FRONTEND_DIR));
 
 // Rota raiz: se não autenticado, redireciona para login; caso contrário, sirva a home (index.html)
@@ -276,7 +286,7 @@ app.use(errorLogger);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
 	logger.info(`Server started successfully`, {
 		port: PORT,
 		environment: process.env.NODE_ENV || 'development',
@@ -287,7 +297,7 @@ app.listen(PORT, () => {
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
 	logger.info('SIGTERM signal received: closing HTTP server');
-	app.close(() => {
+	server.close(() => {
 		logger.info('HTTP server closed');
 		sequelize.close().then(() => {
 			logger.info('Database connection closed');
@@ -299,4 +309,40 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
 	logger.info('SIGINT signal received: closing HTTP server');
 	process.exit(0);
+});
+
+// Global handlers for unhandled promise rejections and uncaught exceptions
+process.on('unhandledRejection', (reason, promise) => {
+	try {
+		const msg = (reason && reason.message) || String(reason);
+		const stack = (reason && reason.stack) || undefined;
+		logger.error('Unhandled Promise Rejection', { message: msg, stack });
+	} catch (_) {
+		// Fallback to console if logger fails for any reason
+		console.error('Unhandled Promise Rejection:', reason);
+	}
+	// In production, keep process alive but monitor. In non-production, exit to surface issues early.
+	if ((process.env.NODE_ENV || 'development') !== 'production') {
+		process.exit(1);
+	}
+});
+
+process.on('uncaughtException', (err) => {
+	try {
+		logger.error('Uncaught Exception', { message: err.message, stack: err.stack });
+	} catch (_) {
+		console.error('Uncaught Exception:', err);
+	}
+	// For uncaught exceptions, perform a graceful shutdown to avoid undefined state
+	if ((process.env.NODE_ENV || 'development') === 'production') {
+		try {
+			server.close(() => {
+				sequelize.close().finally(() => process.exit(1));
+			});
+		} catch (_) {
+			process.exit(1);
+		}
+	} else {
+		process.exit(1);
+	}
 });

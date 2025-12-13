@@ -816,30 +816,33 @@
         <!-- Sections -->
         <section id="home" class="section active" aria-labelledby="tab-home">
             <!-- lastExamResults alinhado com a largura dos cards (usa mesmas constraints de .card-grid) -->
-            <div id="lastExamResultsMount" aria-live="polite" style="max-width:320px;margin:0 auto 8px auto; box-sizing:border-box; transition: background .25s ease;"></div>
+                        <div class="home-top-row" style="display:block">
+                            <div id="passProbabilityContainer" style="display:none"></div>
+                            <div id="lastExamResultsMount" aria-live="polite" style="max-width:320px;margin:0 auto 8px auto; box-sizing:border-box; transition: background .25s ease;"></div>
+                        </div>
             <div class="card-grid">
                  <div class="card card--simulador" aria-label="Simulador" role="button" tabindex="0">
-                    <img src="assets/pc.png" alt="Personalizar Exame" class="thumb" />
+                    <img src="assets/pc.png" alt="Personalizar Exame" class="thumb" loading="lazy" />
                     <span class="card-label">Setup</span>
                 </div>
                 <div id="card-exam-mock" class="card card--simulador" data-card="exam-mock"  aria-label="Exame completo (Mock)" role="button" tabindex="0">
-                    <img src="assets/exame.png" alt="Exame completo" class="thumb" />
+                    <img src="assets/exame.png" alt="Exame completo" class="thumb" loading="lazy" />
                     <span class="card-label">Simulador</span>
                 </div>
                 <div class="card card--simulador" data-full="https://picsum.photos/800/800?random=3" aria-label="Dica do dia" role="button" tabindex="0">
-                    <img src="assets/adendo.png" alt="Dica do dia" class="thumb" />
+                    <img src="assets/adendo.png" alt="Dica do dia" class="thumb" loading="lazy" />
                     <span class="card-label">Dica do dia</span>
                 </div>
                 <div id="card-indicadores" class="card card--simulador" data-card="indicadores" aria-label="Indicadores de desempenho" role="button" tabindex="0">
-                    <img src="assets/kpi.png" alt="Indicadores" class="thumb" />
+                    <img src="assets/kpi.png" alt="Indicadores" class="thumb" loading="lazy" />
                     <span class="card-label">Indicadores</span>
                 </div>
                 <div id="card-progresso-geral" class="card card--simulador" data-card="progresso-geral" aria-label="Progresso geral" role="button" tabindex="0">
-                    <img src="assets/historia.png" alt="Progresso geral" class="thumb" />
+                    <img src="assets/historia.png" alt="Progresso geral" class="thumb" loading="lazy" />
                     <span class="card-label">Histórico</span>
                 </div>
                 <div class="card card--simulador" data-full="https://picsum.photos/800/800?random=6" aria-label="Estou pronto?" role="button" tabindex="0">
-                    <img src="assets/pronto.png" alt="Estou pronto?" class="thumb" />
+                    <img src="assets/pronto.png" alt="Estou pronto?" class="thumb" loading="lazy" />
                     <span class="card-label">Estou pronto?</span>
                 </div>
             </div>
@@ -975,6 +978,30 @@
         <!-- Load and mount lastExamResults component at the top of Home -->
         <script>
             (function(){
+                // Load PassProbability component and arrange layout for desktop
+                async function loadPassProbability(){
+                    try {
+                        const container = document.getElementById('passProbabilityContainer');
+                        if (!container) return;
+                        const resp = await fetch('./components/PassProbability.html', { cache: 'no-store' });
+                        if (!resp.ok) return;
+                        const html = await resp.text();
+                        container.innerHTML = html;
+                        // Ensure any <script> tags inside the fragment run
+                        (function executeScripts(container){
+                            try {
+                                const scripts = Array.from(container.querySelectorAll('script'));
+                                for (const old of scripts){
+                                    const s = document.createElement('script');
+                                    if (old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                                    old.remove();
+                                    document.body.appendChild(s);
+                                }
+                            } catch(_){ }
+                        })(container);
+                        container.style.display = '';
+                    } catch(_){ }
+                }
                 async function loadLastExamResults(){
                     try {
                         const mount = document.getElementById('lastExamResultsMount');
@@ -1349,7 +1376,28 @@
                         }
                     } catch(_){ }
                 }
-                if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadLastExamResults); else loadLastExamResults();
+                function applyDesktopLayout(){
+                    try {
+                        const row = document.querySelector('.home-top-row');
+                        const left = document.getElementById('passProbabilityContainer');
+                        const right = document.getElementById('lastExamResultsMount');
+                        if (!row || !left || !right) return;
+                        const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+                        if (isDesktop){
+                            row.style.display = 'grid';
+                            row.style.gridTemplateColumns = 'minmax(240px, 320px) minmax(240px, 1fr)';
+                            row.style.gap = '16px';
+                            left.style.margin = '0';
+                            right.style.margin = '0';
+                        } else {
+                            row.style.display = 'block';
+                            right.style.margin = '0 auto 8px auto';
+                        }
+                    } catch(_){ }
+                }
+                function init(){ loadPassProbability(); loadLastExamResults(); applyDesktopLayout(); }
+                if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+                window.addEventListener('resize', applyDesktopLayout);
             })();
         </script>
 

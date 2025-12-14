@@ -933,7 +933,16 @@
 
     examTypeSelect.addEventListener('change', () => {
       currentExamType = examTypeSelect.value || 'pmp';
-      try { localStorage.setItem('examType', currentExamType); } catch(e){}
+      try {
+        const n = Number(currentExamType);
+        if (Number.isFinite(n) && n > 0) {
+          localStorage.setItem('examTypeId', String(Math.floor(n)));
+          localStorage.setItem('examType', String(Math.floor(n)));
+        } else {
+          localStorage.setItem('examType', String(currentExamType).toUpperCase());
+          localStorage.removeItem('examTypeId');
+        }
+      } catch(e){}
       // Reset quantity clamp on change
       const maxByType = (()=>{ try { const bp = JSON.parse(localStorage.getItem('examBlueprint')||'null'); return (bp && bp.numeroQuestoes) || FULL_Q; } catch(e){ return FULL_Q; } })();
       limiteQuestoes = bloqueado ? Math.min(FREE_LIMIT, maxByType) : maxByType;

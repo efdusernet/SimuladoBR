@@ -164,6 +164,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (onLoginPage && modal) {
             setModalMode('login');
             ModalA11y.open(modal);
+            // Clean cache-buster or other query params from URL for aesthetics
+            try {
+                const loc = window.location;
+                if (loc.search && /([?&])_ts=/.test(loc.search)) {
+                    const url = loc.origin + (loc.pathname || '/login');
+                    window.history.replaceState(null, '', url);
+                }
+            } catch(_){ }
         }
     } catch(_) { /* ensure no crash blocks rendering */ }
 

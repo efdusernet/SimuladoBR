@@ -953,7 +953,8 @@
       scheduleAtualizarDisponiveis();
     });
 
-    // Kick off
+    // Note: do not auto-preselect exam type here to avoid side effects on cards.
+    // Kick off: load types and restore selection to currentExamType
     loadExamTypes();
     // Abordagem agora usa mesma lógica de checklist multi-seleção (nenhum listener adicional necessário)
     loadMeta().then(() => {

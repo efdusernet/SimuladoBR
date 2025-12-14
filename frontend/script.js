@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleModeBtn = document.getElementById('toggleModeBtn');
     const forgotPasswordLink = document.getElementById('forgotPasswordLink');
     const pathNow = window.location.pathname || '';
-    const onLoginPage = pathNow.replace(/\/+$/, '') === '/login';
+    const onLoginPage = pathNow.replace(/\/+$/, '') === '/login' || pathNow.replace(/\/+$/, '') === '/login.html';
 
     // Accessible modal helpers to avoid aria-hidden focus issues
     const ModalA11y = (() => {
@@ -1273,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Resume any existing lockout on page load (login page)
     try {
-        const onLoginPage = (window.location.pathname || '').replace(/\/+$/, '') === '/login';
+        const onLoginPage = ((window.location.pathname || '').replace(/\/+$/, '') === '/login' || (window.location.pathname || '').replace(/\/+$/, '') === '/login.html');
         if (onLoginPage && modal) {
             resumeLockoutIfAny();
         }

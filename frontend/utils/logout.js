@@ -90,9 +90,13 @@
       }
     }
 
-    // Redirect to login
+    // Redirect to login (use top-level and replace to avoid history issues)
     setTimeout(() => {
-      window.location.href = redirectUrl;
+      try {
+        (window.top || window).location.replace(redirectUrl);
+      } catch (_) {
+        (window.top || window).location.href = redirectUrl;
+      }
     }, showNotification ? 300 : 0);
   }
 

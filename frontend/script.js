@@ -11,8 +11,9 @@ class SafeRedirect {
             '/login',
             '/login.html',
             '/pages/exam.html',
+            '/pages/examFull.html',
             '/pages/examSetup.html',
-            '/pages/Indicadores.html',
+            '/pages/indicadores.html',
             '/pages/admin/users.html',
             '/pages/admin/questions.html',
             '/pages/admin/examTypes.html'
@@ -26,52 +27,52 @@ class SafeRedirect {
      * @returns {string} - Safe URL to redirect to
      */
     validateRedirect(url, fallback = '/') {
-        if (!url || typeof url !== 'string') {
+        if (!url || typeof url !== 'string') { 
             return fallback;
         }
 
-        try {
-            // If it's a relative URL (starts with / but not //), validate against whitelist
-            if (url.startsWith('/') && !url.startsWith('//')) {
-                // Extract path without query string and hash
-                const path = url.split('?')[0].split('#')[0];
+        try { 
+            // If it's a relative URL (starts with / but not //), validate against whitelist 
+            if (url.startsWith('/') && !url.startsWith('//')) { 
+                // Extract path without query string and hash 
+                const path = url.split('?')[0].split('#')[0]; 
                 
-                // Check if path or its parent directories are in whitelist
-                const isAllowed = this.allowedPaths.some(allowedPath => {
-                    // Exact match
-                    if (path === allowedPath) return true;
-                    // Allow paths under /pages/
-                    if (path.startsWith('/pages/') && allowedPath.startsWith('/pages/')) return true;
-                    // Allow paths under /components/
-                    if (path.startsWith('/components/')) return true;
-                    return false;
+                // Check if path or its parent directories are in whitelist 
+                const isAllowed = this.allowedPaths.some(allowedPath => { 
+                    // Exact match 
+                    if (path === allowedPath) return true; 
+                    // Allow paths under /pages/ 
+                    if (path.startsWith('/pages/') && allowedPath.startsWith('/pages/')) return true; 
+                    // Allow paths under /components/ 
+                    if (path.startsWith('/components/')) return true; 
+                    return false; 
                 });
 
-                if (isAllowed) {
-                    return url;
-                }
+                if (isAllowed) { 
+                    return url; 
+                } 
                 
-                window.logger?.warn('[SafeRedirect] Rejected non-whitelisted path:', path) || console.warn('[SafeRedirect] Rejected non-whitelisted path:', path);
-                return fallback;
-            }
+                window.logger?.warn('[SafeRedirect] Rejected non-whitelisted path:', path) || console.warn('[SafeRedirect] Rejected non-whitelisted path:', path); 
+                return fallback; 
+            } 
 
-            // For absolute URLs, parse and validate origin
-            const parsedUrl = new URL(url, window.location.origin);
+            // For absolute URLs, parse and validate origin 
+            const parsedUrl = new URL(url, window.location.origin); 
             
-            // Only allow same-origin redirects
-            if (parsedUrl.origin !== window.location.origin) {
-                window.logger?.warn('[SafeRedirect] Rejected external redirect:', parsedUrl.href) || console.warn('[SafeRedirect] Rejected external redirect:', parsedUrl.href);
-                return fallback;
-            }
-
-            // Validate the pathname against whitelist
-            const path = parsedUrl.pathname;
-            const isAllowed = this.allowedPaths.some(allowedPath => {
-                if (path === allowedPath) return true;
-                if (path.startsWith('/pages/') && allowedPath.startsWith('/pages/')) return true;
-                if (path.startsWith('/components/')) return true;
-                return false;
-            });
+            // Only allow same-origin redirects 
+            if (parsedUrl.origin !== window.location.origin) { 
+                window.logger?.warn('[SafeRedirect] Rejected external redirect:', parsedUrl.href) || console.warn('[SafeRedirect] Rejected external redirect:', parsedUrl.href); 
+                return fallback; 
+            } 
+            
+            // Validate the pathname against whitelist 
+            const path = parsedUrl.pathname; 
+            const isAllowed = this.allowedPaths.some(allowedPath => { 
+                if (path === allowedPath) return true; 
+                if (path.startsWith('/pages/') && allowedPath.startsWith('/pages/')) return true; 
+                if (path.startsWith('/components/')) return true; 
+                return false; 
+            }); 
 
             if (isAllowed) {
                 return parsedUrl.href;
@@ -271,7 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const selectedPill = document.querySelector('#questionCountPills .option-pill.selected');
                     const selected = selectedPill ? { value: selectedPill.getAttribute('data-value') } : document.getElementById('questionCountSelect');
                     if (!selected || !selected.value) {
-                        alert('Selecione a quantidade de questões para iniciar o exame.');
+                        try { sessionStorage.setItem('wentToExamSetup', 'true'); } catch(e){}
+                        const target = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.EXAM_SETUP_PATH) || '/pages/examSetup.html';
+                        window.location.assign(target);
                         return;
                     }
                     const count = selected.value;
@@ -1159,6 +1162,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         } catch(_){ }
                     }
+                    // If target points to examSetup without explicit intent, prefer home
+                    try {
+                        const hasStartFlag = sessionStorage.getItem('startExam') === 'true';
+                        if (target && !hasStartFlag) {
+                            try {
+                                const u = new URL(target, window.location.origin);
+                                if (u.pathname === '/pages/examSetup.html') target = '/';
+                            } catch(_){
+                                if (typeof target === 'string' && target.split('?')[0] === '/pages/examSetup.html') target = '/';
+                            }
+                        }
+                    } catch(_){ }
                     if (!target) target = '/';
                     try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
                     safeRedirect.safeRedirect(target, '/');
@@ -1237,6 +1252,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             } catch(_){ }
                         }
+                        // If target points to examSetup without explicit intent, prefer home
+                        try {
+                            const hasStartFlag = sessionStorage.getItem('startExam') === 'true';
+                            if (target && !hasStartFlag) {
+                                try {
+                                    const u = new URL(target, window.location.origin);
+                                    if (u.pathname === '/pages/examSetup.html') target = '/';
+                                } catch(_){
+                                    if (typeof target === 'string' && target.split('?')[0] === '/pages/examSetup.html') target = '/';
+                                }
+                            }
+                        } catch(_){ }
                         if (!target) target = '/';
                         try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
                         safeRedirect.safeRedirect(target, '/');

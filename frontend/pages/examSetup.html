@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <!-- Controlled Logging System (must load before other scripts) -->
   <script src="/utils/logger.js"></script>
+  <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
+  <script src="/utils/csrf.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Personalização de Simulado</title>
   <style>
@@ -480,7 +482,7 @@
       if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
       if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
       try {
-        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
         if (data && typeof data.available === 'number') return data.available;
@@ -500,7 +502,7 @@
       if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
       try {
-        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
         if (data && typeof data.available === 'number') return data.available;
@@ -603,7 +605,7 @@
           const url = base + '/api/exams/select';
           const token = getSessionToken();
           const payload = { count: 1, onlyCount: true, examType: currentExamType, onlyNew: true };
-          const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
+          const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
           const txt = await resp.text();
           let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
           if (data && typeof data.available === 'number') resumoIneditas.textContent = String(data.available);
@@ -681,7 +683,7 @@
       }
       if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
       try {
-        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }, body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
         if (data && typeof data.available === 'number') {

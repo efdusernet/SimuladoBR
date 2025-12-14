@@ -230,32 +230,43 @@ const examSchemas = {
   }),
   
   submitAnswers: Joi.object({
-    sessionToken: commonSchemas.sessionToken,
+    // Accept either sessionToken (preferred) or legacy sessionId
+    sessionToken: commonSchemas.sessionToken.optional(),
+    sessionId: Joi.string().optional(),
     
+    // Accept two answer formats: new (selectedOption index) or legacy (optionId/optionIds)
     answers: Joi.array()
       .items(
-        Joi.object({
-          questionId: commonSchemas.questionId,
-          selectedOption: Joi.number()
-            .integer()
-            .min(1)
-            .max(5)
-            .required()
-            .messages({
-              'number.min': 'Opção deve ser entre 1 e 5',
-              'number.max': 'Opção deve ser entre 1 e 5',
-              'any.required': 'Opção selecionada é obrigatória'
-            }),
-          timeTaken: Joi.number()
-            .integer()
-            .min(0)
-            .max(300)
-            .optional()
-            .messages({
-              'number.min': 'Tempo não pode ser negativo',
-              'number.max': 'Tempo máximo por questão é 300 segundos'
-            })
-        })
+        Joi.alternatives().try(
+          Joi.object({
+            questionId: commonSchemas.questionId,
+            selectedOption: Joi.number()
+              .integer()
+              .min(1)
+              .max(5)
+              .required()
+              .messages({
+                'number.min': 'Opção deve ser entre 1 e 5',
+                'number.max': 'Opção deve ser entre 1 e 5',
+                'any.required': 'Opção selecionada é obrigatória'
+              }),
+            timeTaken: Joi.number()
+              .integer()
+              .min(0)
+              .max(300)
+              .optional()
+              .messages({
+                'number.min': 'Tempo não pode ser negativo',
+                'number.max': 'Tempo máximo por questão é 300 segundos'
+              })
+          }),
+          Joi.object({
+            questionId: commonSchemas.questionId,
+            optionId: Joi.number().integer().positive().optional(),
+            optionIds: Joi.array().items(Joi.number().integer().positive()).optional(),
+            timeTaken: Joi.number().integer().min(0).max(300).optional()
+          })
+        )
       )
       .min(1)
       .max(200)

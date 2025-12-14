@@ -29,7 +29,18 @@ class CSRFManager {
       return this.fetching;
     }
 
-    this.fetching = fetch('/api/csrf-token', {
+    // Determine token endpoint: prefer same-origin, else use BACKEND_BASE
+    let tokenUrl = '/api/csrf-token';
+    try {
+      const isHttpOrigin = /^https?:/i.test(window.location.origin);
+      if (!isHttpOrigin) {
+        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+        const u = new URL('/api/csrf-token', base);
+        tokenUrl = u.toString();
+      }
+    } catch(e) { /* fallback keeps relative */ }
+
+    this.fetching = fetch(tokenUrl, {
       method: 'GET',
       credentials: 'include'
     })
@@ -112,21 +123,40 @@ window.csrfManager = new CSRFManager();
  */
 const originalFetch = window.fetch;
 window.fetch = async function(url, options = {}) {
-  // Only add CSRF for same-origin requests to /api/
+  // Determine request target
   const urlObj = typeof url === 'string' ? new URL(url, window.location.origin) : url;
-  const isSameOrigin = urlObj.origin === window.location.origin;
-  const isAPI = urlObj.pathname.startsWith('/api/');
-  
-  logger.info('[CSRF Wrapper] Intercepting fetch:', urlObj.pathname, 'isAPI:', isAPI, 'isSameOrigin:', isSameOrigin);
-  
-  if (isSameOrigin && isAPI) {
+  const reqOrigin = urlObj.origin;
+  const reqPath = urlObj.pathname || '';
+  const isSameOrigin = reqOrigin === window.location.origin;
+  const isAPI = reqPath.startsWith('/api/');
+
+  // Build trusted backend origins from config; default to localhost:3000
+  let trustedOrigins = new Set();
+  try {
+    const cfgBase = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+    const baseUrl = new URL(cfgBase, window.location.origin);
+    trustedOrigins.add(baseUrl.origin);
+  } catch(e) {
+    trustedOrigins.add('http://localhost:3000');
+  }
+
+  const isTrustedBackend = trustedOrigins.has(reqOrigin);
+
+  logger.info('[CSRF Wrapper] Intercepting fetch:', reqPath, 'isAPI:', isAPI, 'sameOrigin:', isSameOrigin, 'trustedBackend:', isTrustedBackend);
+
+  // Inject CSRF for:
+  // - Same-origin /api requests
+  // - Trusted backend origin requests whose path starts with /api
+  if ((isSameOrigin && isAPI) || (isTrustedBackend && reqPath.startsWith('/api'))) {
     try {
       options = await window.csrfManager.addTokenToFetch(url, options);
+      // Ensure cookies are sent for backend validation
+      options.credentials = options.credentials || 'include';
     } catch (err) {
       logger.warn('[CSRF Wrapper] Failed to add CSRF token:', err);
     }
   }
-  
+
   return originalFetch.call(this, url, options);
 };
 

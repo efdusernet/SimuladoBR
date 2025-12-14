@@ -790,7 +790,7 @@
                   } catch(_){}
                   
                   // Redirecionar para examPmiResults.html
-                  window.location.href = `/pages/examPmiResults.html?${params.toString()}`;
+                  (window.top || window).location.assign(`/pages/examPmiResults.html?${params.toString()}`);
                   return data;
                 }
                 
@@ -799,7 +799,7 @@
                   if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
                   else if (typeof clearExamData === 'function') { clearExamData(); }
                 } catch(_){ }
-                try { window.location.assign('/'); } catch(_){ window.location.href = '/'; }
+                try { (window.top || window).location.assign('/'); } catch(_){ (window.top || window).location.href = '/'; }
 
                 return data;
               } catch (err) {
@@ -1326,7 +1326,7 @@
                               `<button id="${backId}" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Voltar à configuração</button>`;
                             statusEl.innerHTML = sanitizeHTML(safeMsg);
                             const b = document.getElementById(backId);
-                            if (b) b.onclick = () => { try { window.location.href = '/pages/examSetup.html'; } catch(_){} };
+                            if (b) b.onclick = () => { try { (window.top || window).location.assign('/pages/examSetup.html'); } catch(_){} };
                           }
                         }
                       } catch(_){}

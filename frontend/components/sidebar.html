@@ -408,7 +408,7 @@
           sessionStorage.removeItem('currentSection');
           sessionStorage.removeItem('currentSubsection');
         } catch(e) {}
-        window.location.href = '/index.html';
+        (window.top || window).location.assign('/index.html');
       });
     }
     
@@ -553,7 +553,7 @@
     } catch (error) {
       logger.error('[Sidebar] Error loading settings:', error);
       // Fallback: redirecionar para a página
-      window.location.href = '/pages/settings.html';
+      (window.top || window).location.assign('/pages/settings.html');
     }
   }
 
@@ -623,7 +623,7 @@
     } catch (error) {
       logger.error('[Sidebar] Error loading exam setup:', error);
       // Fallback: redirecionar para a página
-      window.location.href = '/pages/examSetup.html';
+      (window.top || window).location.assign('/pages/examSetup.html');
     }
   }
 
@@ -696,7 +696,7 @@
     } catch (error) {
       logger.error('[Sidebar] Error loading progresso geral:', error);
       // Fallback: redirecionar para a página
-      window.location.href = '/pages/progressoGeral.html';
+      (window.top || window).location.assign('/pages/progressoGeral.html');
     }
   }
 
@@ -745,7 +745,7 @@
           sessionStorage.setItem('currentSection', 'indicadores');
           sessionStorage.removeItem('currentSubsection');
         } catch(e) {}
-        window.location.href = '/pages/Indicadores.html';
+        (window.top || window).location.assign('/pages/Indicadores.html');
       },
       'progresso-geral': () => {
         logger.info('[Sidebar] Progresso-geral clicked');
@@ -759,7 +759,7 @@
         } else {
           // No mobile, redirecionar normalmente
           logger.info('[Sidebar] Mobile mode - redirecting to progressoGeral.html');
-          window.location.href = '/pages/progressoGeral.html';
+          (window.top || window).location.assign('/pages/progressoGeral.html');
         }
       },
       'configuracoes': (sub) => {
@@ -778,14 +778,14 @@
             window.verifyPasswordForSettings()
               .then(() => {
                 logger.info('[Sidebar] Password verified - redirecting');
-                window.location.href = '/pages/settings.html';
+                (window.top || window).location.assign('/pages/settings.html');
               })
               .catch((err) => {
                 logger.info('[Sidebar] Password verification failed or cancelled:', err);
               });
           } else {
             logger.info('[Sidebar] verifyPasswordForSettings not available - redirecting directly');
-            window.location.href = '/pages/settings.html';
+            (window.top || window).location.assign('/pages/settings.html');
           }
         }
       },
@@ -813,7 +813,7 @@
             } else {
               // No mobile, redirecionar normalmente
               logger.info('[Sidebar] Mobile mode - redirecting to examSetup.html');
-              window.location.href = '/pages/examSetup.html';
+              (window.top || window).location.assign('/pages/examSetup.html');
             }
           },
           'historico': () => {
@@ -860,16 +860,16 @@
     
     const actionMap = {
       'cadastrar-questao': () => {
-        window.location.href = `/pages/admin/questionForm.html?sessionToken=${encodeURIComponent(token)}`;
+        (window.top || window).location.assign(`/pages/admin/questionForm.html?sessionToken=${encodeURIComponent(token)}`);
       },
       'cadastrar-bulk': () => {
-        window.location.href = `/pages/admin/questionBulk.html?sessionToken=${encodeURIComponent(token)}`;
+        (window.top || window).location.assign(`/pages/admin/questionBulk.html?sessionToken=${encodeURIComponent(token)}`);
       },
       'feedback': () => {
-        window.location.href = `/pages/admin/feedbackResponses.html?sessionToken=${encodeURIComponent(token)}`;
+        (window.top || window).location.assign(`/pages/admin/feedbackResponses.html?sessionToken=${encodeURIComponent(token)}`);
       },
       'notificacoes': () => {
-        window.location.href = `/pages/admin/notifications.html?sessionToken=${encodeURIComponent(token)}`;
+        (window.top || window).location.assign(`/pages/admin/notifications.html?sessionToken=${encodeURIComponent(token)}`);
       },
       'fixture': () => {
         // Open admin modal and scroll to fixture section
@@ -1015,7 +1015,7 @@
         try { localStorage.clear(); } catch(e) {}
         try { sessionStorage.clear(); } catch(e) {}
         try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(e) {}
-        window.location.href = '/login.html';
+        (window.top || window).location.assign('/login.html');
       }
     }
   }

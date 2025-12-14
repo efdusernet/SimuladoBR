@@ -201,17 +201,22 @@
 
       function labelFromPct(p){
         if(p == null) return '—';
+        // 0-25 → Needs; 50-74 → Below; 75-85 → Target; 86-100 → Above
         if(p <= 25) return 'Needs Improvement';
-        if(p <= 50) return 'Below Target';
-        if(p <= 75) return 'Target';
-        return 'Above Target';
+        if(p >= 50 && p <= 74) return 'Below Target';
+        if(p >= 75 && p <= 85) return 'Target';
+        if(p >= 86) return 'Above Target';
+        // Fallback range (e.g., 26-49): treat as Needs Improvement
+        return 'Needs Improvement';
       }
       function keyFromPct(p){
         if(p == null) return null;
         if(p <= 25) return 'needs';
-        if(p <= 50) return 'below';
-        if(p <= 75) return 'target';
-        return 'above';
+        if(p >= 50 && p <= 74) return 'below';
+        if(p >= 75 && p <= 85) return 'target';
+        if(p >= 86) return 'above';
+        // Fallback range (e.g., 26-49)
+        return 'needs';
       }
 
       // Fill candidate name and other dynamic segments

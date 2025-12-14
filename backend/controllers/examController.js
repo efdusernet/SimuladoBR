@@ -54,7 +54,10 @@ async function loadExamTypesFromDb() {
 async function getExamTypeBySlugOrDefault(slug) {
   const registry = require('../services/exams/ExamRegistry');
   const types = await loadExamTypesFromDb();
-  if (types && types.length) return types.find(t => t.id === slug) || types[0];
+  if (types && types.length) {
+    const s = String(slug || '').toLowerCase();
+    return types.find(t => String(t.id || '').toLowerCase() === s) || types[0];
+  }
   const reg = registry.getTypeById(slug);
   return reg ? { ...reg, _dbId: null } : null;
 }

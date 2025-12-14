@@ -55,9 +55,20 @@
     const sessionToken = (window.localStorage && window.localStorage.getItem('sessionToken')) || '';
     const jwtTok = (window.localStorage && window.localStorage.getItem('jwtToken')) || '';
     const jwtType = (window.localStorage && window.localStorage.getItem('jwtTokenType')) || 'Bearer';
-    const examType = (window.localStorage && window.localStorage.getItem('examType')) || '1';
+    // exam_type: prefer numeric id; else send uppercase slug to match table values
+    const rawExamType = (window.localStorage && window.localStorage.getItem('examType')) || '';
+    const rawExamTypeId = (window.localStorage && window.localStorage.getItem('examTypeId')) || '';
+    let examTypeParam = 'PMP';
+    try {
+      const n = Number(rawExamTypeId || rawExamType);
+      if (Number.isFinite(n) && n > 0) {
+        examTypeParam = String(Math.floor(n));
+      } else {
+        examTypeParam = String(rawExamType || 'PMP').toUpperCase();
+      }
+    } catch(_){ examTypeParam = String(rawExamType || 'PMP').toUpperCase(); }
     const apiBase = (window.API_V1 || '/api/v1');
-    const baseUrl = `${apiBase}/indicators/IND12?exam_type=${encodeURIComponent(examType)}`;
+    const baseUrl = `${apiBase}/indicators/IND12?exam_type=${encodeURIComponent(examTypeParam)}`;
     const PASS_THRESHOLD = 75; // percentual médio esperado para aprovação
 
     async function fetchInd12(){

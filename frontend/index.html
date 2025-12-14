@@ -1002,7 +1002,20 @@
                         try {
                             mount.style.cursor = 'pointer';
                             mount.addEventListener('click', function(){
-                                (window.top || window).location.assign('/pages/Indicadores.html?tab=prob');
+                                try {
+                                    var examTypeId = (localStorage.getItem('examTypeId')||'').trim();
+                                    var examType = (localStorage.getItem('examType')||'').trim();
+                                    var qp = 'tab=prob';
+                                    var n = Number(examTypeId || examType);
+                                    if (Number.isFinite(n) && n > 0) {
+                                        qp += '&examTypeId=' + encodeURIComponent(String(Math.floor(n)));
+                                    } else if (examType) {
+                                        qp += '&examType=' + encodeURIComponent(examType.toUpperCase());
+                                    }
+                                    (window.top || window).location.assign('/pages/Indicadores.html?' + qp);
+                                } catch(_) {
+                                    (window.top || window).location.assign('/pages/Indicadores.html?tab=prob');
+                                }
                             });
                         } catch(_){ }
                     } catch(_){ }

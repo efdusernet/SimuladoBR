@@ -972,7 +972,14 @@
       } catch(_){ }
     })();
     // Kick off: load types and restore selection to currentExamType
-    loadExamTypes();
+    loadExamTypes().then(() => {
+      try {
+        if (examTypeSelect && examTypeSelect.options && examTypeSelect.options.length > 1) {
+          examTypeSelect.selectedIndex = 1; // select the second item (index 1)
+          examTypeSelect.dispatchEvent(new Event('change'));
+        }
+      } catch(_) { }
+    });
     // Abordagem agora usa mesma lógica de checklist multi-seleção (nenhum listener adicional necessário)
     loadMeta().then(() => {
       // Faça uma contagem inicial se já houver filtros salvos

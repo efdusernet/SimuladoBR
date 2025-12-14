@@ -92,6 +92,39 @@
       </article>
     </section>
   </main>
+  <!-- Keyboard shortcuts: 1=A, 2=B, 3=C, 4=D -->
+  <script>
+    (function(){
+      function isTyping(e){
+        const t = e.target;
+        const tag = (t && t.tagName || '').toLowerCase();
+        return tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+      }
+      function selectOptionByIndex(idx){
+        try {
+          const container = document.getElementById('answersContainer');
+          if (!container) return;
+          // Find inputs for options (radio or checkbox) in order
+          const inputs = Array.from(container.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+          if (!inputs.length) return;
+          const el = inputs[idx];
+          if (!el) return;
+          if (el.disabled) return;
+          el.click(); // let any listeners handle state changes
+          el.focus();
+        } catch(_){}
+      }
+      window.addEventListener('keydown', function(e){
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        if (isTyping(e)) return;
+        const k = e.key;
+        if (k === '1'){ e.preventDefault(); selectOptionByIndex(0); }
+        else if (k === '2'){ e.preventDefault(); selectOptionByIndex(1); }
+        else if (k === '3'){ e.preventDefault(); selectOptionByIndex(2); }
+        else if (k === '4'){ e.preventDefault(); selectOptionByIndex(3); }
+      }, { capture: true });
+    })();
+  </script>
   <!-- define session vars required by exam pages -->
   <script>
     try {

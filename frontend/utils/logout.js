@@ -92,10 +92,12 @@
 
     // Redirect to login (use top-level and replace to avoid history issues)
     setTimeout(() => {
+      const url = (redirectUrl && redirectUrl.includes('/login')) ? redirectUrl : '/login';
+      const finalUrl = url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
       try {
-        (window.top || window).location.replace(redirectUrl);
+        (window.top || window).location.replace(finalUrl);
       } catch (_) {
-        (window.top || window).location.href = redirectUrl;
+        (window.top || window).location.href = finalUrl;
       }
     }, showNotification ? 300 : 0);
   }

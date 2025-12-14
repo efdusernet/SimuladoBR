@@ -159,6 +159,14 @@ document.addEventListener('DOMContentLoaded', () => {
         EXAM_PATH: '/pages/exam.html'
     };
 
+    // Force login modal rendering when on login page, regardless of session state
+    try {
+        if (onLoginPage && modal) {
+            setModalMode('login');
+            ModalA11y.open(modal);
+        }
+    } catch(_) { /* ensure no crash blocks rendering */ }
+
     // Spinner overlay used while redirecting to exam page
     function showRedirectSpinner(message = 'Entrando no simulado...'){
         let s = document.getElementById('redirectSpinner');

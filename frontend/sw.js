@@ -8,7 +8,7 @@ const logger = (self && self.logger) ? self.logger : {
   error: (...args) => { try { console.error(...args); } catch(_){} }
 };
 
-const VERSION = '2.0.8';
+const VERSION = '2.0.9';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -130,7 +130,15 @@ self.addEventListener('fetch', event => {
 
   // Estratégia 4: Network-First para páginas HTML
   if (request.headers.get('accept')?.includes('text/html')) {
-    event.respondWith(networkFirstWithCache(request, CACHES.DYNAMIC));
+    // Bypass cache for login routes to avoid blank page after logout
+    const isLoginRoute = url.pathname === '/login' || url.pathname === '/login.html';
+    if (isLoginRoute) {
+      event.respondWith(fetch(new Request(request, { cache: 'no-store' })).catch(() => {
+        return networkFirstWithCache(request, CACHES.DYNAMIC);
+      }));
+    } else {
+      event.respondWith(networkFirstWithCache(request, CACHES.DYNAMIC));
+    }
     return;
   }
 

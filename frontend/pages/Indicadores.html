@@ -246,6 +246,37 @@
             <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/details-last -->
           </div>
         </div>
+        <div id="detalhes-sql-label" style="margin:16px 0 0 0; padding:8px; background:#f1f5f9; border-radius:6px; font-size:0.75rem; color:#64748b; word-break:break-all;">
+          <strong>SQL (getDetailsLast):</strong><br>
+          <span id="detalhes-sql-value">
+WITH pq AS (
+  SELECT
+    aq.id AS aqid,
+    q.codgrupoprocesso AS grupo,
+    COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+    COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+    COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
+  FROM exam_attempt_question aq
+  LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+  JOIN questao q ON q.id = aq.question_id
+  LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+  LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
+  JOIN exam_attempt a ON a.id = aq.attempt_id
+  WHERE aq.attempt_id = :idExame
+    AND q.codgrupoprocesso IS NOT NULL
+    AND q.codgrupoprocesso > 0
+    ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+  GROUP BY aq.id, q.codgrupoprocesso
+)
+SELECT
+  grupo AS grupo,
+  COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS corretas,
+  COUNT(*)::int AS total
+FROM pq
+GROUP BY grupo
+ORDER BY grupo
+          </span>
+        </div>
       </section>
       <section id="sec-dashboard" class="section" aria-labelledby="tab-dashboard">
         <div id="indicadoresIntro" style="margin:0 0 14px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.66rem; line-height:1.35; color:#334155; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
@@ -1309,9 +1340,8 @@
       try {
         const grid = document.querySelector('#sec-detalhes .det-grid');
         if (!grid) return;
-        // Remove linhas existentes além do cabeçalho (primeiras 2 linhas = 8 células)
-        const keep = 5 * 1; // 5 cabeçalhos? Na verdade 4 células por linha, manter primeiras 8 células
-        const headerCells = Array.from(grid.children).slice(0, 5); // head + 4 colheads
+        // Salva cópias dos cabeçalhos para evitar duplicidade
+        const headerCells = Array.from(grid.children).slice(0, 5).map(n => n.cloneNode(true));
         grid.innerHTML = '';
         headerCells.forEach(n => grid.appendChild(n));
 

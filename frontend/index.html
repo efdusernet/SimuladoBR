@@ -815,8 +815,13 @@
     <main class="content">
         <!-- Sections -->
         <section id="home" class="section active" aria-labelledby="tab-home">
-            <!-- lastExamResults alinhado com a largura dos cards (usa mesmas constraints de .card-grid) -->
-            <div id="lastExamResultsMount" aria-live="polite" style="max-width:320px;margin:0 auto 8px auto; box-sizing:border-box; transition: background .25s ease;"></div>
+            <!-- Header indicators row: PassProbability (left) + Last Exam Results (right) -->
+            <div id="homeHeaderIndicators" style="display:flex; flex-direction:row; align-items:stretch; justify-content:center; gap:12px; width:100%; max-width:820px; margin:0 auto 12px auto;">
+                <!-- PassProbability component mount (left) -->
+                <div id="passProbabilityContainer" style="flex:1 1 360px; max-width:380px;"></div>
+                <!-- lastExamResults mount (right) -->
+                <div id="lastExamResultsMount" aria-live="polite" style="flex:1 1 360px; max-width:420px; box-sizing:border-box; transition: background .25s ease;"></div>
+            </div>
             <div class="card-grid">
                  <div class="card card--simulador" aria-label="Simulador" role="button" tabindex="0">
                     <img src="assets/pc.png" alt="Personalizar Exame" class="thumb" />
@@ -969,6 +974,40 @@
                         window.__toastTimer = setTimeout(()=>{ try{ el.style.display='none'; }catch(_){ } }, 2600);
                     } catch(_){ }
                 };
+            })();
+        </script>
+
+        <!-- Load and mount PassProbability component below lastExamResults -->
+        <script>
+            (function(){
+                async function loadPassProbability(){
+                    try {
+                        const mount = document.getElementById('passProbabilityContainer');
+                        if (!mount) return;
+                        const resp = await fetch('./components/PassProbability.html', { cache: 'no-store' });
+                        if (!resp.ok) return;
+                        const html = await resp.text();
+                        mount.innerHTML = html;
+                        // Execute embedded scripts from fragment
+                        try {
+                            const scripts = Array.from(mount.querySelectorAll('script'));
+                            for (const old of scripts){
+                                const s = document.createElement('script');
+                                if (old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                                document.body.appendChild(s);
+                                old.remove();
+                            }
+                        } catch(_){ }
+                        // Make the whole component clickable to open Indicadores -> Probabilidade de Sucesso
+                        try {
+                            mount.style.cursor = 'pointer';
+                            mount.addEventListener('click', function(){
+                                (window.top || window).location.assign('/pages/Indicadores.html?tab=prob');
+                            });
+                        } catch(_){ }
+                    } catch(_){ }
+                }
+                if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadPassProbability); else loadPassProbability();
             })();
         </script>
 

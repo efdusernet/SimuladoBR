@@ -18,7 +18,11 @@ router.get('/area-knowledge-stats', auth, indicatorController.getAreaConheciment
 router.get('/approach-stats', auth, indicatorController.getAbordagemStats);
 router.get('/details-last', auth, indicatorController.getDetailsLast);
 router.get('/IND10', requireUserSession, indicatorController.getPerformancePorDominio);
+// IND11: Tempo médio por questão
+router.get('/IND11', auth, indicatorController.getAvgTimePerQuestion);
 router.get('/avg-time-per-question', auth, indicatorController.getAvgTimePerQuestion);
+// IND12: Média ponderada por domínio (agregado)
+router.get('/IND12', requireUserSession, indicatorController.getPerformancePorDominioAgregado);
 router.get('/attempts-history-extended', auth, indicatorController.getAttemptsHistoryExtended);
 
 module.exports = router;

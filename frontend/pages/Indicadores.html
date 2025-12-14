@@ -126,6 +126,7 @@
         <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
         <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false">Estatísticas</button>
         <button class="tab-btn" data-tab="dominios" role="tab" aria-selected="false">Domínios</button>
+        <button class="tab-btn" data-tab="prob" role="tab" aria-selected="false">Probabilidade de Sucesso</button>
     </div>
     <div style="margin-top:8px;">
       <label style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#334155; font-weight:600;">
@@ -133,6 +134,7 @@
       </label>
     </div>
   </div>
+  
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
       <div style="margin-bottom:12px; padding:8px; background:#f1f5f9; border-radius:6px; font-size:0.85rem; line-height:1.6;">
@@ -326,6 +328,15 @@
           </div>
         </div>
       </section>
+      <section id="sec-prob" class="section" aria-labelledby="tab-prob">
+        <style id="probCardsStyles">
+          #sec-prob #probCards { display:grid; width:100%; grid-template-columns: repeat(3, minmax(320px, 1fr)); gap:12px; align-items:stretch; }
+          @media (max-width: 1200px) { #sec-prob #probCards { grid-template-columns: repeat(3, minmax(280px, 1fr)); } }
+          @media (max-width: 1024px) { #sec-prob #probCards { grid-template-columns: repeat(2, minmax(280px, 1fr)); } }
+          @media (max-width: 640px) { #sec-prob #probCards { grid-template-columns: 1fr; } }
+        </style>
+        <div id="probCards"></div>
+      </section>
   </div>
   <script>
     // Lightweight menu toggle and logout for this page
@@ -383,7 +394,8 @@
       abordagem: document.getElementById('sec-abordagem'),
       detalhes: document.getElementById('sec-detalhes'),
       dashboard: document.getElementById('sec-dashboard'),
-      dominios: document.getElementById('sec-dominios')
+      dominios: document.getElementById('sec-dominios'),
+      prob: document.getElementById('sec-prob')
     };
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -392,8 +404,56 @@
         btn.classList.add('active'); btn.setAttribute('aria-selected','true');
         Object.keys(sectionsMap).forEach(k => sectionsMap[k] && sectionsMap[k].classList.remove('active'));
         if (sectionsMap[tab]) sectionsMap[tab].classList.add('active');
+        if (tab === 'topico') loadAreaConhecimentoStats();
+        if (tab === 'abordagem') loadAbordagemStats();
+        if (tab === 'detalhes') loadDetailsLast();
+        if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
+        if (tab === 'dominios') loadDominiosLazy();
+        if (tab === 'prob') loadProbabilityCards();
       });
     });
+    // Public helper: programmatically activate a tab and trigger loaders
+    window.activateTab = function(tab){
+      try {
+        const allowed = ['geral','grupos','topico','abordagem','detalhes','dashboard','dominios','prob'];
+        const key = String(tab||'').toLowerCase();
+        if (!allowed.includes(key)) return false;
+        const target = document.querySelector(`.tab-btn[data-tab="${key}"]`) || document.getElementById(`tab-${key}`);
+        if (target && typeof target.click === 'function') { target.click(); return true; }
+        // Fallback: manual activation
+        tabButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+        const btn = document.querySelector(`.tab-btn[data-tab="${key}"]`);
+        if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
+        Object.keys(sectionsMap).forEach(k => sectionsMap[k] && sectionsMap[k].classList.remove('active'));
+        if (sectionsMap[key]) sectionsMap[key].classList.add('active');
+        if (key === 'topico') loadAreaConhecimentoStats();
+        if (key === 'abordagem') loadAbordagemStats();
+        if (key === 'detalhes') loadDetailsLast();
+        if (key === 'dashboard' && !_dashLoadedOnce) loadDashboard();
+        if (key === 'dominios') loadDominiosLazy();
+        if (key === 'prob') loadProbabilityCards();
+        return true;
+      } catch(_) { return false; }
+    };
+    // Initialize tab from query string with fallback, retry and scroll
+    (function initTabFromQuery(){
+      try {
+        const qs = new URLSearchParams(window.location.search);
+        const tabParam = String(qs.get('tab')||'').toLowerCase();
+        if (!tabParam) return;
+        const ok = window.activateTab(tabParam);
+        if (!ok) {
+          setTimeout(() => {
+            const done = window.activateTab(tabParam);
+            if (!done && tabParam === 'prob' && typeof window.loadProbabilityCards === 'function') {
+              try { window.loadProbabilityCards(); } catch(_){ }
+            }
+          }, 150);
+        }
+        const sec = document.getElementById(`sec-${tabParam}`);
+        if (sec && typeof sec.scrollIntoView === 'function') sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch(_){ }
+    })();
     // Simple helper to build Authorization header from localStorage (JWT)
     function getAuthHeadersLocal(){
       try {
@@ -1419,6 +1479,189 @@
       } catch(_){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); }
     }
     function loadDominiosLazy(){ if (!_domLoadedOnce){ _domLoadedOnce = true; loadDominios(); const sel = document.getElementById('domSelModo'); if (sel) sel.addEventListener('change', ()=> loadDominios()); } }
+  </script>
+  <script>
+    // Load IND12 and render probability cards per domain + consolidated + explanation
+    let _probLoadedOnce = false;
+    async function loadProbabilityCards(){
+      if (_probLoadedOnce) return;
+      const container = document.getElementById('probCards');
+      if (!container) return;
+      container.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b;">Carregando...</div>';
+      const examTypeId = await getCurrentExamTypeId();
+      const headers = buildAuthHeadersLocal();
+      const url = `/api/indicators/IND12` + (examTypeId ? `?exam_type=${encodeURIComponent(String(examTypeId))}` : '');
+      let data = null;
+      try {
+        const resp = await fetch(url, { headers, cache: 'no-store' });
+        data = resp.ok ? await resp.json() : null;
+      } catch(_) { }
+      if (!data || !Array.isArray(data.dominios)) { container.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Falha ao carregar indicador</div>'; return; }
+
+      const order = ['Pessoas','Processos','Ambiente de Negócios'];
+      const map = {};
+      data.dominios.forEach(d => { map[String(d.descricao||'').trim()] = d; });
+      const dominiosSorted = order.map(name => map[name]).filter(Boolean);
+      container.innerHTML = '';
+
+      // Ensure custom element is defined before rendering bars
+      await (window.customElements?.whenDefined ? window.customElements.whenDefined('sb-hbar') : Promise.resolve());
+
+      dominiosSorted.forEach(d => {
+        const card = document.createElement('div');
+        card.style.background = '#fff';
+        card.style.border = '1px solid #e2e8f0';
+        card.style.borderRadius = '10px';
+        card.style.padding = '12px';
+        card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+        const title = document.createElement('div');
+        title.textContent = d.descricao || 'Domínio';
+        title.style.fontWeight = '700';
+        title.style.fontSize = '0.85rem';
+        title.style.marginBottom = '6px';
+        card.appendChild(title);
+        const info = document.createElement('div');
+        info.textContent = `Total: ${d.total} • Acertos: ${d.acertos}`;
+        info.style.fontSize = '0.7rem';
+        info.style.color = '#475569';
+        info.style.marginBottom = '6px';
+        card.appendChild(info);
+        const bar = document.createElement('sb-hbar');
+        bar.setAttribute('value', String(d.percent || 0));
+        bar.setAttribute('max', '100');
+        bar.setAttribute('label', 'Aproveitamento');
+        bar.setAttribute('show-percent', '');
+        if ((d.percent||0) >= 75) bar.setAttribute('color', '#2b8a3e');
+        card.appendChild(bar);
+        container.appendChild(card);
+      });
+
+      // Consolidated probability card below the three cards
+      const totals = data.dominios.reduce((acc, d) => { acc.total += (d.total||0); acc.acertos += (d.acertos||0); return acc; }, { total:0, acertos:0 });
+      const PASS_THRESHOLD = 75;
+      const overall = totals.total > 0 ? Number(((totals.acertos / totals.total) * 100).toFixed(2)) : null;
+      const probability = overall != null ? Math.max(0, Math.min(100, Number(((overall / PASS_THRESHOLD) * 100).toFixed(0)))) : 5;
+      const block = document.createElement('div');
+      block.style.gridColumn = '1 / -1';
+      block.style.marginTop = '8px';
+      block.style.background = '#fff';
+      block.style.border = '1px solid #e2e8f0';
+      block.style.borderRadius = '10px';
+      block.style.padding = '14px';
+      block.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+      const title2 = document.createElement('div');
+      title2.textContent = 'Probabilidade de aprovação (consolidado)';
+      title2.style.fontWeight = '700';
+      title2.style.fontSize = '0.9rem';
+      title2.style.marginBottom = '8px';
+      block.appendChild(title2);
+      const subtitle = document.createElement('div');
+      subtitle.textContent = overall != null ? `Média geral: ${overall}% • Linha de corte: 75%` : 'Média geral: —';
+      subtitle.style.fontSize = '0.75rem';
+      subtitle.style.color = '#475569';
+      subtitle.style.marginBottom = '8px';
+      block.appendChild(subtitle);
+      const bar2 = document.createElement('sb-hbar');
+      bar2.setAttribute('value', String(probability));
+      bar2.setAttribute('max', '100');
+      bar2.setAttribute('label', 'Probabilidade de aprovação');
+      bar2.setAttribute('show-percent', '');
+      if ((probability||0) >= 75) bar2.setAttribute('color', '#2b8a3e');
+      block.appendChild(bar2);
+      // Formula display
+      const formula = document.createElement('div');
+      formula.style.marginTop = '10px';
+      formula.style.fontSize = '0.72rem';
+      formula.style.color = '#334155';
+      formula.innerHTML = `Fórmula: <br>
+        <span style="display:block; margin-top:4px;">média geral = (Σ acertos) / (Σ total) × 100</span>
+        <span style="display:block;">probabilidade = limitar((média geral / 75) × 100, 0, 100)</span>`;
+      block.appendChild(formula);
+      container.appendChild(block);
+
+      // Premissas explicativas sobre o IND12
+      const expl = document.createElement('div');
+      expl.style.gridColumn = '1 / -1';
+      expl.style.marginTop = '10px';
+      expl.style.background = '#ffffff';
+      expl.style.border = '1px solid #e2e8f0';
+      expl.style.borderRadius = '10px';
+      expl.style.padding = '12px';
+      expl.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+      expl.innerHTML = `
+        <div style="font-weight:700; font-size:0.9rem; margin-bottom:6px; color:#0f172a;">Como funciona este Indicador?</div>
+        <div style="font-size:0.72rem; color:#334155; line-height:1.35; display:flex; flex-direction:column; gap:6px;">
+          <span>• Escopo: considera <strong>todas as tentativas finalizadas</strong> de exame completo do usuário (modo com <em>180</em> questões, ou quando a tentativa possui a quantidade total de questões do tipo).</span>
+          <span>• Por domínio (Pessoas, Processos, Ambiente de Negócios) somamos: <strong>total</strong> de questões e <strong>acertos</strong>.</span>
+          <span>• Regra de acerto por questão: o conjunto de opções selecionadas deve ser <strong>igual ao conjunto de opções corretas</strong> cadastrado (todas corretas marcadas e nenhuma incorreta).</span>
+          <span>• Percentual por domínio: <code>percent = (acertos / total) × 100</code>.</span>
+          <span>• Consolidação geral: usamos os somatórios de todos os domínios para obter a <strong>média geral</strong> e daí estimamos a <strong>probabilidade de aprovação</strong> comparando com a linha de corte (75%).</span>
+          <span>• Linha de corte: assumimos 75% como referência de aprovação; essa referência pode variar conforme políticas do PMI, uma vez que ela não é oficialmente divulgada pela Instituição.</span>
+        </div>
+      `;
+      container.appendChild(expl);
+      _probLoadedOnce = true;
+    }
+    // Expose loader for external callers/fallbacks
+    try { window.loadProbabilityCards = loadProbabilityCards; } catch(_){ }
+    // If the tab is already active due to early auto-activation, trigger the loader now
+    (function ensureProbLoadOnInitialActivation(){
+      try {
+        const qs = new URLSearchParams(window.location.search);
+        const tabParam = String(qs.get('tab')||'').toLowerCase();
+        const probActive = document.getElementById('sec-prob')?.classList.contains('active');
+        if ((tabParam === 'prob' || probActive) && !_probLoadedOnce) {
+          loadProbabilityCards();
+        }
+      } catch(_){}
+    })();
+    // Probabilidade de Sucesso (IND12 agregado): três cards por domínio com sb-hbar
+    async function loadProbSuccess(){
+      const container = document.getElementById('probContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      try {
+        const headers = buildAuthHeadersLocal();
+        const examTypeId = await getCurrentExamTypeId();
+        const url = examTypeId ? `/api/indicators/IND12?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/IND12';
+        const resp = await fetch(url, { headers });
+        if (resp.status === 401 || resp.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (!resp.ok) { container.innerHTML = '<div style="padding:12px; color:#64748b;">Sem dados agregados ainda.</div>'; return; }
+        const data = await resp.json();
+        let dominios = Array.isArray(data.dominios) ? data.dominios.slice() : [];
+        if (!dominios.length){ container.innerHTML = '<div style="padding:12px; color:#64748b;">Nenhum domínio encontrado. Conclua ao menos um simulado completo.</div>'; return; }
+        function mapKey(d){ const n = String(d.descricao||'').toLowerCase(); if (n.includes('pessoa')) return 'Pessoas'; if (n.includes('processo')) return 'Processos'; if (n.includes('ambiente')||n.includes('negó')||n.includes('negocio')||n.includes('negócio')) return 'Ambiente de Negócios'; return d.descricao||`Domínio ${d.id}`; }
+        const order = ['Pessoas','Processos','Ambiente de Negócios'];
+        dominios.sort((a,b)=> order.indexOf(mapKey(a)) - order.indexOf(mapKey(b)));
+        await (window.customElements?.whenDefined ? window.customElements.whenDefined('sb-hbar') : Promise.resolve());
+        dominios.forEach(d => {
+          const title = mapKey(d);
+          const total = Number(d.total||0);
+          const acertos = Number(d.acertos||0);
+          const percent = total>0 ? Math.round((acertos*100)/total) : 0;
+          const card = document.createElement('div');
+          card.style.background = '#fff';
+          card.style.border = '1px solid #e2e8f0';
+          card.style.borderRadius = '10px';
+          card.style.padding = '12px';
+          card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+          const h = document.createElement('div'); h.textContent = title; h.style.fontWeight='700'; h.style.fontSize='0.95rem'; h.style.marginBottom='6px'; card.appendChild(h);
+          const val = document.createElement('div'); val.textContent = `${acertos}/${total} (${percent}%)`; val.style.fontSize='0.8rem'; val.style.color='#475569'; val.style.marginBottom='8px'; card.appendChild(val);
+          const bar = document.createElement('sb-hbar');
+          bar.setAttribute('value', String(percent));
+          bar.setAttribute('max','100');
+          bar.setAttribute('label', 'Aproveitamento');
+          bar.setAttribute('show-percent','');
+          if (percent >= 75) bar.setAttribute('color','#2b8a3e');
+          card.appendChild(bar);
+          container.appendChild(card);
+        });
+      } catch(_){ container.innerHTML = '<div style="padding:12px; color:#b91c1c;">Erro ao carregar IND12.</div>'; }
+    }
   </script>
   <!-- Bottom navigation component mount -->
   <div id="bottomNavMount"></div>

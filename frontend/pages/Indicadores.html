@@ -415,6 +415,7 @@
       dominios: document.getElementById('sec-dominios'),
       prob: document.getElementById('sec-prob')
     };
+    // _detalhesLoadedOnce flag removed: always reload Detalhes tab
     tabButtons.forEach(btn => {
       btn.addEventListener('click', function(){
         const tab = btn.getAttribute('data-tab');
@@ -550,38 +551,35 @@
 
     // Populate overview grid from /api/indicators/overview (uses JWT if present)
     async function loadOverview(){
-        console.log('[DIAG] loadOverview chamada');
-        try {
-          const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-          const res = await fetch('/api/indicators/overview', { headers });
-          console.log('[DIAG] loadOverview fetch status:', res.status);
-          const data = await res.json().catch(()=>null);
-          console.log('[DIAG] loadOverview dados recebidos:', data);
-        } catch(e) { console.error('[DIAG] loadOverview erro:', e); }
-      const target = sectionsMap.geral;
-      if (!target) return;
-      try {
-        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        const res = await fetch('/api/indicators/overview', { headers });
-        if (res.status === 401 || res.status === 403) {
-          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
-          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
-          return;
-        }
-        if (!res.ok) return;
-        const data = await res.json();
-        const cells = target.querySelectorAll('[data-key]');
-        const getByPath = (obj, path) => path.split('.').reduce((o,k) => (o && typeof o === 'object') ? o[k] : undefined, obj);
-        cells.forEach(c => {
-          const key = c.getAttribute('data-key');
-          const fmt = c.getAttribute('data-format');
-          const val = getByPath(data, key);
-          let v = (val === null || typeof val === 'undefined') ? 0 : val;
-          let text = String(v);
-          if (fmt === 'percent') text = `${text}%`;
-          c.textContent = text;
-        });
-      } catch(_) { /* silent */ }
+    console.log('[DIAG] loadOverview chamada');
+    const target = sectionsMap.geral;
+    if (!target) return;
+    // Clear all data-key cells before rendering new data
+    const cells = target.querySelectorAll('[data-key]');
+    cells.forEach(c => { c.textContent = '\u2014'; });
+    try {
+      const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+      const res = await fetch('/api/indicators/overview', { headers });
+      console.log('[DIAG] loadOverview fetch status:', res.status);
+      if (res.status === 401 || res.status === 403) {
+        try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+        window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+        return;
+      }
+      if (!res.ok) return;
+      const data = await res.json();
+      console.log('[DIAG] loadOverview dados recebidos:', data);
+      const getByPath = (obj, path) => path.split('.').reduce((o,k) => (o && typeof o === 'object') ? o[k] : undefined, obj);
+      cells.forEach(c => {
+        const key = c.getAttribute('data-key');
+        const fmt = c.getAttribute('data-format');
+        const val = getByPath(data, key);
+        let v = (val === null || typeof val === 'undefined') ? 0 : val;
+        let text = String(v);
+        if (fmt === 'percent') text = `${text}%`;
+        c.textContent = text;
+      });
+    } catch(e) { console.error('[DIAG] loadOverview erro:', e); }
     }
 
 
@@ -927,80 +925,75 @@
 
     // Load IND7: Process Group Stats
     async function loadProcessGroupStats(){
-      const container = document.getElementById('processGroupsContainer');
-      if (!container) return;
-      try {
-        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        // Opcional: filtrar por exam_type selecionado, se id disponível
-        const examTypeId = await getCurrentExamTypeId();
-        const url = examTypeId ? `/api/indicators/process-group-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/process-group-stats';
-        const res = await fetch(url, { headers });
-        if (res.status === 401 || res.status === 403) {
-          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
-          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
-          return;
-        }
-        if (!res.ok) {
-          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por grupo de processos.</div>';
-          return;
-        }
-        const data = await res.json();
-        const grupos = data && data.grupos ? data.grupos : [];
-        if (grupos.length === 0) {
-          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum grupo de processos encontrado.</div>';
-          return;
-        }
-
-        // Render each process group with a single stacked bar (Acertos + Erros)
-        grupos.forEach(g => {
-          const row = document.createElement('div');
-          row.style.display = 'flex';
-          row.style.alignItems = 'center';
-          row.style.gap = '12px';
-          row.style.flexWrap = 'wrap';
-
-          const label = document.createElement('div');
-          label.style.fontWeight = '600';
-          label.style.minWidth = '180px';
-          label.style.fontSize = '0.9rem';
-          label.textContent = (g && (g.descricao || g.grupo)) ? (g.descricao || String(g.grupo)) : 'Desconhecido';
-
-          const chartWrapper = document.createElement('div');
-          chartWrapper.style.flex = '1';
-          chartWrapper.style.minWidth = '300px';
-
-          const chart = document.createElement('sb-hbar');
-          const pctAcertos = g.percentAcertos !== undefined ? Math.round(g.percentAcertos) : 0;
-          const pctErros = g.percentErros !== undefined ? Math.round(g.percentErros) : 0;
-          const cAcertos = Number(g.acertos || 0);
-          const cErros = Number(g.erros || 0);
-          const item = {
-            label: '',
-            max: 100,
-            segments: [
-              { label: 'Acertos', value: pctAcertos, color: '#2b8a3e' },
-              { label: 'Erros', value: pctErros, color: '#dc3545' }
-            ]
-          };
-          chart.setAttribute('data', JSON.stringify([item]));
-          chart.setAttribute('height', '14');
-          chart.setAttribute('show-percent', '');
-
-          chartWrapper.appendChild(chart);
-          row.appendChild(label);
-          const counts = document.createElement('div');
-          counts.style.fontSize = '0.85rem';
-          counts.style.color = '#475569';
-          counts.style.minWidth = '64px';
-          counts.style.textAlign = 'center';
-          counts.textContent = `${cAcertos}/${cErros}`;
-          row.appendChild(counts);
-          row.appendChild(chartWrapper);
-          container.appendChild(row);
-        });
-      } catch(err) {
-        container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de grupos de processos.</div>';
+    const container = document.getElementById('processGroupsContainer');
+    if (!container) return;
+    // Always clear container before rendering
+    container.innerHTML = '';
+    try {
+      const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+      const examTypeId = await getCurrentExamTypeId();
+      const url = examTypeId ? `/api/indicators/process-group-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/process-group-stats';
+      const res = await fetch(url, { headers });
+      if (res.status === 401 || res.status === 403) {
+        try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+        window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+        return;
       }
+      if (!res.ok) {
+        container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por grupo de processos.</div>';
+        return;
+      }
+      const data = await res.json();
+      const grupos = data && data.grupos ? data.grupos : [];
+      if (grupos.length === 0) {
+        container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum grupo de processos encontrado.</div>';
+        return;
+      }
+      grupos.forEach(g => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '12px';
+        row.style.flexWrap = 'wrap';
+        const label = document.createElement('div');
+        label.style.fontWeight = '600';
+        label.style.minWidth = '180px';
+        label.style.fontSize = '0.9rem';
+        label.textContent = (g && (g.descricao || g.grupo)) ? (g.descricao || String(g.grupo)) : 'Desconhecido';
+        const chartWrapper = document.createElement('div');
+        chartWrapper.style.flex = '1';
+        chartWrapper.style.minWidth = '300px';
+        const chart = document.createElement('sb-hbar');
+        const pctAcertos = g.percentAcertos !== undefined ? Math.round(g.percentAcertos) : 0;
+        const pctErros = g.percentErros !== undefined ? Math.round(g.percentErros) : 0;
+        const cAcertos = Number(g.acertos || 0);
+        const cErros = Number(g.erros || 0);
+        const item = {
+          label: '',
+          max: 100,
+          segments: [
+            { label: 'Acertos', value: pctAcertos, color: '#2b8a3e' },
+            { label: 'Erros', value: pctErros, color: '#dc3545' }
+          ]
+        };
+        chart.setAttribute('data', JSON.stringify([item]));
+        chart.setAttribute('height', '14');
+        chart.setAttribute('show-percent', '');
+        chartWrapper.appendChild(chart);
+        row.appendChild(label);
+        const counts = document.createElement('div');
+        counts.style.fontSize = '0.85rem';
+        counts.style.color = '#475569';
+        counts.style.minWidth = '64px';
+        counts.style.textAlign = 'center';
+        counts.textContent = `${cAcertos}/${cErros}`;
+        row.appendChild(counts);
+        row.appendChild(chartWrapper);
+        container.appendChild(row);
+      });
+    } catch(err) {
+      container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de grupos de processos.</div>';
+    }
     }
 
     loadProcessGroupStats();
@@ -1010,7 +1003,10 @@
         console.log('[DIAG] loadAreaConhecimentoStats chamada');
         try {
           const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-          const res = await fetch('/api/indicators/area-conhecimento', { headers });
+          // Corrigido: endpoint atualizado para area-knowledge-stats
+          const examTypeId = await getCurrentExamTypeId();
+          const url = examTypeId ? `/api/indicators/area-knowledge-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/area-knowledge-stats';
+          const res = await fetch(url, { headers });
           console.log('[DIAG] loadAreaConhecimentoStats fetch status:', res.status);
           const data = await res.json().catch(()=>null);
           console.log('[DIAG] loadAreaConhecimentoStats dados recebidos:', data);
@@ -1096,7 +1092,10 @@
         console.log('[DIAG] loadAbordagemStats chamada');
         try {
           const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-          const res = await fetch('/api/indicators/abordagem', { headers });
+          // Corrigido: endpoint atualizado para approach-stats
+          const examTypeId = await getCurrentExamTypeId();
+          const url = examTypeId ? `/api/indicators/approach-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/approach-stats';
+          const res = await fetch(url, { headers });
           console.log('[DIAG] loadAbordagemStats fetch status:', res.status);
           const data = await res.json().catch(()=>null);
           console.log('[DIAG] loadAbordagemStats dados recebidos:', data);
@@ -1339,7 +1338,7 @@
 
     // Detalhes: última tentativa por grupo com ranking
     async function loadDetailsLast(){
-          console.log('[DIAG] loadDetailsLast chamada');
+        console.log('[DIAG] loadDetailsLast chamada');
           try {
             const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
             const examTypeId = await getCurrentExamTypeId();
@@ -1369,7 +1368,7 @@
       try {
         const grid = document.querySelector('#sec-detalhes .det-grid');
         if (!grid) return;
-        // Mantém cabeçalhos fixos no HTML. Remove apenas linhas de dados (após os 5 primeiros filhos)
+        // Always clear data rows before rendering
         while (grid.children.length > 5) {
           grid.removeChild(grid.lastElementChild);
         }
@@ -1409,6 +1408,8 @@
           grid.appendChild(c1); grid.appendChild(c2); grid.appendChild(c3); grid.appendChild(c4);
           r += 1;
         }
+        // Only set flag after successful load and render
+        _detalhesLoadedOnce = true;
       } catch(_) { /* ignore */ }
     }
 
@@ -1542,6 +1543,8 @@
   <script>
     // Load IND12 and render probability cards per domain + consolidated + explanation
     let _probLoadedOnce = false;
+    // Assign early to prevent ReferenceError
+    window.loadProbabilityCards = loadProbabilityCards;
     async function loadProbabilityCards(){
         console.log('[DIAG] loadProbabilityCards chamada');
         try {
@@ -1671,8 +1674,8 @@
       container.appendChild(expl);
       _probLoadedOnce = true;
     }
-    // Expose loader for external callers/fallbacks
-    try { window.loadProbabilityCards = loadProbabilityCards; } catch(_){ }
+    // Expose loader for external callers/fallbacks after definition
+    window.loadProbabilityCards = loadProbabilityCards;
     // If the tab is already active due to early auto-activation, trigger the loader now
     (function ensureProbLoadOnInitialActivation(){
       try {

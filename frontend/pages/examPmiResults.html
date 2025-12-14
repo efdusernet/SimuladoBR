@@ -249,12 +249,26 @@
         }
       });
 
+      // Set nextText based on threshold band when overallPct is available
+      if (activeKey) {
+        const nextEl = document.getElementById('nextText');
+        if (nextEl) {
+          const mapText = {
+            needs: "Your results show you must still focus on key areas of the fundamentals of the Project Management. Try to focus on each area of fundamentals and strength your knowloedge towards them before sitting for a new try",
+            below: "Your results show have gaps to be addressed on some areas. Take a look on your report and try to focus on those specific areas. Try to focus on each area of the report and strength your knowloedge towards them before sitting for a new try.",
+            target: "Your results show have a good understanding of the core principals of the project management and it's fundamentals. Take a look on your report and try improve your skills for those area where you have not done good and celebrate your certification status!.",
+            above: "Celebrate your accomplishment and reward yourself for all your hard work!"
+          };
+          nextEl.textContent = mapText[activeKey] || nextEl.textContent;
+        }
+      }
+
       // Preencher resultados nas três células (segunda linha) usando percentuais
       $('#Result1').textContent = labelFromPct(peoplePct);
       $('#Result2').textContent = labelFromPct(processPct);
       $('#Result3').textContent = labelFromPct(businessPct);
 
-      // Optional overwrite of next text
+      // Optional overwrite of next text (takes precedence over band-based text)
       const nextOverride = get('next');
       if (nextOverride && nextOverride !== '—') $('#nextText').textContent = nextOverride;
 

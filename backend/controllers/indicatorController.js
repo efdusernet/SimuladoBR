@@ -928,6 +928,88 @@ async function getAvgTimePerQuestion(req, res, next){
   }
 }
 
+// IND12 - Média ponderada por Domínio (agregado em todos os exames completos do usuário)
+async function getPerformancePorDominioAgregado(req, res, next) {
+  try {
+    const user = req.user || {};
+    console.info('[IND12] incoming user/session', { user, idUsuario: req.query?.idUsuario, xSession: req.get('X-Session-Token'), auth: req.headers?.authorization });
+    // Resolve userId from middleware (`req.user.id`) or JWT-like `sub`, or `idUsuario` query fallback
+    let userId = null;
+    if (Number.isFinite(parseInt(user.id, 10))) userId = parseInt(user.id, 10);
+    else if (Number.isFinite(parseInt(user.sub, 10))) userId = parseInt(user.sub, 10);
+    else if (Number.isFinite(parseInt(req.query.idUsuario, 10))) userId = parseInt(req.query.idUsuario, 10);
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
+
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
+
+    const sql = `
+      WITH attempts AS (
+        SELECT a.id
+        FROM exam_attempt a
+        WHERE a.user_id = :userId
+          AND a.finished_at IS NOT NULL
+          AND (a.exam_mode = 'full' OR a.quantidade_questoes = :fullQ)
+          ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+      ),
+      per_question AS (
+        SELECT
+          aq.id AS aqid,
+          q.iddominiogeral AS dominio_id,
+          dg.descricao AS dominio_nome,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
+        FROM exam_attempt_question aq
+        JOIN attempts a ON a.id = aq.attempt_id
+        LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+        JOIN questao q ON q.id = aq.question_id
+        LEFT JOIN dominiogeral dg ON dg.id = q.iddominiogeral
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
+        WHERE q.iddominiogeral IS NOT NULL
+        GROUP BY aq.id, q.iddominiogeral, dg.descricao
+      )
+      SELECT
+        dominio_id,
+        dominio_nome,
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS acertos
+      FROM per_question
+      WHERE correct_count > 0
+      GROUP BY dominio_id, dominio_nome
+      ORDER BY dominio_nome;
+    `;
+    const replacements = hasExamType
+      ? { userId, examTypeId, fullQ: getFullExamQuestionCount() }
+      : { userId, fullQ: getFullExamQuestionCount() };
+
+    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    const dominios = (rows || []).map(r => {
+      const total = Number(r.total) || 1;
+      const acertos = Number(r.acertos) || 0;
+      const percent = Number(((acertos / total) * 100).toFixed(2));
+      return {
+        id: Number(r.dominio_id) || null,
+        descricao: r.dominio_nome || String(r.dominio_id || 'Sem domínio'),
+        total,
+        acertos,
+        percent
+      };
+    });
+
+    return res.json({
+      userId,
+      examTypeId: hasExamType ? examTypeId : null,
+      idExame: null,
+      dominios
+    });
+  } catch (err) {
+    return next(internalError('Erro interno', 'IND11_AGGREGATE_ERROR', err));
+  }
+}
+
 // New: Extended history (up to 50 attempts) including full & quiz with completion status logic
 async function getAttemptsHistoryExtended(req, res, next){
   try {
@@ -1009,4 +1091,4 @@ async function getAttemptsHistoryExtended(req, res, next){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion, getAttemptsHistoryExtended };
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion, getPerformancePorDominioAgregado, getAttemptsHistoryExtended };

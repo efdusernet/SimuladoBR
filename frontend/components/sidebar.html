@@ -1008,14 +1008,14 @@
   // Logout handler
   function handleLogout() {
     if (window.performLogout) {
-      window.performLogout({ confirm: true, showNotification: false });
+      window.performLogout({ confirm: true, showNotification: false, redirectUrl: '/login.html' });
     } else {
       // Fallback if logout utility not loaded
       if (confirm('Deseja realmente sair?')) {
         try { localStorage.clear(); } catch(e) {}
         try { sessionStorage.clear(); } catch(e) {}
         try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(e) {}
-        (window.top || window).location.assign('/login.html');
+        setTimeout(() => { try { (window.top || window).location.replace('/login.html'); } catch(_) { (window.top || window).location.assign('/login.html'); } }, 100);
       }
     }
   }

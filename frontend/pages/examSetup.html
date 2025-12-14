@@ -953,7 +953,24 @@
       scheduleAtualizarDisponiveis();
     });
 
-    // Note: do not auto-preselect exam type here to avoid side effects on cards.
+    // Initialize currentExamType from query string or localStorage before loading options
+    (function initExamTypeSelection(){
+      try {
+        const qs = new URLSearchParams(window.location.search);
+        const qpId = qs.get('examTypeId');
+        const qpSlug = qs.get('examType');
+        const storedId = (localStorage.getItem('examTypeId')||'').trim();
+        const stored = (localStorage.getItem('examType')||'').trim();
+        // Priority: query examTypeId (numeric) → query examType (slug/id) → storedId → stored
+        let candidate = qpId || qpSlug || storedId || stored || '';
+        const n = Number(candidate);
+        if (Number.isFinite(n) && n > 0) {
+          currentExamType = String(Math.floor(n));
+        } else if (candidate) {
+          currentExamType = String(candidate).toLowerCase();
+        }
+      } catch(_){ }
+    })();
     // Kick off: load types and restore selection to currentExamType
     loadExamTypes();
     // Abordagem agora usa mesma lógica de checklist multi-seleção (nenhum listener adicional necessário)

@@ -468,6 +468,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Old behavior: show modal when token endsWith('#').
     // New: on home (index.html) with sidebar, DO NOT redirect to /login and do not force modal; show as visitante.
     (function(){
+        // Early auth guard: redirect any unauthenticated/guest session to login
+        try {
+            const path = (window.location.pathname || '').replace(/\/+$/, '');
+            const isLogin = (path === '/login' || path === '/login.html');
+            if (!isLogin) {
+                const token = (function(){
+                    try { return (localStorage.getItem('sessionToken') || localStorage.getItem('jwtToken') || '').trim(); } catch(_) { return (localStorage.getItem('sessionToken') || '').trim(); }
+                })();
+                const isGuest = !!(token && token.endsWith('#'));
+                const isEmpty = !token;
+                if (isEmpty || isGuest) {
+                    const url = '/login?_ts=' + Date.now();
+                    try { (window.top || window).location.replace(url); } catch(_) { window.location.replace(url); }
+                    return; // stop further script execution
+                }
+            }
+        } catch(_) { /* ignore */ }
         const guestUnregistered = (sessionToken && sessionToken.endsWith('#')) && !hasUserId && !hasNomeUsuario && !hasNome;
         const pathNow = window.location.pathname || '';
         const isLanding = pathNow === '/' || pathNow === '' || pathNow.endsWith('/index.html');

@@ -476,9 +476,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const token = (function(){
                     try { return (localStorage.getItem('sessionToken') || localStorage.getItem('jwtToken') || '').trim(); } catch(_) { return (localStorage.getItem('sessionToken') || '').trim(); }
                 })();
+                const hasIdentity = (function(){
+                    try {
+                        const uId = localStorage.getItem('userId');
+                        const nome = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome');
+                        return !!(uId || nome);
+                    } catch(_) { return false; }
+                })();
                 const isGuest = !!(token && token.endsWith('#'));
                 const isEmpty = !token;
-                if (isEmpty || isGuest) {
+                if (isEmpty || isGuest || !hasIdentity) {
+                    try { sessionStorage.clear(); } catch(_){}
                     const url = '/login?_ts=' + Date.now();
                     try { (window.top || window).location.replace(url); } catch(_) { window.location.replace(url); }
                     return; // stop further script execution

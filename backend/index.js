@@ -148,6 +148,23 @@ app.get('/admin/questions/bulk', requireAdmin, (req, res) => {
 if (fs.existsSync(FRONTEND_DIST)) {
 	app.use(express.static(FRONTEND_DIST));
 }
+// Enforce authentication for non-API navigation: redirect unauthenticated users to /login
+app.use((req, res, next) => {
+	try {
+		if (req.method !== 'GET') return next();
+		if (req.path.startsWith('/api/')) return next();
+		// Allow login and static asset files without auth
+		const allowPaths = new Set(['/login', '/login.html', '/manifest.json']);
+		const isAsset = /\.(css|js|png|jpg|jpeg|gif|svg|ico|json|webmanifest|map)$/i.test(req.path);
+		if (allowPaths.has(req.path) || isAsset) return next();
+		const hasCookie = !!(req.cookies && (req.cookies.sessionToken || req.cookies.jwtToken));
+		const hasAuth = !!(req.headers && req.headers.authorization);
+		if (!hasCookie && !hasAuth) {
+			return res.redirect('/login');
+		}
+		return next();
+	} catch (e) { return next(); }
+});
 app.use(express.static(FRONTEND_DIR));
 
 // Rota raiz: sirva a home (index.html); o script.js redireciona usuários logados para /pages/examSetup.html

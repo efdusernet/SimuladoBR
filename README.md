@@ -194,6 +194,18 @@ TODO (futuro): Trabalhos planejados para admin UI/entrega de HTML:
 Coleção e instruções em: `postman/README.md`
 - Inclui fluxo de registro/login/verificação, exemplos de seleção/execução de exames, submissão de respostas e um grupo "Admin — Roles" com requests para listar papéis, consultar papéis de um usuário, atribuir e remover papel `admin`.
 
+## Documentação adicional
+
+- CSRF: docs/csrf-implementation.md
+- Logging: docs/logging-guide.md
+- Endpoints da API: docs/api-endpoints.md
+- Erros Conhecidos: docs/known-errors.md
+
+### Dicas de desenvolvimento local
+- Preferir servir o frontend pelo backend (mesma origem) ou ajustar `SIMULADOS_CONFIG.BACKEND_BASE` para apontar ao backend (ex.: `http://localhost:3000`).
+- Garanta que `frontend/utils/csrf.js` carregue antes de `frontend/script_exam.js` nas páginas de exame.
+- Se o POST `/api/exams/select` retornar 403, verifique que o cabeçalho `X-CSRF-Token` está presente e o cookie `csrfToken` está sendo enviado; consulte docs/known-errors.md.
+
 ## Itens pendentes / próximos passos
 
 - Opcional: Autenticação baseada em JWT para rotas admin (atualmente `X-Session-Token` resolve usuário por id/e‑mail/username e valida papel no DB).

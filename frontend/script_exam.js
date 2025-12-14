@@ -706,7 +706,10 @@
                 const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                 const submitUrl = baseUrl.replace(/\/$/, '') + '/api/exams/submit';
                 const resp = await fetch(submitUrl, {
-                  method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload)
+                  method: 'POST',
+                  headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token }; try { const examType = (localStorage.getItem('examType')||'').trim(); if (examType) h['X-Exam-Type'] = examType; const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(),
+                  body: JSON.stringify(payload),
+                  credentials: 'include'
                 });
                 if (!resp.ok) throw new Error('submit failed: ' + resp.status);
                 const data = await resp.json();
@@ -835,7 +838,10 @@
                 const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                 const submitUrl = baseUrl.replace(/\/$/, '') + '/api/exams/submit';
                 const resp = await fetch(submitUrl, {
-                  method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload)
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                  body: JSON.stringify(payload),
+                  credentials: 'include'
                 });
                 if (!resp.ok) throw new Error('partial submit failed: ' + resp.status);
                 const data = await resp.json();
@@ -1160,10 +1166,26 @@
                     if (grupos && grupos.length) payload.grupos = grupos;
                     if (dominios && dominios.length) payload.dominios = dominios;
                   }
+                  // Ensure CSRF token is ready before POSTing
+                  try { if (window.csrfManager && typeof window.csrfManager.getToken === 'function') { await window.csrfManager.getToken(); } } catch(_) {}
                   const resp = await fetch(fetchUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': examType },
-                    body: JSON.stringify(payload)
+                    headers: (() => {
+                      const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': examType };
+                      try {
+                        const jwtTok = (localStorage.getItem('jwt')||'').trim();
+                        const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim();
+                        if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+                      } catch(_){ }
+                      // Explicitly include CSRF header (wrapper also injects it)
+                      try {
+                        const csrfTok = (window.csrfManager && window.csrfManager.token) ? String(window.csrfManager.token) : null;
+                        if (csrfTok) h['X-CSRF-Token'] = csrfTok;
+                      } catch(_){ }
+                      return h;
+                    })(),
+                    body: JSON.stringify(payload),
+                    credentials: 'include'
                   });
                   if (!resp.ok) {
                     let available = null;
@@ -1172,14 +1194,18 @@
                       try { const j = t ? JSON.parse(t) : null; if (j && typeof j.available === 'number') available = j.available; } catch(_){}
                     } catch(_){}
                     // Friendly handling when backend indicates not enough available
+                    try { logger.warn('[exam] select failed', { status: resp.status, available, url: fetchUrl }); } catch(_){ }
                     if (resp.status === 400 && typeof available === 'number') {
                       // Special fallback: if full exam requested (180) and available=0, retry ignoring exam_type constraint
                       if (bypassFilters && available === 0) {
                         try {
+                          // Ensure CSRF token is ready before fallback POST
+                          try { if (window.csrfManager && typeof window.csrfManager.getToken === 'function') { await window.csrfManager.getToken(); } } catch(_) {}
                           const resp2 = await fetch(fetchUrl, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
-                            body: JSON.stringify({ count, ignoreExamType: true })
+                            headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(),
+                            body: JSON.stringify({ count, ignoreExamType: true }),
+                            credentials: 'include'
                           });
                           if (resp2.ok) {
                             const data2 = await resp2.json();

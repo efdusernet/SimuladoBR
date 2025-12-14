@@ -33,6 +33,16 @@ function csrfProtection(req, res, next) {
   // Validate token exists
   if (!tokenFromRequest || !tokenFromCookie) {
     security.csrfFailure(req);
+    try {
+      console.warn('[CSRF] Missing token', {
+        path: req.path,
+        method: req.method,
+        hasHeader: !!tokenFromRequest,
+        hasCookie: !!tokenFromCookie,
+        origin: req.headers.origin,
+        referer: req.headers.referer
+      });
+    } catch(_) {}
     return res.status(403).json({ 
       error: 'CSRF token missing',
       code: 'CSRF_MISSING'
@@ -42,6 +52,14 @@ function csrfProtection(req, res, next) {
   // Validate tokens match
   if (tokenFromRequest !== tokenFromCookie) {
     security.csrfFailure(req);
+    try {
+      console.warn('[CSRF] Token mismatch', {
+        path: req.path,
+        method: req.method,
+        headerLen: String(tokenFromRequest||'').length,
+        cookieLen: String(tokenFromCookie||'').length
+      });
+    } catch(_) {}
     return res.status(403).json({ 
       error: 'CSRF token invalid',
       code: 'CSRF_INVALID'
@@ -52,6 +70,7 @@ function csrfProtection(req, res, next) {
   const tokenData = tokenStore.get(tokenFromCookie);
   if (!tokenData) {
     security.csrfFailure(req);
+    try { console.warn('[CSRF] Token not in store', { path: req.path, method: req.method }); } catch(_) {}
     return res.status(403).json({ 
       error: 'CSRF token expired or invalid',
       code: 'CSRF_EXPIRED'
@@ -62,19 +81,34 @@ function csrfProtection(req, res, next) {
   if (Date.now() - tokenData.createdAt > TOKEN_EXPIRY) {
     tokenStore.delete(tokenFromCookie);
     security.csrfFailure(req);
+    try { console.warn('[CSRF] Token expired', { path: req.path, method: req.method }); } catch(_) {}
     return res.status(403).json({ 
       error: 'CSRF token expired',
       code: 'CSRF_EXPIRED'
     });
   }
 
-  // Validate origin/referer for additional security
+  // Validate origin/referer for additional security (relaxed for localhost and file:// testing)
   const origin = req.headers.origin || req.headers.referer;
   const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
-  
-  if (origin && !origin.startsWith(allowedOrigin)) {
+  const isLocalhost = (o) => {
+    try {
+      const u = new URL(o);
+      return u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '::1';
+    } catch (_) {
+      return false;
+    }
+  };
+  const isAllowed = (
+    !origin ||
+    origin.startsWith(allowedOrigin) ||
+    origin.startsWith('file://') ||
+    isLocalhost(origin) // allow any localhost port for development
+  );
+  if (!isAllowed) {
     security.csrfFailure(req);
     security.suspiciousActivity(req, `CSRF origin mismatch: ${origin}`);
+    try { console.warn('[CSRF] Origin mismatch', { origin, referer: req.headers.referer }); } catch(_) {}
     return res.status(403).json({ 
       error: 'Invalid origin',
       code: 'CSRF_ORIGIN_MISMATCH'
@@ -95,10 +129,23 @@ function generateCsrfToken(req, res) {
   });
 
   // Set cookie with token
+  const isHttps = !!(req.secure || (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'].toLowerCase() === 'https'));
+  // Use SameSite 'lax' during local development or non-HTTP origins to allow token on cross-origin navigations (file:// → http://localhost)
+  let sameSite = 'strict';
+  try {
+    const origin = req.headers.origin || req.headers.referer || '';
+    const isHttpOrigin = /^https?:/i.test(origin);
+    const host = isHttpOrigin ? new URL(origin).hostname : '';
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    if (!isHttpOrigin || isLocal) {
+      sameSite = 'lax';
+    }
+  } catch(_) { /* keep default */ }
+
   res.cookie('csrfToken', token, {
-    httpOnly: false, // Must be accessible to JavaScript for header inclusion
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    httpOnly: false,
+    secure: isHttps,
+    sameSite,
     maxAge: TOKEN_EXPIRY
   });
 

@@ -338,6 +338,25 @@
       </section>
   </div>
   <script>
+        // Unified helper: builds Accept + Authorization (JWT) + X-Session-Token when available
+        function buildAuthHeadersLocal(extra){
+          let sessionToken = '';
+          let jwtTok = '';
+          let jwtType = 'Bearer';
+          try {
+              sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+              jwtTok = (localStorage.getItem('jwtToken') || '').trim();
+              jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+          } catch(_){ }
+          const headers = { 'Accept':'application/json' };
+          if (extra && typeof extra === 'object') Object.assign(headers, extra);
+          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+          if (sessionToken) headers['X-Session-Token'] = sessionToken;
+          return headers;
+        }
+
+        // Alias for compatibility: getAuthHeadersLocal = buildAuthHeadersLocal
+        const getAuthHeadersLocal = buildAuthHeadersLocal;
     // Lightweight menu toggle and logout for this page
     (function initTopMenu(){
       const btn = document.getElementById('menuToggle');
@@ -397,7 +416,20 @@
       prob: document.getElementById('sec-prob')
     };
     tabButtons.forEach(btn => {
-      // ...existing code...
+      btn.addEventListener('click', function(){
+        const tab = btn.getAttribute('data-tab');
+        tabButtons.forEach(b => b.classList.toggle('active', b === btn));
+        Object.values(sectionsMap).forEach(sec => sec && sec.classList.remove('active'));
+        if (sectionsMap[tab]) {
+          sectionsMap[tab].classList.add('active');
+          if (tab === 'topico') loadAreaConhecimentoStats();
+          if (tab === 'abordagem') loadAbordagemStats();
+          if (tab === 'detalhes') loadDetailsLast();
+          if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
+          if (tab === 'dominios') loadDominiosLazy();
+          if (tab === 'prob') loadProbabilityCards();
+        }
+      });
     });
     // Public helper: programmatically activate a tab and trigger loaders
     window.activateTab = function(tab){
@@ -441,31 +473,6 @@
         if (sec && typeof sec.scrollIntoView === 'function') sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch(_){ }
     })();
-    // Simple helper to build Authorization header from localStorage (JWT)
-    function getAuthHeadersLocal(){
-      try {
-          const tok = localStorage.getItem('jwtToken') || '';
-          const typ = localStorage.getItem('jwtTokenType') || 'Bearer';
-          return tok ? { Authorization: `${typ} ${tok}` } : {}; 
-      } catch(_) { return {}; }
-    }
-
-    // Unified helper: builds Accept + Authorization (JWT) + X-Session-Token when available
-    function buildAuthHeadersLocal(extra){
-      let sessionToken = '';
-      let jwtTok = '';
-      let jwtType = 'Bearer';
-      try {
-          sessionToken = (localStorage.getItem('sessionToken') || '').trim();
-          jwtTok = (localStorage.getItem('jwtToken') || '').trim();
-          jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
-      } catch(_){ }
-      const headers = { 'Accept':'application/json' };
-      if (extra && typeof extra === 'object') Object.assign(headers, extra);
-      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-      if (sessionToken) headers['X-Session-Token'] = sessionToken;
-      return headers;
-    }
 
     // Exam type helpers: resolve current slug and map to numeric id via /api/exams/types
     function getCurrentExamTypeSlug(){
@@ -543,6 +550,14 @@
 
     // Populate overview grid from /api/indicators/overview (uses JWT if present)
     async function loadOverview(){
+        console.log('[DIAG] loadOverview chamada');
+        try {
+          const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+          const res = await fetch('/api/indicators/overview', { headers });
+          console.log('[DIAG] loadOverview fetch status:', res.status);
+          const data = await res.json().catch(()=>null);
+          console.log('[DIAG] loadOverview dados recebidos:', data);
+        } catch(e) { console.error('[DIAG] loadOverview erro:', e); }
       const target = sectionsMap.geral;
       if (!target) return;
       try {
@@ -569,8 +584,22 @@
       } catch(_) { /* silent */ }
     }
 
-    // Load overview on page display
-    loadOverview();
+
+    // Always load the loader for the initially active tab on page load
+    (function loadInitialActiveTab() {
+      const activeBtn = document.querySelector('.tab-btn.active');
+      if (!activeBtn) return;
+      const tab = activeBtn.getAttribute('data-tab');
+      // Only call loader for the initial tab if it's NOT 'detalhes'
+      if (tab === 'geral') loadOverview();
+      if (tab === 'grupos') loadProcessGroupStats();
+      if (tab === 'topico') loadAreaConhecimentoStats();
+      if (tab === 'abordagem') loadAbordagemStats();
+      if (tab === 'dashboard') loadDashboard();
+      if (tab === 'dominios') loadDominiosLazy();
+      if (tab === 'prob') loadProbabilityCards();
+      // Do NOT call loadDetailsLast here; it will be called only on tab activation
+    })();
 
     // Load detailed overview values for specific cells
     async function loadOverviewDetailed(){
@@ -978,6 +1007,14 @@
 
     // IND8: % Acertos/Erros por Área de Conhecimento
     async function loadAreaConhecimentoStats(){
+        console.log('[DIAG] loadAreaConhecimentoStats chamada');
+        try {
+          const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+          const res = await fetch('/api/indicators/area-conhecimento', { headers });
+          console.log('[DIAG] loadAreaConhecimentoStats fetch status:', res.status);
+          const data = await res.json().catch(()=>null);
+          console.log('[DIAG] loadAreaConhecimentoStats dados recebidos:', data);
+        } catch(e) { console.error('[DIAG] loadAreaConhecimentoStats erro:', e); }
       const container = document.getElementById('areaConhecimentoContainer');
       if (!container) return;
       container.innerHTML = '';
@@ -1056,6 +1093,14 @@
 
     // IND9: % Acertos/Erros por Abordagem (categoriaquestao)
     async function loadAbordagemStats(){
+        console.log('[DIAG] loadAbordagemStats chamada');
+        try {
+          const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+          const res = await fetch('/api/indicators/abordagem', { headers });
+          console.log('[DIAG] loadAbordagemStats fetch status:', res.status);
+          const data = await res.json().catch(()=>null);
+          console.log('[DIAG] loadAbordagemStats dados recebidos:', data);
+        } catch(e) { console.error('[DIAG] loadAbordagemStats erro:', e); }
       const container = document.getElementById('approachContainer');
       if (!container) return;
       container.innerHTML = '';
@@ -1294,6 +1339,31 @@
 
     // Detalhes: última tentativa por grupo com ranking
     async function loadDetailsLast(){
+          console.log('[DIAG] loadDetailsLast chamada');
+          try {
+            const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+            const examTypeId = await getCurrentExamTypeId();
+            const url = examTypeId
+              ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+              : '/api/indicators/details-last?exam_mode=full';
+            const res = await fetch(url, { headers });
+            console.log('[DIAG] loadDetailsLast fetch status:', res.status);
+            const data = await res.json().catch(()=>null);
+            console.log('[DIAG] loadDetailsLast dados recebidos:', data);
+          } catch(e) { console.error('[DIAG] loadDetailsLast erro:', e); }
+          console.log('[DIAG] loadDashboard chamada');
+          try {
+            const sec = document.getElementById('sec-dashboard'); if (!sec) return;
+            const daysSel = document.getElementById('dashDays');
+            const days = daysSel ? Number(daysSel.value) : 30;
+            const headers = { 'Accept':'application/json', 'X-Session-Token': (localStorage.getItem('sessionToken')||'').trim(), ...getAuthHeadersLocal() };
+            const res = await fetch(`/api/users/me/stats/summary?days=${days}`, { headers });
+            console.log('[DIAG] loadDashboard fetch status:', res.status);
+            const data = await res.json().catch(()=>null);
+            console.log('[DIAG] loadDashboard dados recebidos:', data);
+          } catch(e) { console.error('[DIAG] loadDashboard erro:', e); }
+          console.log('[DIAG] loadDominiosLazy chamada');
+          // loader real é async, logs já estão lá
         const grid = document.querySelector('#sec-detalhes .det-grid');
         if (!grid) return;
       try {
@@ -1473,6 +1543,16 @@
     // Load IND12 and render probability cards per domain + consolidated + explanation
     let _probLoadedOnce = false;
     async function loadProbabilityCards(){
+        console.log('[DIAG] loadProbabilityCards chamada');
+        try {
+          const examTypeId = await getCurrentExamTypeId();
+          const headers = buildAuthHeadersLocal();
+          const url = `/api/indicators/IND12` + (examTypeId ? `?exam_type=${encodeURIComponent(String(examTypeId))}` : '');
+          const res = await fetch(url, { headers, cache: 'no-store' });
+          console.log('[DIAG] loadProbabilityCards fetch status:', res.status);
+          const data = await res.json().catch(()=>null);
+          console.log('[DIAG] loadProbabilityCards dados recebidos:', data);
+        } catch(e) { console.error('[DIAG] loadProbabilityCards erro:', e); }
       if (_probLoadedOnce) return;
       const container = document.getElementById('probCards');
       if (!container) return;

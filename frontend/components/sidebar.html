@@ -795,6 +795,24 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-geral';
+      // Header strip for Visão Geral
+      const headerStrip = document.createElement('div');
+      headerStrip.setAttribute('aria-label', 'Cabeçalho Visão Geral');
+      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+      headerStrip.style.color = '#ffffff';
+      headerStrip.style.padding = '12px 14px';
+      headerStrip.style.borderRadius = '8px';
+      headerStrip.style.margin = '0 0 10px 0';
+      headerStrip.style.display = 'flex';
+      headerStrip.style.alignItems = 'center';
+      headerStrip.style.justifyContent = 'space-between';
+      const headerTitle = document.createElement('div');
+      headerTitle.textContent = 'Visão Geral';
+      headerTitle.style.fontSize = '0.95rem';
+      headerTitle.style.fontWeight = '700';
+      headerTitle.style.letterSpacing = '0.3px';
+      headerStrip.appendChild(headerTitle);
+      sec.appendChild(headerStrip);
       const wrap = document.createElement('div');
       wrap.className = 'ov-wrapper';
       // Stats strip (IND4/5/6) should appear BEFORE the table

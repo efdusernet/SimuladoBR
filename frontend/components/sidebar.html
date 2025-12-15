@@ -185,6 +185,14 @@
   font-weight: 500;
 }
 
+/* Indicadores Submenu (desktop) */
+/* Indicadores Submenu styles (inside accordion content) */
+@media (min-width: 1024px) {
+  #sidebarIndicadoresAccordion .sidebar-accordion-content {
+    background: #0f172a;
+  }
+}
+
 /* Footer */
 .sidebar-footer {
   padding: 1rem;
@@ -276,13 +284,28 @@
       </div>
     </div>
 
-    <!-- Indicadores -->
-    <button class="sidebar-nav-item" data-section="indicadores" id="sidebarIndicadores">
-      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-      </svg>
-      <span class="sidebar-nav-label">Indicadores</span>
-    </button>
+    <!-- Indicadores (Accordion) -->
+    <div class="sidebar-accordion" id="sidebarIndicadoresAccordion">
+      <button class="sidebar-accordion-header" id="sidebarIndicadores">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <span class="sidebar-nav-label">Indicadores</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=geral">Visão Geral</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=grupos">Grupo de Processos</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=topico">Tópico</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=abordagem">Abordagem</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=detalhes">Detalhes</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dashboard">Estatísticas</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dominios">Domínios</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=prob">Probabilidade de Sucesso</a>
+      </div>
+    </div>
 
     <!-- Progresso Geral -->
     <button class="sidebar-nav-item" data-section="progresso-geral" id="sidebarProgressoGeral">
@@ -412,13 +435,40 @@
       });
     }
     
-    // Indicadores
-    const indicadoresBtn = document.getElementById('sidebarIndicadores');
-    if (indicadoresBtn) {
-      indicadoresBtn.addEventListener('click', () => {
-        navigateToSection('indicadores');
+    // Indicadores accordion toggle (abre submenus ao clicar)
+    const indicadoresAccordionHeader = document.querySelector('#sidebarIndicadoresAccordion .sidebar-accordion-header');
+    const indicadoresAccordion = document.getElementById('sidebarIndicadoresAccordion');
+    if (indicadoresAccordionHeader && indicadoresAccordion) {
+      // Restaurar estado salvo
+      try {
+        const saved = sessionStorage.getItem('sidebarIndicadoresExpanded');
+        if (saved === 'true') {
+          indicadoresAccordion.classList.add('expanded');
+        }
+      } catch(_){}
+
+      indicadoresAccordionHeader.addEventListener('click', (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){}
+        indicadoresAccordion.classList.toggle('expanded');
+        // Persistir estado
+        try {
+          const isExpanded = indicadoresAccordion.classList.contains('expanded');
+          sessionStorage.setItem('sidebarIndicadoresExpanded', String(isExpanded));
+        } catch(_){}
       });
     }
+
+    // Indicadores submenu items navegam para abas específicas
+    const indicadoresItems = document.querySelectorAll('#sidebarIndicadoresAccordion .sidebar-accordion-content .sidebar-accordion-item');
+    indicadoresItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){}
+        const href = item.getAttribute('href');
+        if (href) {
+          (window.top || window).location.assign(href);
+        }
+      });
+    });
 
     // Progresso Geral
     const progressoGeralBtn = document.getElementById('sidebarProgressoGeral');

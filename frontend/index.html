@@ -69,10 +69,10 @@
         .section.active{display:block}
         .title{font-size:1.6rem; text-align:center; margin:4px 0 6px}
         .debug{font-size:0.9rem; color:var(--muted); text-align:center; margin:0 0 16px}
-        .card-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:6px; width:100%; max-width:320px; margin:0 auto; justify-items:center; }
+        .card-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:5px; width:100%; max-width:320px; margin:0 auto; justify-items:center; }
         .card{
             background:#1e293b; border:1px solid rgba(255,255,255,0.06);
-            width:44px; height:44px;
+            width:40px; height:40px;
             display:flex; align-items:center; justify-content:center;
             border-radius:12px;
             box-shadow:
@@ -96,17 +96,20 @@
                 0 2px 3px rgba(0,0,0,.30),
                 0 6px 12px rgba(0,0,0,.36);
         }
-        .thumb{ width:20px !important; height:20px !important; border-radius:8px; object-fit:cover !important; display:block; margin:0 auto; }
+        .thumb{ width:18px !important; height:18px !important; border-radius:8px; object-fit:cover !important; display:block; margin:0 auto; }
         .card--simulador{ flex-direction:column; gap:6px; align-items:center; justify-content:center; overflow:hidden; display:flex; height:100%; }
-        .card--simulador .thumb{ width:20px !important; height:20px !important; border-radius:6px; object-fit:cover !important; display:block; margin:0 auto; }
-        .card-label{ font-size:.53rem; line-height:1.1; user-select:none }
+        .card--simulador .thumb{ width:18px !important; height:18px !important; border-radius:6px; object-fit:cover !important; display:block; margin:0 auto; }
+        .card-label{ font-size:.50rem; line-height:1.1; user-select:none }
         @media (min-width:480px){
-            .card{ width:58px; height:58px; padding:8px }
-            .thumb{ width:27px !important; height:27px !important; }
-            .card--simulador .thumb{ width:27px !important; height:27px !important; }
+            .card{ width:52px; height:52px; padding:8px }
+            .thumb{ width:24px !important; height:24px !important; }
+            .card--simulador .thumb{ width:24px !important; height:24px !important; }
             .card--simulador{ gap:8px }
-            .card-label{ font-size:.63rem }
+            .card-label{ font-size:.60rem }
             .card-grid{ max-width:340px }
+        }
+        @media (min-width:768px){
+            .card-grid{ grid-template-columns: 1fr 1fr 1fr 1fr; max-width:480px }
         }
         @media (min-width:480px){
             .card-grid{ grid-template-columns: 1fr 1fr 1fr; max-width:360px }

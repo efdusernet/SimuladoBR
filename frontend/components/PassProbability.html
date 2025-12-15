@@ -2,11 +2,23 @@
   .pass-probability {
     border: none;
     border-radius: 8px;
-    padding: 12px;
+    padding: 6px 12px;
     background: #fff;
     color: #111827;
     box-shadow: 0 6px 16px rgba(0,0,0,0.08);
-    max-width: 320px;
+    max-width: 417px;
+  }
+  /* Mobile: fix the card near the bottom of the page */
+  @media (max-width: 640px) {
+    .pass-probability {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(env(safe-area-inset-bottom) + 56px);
+      margin: 0 auto;
+      z-index: 1500;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    }
   }
   .pass-probability h3 {
     margin: 0 0 8px 0;

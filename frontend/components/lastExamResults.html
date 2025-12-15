@@ -63,8 +63,8 @@
   #lastExamResultsMount.dark-perf .ler-date, #lastExamResultsMount.dark-perf .ler-dur, .ler-card.dark-perf .ler-date, .ler-card.dark-perf .ler-dur{ color:#D1FAE5 !important; }
   #lastExamResultsMount.dark-perf .ler-gauge text, .ler-card.dark-perf .ler-gauge text{ fill:#F0FFF4; }
   #lastExamResultsMount.dark-perf .ler-thumb, .ler-card.dark-perf .ler-thumb{ color:#F0FFF4; }
-  /* Deixe o host ocupar 100% para alinhar com a grid, o contêiner pai limita a largura */
-  :host, .ler-card{ width:100%; }
+  /* Largura fixa solicitada para o card */
+  :host, .ler-card{ width:381px; }
   /* Gauge: aumentar largura em +15px (39 -> 54) e ajustar altura proporcionalmente */
   .ler-left{ width:54px; height:46px; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; }
     .ler-right{ flex:1 1 auto; min-width:0; position:relative; z-index:1; }

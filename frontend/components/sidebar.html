@@ -791,6 +791,8 @@
         await renderEstatisticas(indicadoresSection);
       } else if (key === 'dominios') {
         await renderDominios(indicadoresSection);
+      } else if (key === 'prob' || key === 'probabilidade' || key === 'probabilidade-de-sucesso') {
+        await renderProbabilidade(indicadoresSection);
       } else {
         indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
       }
@@ -805,26 +807,35 @@
   async function renderOverview(container){
     try {
       container.innerHTML = '';
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) {
+          hdr = document.createElement('div');
+          hdr.id = 'sectionHeaderStrip';
+          mainEl.insertBefore(hdr, mainEl.firstChild);
+        }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Visão Geral');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Visão Geral';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
       const sec = document.createElement('div');
       sec.id = 'sec-geral';
-      // Header strip for Visão Geral
-      const headerStrip = document.createElement('div');
-      headerStrip.setAttribute('aria-label', 'Cabeçalho Visão Geral');
-      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
-      headerStrip.style.color = '#ffffff';
-      headerStrip.style.padding = '12px 14px';
-      headerStrip.style.borderRadius = '8px';
-      headerStrip.style.margin = '0 0 10px 0';
-      headerStrip.style.display = 'flex';
-      headerStrip.style.alignItems = 'center';
-      headerStrip.style.justifyContent = 'space-between';
-      const headerTitle = document.createElement('div');
-      headerTitle.textContent = 'Visão Geral';
-      headerTitle.style.fontSize = '0.95rem';
-      headerTitle.style.fontWeight = '700';
-      headerTitle.style.letterSpacing = '0.3px';
-      headerStrip.appendChild(headerTitle);
-      sec.appendChild(headerStrip);
       const wrap = document.createElement('div');
       wrap.className = 'ov-wrapper';
       // Stats strip (IND4/5/6) should appear BEFORE the table
@@ -1209,24 +1220,29 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-grupo-processos';
-      // Header strip
-      const headerStrip = document.createElement('div');
-      headerStrip.setAttribute('aria-label', 'Cabeçalho Grupo de Processos');
-      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
-      headerStrip.style.color = '#ffffff';
-      headerStrip.style.padding = '12px 14px';
-      headerStrip.style.borderRadius = '8px';
-      headerStrip.style.margin = '0 0 10px 0';
-      headerStrip.style.display = 'flex';
-      headerStrip.style.alignItems = 'center';
-      headerStrip.style.justifyContent = 'space-between';
-      const headerTitle = document.createElement('div');
-      headerTitle.textContent = 'Grupo de Processos';
-      headerTitle.style.fontSize = '0.95rem';
-      headerTitle.style.fontWeight = '700';
-      headerTitle.style.letterSpacing = '0.3px';
-      headerStrip.appendChild(headerTitle);
-      sec.appendChild(headerStrip);
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Grupo de Processos');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Grupo de Processos';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
 
       // Container that mirrors Indicadores.html structure
       const wrap = document.createElement('div');
@@ -1419,24 +1435,29 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-topico';
-      // Header strip
-      const headerStrip = document.createElement('div');
-      headerStrip.setAttribute('aria-label', 'Cabeçalho Tópico');
-      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
-      headerStrip.style.color = '#ffffff';
-      headerStrip.style.padding = '12px 14px';
-      headerStrip.style.borderRadius = '8px';
-      headerStrip.style.margin = '0 0 10px 0';
-      headerStrip.style.display = 'flex';
-      headerStrip.style.alignItems = 'center';
-      headerStrip.style.justifyContent = 'space-between';
-      const headerTitle = document.createElement('div');
-      headerTitle.textContent = 'Tópico';
-      headerTitle.style.fontSize = '0.95rem';
-      headerTitle.style.fontWeight = '700';
-      headerTitle.style.letterSpacing = '0.3px';
-      headerStrip.appendChild(headerTitle);
-      sec.appendChild(headerStrip);
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Tópico');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Tópico';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
 
       // Container similar to Indicadores.html
       const wrap = document.createElement('div');
@@ -1630,24 +1651,29 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-abordagem';
-      // Header strip
-      const headerStrip = document.createElement('div');
-      headerStrip.setAttribute('aria-label', 'Cabeçalho Abordagem');
-      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
-      headerStrip.style.color = '#ffffff';
-      headerStrip.style.padding = '12px 14px';
-      headerStrip.style.borderRadius = '8px';
-      headerStrip.style.margin = '0 0 10px 0';
-      headerStrip.style.display = 'flex';
-      headerStrip.style.alignItems = 'center';
-      headerStrip.style.justifyContent = 'space-between';
-      const headerTitle = document.createElement('div');
-      headerTitle.textContent = 'Abordagem';
-      headerTitle.style.fontSize = '0.95rem';
-      headerTitle.style.fontWeight = '700';
-      headerTitle.style.letterSpacing = '0.3px';
-      headerStrip.appendChild(headerTitle);
-      sec.appendChild(headerStrip);
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Abordagem');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Abordagem';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
 
       const wrap = document.createElement('div');
       wrap.className = 'ov-wrapper';
@@ -1841,24 +1867,29 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-detalhes';
-      // Header strip
-      const headerStrip = document.createElement('div');
-      headerStrip.setAttribute('aria-label', 'Cabeçalho Detalhes');
-      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
-      headerStrip.style.color = '#ffffff';
-      headerStrip.style.padding = '12px 14px';
-      headerStrip.style.borderRadius = '8px';
-      headerStrip.style.margin = '0 0 10px 0';
-      headerStrip.style.display = 'flex';
-      headerStrip.style.alignItems = 'center';
-      headerStrip.style.justifyContent = 'space-between';
-      const headerTitle = document.createElement('div');
-      headerTitle.textContent = 'Detalhes';
-      headerTitle.style.fontSize = '0.95rem';
-      headerTitle.style.fontWeight = '700';
-      headerTitle.style.letterSpacing = '0.3px';
-      headerStrip.appendChild(headerTitle);
-      sec.appendChild(headerStrip);
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Detalhes');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Detalhes';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
 
       const wrap = document.createElement('div');
       wrap.className = 'ov-wrapper';
@@ -1953,24 +1984,29 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-dashboard';
-      // Header strip
-      const headerStrip = document.createElement('div');
-      headerStrip.setAttribute('aria-label', 'Cabeçalho Estatísticas');
-      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
-      headerStrip.style.color = '#ffffff';
-      headerStrip.style.padding = '12px 14px';
-      headerStrip.style.borderRadius = '8px';
-      headerStrip.style.margin = '0 0 10px 0';
-      headerStrip.style.display = 'flex';
-      headerStrip.style.alignItems = 'center';
-      headerStrip.style.justifyContent = 'space-between';
-      const headerTitle = document.createElement('div');
-      headerTitle.textContent = 'Estatísticas';
-      headerTitle.style.fontSize = '0.95rem';
-      headerTitle.style.fontWeight = '700';
-      headerTitle.style.letterSpacing = '0.3px';
-      headerStrip.appendChild(headerTitle);
-      sec.appendChild(headerStrip);
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Estatísticas');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Estatísticas';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
 
       // Intro static panel
       const intro = document.createElement('div');
@@ -2191,26 +2227,29 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-dominios';
-      // Header (with wrapper div for consistency)
-      const headerWrap = document.createElement('div');
-      headerWrap.id = 'dominiosHeader';
-      const headerStrip = document.createElement('div');
-      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
-      headerStrip.style.color = '#ffffff';
-      headerStrip.style.padding = '12px 14px';
-      headerStrip.style.borderRadius = '8px';
-      headerStrip.style.margin = '0 0 10px 0';
-      headerStrip.style.display = 'flex';
-      headerStrip.style.alignItems = 'center';
-      headerStrip.style.justifyContent = 'space-between';
-      const headerTitle = document.createElement('div');
-      headerTitle.textContent = 'Domínios de Conhecimento';
-      headerTitle.style.fontSize = '0.95rem';
-      headerTitle.style.fontWeight = '700';
-      headerTitle.style.letterSpacing = '0.3px';
-      headerStrip.appendChild(headerTitle);
-      headerWrap.appendChild(headerStrip);
-      sec.appendChild(headerWrap);
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Domínios');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Domínios';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
 
       // Card container
       const card = document.createElement('div');
@@ -2302,6 +2341,110 @@
       logger.error('[Sidebar] renderDominios error:', e);
       container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Domínios.</div></div></div>';
     }
+  }
+
+  async function renderProbabilidade(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-prob';
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Probabilidade de Sucesso');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Probabilidade de Sucesso';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      const style = document.createElement('style');
+      style.textContent = `#sec-prob #probCards { display:grid; width:100%; grid-template-columns: repeat(3, minmax(320px, 1fr)); gap:12px; align-items:stretch; }
+        @media (max-width: 1200px) { #sec-prob #probCards { grid-template-columns: repeat(3, minmax(280px, 1fr)); } }
+        @media (max-width: 1024px) { #sec-prob #probCards { grid-template-columns: repeat(2, minmax(280px, 1fr)); } }
+        @media (max-width: 640px) { #sec-prob #probCards { grid-template-columns: 1fr; } }`;
+      sec.appendChild(style);
+
+      const probCards = document.createElement('div');
+      probCards.id = 'probCards';
+      sec.appendChild(probCards);
+      container.appendChild(sec);
+
+      // Ensure sb-hbar component exists (frontend registers one; fallback minimal implementation)
+      if (!window.customElements.get('sb-hbar')) {
+        class SbHbar extends HTMLElement { connectedCallback(){ const v=Number(this.getAttribute('value')||0); const max=Number(this.getAttribute('max')||100); const pct=Math.max(0,Math.min(100,(max? (v*100/max):0))); const root=this.attachShadow({mode:'open'}); const wrap=document.createElement('div'); wrap.style.cssText='height:16px;background:#e5e7eb;border-radius:999px;position:relative;'; const bar=document.createElement('div'); bar.style.cssText=`height:100%;width:${pct}%;background:${this.getAttribute('color')||'#4f46e5'};border-radius:999px;transition:width .3s`; const tip=document.createElement('span'); tip.textContent=`${pct.toFixed(0)}%`; tip.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);font:600 11px/1 system-ui;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)'; bar.appendChild(tip); wrap.appendChild(bar); root.appendChild(wrap); } }
+        customElements.define('sb-hbar', SbHbar);
+      }
+
+      async function getCurrentExamTypeIdLocal(){
+        try { const qpId = new URLSearchParams(window.location.search).get('examTypeId'); const n = Number(qpId); if (Number.isFinite(n) && n>0) return Math.floor(n); } catch(_){ }
+        try { const storedId = Number(localStorage.getItem('examTypeId')); if (Number.isFinite(storedId) && storedId>0) return Math.floor(storedId); } catch(_){ }
+        return null;
+      }
+      const headers = (() => { const h={ 'Accept':'application/json' }; try { const jwtTok=(localStorage.getItem('jwtToken')||'').trim(); const jwtType=(localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer'; const sessionToken=(localStorage.getItem('sessionToken')||'').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; if (sessionToken) h['X-Session-Token'] = sessionToken; } catch(_){ } return h; })();
+
+      probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b;">Carregando...</div>';
+      try {
+        const examTypeId = await getCurrentExamTypeIdLocal();
+        const url = `/api/indicators/IND12` + (examTypeId ? `?exam_type=${encodeURIComponent(String(examTypeId))}` : '');
+        const resp = await fetch(url, { headers, cache: 'no-store' });
+        if (!resp.ok) { probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Falha ao carregar indicador</div>'; return; }
+        const data = await resp.json();
+        if (!data || !Array.isArray(data.dominios)) { probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Indicador indisponível</div>'; return; }
+        const order = ['Pessoas','Processos','Ambiente de Negócios'];
+        const map = {}; data.dominios.forEach(d => { map[String(d.descricao||'').trim()] = d; });
+        const dominiosSorted = order.map(name => map[name]).filter(Boolean);
+        probCards.innerHTML = '';
+        await (window.customElements?.whenDefined ? window.customElements.whenDefined('sb-hbar') : Promise.resolve());
+        dominiosSorted.forEach(d => {
+          const card = document.createElement('div');
+          card.style.background = '#fff'; card.style.border = '1px solid #e2e8f0'; card.style.borderRadius = '10px'; card.style.padding = '12px'; card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+          const title = document.createElement('div'); title.textContent = d.descricao || 'Domínio'; title.style.fontWeight='700'; title.style.fontSize='0.85rem'; title.style.marginBottom='6px'; card.appendChild(title);
+          const info = document.createElement('div'); info.textContent = `Total: ${d.total} • Acertos: ${d.acertos}`; info.style.fontSize='0.7rem'; info.style.color='#475569'; info.style.marginBottom='6px'; card.appendChild(info);
+          const bar = document.createElement('sb-hbar'); bar.setAttribute('value', String(d.percent || 0)); bar.setAttribute('max','100'); bar.setAttribute('label','Aproveitamento'); bar.setAttribute('show-percent',''); if ((d.percent||0) >= 75) bar.setAttribute('color','#2b8a3e'); card.appendChild(bar);
+          probCards.appendChild(card);
+        });
+
+        const totals = data.dominios.reduce((acc, d) => { acc.total += (d.total||0); acc.acertos += (d.acertos||0); return acc; }, { total:0, acertos:0 });
+        const PASS_THRESHOLD = 75;
+        const overall = totals.total > 0 ? Number(((totals.acertos / totals.total) * 100).toFixed(2)) : null;
+        const probability = overall != null ? Math.max(0, Math.min(100, Number(((overall / PASS_THRESHOLD) * 100).toFixed(0)))) : 5;
+        const block = document.createElement('div'); block.style.gridColumn='1 / -1'; block.style.marginTop='8px'; block.style.background='#fff'; block.style.border='1px solid #e2e8f0'; block.style.borderRadius='10px'; block.style.padding='14px'; block.style.boxShadow='0 2px 6px rgba(0,0,0,0.06)';
+        const title2 = document.createElement('div'); title2.textContent='Probabilidade de aprovação (consolidado)'; title2.style.fontWeight='700'; title2.style.fontSize='0.9rem'; title2.style.marginBottom='8px'; block.appendChild(title2);
+        const subtitle = document.createElement('div'); subtitle.textContent = overall != null ? `Média geral: ${overall}% • Linha de corte: 75%` : 'Média geral: —'; subtitle.style.fontSize='0.75rem'; subtitle.style.color='#475569'; subtitle.style.marginBottom='8px'; block.appendChild(subtitle);
+        const bar2 = document.createElement('sb-hbar'); bar2.setAttribute('value', String(probability)); bar2.setAttribute('max','100'); bar2.setAttribute('label','Probabilidade de aprovação'); bar2.setAttribute('show-percent',''); if ((probability||0) >= 75) bar2.setAttribute('color','#2b8a3e'); block.appendChild(bar2);
+        const formula = document.createElement('div'); formula.style.marginTop='10px'; formula.style.fontSize='0.72rem'; formula.style.color='#334155'; formula.innerHTML = `Fórmula: <br>
+          <span style="display:block; margin-top:4px;">média geral = (Σ acertos) / (Σ total) × 100</span>
+          <span style="display:block;">probabilidade = limitar((média geral / 75) × 100, 0, 100)</span>`; block.appendChild(formula);
+        probCards.appendChild(block);
+
+        const expl = document.createElement('div'); expl.style.gridColumn='1 / -1'; expl.style.marginTop='10px'; expl.style.background='#ffffff'; expl.style.border='1px solid #e2e8f0'; expl.style.borderRadius='10px'; expl.style.padding='12px'; expl.style.boxShadow='0 2px 6px rgba(0,0,0,0.06)';
+        expl.innerHTML = `
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:6px; color:#0f172a;">Como funciona este Indicador?</div>
+          <div style="font-size:0.72rem; color:#334155; line-height:1.35; display:flex; flex-direction:column; gap:6px;">
+            <span>• Escopo: considera <strong>todas as tentativas finalizadas</strong> de exame completo do usuário.</span>
+            <span>• Por domínio somamos: <strong>total</strong> de questões e <strong>acertos</strong>.</span>
+            <span>• Regra de acerto: seleção idêntica ao conjunto de opções corretas.</span>
+            <span>• Percentual por domínio: <code>percent = (acertos / total) × 100</code>.</span>
+            <span>• Consolidação geral: média geral e probabilidade versus linha de corte (75%).</span>
+          </div>`;
+        probCards.appendChild(expl);
+      } catch(e){ probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Erro ao carregar dados</div>'; }
+    } catch(e){ logger.error('[Sidebar] renderProbabilidade error:', e); container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Probabilidade de Sucesso.</div></div></div>'; }
   }
 
   window.loadIndicadoresIntoSection = loadIndicadoresIntoSection;

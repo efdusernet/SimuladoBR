@@ -28,8 +28,6 @@
 .sidebar-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  background: white;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -458,15 +456,15 @@
       });
     }
 
-    // Indicadores submenu items navegam para abas específicas
+    // Indicadores submenu items: abre conteúdo na index.html (desktop) ou redireciona (mobile)
     const indicadoresItems = document.querySelectorAll('#sidebarIndicadoresAccordion .sidebar-accordion-content .sidebar-accordion-item');
     indicadoresItems.forEach(item => {
       item.addEventListener('click', (e) => {
         try { e.preventDefault(); e.stopPropagation(); } catch(_){}
-        const href = item.getAttribute('href');
-        if (href) {
-          (window.top || window).location.assign(href);
-        }
+        const href = item.getAttribute('href') || '';
+        const m = href.match(/tab=([a-zA-Z0-9_-]+)/);
+        const tab = m ? m[1] : 'geral';
+        navigateToSection('indicadores', tab);
       });
     });
 
@@ -753,6 +751,431 @@
   // Expose globally
   window.loadProgressoGeralIntoSection = loadProgressoGeralIntoSection;
 
+  // Load Indicadores into index.html section (desktop mode)
+  async function loadIndicadoresIntoSection(tab) {
+    try {
+      const indicadoresSection = document.getElementById('indicadores');
+      if (!indicadoresSection) throw new Error('Indicadores section not found in index.html');
+      const key = String(tab || 'geral').toLowerCase();
+      // Activate indicadores section
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      indicadoresSection.classList.add('active');
+
+      // Ensure styles
+      if (!document.getElementById('indicadores-inline-styles')) {
+        const style = document.createElement('style');
+        style.id = 'indicadores-inline-styles';
+        style.textContent = `
+          #indicadores .ov-wrapper{max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+          #indicadores .ov-grid{display:grid; grid-template-columns:minmax(140px,auto) repeat(10,minmax(70px,1fr)); border:1px solid #e2e8f0; font-size:13px;}
+          #indicadores .cell{padding:8px 4px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
+          #indicadores .rowlabel{text-align:left; padding-left:6px; font-size:12px;}
+          #indicadores .head,#indicadores .subhead,#indicadores .colhead{font-weight:600; font-size:11px;}
+          body.show-markers #indicadores .ov-grid .cell::after{content:attr(data-cell); position:absolute; top:2px; right:4px; font-size:9px; font-weight:500; color:#94a3b8; letter-spacing:.5px; pointer-events:none; user-select:none;}
+        `;
+        document.head.appendChild(style);
+      }
+
+      // Render per tab
+      if (key === 'geral') {
+        await renderOverview(indicadoresSection);
+      } else {
+        indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
+      }
+
+      // Persist current subsection (tab)
+      try { sessionStorage.setItem('currentSection', 'indicadores'); sessionStorage.setItem('currentSubsection', tab || 'geral'); } catch(_) {}
+    } catch (error) {
+      logger.error('[Sidebar] Error loading Indicadores:', error);
+    }
+  }
+
+  async function renderOverview(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-geral';
+      const wrap = document.createElement('div');
+      wrap.className = 'ov-wrapper';
+      // Stats strip (IND4/5/6) should appear BEFORE the table
+      const statsStrip = document.createElement('div');
+      statsStrip.style.marginTop = '10px';
+      statsStrip.style.display = 'grid';
+      statsStrip.style.gridTemplateColumns = 'repeat(4, minmax(140px,1fr))';
+      statsStrip.style.gap = '6px';
+      function stripCard(label, value){
+        const c = document.createElement('div');
+        c.style.background = '#111827';
+        c.style.border = '1px solid #1f2937';
+        c.style.borderRadius = '6px';
+        c.style.padding = '10px';
+        c.innerHTML = `<div style="font-size:11px;color:#94a3b8">${label}</div><div style="font-size:16px;font-weight:600;color:#e2e8f0">${value}</div>`;
+        return c;
+      }
+      // Insert stats strip into wrapper first
+      wrap.appendChild(statsStrip);
+      // Then create the grid table
+      const grid = document.createElement('div');
+      grid.className = 'ov-grid';
+      wrap.appendChild(grid);
+      sec.appendChild(wrap);
+      container.appendChild(sec);
+
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+      // Build grid structure matching original Visão Geral
+      function addCell(cls, cellId, text, attrs){
+        const d = document.createElement('div');
+        d.className = cls ? `cell ${cls}` : 'cell';
+        d.setAttribute('data-cell', cellId);
+        if (attrs){ Object.keys(attrs).forEach(k=>{ d.setAttribute(k, attrs[k]); }); }
+        if (text != null) d.textContent = text;
+        grid.appendChild(d);
+      }
+
+      // Row 1: Headers 30d / 60d
+      addCell('rowlabel','OV-R1C1','');
+      addCell('head','OV-R1C2-6','30d',{ style:'grid-column: span 5;' });
+      addCell('head','OV-R1C7-11','60d',{ style:'grid-column: span 5;' });
+
+      // Row 2: Você / Outros labels
+      addCell('rowlabel','OV-R2C1','');
+      addCell('subhead','OV-R2C2-4','Você',{ style:'grid-column: span 3;' });
+      addCell('subhead','OV-R2C5-6','Outros',{ style:'grid-column: span 2;' });
+      addCell('subhead','OV-R2C7-9','Você',{ style:'grid-column: span 3;' });
+      addCell('subhead','OV-R2C10-11','Outros',{ style:'grid-column: span 2;' });
+
+      // Row 3: Column headers
+      addCell('rowlabel','OV-R3C1','');
+      ['Tot','Apr%','Rep%','Apr%','Rep%','Tot','Apr%','Rep%','Apr%','Rep%']
+        .forEach((txt, i) => addCell('colhead', `OV-R3C${i+2}`, txt));
+
+      // Row 4: Exames realizados
+      addCell('rowlabel','OV-R4C1','Exames realizados');
+      addCell('', 'OV-R4C2', '—', { 'data-key':'last15.you.total' });
+      addCell('', 'OV-R4C3', '—', { 'data-format':'percent', 'data-key':'last15.you.aprovado' });
+      addCell('', 'OV-R4C4', '—', { 'data-format':'percent', 'data-key':'last15.you.reprovado' });
+      addCell('', 'OV-R4C5', '—', { 'data-format':'percent', 'data-key':'last15.others.aprovado' });
+      addCell('', 'OV-R4C6', '—', { 'data-format':'percent', 'data-key':'last15.others.reprovado' });
+      addCell('', 'OV-R4C7', '—', { 'data-key':'last30.you.total' });
+      addCell('', 'OV-R4C8', '—', { 'data-format':'percent', 'data-key':'last30.you.aprovado' });
+      addCell('', 'OV-R4C9', '—', { 'data-format':'percent', 'data-key':'last30.you.reprovado' });
+      addCell('', 'OV-R4C10', '—', { 'data-format':'percent', 'data-key':'last30.others.aprovado' });
+      addCell('', 'OV-R4C11', '—', { 'data-format':'percent', 'data-key':'last30.others.reprovado' });
+
+      // Row 5: Quiz realizados
+      addCell('rowlabel','OV-R5C1','Quiz\u00A0realizados');
+      addCell('', 'OV-R5C2', '—', { 'data-key':'last15.you.total' });
+      addCell('', 'OV-R5C3', '—', { 'data-format':'percent', 'data-key':'last15.you.aprovado' });
+      addCell('', 'OV-R5C4', '—', { 'data-format':'percent', 'data-key':'last15.you.reprovado' });
+      addCell('', 'OV-R5C5', '—', { 'data-format':'percent', 'data-key':'last15.others.aprovado' });
+      addCell('', 'OV-R5C6', '—', { 'data-format':'percent', 'data-key':'last15.others.reprovado' });
+      addCell('', 'OV-R5C7', '—', { 'data-key':'last30.you.total' });
+      addCell('', 'OV-R5C8', '—', { 'data-format':'percent', 'data-key':'last30.you.aprovado' });
+      addCell('', 'OV-R5C9', '—', { 'data-format':'percent', 'data-key':'last30.you.reprovado' });
+      addCell('', 'OV-R5C10', '—', { 'data-format':'percent', 'data-key':'last30.others.aprovado' });
+      addCell('', 'OV-R5C11', '—', { 'data-format':'percent', 'data-key':'last30.others.reprovado' });
+
+      // Populate from APIs
+      const getByPath = (obj, path) => path.split('.').reduce((o,k) => (o && typeof o === 'object') ? o[k] : undefined, obj);
+      try {
+        const resOv30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=full', { headers, credentials: 'include' });
+        const resOv60 = await fetch('/api/indicators/overview-detailed?days=60&exam_mode=full', { headers, credentials: 'include' });
+        const resQz30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=quiz', { headers, credentials: 'include' });
+        const resQz60 = await fetch('/api/indicators/overview-detailed?days=60&exam_mode=quiz', { headers, credentials: 'include' });
+        const d30 = resOv30.ok ? await resOv30.json() : { cells:{} };
+        const d60 = resOv60.ok ? await resOv60.json() : { cells:{} };
+        const q30 = resQz30.ok ? await resQz30.json() : { cells:{} };
+        const q60 = resQz60.ok ? await resQz60.json() : { cells:{} };
+
+        const mapSet = (srcObj, mapping) => {
+          Object.keys(mapping).forEach(src => {
+            const tgt = mapping[src];
+            const el = grid.querySelector(`[data-cell="${tgt}"]`);
+            if (!el) return;
+            const v = (srcObj.cells||{})[src];
+            let text = v == null ? '—' : String(v);
+            if (el.getAttribute('data-format') === 'percent' && v != null) text = `${v}%`;
+            el.textContent = text;
+          });
+        };
+
+        // 30d full -> columns 2..6
+        mapSet(d30, { 'OV-R4C2':'OV-R4C2','OV-R4C3':'OV-R4C3','OV-R4C4':'OV-R4C4','OV-R4C5':'OV-R4C5','OV-R4C6':'OV-R4C6' });
+        // 60d full -> columns 7..11
+        mapSet(d60, { 'OV-R4C2':'OV-R4C7','OV-R4C3':'OV-R4C8','OV-R4C4':'OV-R4C9','OV-R4C5':'OV-R4C10','OV-R4C6':'OV-R4C11' });
+        // 30d quiz -> row 5, columns 2..6
+        mapSet(q30, { 'OV-R4C2':'OV-R5C2','OV-R4C3':'OV-R5C3','OV-R4C4':'OV-R5C4','OV-R4C5':'OV-R5C5','OV-R4C6':'OV-R5C6' });
+        // 60d quiz -> row 5, columns 7..11
+        mapSet(q60, { 'OV-R4C2':'OV-R5C7','OV-R4C3':'OV-R5C8','OV-R4C4':'OV-R5C9','OV-R4C5':'OV-R5C10','OV-R4C6':'OV-R5C11' });
+      } catch(e){ logger.warn('[Sidebar] Overview detailed population failed:', e); }
+
+      // Fill static labels for row 1/2/3
+      const labels = {
+        'OV-R2C2-4':'Você','OV-R2C5-6':'Outros','OV-R2C7-9':'Você','OV-R2C10-11':'Outros',
+        'OV-R3C2':'Tot','OV-R3C3':'Apr%','OV-R3C4':'Rep%','OV-R3C5':'Apr%','OV-R3C6':'Rep%',
+        'OV-R3C7':'Tot','OV-R3C8':'Apr%','OV-R3C9':'Rep%','OV-R3C10':'Apr%','OV-R3C11':'Rep%'
+      };
+      Object.entries(labels).forEach(([cellId, txt])=>{
+        const el = grid.querySelector(`[data-cell="${cellId}"]`);
+        if (el) el.textContent = txt;
+      });
+
+      // Histórico de Simulados (compatível com Indicadores.html: tabela + pager)
+      const histTitle = document.createElement('div');
+      histTitle.textContent = 'Histórico de Simulados';
+      histTitle.style.margin = '14px 0 6px';
+      histTitle.style.fontSize = '0.75rem';
+      histTitle.style.fontWeight = '600';
+      histTitle.style.color = '#0f172a';
+      wrap.appendChild(histTitle);
+
+      const histBox = document.createElement('div');
+      histBox.style.overflowX = 'auto';
+      histBox.style.border = '1px solid #e2e8f0';
+      histBox.style.borderRadius = '8px';
+      histBox.style.background = '#fff';
+      const table = document.createElement('table');
+      table.id = 'attemptsHistoryTable';
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+      table.style.fontSize = '0.62rem';
+      const thead = document.createElement('thead');
+      thead.style.background = '#f8fafc';
+      thead.innerHTML = `
+        <tr style="text-align:left;">
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Data</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Título</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Tipo</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Acertos</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Score</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Status</th>
+        </tr>`;
+      const tbody = document.createElement('tbody');
+      tbody.id = 'attemptsHistoryBody';
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#64748b;">Carregando...</td></tr>';
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      histBox.appendChild(table);
+      wrap.appendChild(histBox);
+
+      const pager = document.createElement('div');
+      pager.id = 'attemptsPager';
+      pager.style.margin = '6px 2px 4px';
+      pager.style.display = 'flex';
+      pager.style.gap = '6px';
+      pager.style.flexWrap = 'wrap';
+      pager.style.alignItems = 'center';
+      pager.style.fontSize = '0.6rem';
+      pager.innerHTML = `
+        <button type="button" id="attemptsPrev" style="padding:4px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; font-weight:600;">◀</button>
+        <div id="attemptsPageInfo" style="font-weight:600; color:#334155;">Página 1</div>
+        <button type="button" id="attemptsNext" style="padding:4px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; font-weight:600;">▶</button>
+        <label for="attemptsFilter" style="display:inline-flex; align-items:center; gap:4px; margin-left:8px; font-weight:600; color:#334155;">Filtro:
+          <select id="attemptsFilter" style="padding:4px 6px; border:1px solid #cbd5e1; background:#fff; border-radius:5px; font-size:0.6rem; font-weight:600; color:#0f172a;">
+            <option value="all">Todos</option>
+            <option value="completo" selected>Completos</option>
+            <option value="incompleto">Incompletos</option>
+          </select>
+        </label>
+        <button type="button" id="attemptsExportCsv" style="margin-left:auto; padding:4px 10px; border:1px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:6px; cursor:pointer; font-weight:600;">Exportar CSV</button>`;
+      wrap.appendChild(pager);
+
+      // Logic mirrored from Indicadores.html
+      let _attemptsItems = [];
+      let _attemptsCurrentPage = 1;
+      const _attemptsPageSize = 15;
+      let _attemptsFilter = 'completo';
+
+      function renderAttemptsPage(page){
+        const tbodyEl = tbody; // already captured
+        const pageInfo = document.getElementById('attemptsPageInfo');
+        const totalInfo = document.getElementById('attemptsTotalInfo');
+        const btnPrev = document.getElementById('attemptsPrev');
+        const btnNext = document.getElementById('attemptsNext');
+        if (!tbodyEl) return;
+        const filtered = _attemptsItems.filter(it => {
+          if (_attemptsFilter === 'completo') return it.status === 'Completo';
+          if (_attemptsFilter === 'incompleto') return it.status !== 'Completo';
+          return true;
+        });
+        const total = filtered.length;
+        if (!total){
+          tbodyEl.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#64748b;">Nenhuma tentativa registrada</td></tr>';
+          if(pageInfo) pageInfo.textContent='Página 0';
+          // Atualiza o título com contagem (0)
+          if (histTitle) histTitle.textContent = 'Histórico de Simulados — 0 tentativas';
+          if(btnPrev) btnPrev.disabled=true; if(btnNext) btnNext.disabled=true;
+          return;
+        }
+        const maxPage = Math.ceil(total / _attemptsPageSize);
+        if (page < 1) page = 1; if (page > maxPage) page = maxPage;
+        _attemptsCurrentPage = page;
+        const start = (page - 1) * _attemptsPageSize;
+        const end = start + _attemptsPageSize;
+        const slice = filtered.slice(start, end);
+        tbodyEl.innerHTML = '';
+        slice.forEach(it => {
+          const tr = document.createElement('tr');
+          let scoreColor = '#334155';
+          if (it.score && it.score !== '---') {
+            const num = parseFloat(String(it.score).replace('%','').trim());
+            if (!isNaN(num)) {
+              scoreColor = num >= 75 ? '#065f46' : '#b91c1c';
+            }
+          }
+          let scoreDisplay = it.score;
+          if (it.score && it.score !== '---') {
+            const num = parseFloat(String(it.score).replace('%','').trim());
+            if (!isNaN(num)) {
+              if (num >= 99) {
+                scoreDisplay = `${it.score} <span title="Excepcional" aria-label="Excepcional" style="display:inline-block; margin-left:4px; color:#f59e0b; font-size:0.7rem; letter-spacing:1px;">★★★★★</span>`;
+              } else if (num >= 91 && num <= 98) {
+                scoreDisplay = `${it.score} <span title="Muito Alto" aria-label="Muito Alto" style="display:inline-block; margin-left:4px; color:#f59e0b; font-size:0.7rem; letter-spacing:1px;">★★★★</span>`;
+              } else if (num >= 81 && num <= 90) {
+                scoreDisplay = `${it.score} <span title="Alto" aria-label="Alto" style="display:inline-block; margin-left:4px; color:#d97706; font-size:0.7rem; letter-spacing:1px;">★★★</span>`;
+              } else if (num >= 75 && num <= 80) {
+                scoreDisplay = `${it.score} <span title="Aprovado" aria-label="Aprovado" style="display:inline-block; margin-left:4px; color:#065f46; font-size:0.65rem;">✔</span>`;
+              }
+            }
+          }
+          const tipoDisplay = it.tipo === 'Completo' ? 'Simulado Completo' : it.tipo;
+          const statusDisplay = it.status === 'Completo' ? 'Finalizado' : it.status;
+          tr.innerHTML = `
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap;">${(it.date||'').slice(0,10)}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${it.titulo || ''}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${tipoDisplay || ''}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${it.acertos}/${it.total}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${scoreColor};">${scoreDisplay || '---'}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${it.status==='Completo' ? '#16a34a' : '#dc2626'};">${statusDisplay || ''}</td>`;
+          tbodyEl.appendChild(tr);
+        });
+        if (pageInfo) pageInfo.textContent = `Página ${page} / ${maxPage}`;
+        // Atualiza o título com contagem (respeita filtro atual)
+        if (histTitle) {
+          const suffix = total === 1 ? 'tentativa' : 'tentativas';
+          histTitle.textContent = `Histórico de Simulados — ${total} ${suffix}`;
+        }
+        if (btnPrev) btnPrev.disabled = page <= 1;
+        if (btnNext) btnNext.disabled = page >= maxPage;
+      }
+
+      async function loadAttemptsHistoryExtended(){
+        const tbodyEl = tbody;
+        if (!tbodyEl) return;
+        try {
+          const res = await fetch('/api/indicators/attempts-history-extended', { headers, credentials: 'include' });
+          if (!res.ok){ tbodyEl.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b91c1c;">Falha ao carregar histórico</td></tr>'; return; }
+          const data = await res.json();
+          _attemptsItems = Array.isArray(data.items) ? data.items : [];
+          // Ensure filter select reflects current filter
+          const selFilter = document.getElementById('attemptsFilter');
+          if (selFilter) selFilter.value = _attemptsFilter;
+          renderAttemptsPage(1);
+        } catch(e){
+          tbodyEl.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b91c1c;">Erro inesperado</td></tr>';
+        }
+      }
+
+      (function initAttemptsPager(){
+        const btnPrev = document.getElementById('attemptsPrev');
+        const btnNext = document.getElementById('attemptsNext');
+        const btnCsv = document.getElementById('attemptsExportCsv');
+        const selFilter = document.getElementById('attemptsFilter');
+        try {
+          const saved = localStorage.getItem('attemptsHistoryFilter');
+          if (saved && ['all','completo','incompleto'].includes(saved)) {
+            _attemptsFilter = saved;
+            if (selFilter) selFilter.value = saved;
+          }
+        } catch(_){ }
+        if (btnPrev) btnPrev.addEventListener('click', ()=> renderAttemptsPage(_attemptsCurrentPage - 1));
+        if (btnNext) btnNext.addEventListener('click', ()=> renderAttemptsPage(_attemptsCurrentPage + 1));
+        if (btnCsv) btnCsv.addEventListener('click', exportAttemptsCsv);
+        if (selFilter) selFilter.addEventListener('change', ()=>{ _attemptsFilter = selFilter.value; try { localStorage.setItem('attemptsHistoryFilter', _attemptsFilter); } catch(_){ } renderAttemptsPage(1); });
+      })();
+
+      loadAttemptsHistoryExtended();
+
+      function exportAttemptsCsv(){
+        if (!_attemptsItems || !_attemptsItems.length){ alert('Nenhuma tentativa para exportar.'); return; }
+        const filtered = _attemptsItems.filter(it => {
+          if (_attemptsFilter === 'completo') return it.status === 'Completo';
+          if (_attemptsFilter === 'incompleto') return it.status !== 'Completo';
+          return true;
+        });
+        if (!filtered.length){ alert('Nenhum registro para exportar neste filtro.'); return; }
+        const header = ['Data','Titulo','Tipo','Acertos','Total','Score','Status'];
+        const lines = [header.join(',')];
+        filtered.forEach(it => {
+          const cells = [
+            (it.date||'').slice(0,10),
+            sanitizeCsv(it.titulo),
+            sanitizeCsv(it.tipo),
+            String(it.acertos),
+            String(it.total),
+            String(it.score),
+            sanitizeCsv(it.status)
+          ];
+          lines.push(cells.join(','));
+        });
+        const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const stamp = new Date().toISOString().slice(0,10);
+        a.download = `historico_simulados_${stamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 200);
+      }
+      function sanitizeCsv(value){
+        if (value == null) return '';
+        let v = String(value);
+        if (v.includes('"')) v = v.replace(/"/g,'""');
+        if (/[",\n]/.test(v)) v = '"' + v + '"';
+        return v;
+      }
+
+      try {
+        const examTypeId = Number(localStorage.getItem('examTypeId')) || null;
+        const url4 = examTypeId ? `/api/indicators/questions-count?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/questions-count';
+        const r4 = await fetch(url4, { headers, credentials: 'include' }).catch(()=>null);
+        const totalQuestions = r4 && r4.ok ? ((await r4.json()).total ?? 0) : 0;
+        const url5 = examTypeId ? `/api/indicators/answered-count?exam_type=${encodeURIComponent(examTypeId)}` : null;
+        let hist=0, act=0;
+        if (url5){
+          const r5 = await fetch(url5, { headers, credentials: 'include' }).catch(()=>null);
+          if (r5 && r5.ok){ const d5 = await r5.json(); hist = d5.historicalDistinct ?? 0; act = d5.activeDistinct ?? 0; }
+        }
+        const url6 = examTypeId ? `/api/indicators/total-hours?exam_type=${encodeURIComponent(examTypeId)}` : null;
+        let hoursText = '—';
+        if (url6){
+          const r6 = await fetch(url6, { headers, credentials: 'include' }).catch(()=>null);
+          if (r6 && r6.ok){ const d6 = await r6.json(); const s = Number(d6.segundos ?? 0); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60; hoursText = `${h}h ${m}min ${ss}s`; }
+        }
+        statsStrip.appendChild(stripCard('Total de Questões (IND4)', totalQuestions));
+        statsStrip.appendChild(stripCard('Respondidas históricas distintas (IND5)', hist));
+        statsStrip.appendChild(stripCard('Respondidas distintas atuais (IND5)', act));
+        statsStrip.appendChild(stripCard('Horas totais de estudo (IND6)', hoursText));
+      } catch(_){ }
+    } catch(e){
+      logger.error('[Sidebar] renderOverview error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar a Visão Geral.</div></div></div>';
+    }
+  }
+
+  window.loadIndicadoresIntoSection = loadIndicadoresIntoSection;
+
   // Navigate to section (integrates with existing index.html navigation)
   function navigateToSection(section, subsection) {
     // Save current navigation state
@@ -773,7 +1196,16 @@
     // Add active class to clicked item
     let selector;
     if (subsection) {
-      selector = `[data-simulado="${subsection}"]`;
+      // Prefer specific selector per section
+      if (section === 'simulados') {
+        selector = `[data-simulado="${subsection}"]`;
+      } else if (section === 'indicadores') {
+        selector = `#sidebarIndicadoresAccordion a[href*="tab=${subsection}"]`;
+      } else if (section === 'configuracoes') {
+        selector = `#sidebarConfiguracoesAccordion .sidebar-accordion-item`;
+      } else {
+        selector = '';
+      }
     } else {
       // Convert kebab-case to camelCase for ID (progresso-geral -> ProgressoGeral)
       const camelCase = section
@@ -789,13 +1221,15 @@
 
     // Mapeamento de seções da sidebar para seções do index.html
     const sectionMap = {
-      'indicadores': () => {
-        // Salvar estado antes de redirecionar
-        try {
-          sessionStorage.setItem('currentSection', 'indicadores');
-          sessionStorage.removeItem('currentSubsection');
-        } catch(e) {}
-        (window.top || window).location.assign('/pages/Indicadores.html');
+      'indicadores': (tab) => {
+        logger.info('[Sidebar] Indicadores clicked, tab:', tab);
+        const layout = document.body.getAttribute('data-layout');
+        if (layout === 'desktop') {
+          loadIndicadoresIntoSection(tab || 'geral');
+        } else {
+          const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
+          (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+        }
       },
       'progresso-geral': () => {
         logger.info('[Sidebar] Progresso-geral clicked');
@@ -1082,7 +1516,7 @@
       const savedSection = sessionStorage.getItem('currentSection');
       const savedSubsection = sessionStorage.getItem('currentSubsection');
       
-      // Não restaurar se for 'indicadores' ou 'home' (Indicadores tem página própria)
+      // Restaurar normalmente para seções exceto home; Indicadores será tratado abaixo
       if (savedSection && savedSection !== 'home' && savedSection !== 'indicadores') {
         logger.info('[Sidebar] Restoring navigation state:', savedSection, savedSubsection);
         // Small delay to ensure DOM is ready
@@ -1090,7 +1524,9 @@
           navigateToSection(savedSection, savedSubsection);
         }, 100);
       } else if (savedSection === 'indicadores') {
-        logger.info('[Sidebar] Skipping restore for indicadores (has own page)');
+        logger.info('[Sidebar] Restoring indicadores in desktop mode:', savedSubsection);
+        // Load indicadores tab directly into index.html
+        setTimeout(() => { try { loadIndicadoresIntoSection(savedSubsection || 'geral'); } catch(e){ logger.error('Restore indicadores failed:', e); } }, 100);
       }
     } catch(e) {
       logger.error('[Sidebar] Error restoring navigation state:', e);

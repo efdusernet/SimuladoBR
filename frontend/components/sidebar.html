@@ -781,6 +781,8 @@
         await renderOverview(indicadoresSection);
       } else if (key === 'grupo-processos' || key === 'grupos' || key === 'processos') {
         await renderProcessGroups(indicadoresSection);
+      } else if (key === 'topico' || key === 'tópico') {
+        await renderAreaConhecimento(indicadoresSection);
       } else {
         indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
       }
@@ -1339,16 +1341,279 @@
         rowWrap.appendChild(barBox);
         containerEl.appendChild(rowWrap);
       }
+      // Build auth headers (JWT + X-Session-Token)
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
 
-      // Populate with placeholder values matching the example
-      addProcessGroupRow('Iniciação', 5, 14, 26, 74);
-      addProcessGroupRow('Planejamento', 8, 25, 24, 76);
-      addProcessGroupRow('Execução', 12, 30, 29, 71);
-      addProcessGroupRow('Monitoramento e Controle', 12, 39, 24, 76);
-      addProcessGroupRow('Encerramento', 9, 26, 26, 74);
+      // Derive current exam type id when available
+      async function getCurrentExamTypeIdLocal(){
+        try {
+          const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+          const n = Number(qpId);
+          if (Number.isFinite(n) && n > 0) return Math.floor(n);
+        } catch(_){ }
+        try {
+          const storedId = Number(localStorage.getItem('examTypeId'));
+          if (Number.isFinite(storedId) && storedId > 0) return Math.floor(storedId);
+        } catch(_){ }
+        return null;
+      }
+
+      // Fetch real process group stats and render rows
+      try {
+        const examTypeId = await getCurrentExamTypeIdLocal();
+        const url = examTypeId ? `/api/indicators/process-group-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/process-group-stats';
+        const res = await fetch(url, { headers, credentials: 'include' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
+          (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
+          return;
+        }
+        if (!res.ok) {
+          containerEl.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por grupo de processos.</div>';
+          return;
+        }
+        const data = await res.json();
+        const grupos = Array.isArray(data.grupos) ? data.grupos : [];
+        if (!grupos.length){
+          containerEl.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum grupo de processos encontrado.</div>';
+          return;
+        }
+        grupos.forEach(g => {
+          const nome = (g && (g.descricao || g.grupo)) ? (g.descricao || String(g.grupo)) : 'Grupo';
+          const acertos = Number(g.acertos || 0);
+          const erros = Number(g.erros || 0);
+          const total = acertos + erros;
+          const pctAcertos = total>0 ? Math.round((acertos*100)/total) : (g.percentAcertos!=null? Math.round(g.percentAcertos) : 0);
+          const pctErros = total>0 ? Math.round((erros*100)/total) : (g.percentErros!=null? Math.round(g.percentErros) : 0);
+          addProcessGroupRow(nome, acertos, total, pctAcertos, pctErros);
+        });
+      } catch(fetchErr){
+        containerEl.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de grupos de processos.</div>';
+      }
     } catch(e){
       logger.error('[Sidebar] renderProcessGroups error:', e);
       container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Grupo de Processos.</div></div></div>';
+    }
+  }
+
+  async function renderAreaConhecimento(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-topico';
+      // Header strip
+      const headerStrip = document.createElement('div');
+      headerStrip.setAttribute('aria-label', 'Cabeçalho Tópico');
+      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+      headerStrip.style.color = '#ffffff';
+      headerStrip.style.padding = '12px 14px';
+      headerStrip.style.borderRadius = '8px';
+      headerStrip.style.margin = '0 0 10px 0';
+      headerStrip.style.display = 'flex';
+      headerStrip.style.alignItems = 'center';
+      headerStrip.style.justifyContent = 'space-between';
+      const headerTitle = document.createElement('div');
+      headerTitle.textContent = 'Tópico';
+      headerTitle.style.fontSize = '0.95rem';
+      headerTitle.style.fontWeight = '700';
+      headerTitle.style.letterSpacing = '0.3px';
+      headerStrip.appendChild(headerTitle);
+      sec.appendChild(headerStrip);
+
+      // Container similar to Indicadores.html
+      const wrap = document.createElement('div');
+      wrap.className = 'ov-wrapper';
+      const containerEl = document.createElement('div');
+      containerEl.id = 'areaConhecimentoContainer';
+      containerEl.style.display = 'flex';
+      containerEl.style.flexDirection = 'column';
+      containerEl.style.gap = '16px';
+      wrap.appendChild(containerEl);
+      sec.appendChild(wrap);
+      container.appendChild(sec);
+
+      // Ensure sb-hbar is registered (shared with process groups)
+      if (!window.customElements.get('sb-hbar')) {
+        class SbHbar extends HTMLElement {
+          constructor(){ super(); }
+          connectedCallback(){
+            try {
+              const root = this.attachShadow({ mode: 'open' });
+              const dataAttr = this.getAttribute('data');
+              const height = this.getAttribute('height') || '14';
+              const showPercent = this.hasAttribute('show-percent');
+              const data = JSON.parse(dataAttr || '[]');
+              const style = document.createElement('style');
+              style.textContent = `:host{ display:block; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
+              .wrap{ display:flex; flex-direction:column; gap:6px; }
+              .row{ display:flex; align-items:center; gap:8px; min-height:18px; }
+              .label{ flex:0 0 auto; color:#374151; font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+              .track{ position:relative; flex:1 1 auto; height:${height}px; background: var(--sb-hbar-track, #e5e7eb); border-radius: 999px; overflow:hidden; }
+              .bar{ position:absolute; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #4f46e5); border-radius:999px; transition: width .45s ease; }
+              .bar.striped{ background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 8px, transparent 8px 16px); }
+              .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
+              @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
+              .val{ flex: 0 0 auto; color:#111827; font-size:12px; min-width:36px; text-align:right; }
+              .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }`;
+              root.appendChild(style);
+              const wrap = document.createElement('div');
+              wrap.className = 'wrap';
+              const row = document.createElement('div');
+              row.className = 'row';
+              const label = document.createElement('div');
+              label.className = 'label';
+              const track = document.createElement('div');
+              track.className = 'track';
+              const val = document.createElement('div');
+              val.className = 'val';
+              let left = 0;
+              const segs = (data[0] && Array.isArray(data[0].segments)) ? data[0].segments : [];
+              segs.forEach(seg => {
+                const v = Math.max(0, Math.min(100, Number(seg.value||0)));
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.setAttribute('role','progressbar');
+                bar.setAttribute('aria-valuemin','0');
+                bar.setAttribute('aria-valuemax','100');
+                bar.setAttribute('aria-valuenow', String(v));
+                bar.setAttribute('aria-label', seg.label || '');
+                bar.style.left = left + '%';
+                bar.style.width = v + '%';
+                bar.style.setProperty('--sb-hbar-color', seg.color || '#4f46e5');
+                const tip = document.createElement('div');
+                tip.className = 'tooltip';
+                tip.textContent = `${v}%`;
+                bar.appendChild(tip);
+                track.appendChild(bar);
+                left += v;
+              });
+              val.textContent = showPercent && segs.length ? `${segs[0].value}%` : '';
+              row.appendChild(label);
+              row.appendChild(track);
+              row.appendChild(val);
+              wrap.appendChild(row);
+              root.appendChild(wrap);
+            } catch(e) {
+              const d = document.createElement('div');
+              d.textContent = 'sb-hbar inválido';
+              this.appendChild(d);
+            }
+          }
+        }
+        customElements.define('sb-hbar', SbHbar);
+      }
+
+      function addAreaRow(nome, id, acertos, erros, pctAcertos, pctErros){
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '12px';
+        row.style.flexWrap = 'wrap';
+        const label = document.createElement('div');
+        label.style.fontWeight = '600';
+        label.style.minWidth = '180px';
+        label.style.fontSize = '0.9rem';
+        label.textContent = `${id} - ${nome}`;
+        const counts = document.createElement('div');
+        counts.style.fontSize = '0.85rem';
+        counts.style.color = '#475569';
+        counts.style.minWidth = '64px';
+        counts.style.textAlign = 'center';
+        counts.textContent = `${acertos}/${erros}`;
+        const chartWrapper = document.createElement('div');
+        chartWrapper.style.flex = '1';
+        chartWrapper.style.minWidth = '300px';
+        const chart = document.createElement('sb-hbar');
+        const item = {
+          label: '',
+          max: 100,
+          segments: [
+            { label: 'Acertos', value: Number(pctAcertos)||0, color: '#2b8a3e' },
+            { label: 'Erros', value: Number(pctErros)||0, color: '#dc3545' }
+          ]
+        };
+        chart.setAttribute('data', JSON.stringify([item]));
+        chart.setAttribute('height', '14');
+        chart.setAttribute('show-percent', '');
+        chartWrapper.appendChild(chart);
+        row.appendChild(label);
+        row.appendChild(counts);
+        row.appendChild(chartWrapper);
+        containerEl.appendChild(row);
+      }
+
+      // Auth headers
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+
+      async function getExamTypeId(){
+        try {
+          const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+          const n = Number(qpId);
+          if (Number.isFinite(n) && n > 0) return Math.floor(n);
+        } catch(_){ }
+        try {
+          const storedId = Number(localStorage.getItem('examTypeId'));
+          if (Number.isFinite(storedId) && storedId > 0) return Math.floor(storedId);
+        } catch(_){ }
+        return null;
+      }
+
+      // Fetch and render
+      try {
+        const examTypeId = await getExamTypeId();
+        const url = examTypeId ? `/api/indicators/area-knowledge-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/area-knowledge-stats';
+        const res = await fetch(url, { headers, credentials: 'include' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
+          (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
+          return;
+        }
+        if (!res.ok) {
+          containerEl.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por área de conhecimento.</div>';
+          return;
+        }
+        const data = await res.json();
+        let areas = Array.isArray(data.areas) ? data.areas.slice() : [];
+        if (!areas.length) {
+          containerEl.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhuma área de conhecimento encontrada.</div>';
+          return;
+        }
+        areas.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+        areas.forEach(a => {
+          const nome = a.descricao || `Área ${a.id}`;
+          const acertos = Number(a.acertos || 0);
+          const erros = Number(a.erros || 0);
+          const total = acertos + erros;
+          const pctAcertos = a.percentAcertos != null ? Math.round(a.percentAcertos) : (total>0 ? Math.round((acertos*100)/total) : 0);
+          const pctErros = a.percentErros != null ? Math.round(a.percentErros) : (total>0 ? Math.round((erros*100)/total) : 0);
+          addAreaRow(nome, a.id, acertos, erros, pctAcertos, pctErros);
+        });
+      } catch(err) {
+        containerEl.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de áreas de conhecimento.</div>';
+      }
+    } catch(e){
+      logger.error('[Sidebar] renderAreaConhecimento error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Tópico.</div></div></div>';
     }
   }
 

@@ -552,7 +552,10 @@
     // Populate overview grid from /api/indicators/overview (uses JWT if present)
     async function loadOverview(){
     console.log('[DIAG] loadOverview chamada');
-    const target = sectionsMap.geral;
+    // Always resolve the current Visão Geral section from the live DOM
+    const target = document.getElementById('sec-geral')
+      || document.querySelector('#indicadores #sec-geral')
+      || (typeof sectionsMap !== 'undefined' ? sectionsMap.geral : null);
     if (!target) return;
     // Clear all data-key cells before rendering new data
     const cells = target.querySelectorAll('[data-key]');

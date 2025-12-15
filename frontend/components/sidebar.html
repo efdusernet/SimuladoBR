@@ -785,6 +785,8 @@
         await renderAreaConhecimento(indicadoresSection);
       } else if (key === 'abordagem') {
         await renderAbordagem(indicadoresSection);
+      } else if (key === 'detalhes') {
+        await renderDetalhes(indicadoresSection);
       } else {
         indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
       }
@@ -1827,6 +1829,118 @@
     } catch(e){
       logger.error('[Sidebar] renderAbordagem error:', e);
       container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Abordagem.</div></div></div>';
+    }
+  }
+
+  async function renderDetalhes(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-detalhes';
+      // Header strip
+      const headerStrip = document.createElement('div');
+      headerStrip.setAttribute('aria-label', 'Cabeçalho Detalhes');
+      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+      headerStrip.style.color = '#ffffff';
+      headerStrip.style.padding = '12px 14px';
+      headerStrip.style.borderRadius = '8px';
+      headerStrip.style.margin = '0 0 10px 0';
+      headerStrip.style.display = 'flex';
+      headerStrip.style.alignItems = 'center';
+      headerStrip.style.justifyContent = 'space-between';
+      const headerTitle = document.createElement('div');
+      headerTitle.textContent = 'Detalhes';
+      headerTitle.style.fontSize = '0.95rem';
+      headerTitle.style.fontWeight = '700';
+      headerTitle.style.letterSpacing = '0.3px';
+      headerStrip.appendChild(headerTitle);
+      sec.appendChild(headerStrip);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'ov-wrapper';
+      const grid = document.createElement('div');
+      grid.className = 'det-grid';
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = 'repeat(4,minmax(140px,1fr))';
+      grid.style.border = '1px solid #e2e8f0';
+      grid.style.fontSize = '13px';
+      function addCell(cls, cellId, text){
+        const d = document.createElement('div');
+        d.className = cls ? `cell ${cls}` : 'cell';
+        d.setAttribute('data-cell', cellId);
+        d.style.padding = '8px 4px';
+        d.style.boxShadow = 'inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0';
+        d.style.textAlign = 'center';
+        d.textContent = text;
+        grid.appendChild(d);
+      }
+      addCell('head','DET-R1C1','Última tentativa'); grid.lastElementChild.style.gridColumn = 'span 4';
+      addCell('colhead','DET-R2C1','Domínio');
+      addCell('colhead','DET-R2C2','Corretas %');
+      addCell('colhead','DET-R2C3','# Corretas');
+      addCell('colhead','DET-R2C4','Performance');
+      wrap.appendChild(grid);
+      sec.appendChild(wrap);
+      container.appendChild(sec);
+
+      // Headers
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+
+      async function getExamTypeId(){
+        try {
+          const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+          const n = Number(qpId);
+          if (Number.isFinite(n) && n > 0) return Math.floor(n);
+        } catch(_){ }
+        try {
+          const storedId = Number(localStorage.getItem('examTypeId'));
+          if (Number.isFinite(storedId) && storedId > 0) return Math.floor(storedId);
+        } catch(_){ }
+        return null;
+      }
+
+      // Fetch and render rows
+      try {
+        const examTypeId = await getExamTypeId();
+        const url = examTypeId
+          ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/details-last?exam_mode=full';
+        const res = await fetch(url, { headers, credentials: 'include' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
+          (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const itens = Array.isArray(data.itens) ? data.itens.slice() : [];
+        itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+        let r = 3;
+        for (const it of itens) {
+          const nome = it.descricao || `Grupo ${it.id}`;
+          const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+          const cor = String(Number(it.corretas || 0));
+          const rank = it.ranking == null ? '—' : String(it.ranking);
+          addCell('', `DET-R${r}C1`, nome);
+          addCell('', `DET-R${r}C2`, pct);
+          addCell('', `DET-R${r}C3`, cor);
+          addCell('', `DET-R${r}C4`, rank);
+          r += 1;
+        }
+      } catch(err){ /* ignore */ }
+    } catch(e){
+      logger.error('[Sidebar] renderDetalhes error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Detalhes.</div></div></div>';
     }
   }
 

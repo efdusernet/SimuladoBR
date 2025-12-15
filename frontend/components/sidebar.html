@@ -787,6 +787,8 @@
         await renderAbordagem(indicadoresSection);
       } else if (key === 'detalhes') {
         await renderDetalhes(indicadoresSection);
+      } else if (key === 'dashboard' || key === 'estatisticas') {
+        await renderEstatisticas(indicadoresSection);
       } else {
         indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
       }
@@ -1941,6 +1943,223 @@
     } catch(e){
       logger.error('[Sidebar] renderDetalhes error:', e);
       container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Detalhes.</div></div></div>';
+    }
+  }
+
+  async function renderEstatisticas(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-dashboard';
+      // Header strip
+      const headerStrip = document.createElement('div');
+      headerStrip.setAttribute('aria-label', 'Cabeçalho Estatísticas');
+      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+      headerStrip.style.color = '#ffffff';
+      headerStrip.style.padding = '12px 14px';
+      headerStrip.style.borderRadius = '8px';
+      headerStrip.style.margin = '0 0 10px 0';
+      headerStrip.style.display = 'flex';
+      headerStrip.style.alignItems = 'center';
+      headerStrip.style.justifyContent = 'space-between';
+      const headerTitle = document.createElement('div');
+      headerTitle.textContent = 'Estatísticas';
+      headerTitle.style.fontSize = '0.95rem';
+      headerTitle.style.fontWeight = '700';
+      headerTitle.style.letterSpacing = '0.3px';
+      headerStrip.appendChild(headerTitle);
+      sec.appendChild(headerStrip);
+
+      // Controls
+      const controls = document.createElement('div');
+      controls.style.marginBottom = '12px';
+      controls.style.display = 'flex';
+      controls.style.flexWrap = 'wrap';
+      controls.style.gap = '8px';
+      controls.style.alignItems = 'center';
+      controls.innerHTML = `
+        <label style="font-size:0.75rem; font-weight:600; color:#334155;">Dias:
+          <select id="dashDays" style="margin-left:4px; padding:4px 6px; font-size:0.75rem; border:1px solid #cbd5e1; border-radius:4px;">
+            <option value="15">15</option>
+            <option value="30" selected>30</option>
+            <option value="60">60</option>
+          </select>
+        </label>
+        <button id="dashReload" type="button" style="padding:6px 10px; font-size:0.7rem; font-weight:600; background:#3b82f6; color:#fff; border:none; border-radius:6px; cursor:pointer;">Recarregar</button>
+        <span id="dashLoading" style="display:none; font-size:0.7rem; color:#475569;">Carregando...</span>
+        <span id="dashError" style="display:none; font-size:0.7rem; color:#b91c1c;">Falha ao carregar</span>`;
+      sec.appendChild(controls);
+
+      // Summary grid
+      const summary = document.createElement('div');
+      summary.id = 'dashSummary';
+      summary.className = 'dash-grid';
+      summary.style.display = 'grid';
+      summary.style.gridTemplateColumns = 'repeat(auto-fit,minmax(150px,1fr))';
+      summary.style.gap = '8px';
+      summary.style.marginBottom = '16px';
+      sec.appendChild(summary);
+
+      // Rates chart panel
+      const panelRates = document.createElement('div');
+      panelRates.className = 'chart-panel';
+      panelRates.style.background = '#fff';
+      panelRates.style.border = '1px solid #e2e8f0';
+      panelRates.style.borderRadius = '10px';
+      panelRates.style.padding = '12px';
+      panelRates.style.marginBottom = '16px';
+      panelRates.innerHTML = `
+        <h3 style="margin:0 0 8px; font-size:0.85rem; font-weight:600;">Taxas diárias</h3>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:6px; font-size:0.65rem; font-weight:600; color:#475569;">
+          <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#0b5ed7; border-radius:3px;"></span> Abandono%</span>
+          <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#16a34a; border-radius:3px;"></span> Conclusão%</span>
+          <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#dc2626; border-radius:3px;"></span> Expurgo%</span>
+        </div>
+        <div id="dashRatesChart"></div>`;
+      sec.appendChild(panelRates);
+
+      // Score chart panel
+      const panelScore = document.createElement('div');
+      panelScore.className = 'chart-panel';
+      panelScore.style.background = '#fff';
+      panelScore.style.border = '1px solid #e2e8f0';
+      panelScore.style.borderRadius = '10px';
+      panelScore.style.padding = '12px';
+      panelScore.innerHTML = `
+        <h3 style="margin:0 0 8px; font-size:0.85rem; font-weight:600;">Média de pontuação diária (%)</h3>
+        <div id="dashScoreChart"></div>
+        <div style="font-size:0.65rem; color:#64748b; margin-top:8px;">Taxas: abandono = abandonadas / iniciadas; conclusão = finalizadas / iniciadas; expurgo = expurgadas / abandonadas.</div>`;
+      sec.appendChild(panelScore);
+
+      container.appendChild(sec);
+
+      // Helpers and ported functions
+      function dashSetLoading(on){ const el = document.getElementById('dashLoading'); if (el) el.style.display = on ? 'inline' : 'none'; }
+      function dashSetError(on){ const el = document.getElementById('dashError'); if (el) el.style.display = on ? 'inline' : 'none'; }
+
+      function renderDashboardSummary(s){
+        const wrap = document.getElementById('dashSummary');
+        if (!wrap) return;
+        if (!s){ wrap.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b; padding:8px; background:#f1f5f9; border-radius:6px;">Sem dados</div>'; return; }
+        function pct(x){ return x==null? '—' : (x*100).toFixed(1)+'%'; }
+        function score(x){ return x==null? '—' : Number(x).toFixed(1)+'%'; }
+        function time(sec){ if(!sec || sec<=0) return '—'; const m=Math.floor(sec/60); const s=Math.round(sec%60); return m>0 ? `${m}m ${s}s` : `${s}s`; }
+        const items = [
+          { k:'Iniciadas', v:s.started },
+          { k:'Finalizadas', v:s.finished },
+          { k:'Abandonadas', v:s.abandoned },
+          { k:'Timeout', v:s.timeout },
+          { k:'Baixo prog.', v:s.lowProgress },
+          { k:'Expurgadas', v:s.purged },
+          { k:'Abandono%', v:pct(s.abandonRate) },
+          { k:'Conclusão%', v:pct(s.completionRate) },
+          { k:'Expurgo%', v:pct(s.purgeRate) },
+          { k:'Média score', v:score(s.avgScorePercent) },
+          { k:'Tempo/questão', v:time(s.avgTimePerQuestion) }
+        ];
+        wrap.innerHTML = items.map(m => `<div class="dash-metric" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
+          <div style="font-size:0.6rem; font-weight:600; letter-spacing:.5px; color:#475569;">${m.k.toUpperCase()}</div>
+          <div style="font-size:1.05rem; font-weight:600; color:#0f172a;">${m.v}</div>
+        </div>`).join('');
+      }
+
+      function renderRatesChart(rows){
+        const target = document.getElementById('dashRatesChart'); if (!target) return;
+        if (!rows.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem dados diários</div>'; return; }
+        const labels = rows.map(r=> (r.date||'').slice(5));
+        const abandon = rows.map(r=> (r.abandonRate||0)*100);
+        const completion = rows.map(r=> (r.completionRate||0)*100);
+        const purge = rows.map(r=> (r.purgeRate||0)*100);
+        const maxVal = Math.max(10, ...abandon, ...completion, ...purge);
+        const W = target.clientWidth || 800; const H = 260; const pad = 28; const innerW = W - pad*2; const innerH = H - pad*2;
+        function x(i){ return pad + (i/(labels.length-1))*innerW; }
+        function y(v){ return pad + innerH - (v/maxVal)*innerH; }
+        function path(arr){ return arr.map((v,i)=> (i?'L':'M')+x(i)+','+y(v)).join(' '); }
+        const ticks = [0, maxVal/2, maxVal];
+        const tickEls = ticks.map(t=> `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t.toFixed(0)}%</text>`).join('');
+        const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
+        target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
+          <path d="${path(abandon)}" fill="none" stroke="#0b5ed7" stroke-width="2" />
+          <path d="${path(completion)}" fill="none" stroke="#16a34a" stroke-width="2" />
+          <path d="${path(purge)}" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3" />
+          ${tickEls}${xLabs}
+        </svg>`;
+      }
+
+      function renderScoreChartDash(rows){
+        const target = document.getElementById('dashScoreChart'); if (!target) return;
+        if (!rows.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem dados</div>'; return; }
+        const labels = rows.map(r=> (r.date||'').slice(5));
+        const scores = rows.map(r=> r.avgScorePercent==null? null : r.avgScorePercent);
+        const vals = scores.filter(v=> v!=null);
+        if (!vals.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem médias disponíveis</div>'; return; }
+        const maxVal = Math.max(100, ...vals);
+        const W = target.clientWidth || 800; const H = 260; const pad = 28; const innerW = W - pad*2; const innerH = H - pad*2;
+        function x(i){ return pad + (i/(labels.length-1))*innerW; }
+        function y(v){ return pad + innerH - (v/maxVal)*innerH; }
+        const pathScores = vals.map((v,i)=> (i?'L':'M')+x(i)+','+y(v)).join(' ');
+        const ticks = [0, maxVal/2, maxVal];
+        const tickEls = ticks.map(t=> `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t.toFixed(0)}%</text>`).join('');
+        const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
+        target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
+          <path d="${pathScores}" fill="none" stroke="#6366f1" stroke-width="2" />
+          ${tickEls}${xLabs}
+        </svg>`;
+      }
+
+      async function loadDashboard(){
+        const secEl = document.getElementById('sec-dashboard'); if (!secEl) return;
+        const daysSel = document.getElementById('dashDays');
+        const days = daysSel ? Number(daysSel.value) : 30;
+        dashSetLoading(true); dashSetError(false);
+        try {
+          let sessionToken = '';
+          try {
+            sessionToken = (localStorage.getItem('sessionToken')
+              || localStorage.getItem('nomeUsuario')
+              || localStorage.getItem('nome')
+              || '').trim();
+          } catch(_){ sessionToken=''; }
+          if (!sessionToken) {
+            dashSetLoading(false);
+            const wrap = document.getElementById('dashSummary');
+            if (wrap) wrap.innerHTML = '<div style="grid-column:1/-1; padding:12px; font-size:0.7rem; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">Sessão não identificada. Faça login para ver estatísticas agregadas.</div>';
+            return;
+          }
+          const headers = { 'Accept':'application/json', 'X-Session-Token': sessionToken };
+          const [summaryResp,dailyResp,avgTimeResp] = await Promise.all([
+            fetch(`/api/users/me/stats/summary?days=${days}`, { headers }),
+            fetch(`/api/users/me/stats/daily?days=${days}`, { headers }),
+            fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, { headers })
+          ]);
+          if (!summaryResp.ok || !dailyResp.ok){ throw new Error('Resp inválida'); }
+          const summaryData = await summaryResp.json();
+          const dailyWrap = await dailyResp.json();
+          const avgTimeData = avgTimeResp.ok ? await avgTimeResp.json() : {};
+          const rows = dailyWrap && Array.isArray(dailyWrap.data) ? dailyWrap.data : [];
+          summaryData.avgTimePerQuestion = avgTimeData.avgSeconds || 0;
+          renderDashboardSummary(summaryData);
+          renderRatesChart(rows);
+          renderScoreChartDash(rows);
+        } catch(err){ dashSetError(true); }
+        dashSetLoading(false);
+      }
+
+      // Controls wiring
+      (function initDashboardControls(){
+        const btn = document.getElementById('dashReload');
+        const sel = document.getElementById('dashDays');
+        if (btn) btn.addEventListener('click', ()=> loadDashboard());
+        if (sel) sel.addEventListener('change', ()=> loadDashboard());
+      })();
+
+      // Initial load
+      loadDashboard();
+    } catch(e){
+      logger.error('[Sidebar] renderEstatisticas error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Estatísticas.</div></div></div>';
     }
   }
 

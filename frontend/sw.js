@@ -8,7 +8,7 @@ const logger = (self && self.logger) ? self.logger : {
   error: (...args) => { try { console.error(...args); } catch(_){} }
 };
 
-const VERSION = '2.0.9';
+const VERSION = '2.0.10';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -109,6 +109,12 @@ self.addEventListener('fetch', event => {
 
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
+
+  // Bypass cache for frequently edited UI components to avoid stale code
+  if (url.pathname === '/components/sidebar.html' || url.pathname.endsWith('/frontend/components/sidebar.html')) {
+    event.respondWith(fetch(new Request(request, { cache: 'no-store' })).catch(() => networkFirstWithCache(request, CACHES.DYNAMIC)));
+    return;
+  }
 
   // Estratégia 1: Cache-First para assets estáticos
   if (STATIC_ASSETS.some(asset => url.pathname === asset || url.pathname.endsWith(asset))) {

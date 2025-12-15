@@ -51,12 +51,20 @@
         body{
             margin: 0; padding: 0;
             display: flex; flex-direction: column; min-height: 100vh;
-            background: #ffffff; color: #111827;
+            background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
+                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+            color: #111827;
             font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, 'Helvetica Neue', Arial, 'Apple Color Emoji','Segoe UI Emoji';
             touch-action: manipulation;
         }
         /* === Card Grid (restored full styling with gradients) === */
-        .content{flex:1 1 auto; overflow-y:auto; padding:16px 16px calc(env(safe-area-inset-bottom) + 48px) 16px;}
+        .content{
+            flex:1 1 auto; overflow-y:auto; padding:16px 16px calc(env(safe-area-inset-bottom) + 48px) 16px;
+            background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
+                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+        }
         .section{display:none}
         .section.active{display:block}
         .title{font-size:1.6rem; text-align:center; margin:4px 0 6px}
@@ -220,6 +228,17 @@
             background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; cursor: pointer; outline: none;
         }
         .back-btn svg{ width: 22px; height: 22px; fill: #fff }
+        /* Force gradient background across body and main.content */
+        html body{ 
+            background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
+                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
+        }
+        body > main.content{
+            background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
+                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
+        }
     </style>
 </head>
 <body>

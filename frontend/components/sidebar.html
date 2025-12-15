@@ -2191,7 +2191,9 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-dominios';
-      // Header
+      // Header (with wrapper div for consistency)
+      const headerWrap = document.createElement('div');
+      headerWrap.id = 'dominiosHeader';
       const headerStrip = document.createElement('div');
       headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
       headerStrip.style.color = '#ffffff';
@@ -2207,7 +2209,8 @@
       headerTitle.style.fontWeight = '700';
       headerTitle.style.letterSpacing = '0.3px';
       headerStrip.appendChild(headerTitle);
-      sec.appendChild(headerStrip);
+      headerWrap.appendChild(headerStrip);
+      sec.appendChild(headerWrap);
 
       // Card container
       const card = document.createElement('div');

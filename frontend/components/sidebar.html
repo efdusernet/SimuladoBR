@@ -1970,6 +1970,27 @@
       headerStrip.appendChild(headerTitle);
       sec.appendChild(headerStrip);
 
+      // Intro static panel
+      const intro = document.createElement('div');
+      intro.id = 'indicadoresIntro';
+      intro.style.margin = '0 0 14px';
+      intro.style.background = '#fff';
+      intro.style.border = '1px solid #e2e8f0';
+      intro.style.borderRadius = '10px';
+      intro.style.padding = '10px 12px';
+      intro.style.fontSize = '0.66rem';
+      intro.style.lineHeight = '1.35';
+      intro.style.color = '#334155';
+      intro.style.boxShadow = '0 2px 4px rgba(0,0,0,0.04)';
+      intro.innerHTML = `
+        <strong style="display:block; font-size:0.7rem; margin-bottom:4px;">Como interpretar estes indicadores</strong>
+        <span style="display:block; margin-bottom:4px;">Exames e quizzes em <em>Visão Geral</em> abrangem tentativas completas ("Exames realizados") e tentativas rápidas/parciais ("Quiz realizados") nos últimos períodos (30d e 60d). Colunas Apr% e Rep%: aprovação / reprovação.</span>
+        <span style="display:block; margin-bottom:4px;">As abas <em>Grupo Processos</em>, <em>Tópico</em> e <em>Abordagem</em> mostram distribuição de acertos/erros. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
+        <span style="display:block; margin-bottom:4px;">Esta aba <em>Estatísticas</em> usa agregação diária persistente (mesmo após expurgos). Fórmulas: Abandono = abandonadas / iniciadas; Conclusão = finalizadas / iniciadas; Expurgo = expurgadas / abandonadas. Score médio é ponderado pelo número de questões respondidas no dia.</span>
+        <span style="display:block; margin-bottom:4px;">Abandono pode ser classificado como <em>Timeout</em> (inatividade excede limite), <em>Baixo progresso</em> (poucas questões após tempo mínimo) ou abandono manual. Expurgo remove tentativas abandonadas antigas preservando métricas.</span>
+        <span style="display:block;">Limites de tempo e janelas são definidos pela política interna e já aplicados nos cálculos exibidos.</span>`;
+      sec.appendChild(intro);
+
       // Controls
       const controls = document.createElement('div');
       controls.style.marginBottom = '12px';

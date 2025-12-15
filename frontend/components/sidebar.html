@@ -789,6 +789,8 @@
         await renderDetalhes(indicadoresSection);
       } else if (key === 'dashboard' || key === 'estatisticas') {
         await renderEstatisticas(indicadoresSection);
+      } else if (key === 'dominios') {
+        await renderDominios(indicadoresSection);
       } else {
         indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
       }
@@ -2181,6 +2183,121 @@
     } catch(e){
       logger.error('[Sidebar] renderEstatisticas error:', e);
       container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Estatísticas.</div></div></div>';
+    }
+  }
+
+  async function renderDominios(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-dominios';
+      // Header
+      const headerStrip = document.createElement('div');
+      headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+      headerStrip.style.color = '#ffffff';
+      headerStrip.style.padding = '12px 14px';
+      headerStrip.style.borderRadius = '8px';
+      headerStrip.style.margin = '0 0 10px 0';
+      headerStrip.style.display = 'flex';
+      headerStrip.style.alignItems = 'center';
+      headerStrip.style.justifyContent = 'space-between';
+      const headerTitle = document.createElement('div');
+      headerTitle.textContent = 'Domínios de Conhecimento';
+      headerTitle.style.fontSize = '0.95rem';
+      headerTitle.style.fontWeight = '700';
+      headerTitle.style.letterSpacing = '0.3px';
+      headerStrip.appendChild(headerTitle);
+      sec.appendChild(headerStrip);
+
+      // Card container
+      const card = document.createElement('div');
+      card.style.maxWidth = '364px'; card.style.margin = '10px auto 20px'; card.style.background = '#fff';
+      card.style.padding = '14px 22px 18px 30px'; card.style.borderRadius = '10px';
+      card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'; card.style.border = '1px solid #e2e8f0';
+
+      const h2 = document.createElement('h2');
+      h2.textContent = 'Domínios de Conhecimento';
+      h2.style.textAlign = 'center'; h2.style.fontSize = '0.92rem'; h2.style.margin = '0 0 12px'; h2.style.color = '#0f172a';
+      card.appendChild(h2);
+
+      const selWrap = document.createElement('div'); selWrap.style.textAlign = 'center'; selWrap.style.marginBottom = '10px';
+      selWrap.innerHTML = `
+        <label for="domSelModo" style="font-size:0.65rem;color:#334155;font-weight:600;margin-right:5px;">Visualizar:</label>
+        <select id="domSelModo" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;background:#ffffff;font-size:0.65rem;color:#0f172a;">
+          <option value="best">Meu melhor resultado</option>
+          <option value="last" selected>Meu último exame</option>
+        </select>`;
+      card.appendChild(selWrap);
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('id','domRadar'); svg.setAttribute('viewBox','0 0 400 400');
+      svg.setAttribute('style','width:100%;height:auto;max-width:280px;margin:0 auto;display:block;transform:scale(0.90);transform-origin:200px 200px;overflow:visible;');
+      function addCircle(r){ const c = document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('cx','200'); c.setAttribute('cy','200'); c.setAttribute('r', String(r)); c.setAttribute('fill','none'); c.setAttribute('stroke','#e2e8f0'); c.setAttribute('stroke-width','1'); svg.appendChild(c); }
+      [150,120,90,60,30].forEach(addCircle);
+      function addLine(x2,y2){ const l = document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1','200'); l.setAttribute('y1','200'); l.setAttribute('x2',String(x2)); l.setAttribute('y2',String(y2)); l.setAttribute('stroke','#cbd5e1'); l.setAttribute('stroke-width','1'); svg.appendChild(l); }
+      addLine(200,50); addLine(329.9,275); addLine(70.1,275);
+      const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon'); poly.setAttribute('id','domPoly'); poly.setAttribute('points','200,50 329.9,275 70.1,275'); poly.setAttribute('fill','rgba(59,130,246,0.20)'); poly.setAttribute('stroke','#3b82f6'); poly.setAttribute('stroke-width','2'); svg.appendChild(poly);
+      function addPoint(id,cx,cy){ const p = document.createElementNS('http://www.w3.org/2000/svg','circle'); p.setAttribute('id',id); p.setAttribute('cx',String(cx)); p.setAttribute('cy',String(cy)); p.setAttribute('r','5'); p.setAttribute('fill','#3b82f6'); svg.appendChild(p); }
+      addPoint('domP1',200,50); addPoint('domP2',329.9,275); addPoint('domP3',70.1,275);
+      function addText(x,y,text,attrs){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',String(x)); t.setAttribute('y',String(y)); t.textContent = text; if(attrs){ Object.entries(attrs).forEach(([k,v])=> t.setAttribute(k,String(v))); } svg.appendChild(t); }
+      addText(200,35,'Pessoas',{ 'text-anchor':'middle','font-size':'13','font-weight':'600','fill':'#0f172a' });
+      addText(345,290,'Processos',{ 'text-anchor':'start','font-size':'13','font-weight':'600','fill':'#0f172a' });
+      addText(70,290,'Ambiente de',{ 'text-anchor':'end','font-size':'13','font-weight':'600','fill':'#0f172a' });
+      addText(70,305,'Negócios',{ 'text-anchor':'end','font-size':'13','font-weight':'600','fill':'#0f172a' });
+      addText(200,20,'0%',{ id:'domV1','text-anchor':'middle','font-size':'11','fill':'#3b82f6','font-weight':'600' });
+      addText(345,305,'0%',{ id:'domV2','text-anchor':'start','font-size':'11','fill':'#3b82f6','font-weight':'600' });
+      addText(70,320,'0%',{ id:'domV3','text-anchor':'end','font-size':'11','fill':'#3b82f6','font-weight':'600' });
+      card.appendChild(svg);
+
+      // Analysis block
+      const analysis = document.createElement('div');
+      analysis.id = 'domAnalysis';
+      analysis.style.marginTop = '12px'; analysis.style.background = '#ffffff'; analysis.style.border = '1px solid #e2e8f0'; analysis.style.borderRadius = '6px'; analysis.style.padding = '10px 12px'; analysis.style.fontSize = '0.62rem'; analysis.style.color = '#334155'; analysis.style.lineHeight = '1.2';
+      analysis.innerHTML = `<strong style="display:block; font-size:0.65rem; margin-bottom:5px; color:#0f172a;">Análise automática</strong><div class="dom-analysis-body" style="display:flex; flex-direction:column; gap:3px;"><span style="color:#64748b;">Carregando análise…</span></div>`;
+      card.appendChild(analysis);
+
+      const legend = document.createElement('div'); legend.style.marginTop = '12px'; legend.style.padding = '8px'; legend.style.background = '#f1f5f9'; legend.style.borderRadius = '6px'; legend.style.fontSize = '0.60rem'; legend.style.color = '#475569'; legend.innerHTML = `<strong style="display:block;margin-bottom:3px;font-size:0.62rem;">Legenda</strong><span style="display:block;">Os valores refletem a % de questões corretas por domínio no exame selecionado (melhor ou último).</span><span id="domInfoExam" style="display:block;margin-top:5px;color:#64748b;">Exame: —</span>`;
+      card.appendChild(legend);
+
+      container.appendChild(card);
+
+      // Logic ported from Indicadores.html
+      function domGetPoint(angleDeg, percent){ const maxR = 150; const r = (percent/100)*maxR; const rad = (angleDeg - 90) * Math.PI/180; return { x:200 + r*Math.cos(rad), y:200 + r*Math.sin(rad) }; }
+      function domRenderPolygon(values){ const p1 = domGetPoint(0, values.pessoas); const p2 = domGetPoint(120, values.processos); const p3 = domGetPoint(240, values.ambienteNegocios); const polyEl = document.getElementById('domPoly'); if (polyEl) polyEl.setAttribute('points', `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`); const el1 = document.getElementById('domP1'); if (el1){ el1.setAttribute('cx', p1.x); el1.setAttribute('cy', p1.y); } const el2 = document.getElementById('domP2'); if (el2){ el2.setAttribute('cx', p2.x); el2.setAttribute('cy', p2.y); } const el3 = document.getElementById('domP3'); if (el3){ el3.setAttribute('cx', p3.x); el3.setAttribute('cy', p3.y); } const v1 = document.getElementById('domV1'); if (v1) v1.textContent = `${values.pessoas.toFixed(1)}%`; const v2 = document.getElementById('domV2'); if (v2) v2.textContent = `${values.processos.toFixed(1)}%`; const v3 = document.getElementById('domV3'); if (v3) v3.textContent = `${values.ambienteNegocios.toFixed(1)}%`; }
+      function domNormalize(domains){ const out = { pessoas:0, processos:0, ambienteNegocios:0 }; domains.forEach(d => { const nm = String(d.name||'').toLowerCase(); const pct = Number(d.percentage||0); if (nm.includes('pessoa')) out.pessoas = pct; else if (nm.includes('processo')) out.processos = pct; else if (nm.includes('ambiente') || nm.includes('negó') || nm.includes('negócio')) out.ambienteNegocios = pct; }); return out; }
+      function domGenerateInsights(domains){ const norm = domNormalize(domains); const vals = [norm.pessoas, norm.processos, norm.ambienteNegocios]; const namesMap = { pessoas:'Pessoas', processos:'Processos', ambienteNegocios:'Ambiente de Negócios' }; const classifications = {}; function classify(p){ if (p < 60) return 'Crítico'; if (p < 75) return 'Atenção'; if (p < 85) return 'Regular'; if (p < 95) return 'Bom'; return 'Excelente'; } Object.entries(norm).forEach(([k,v])=> classifications[k] = classify(v)); const max = Math.max(...vals); const min = Math.min(...vals); const amplitude = max - min; const allBelow75 = vals.every(v => v < 75); const allAbove85 = vals.every(v => v >= 85); const anyCritical = vals.some(v => v < 60); const weakerKeys = Object.entries(norm).filter(([k,v]) => v < 75); const strongerKeys = Object.entries(norm).filter(([k,v]) => v >= 75); const insights = []; if (domains.length === 0){ insights.push('Nenhum exame disponível para análise de domínios.'); } else if (allBelow75){ insights.push('⚠️ Desempenho geral abaixo de 75% nos três domínios. Foque em revisão ampla dos conceitos fundamentais.'); } else { if (anyCritical){ Object.entries(norm).filter(([k,v])=> v < 60).forEach(([k,v])=>{ insights.push(`🎯 Prioridade: ${namesMap[k]} está em nível crítico (${v.toFixed(1)}%). Reforce estudo direcionado neste domínio.`); }); } if (!anyCritical && weakerKeys.length === 1 && strongerKeys.length === 2){ const [k,v] = weakerKeys[0]; const strongerAvg = strongerKeys.reduce((a,b)=> a + b[1], 0) / strongerKeys.length; insights.push(`📊 Foco sugerido: ${namesMap[k]} (${v.toFixed(1)}%) está abaixo dos demais (${strongerAvg.toFixed(1)}% média). Ajustar este domínio trará ganho rápido de equilíbrio.`); } if (amplitude >= 25){ const weakest = Object.entries(norm).reduce((a,b)=> a[1] <= b[1] ? a : b); const strongest = Object.entries(norm).reduce((a,b)=> a[1] >= b[1] ? a : b); insights.push(`⚖️ Desequilíbrio: diferença de ${amplitude.toFixed(1)} p.p. entre ${namesMap[strongest[0]]} (${strongest[1].toFixed(1)}%) e ${namesMap[weakest[0]]} (${weakest[1].toFixed(1)}%). Busque nivelar para aumentar consistência.`); } if (allAbove85){ insights.push('✅ Excelente equilíbrio: todos os domínios acima de 85%. Mantenha ritmo e considere aprofundar questões mais complexas.'); } Object.entries(norm).filter(([k,v])=> v >= 70 && v < 75).forEach(([k,v])=>{ insights.push(`🔜 Quase lá: ${namesMap[k]} em ${v.toFixed(1)}%. Pequenas revisões podem ultrapassar 75%.`); }); } if (!insights.length){ insights.push('Sem pontos críticos identificados. Continue acompanhando para detectar tendências.'); } const containerAnalysis = document.getElementById('domAnalysis'); if (containerAnalysis){ const body = containerAnalysis.querySelector('.dom-analysis-body'); if (body){ body.innerHTML = ''; insights.slice(0,5).forEach(msg => { const line = document.createElement('div'); line.textContent = msg; body.appendChild(line); }); const summary = document.createElement('div'); summary.style.marginTop = '6px'; summary.style.color = '#64748b'; summary.textContent = `Classificação: Pessoas ${classifications.pessoas}, Processos ${classifications.processos}, Ambiente de Negócios ${classifications.ambienteNegocios}.`; body.appendChild(summary); } }
+      }
+
+      async function loadDominios(){
+        const sel = document.getElementById('domSelModo'); if (!sel) return;
+        const examMode = sel.value;
+        let sessionToken = '';
+        try { sessionToken = (localStorage.getItem('sessionToken')||'').trim(); } catch(_){ }
+        if (!sessionToken){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+        try {
+          let jwtTok = ''; let jwtType = 'Bearer';
+          try { jwtTok = (localStorage.getItem('jwtToken')||'').trim(); jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer'; } catch(_){ }
+          const headers = {};
+          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+          if (sessionToken) headers['X-Session-Token'] = sessionToken;
+          const resp = await fetch(`/api/indicators/IND10?examMode=${encodeURIComponent(examMode)}`, { headers });
+          if (!resp.ok){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+          const data = await resp.json();
+          const domains = Array.isArray(data.domains) ? data.domains : [];
+          const normVals = domNormalize(domains);
+          domRenderPolygon(normVals);
+          domGenerateInsights(domains);
+          const info = document.getElementById('domInfoExam');
+          if (info) info.textContent = `Exame: ${data.examAttemptId ? (data.examAttemptId + (data.examDate ? ' - ' + (data.examDate||'').slice(0,10) : '')) : 'nenhum'} (${examMode})`;
+        } catch(_){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); }
+      }
+
+      // Initial load and controls
+      loadDominios();
+      const sel = document.getElementById('domSelModo'); if (sel) sel.addEventListener('change', ()=> loadDominios());
+    } catch(e){
+      logger.error('[Sidebar] renderDominios error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Domínios.</div></div></div>';
     }
   }
 

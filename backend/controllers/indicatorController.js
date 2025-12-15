@@ -590,10 +590,12 @@ async function getDetailsLast(req, res, next){
                          ORDER BY a.finished_at DESC
                          LIMIT 1`;
     const lastExamRows = await sequelize.query(lastExamSql, { replacements: hasExamType ? { userId, examMode, examTypeId } : { userId, examMode }, type: sequelize.QueryTypes.SELECT });
+    logger.info('[DET-LAST] lastExamRows', lastExamRows);
     if (!lastExamRows || !lastExamRows.length) {
       return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame: null, itens: [] });
     }
     const idExame = Number(lastExamRows[0].id);
+    logger.info('[DET-LAST] idExame', idExame);
 
     // Agregar por grupo: corretas/total baseado em respostaopcao
     const sql = `
@@ -624,6 +626,7 @@ async function getDetailsLast(req, res, next){
       GROUP BY grupo
       ORDER BY grupo`;
     const aggRows = await sequelize.query(sql, { replacements: hasExamType ? { idExame, examTypeId } : { idExame }, type: sequelize.QueryTypes.SELECT });
+    logger.info('[DET-LAST] aggRows', aggRows);
 
     // Mapear grupos de referência para incluir grupos sem questões
     let groupMap = {};
@@ -932,7 +935,6 @@ async function getAvgTimePerQuestion(req, res, next){
 async function getPerformancePorDominioAgregado(req, res, next) {
   try {
     const user = req.user || {};
-    console.info('[IND12] incoming user/session', { user, idUsuario: req.query?.idUsuario, xSession: req.get('X-Session-Token'), auth: req.headers?.authorization });
     // Resolve userId from middleware (`req.user.id`) or JWT-like `sub`, or `idUsuario` query fallback
     let userId = null;
     if (Number.isFinite(parseInt(user.id, 10))) userId = parseInt(user.id, 10);

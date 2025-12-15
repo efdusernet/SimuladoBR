@@ -107,11 +107,19 @@
 
       // Overall probability bar
       const bar = document.createElement('sb-hbar');
+
       bar.setAttribute('value', String(data.probability ?? 5));
       bar.setAttribute('max', '100');
       bar.setAttribute('label', 'Probabilidade de aprovação');
       bar.setAttribute('show-percent', '');
-      if ((data.probability||0) >= 75) bar.setAttribute('color', '#2b8a3e');
+      // Color logic: <75 = #B91C1C (blood red), >75 and <85 = #32CD32 (green), >=85 = #0A7A0A (dark green)
+      if ((data.probability||0) >= 85) {
+        bar.setAttribute('color', '#0A7A0A');
+      } else if ((data.probability||0) > 75) {
+        bar.setAttribute('color', '#32CD32');
+      } else {
+        bar.setAttribute('color', '#B91C1C');
+      }
       mount.appendChild(bar);
 
       // Formula display block

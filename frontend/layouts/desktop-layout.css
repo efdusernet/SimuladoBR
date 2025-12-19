@@ -46,6 +46,7 @@ body[data-layout="desktop"] .content {
   min-height: 100vh;
   background: #f8fafc;
   width: calc(100% - var(--sidebar-width));
+  color: #fff;
 }
 
 /* Esconder bottom-nav no desktop */

@@ -119,3 +119,41 @@ sb-hbar::part(value){ min-width:48px; }
 ---
 
 Precisa de um exemplo integrado a uma página existente (ex.: `results.html`)? Posso adicionar um bloco de demonstração com dados mock ou conectando ao backend.
+
+---
+
+## PassProbability — Card “Probabilidade de passar no exame”
+
+Card exibido na Home (index) que mostra uma barra `<sb-hbar>` com a “probabilidade de aprovação” calculada a partir do indicador IND12.
+
+- Arquivo: `frontend/components/PassProbability.html`
+- Integração: carregado como componente HTML dentro do `index.html` (via fetch de `/components/PassProbability.html`).
+- Barra: usa `<sb-hbar>` (script `/components/sb-hbar.js`).
+
+### Faixas (classes `perf-*`)
+
+O componente aplica uma classe de performance no elemento raiz `.pass-probability` com base no valor calculado (`data.probability`):
+
+- `perf-gt85`: $\ge 85\%$
+- `perf-75-85`: $> 75\%$ e $< 85\%$
+- `perf-70-74`: $\ge 70\%$ e $\le 75\%$
+- `perf-lt70`: $< 70\%$
+
+Essas classes **não alteram o fundo do card**. Elas aplicam **borda mais espessa** e pintam a borda com a cor da faixa, para evitar perda de contraste com a barra de progresso.
+
+### Cores
+
+- Cor da barra (`sb-hbar`):
+  - $\ge 85\%$: `#0A7A0A` (verde escuro)
+  - $> 75\%$: `#32CD32` (verde)
+  - caso contrário: `#B91C1C` (vermelho “blood red”)
+
+- Cor da borda do card (por faixa `perf-*`):
+  - `perf-gt85`: `#0A7A0A`
+  - `perf-75-85`: `#32CD32`
+  - `perf-70-74`: `#FED7AA`
+  - `perf-lt70`: `#FCA5A5`
+
+### Observação de UX
+
+O objetivo das faixas é dar feedback visual rápido de “nível” sem competir com a cor da barra (`--sb-hbar-color`). Se algum tema/layout alterar o background do container pai, manter o card com fundo neutro ajuda a preservar legibilidade do texto e da tooltip da barra.

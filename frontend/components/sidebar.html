@@ -977,7 +977,7 @@
       histTitle.style.margin = '14px 0 6px';
       histTitle.style.fontSize = '0.75rem';
       histTitle.style.fontWeight = '600';
-      histTitle.style.color = '#0f172a';
+      histTitle.style.color = '#fff';
       wrap.appendChild(histTitle);
 
       const histBox = document.createElement('div');
@@ -992,6 +992,7 @@
       table.style.fontSize = '0.62rem';
       const thead = document.createElement('thead');
       thead.style.background = '#f8fafc';
+      thead.style.color = '#111827';
       thead.innerHTML = `
         <tr style="text-align:left;">
           <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Data</th>
@@ -1092,10 +1093,10 @@
           const tipoDisplay = it.tipo === 'Completo' ? 'Simulado Completo' : it.tipo;
           const statusDisplay = it.status === 'Completo' ? 'Finalizado' : it.status;
           tr.innerHTML = `
-            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap;">${(it.date||'').slice(0,10)}</td>
-            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${it.titulo || ''}</td>
-            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${tipoDisplay || ''}</td>
-            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">${it.acertos}/${it.total}</td>
+            <td style=\"padding:6px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap; color:#111827;\">${(it.date||'').slice(0,10)}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; color:#111827;">${it.titulo || ''}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; color:#111827;">${tipoDisplay || ''}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; color:#111827;">${it.acertos}/${it.total}</td>
             <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${scoreColor};">${scoreDisplay || '---'}</td>
             <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${it.status==='Completo' ? '#16a34a' : '#dc2626'};">${statusDisplay || ''}</td>`;
           tbodyEl.appendChild(tr);
@@ -1188,22 +1189,98 @@
       }
 
       try {
-        const examTypeId = Number(localStorage.getItem('examTypeId')) || null;
+        // Resolve examTypeId (numeric) required by /answered-count and /total-hours
+        async function resolveExamTypeId(){
+          // 0) Query param examTypeId (num)
+          try {
+            const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+            const n = Number(qpId);
+            if (Number.isFinite(n) && n > 0) return Math.floor(n);
+          } catch(_){ }
+
+          // 1) Stored numeric id
+          try {
+            const storedId = Number(localStorage.getItem('examTypeId'));
+            if (Number.isFinite(storedId) && storedId > 0) return Math.floor(storedId);
+          } catch(_){ }
+
+          // 2) Determine slug (pmp/cpm/...) from qp or localStorage
+          let slug = 'pmp';
+          try {
+            const qp = new URLSearchParams(window.location.search).get('examType');
+            if (qp) slug = String(qp).toLowerCase();
+          } catch(_){ }
+          try {
+            const ls = localStorage.getItem('examType');
+            if (ls) slug = String(ls).toLowerCase();
+          } catch(_){ }
+
+          // 3) Try sessionStorage cache
+          try {
+            const raw = sessionStorage.getItem('examTypesCache');
+            if (raw) {
+              const arr = JSON.parse(raw);
+              const found = Array.isArray(arr) ? arr.find(t => (t.slug || t.Slug || '').toLowerCase() === slug) : null;
+              const id = found && (found.id != null || found.Id != null) ? Number(found.id != null ? found.id : found.Id) : null;
+              if (Number.isFinite(id) && id > 0) return Math.floor(id);
+            }
+          } catch(_){ }
+
+          // 4) Try localStorage cache
+          try {
+            const rawLocal = localStorage.getItem('examTypesCache');
+            if (rawLocal) {
+              const arr = JSON.parse(rawLocal);
+              const found = Array.isArray(arr) ? arr.find(t => (t.slug || t.Slug || '').toLowerCase() === slug) : null;
+              const id = found && (found.id != null || found.Id != null) ? Number(found.id != null ? found.id : found.Id) : null;
+              if (Number.isFinite(id) && id > 0) return Math.floor(id);
+            }
+          } catch(_){ }
+
+          // 5) Fetch from API
+          try {
+            const list = await fetch('/api/exams/types', { headers, credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(()=>null);
+            if (Array.isArray(list)) {
+              try { sessionStorage.setItem('examTypesCache', JSON.stringify(list)); } catch(_){ }
+              const found = list.find(t => (t.slug || t.Slug || '').toLowerCase() === slug);
+              const id = found && (found.id != null || found.Id != null) ? Number(found.id != null ? found.id : found.Id) : null;
+              if (Number.isFinite(id) && id > 0) {
+                try { localStorage.setItem('examTypeId', String(Math.floor(id))); } catch(_){ }
+                return Math.floor(id);
+              }
+            }
+          } catch(_){ }
+
+          // 6) Minimal fallback map (keeps PMP working if everything else fails)
+          const fallbackMap = { pmp: 1 };
+          if (fallbackMap[slug]) return fallbackMap[slug];
+          return null;
+        }
+
+        const examTypeId = await resolveExamTypeId();
+
         const url4 = examTypeId ? `/api/indicators/questions-count?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/questions-count';
         const r4 = await fetch(url4, { headers, credentials: 'include' }).catch(()=>null);
         const totalQuestions = r4 && r4.ok ? ((await r4.json()).total ?? 0) : 0;
-        const url5 = examTypeId ? `/api/indicators/answered-count?exam_type=${encodeURIComponent(examTypeId)}` : null;
-        let hist=0, act=0;
-        if (url5){
+
+        let hist = '—', act = '—';
+        if (examTypeId) {
+          const url5 = `/api/indicators/answered-count?exam_type=${encodeURIComponent(examTypeId)}`;
           const r5 = await fetch(url5, { headers, credentials: 'include' }).catch(()=>null);
           if (r5 && r5.ok){ const d5 = await r5.json(); hist = d5.historicalDistinct ?? 0; act = d5.activeDistinct ?? 0; }
+        } else {
+          logger.warn('[Sidebar] renderOverview: examTypeId não resolvido; pulando IND5 (answered-count).');
         }
-        const url6 = examTypeId ? `/api/indicators/total-hours?exam_type=${encodeURIComponent(examTypeId)}` : null;
+
         let hoursText = '—';
-        if (url6){
+        if (examTypeId) {
+          const url6 = `/api/indicators/total-hours?exam_type=${encodeURIComponent(examTypeId)}`;
           const r6 = await fetch(url6, { headers, credentials: 'include' }).catch(()=>null);
           if (r6 && r6.ok){ const d6 = await r6.json(); const s = Number(d6.segundos ?? 0); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60; hoursText = `${h}h ${m}min ${ss}s`; }
+        } else {
+          logger.warn('[Sidebar] renderOverview: examTypeId não resolvido; pulando IND6 (total-hours).');
         }
+
         statsStrip.appendChild(stripCard('Total de Questões (IND4)', totalQuestions));
         statsStrip.appendChild(stripCard('Respondidas históricas distintas (IND5)', hist));
         statsStrip.appendChild(stripCard('Respondidas distintas atuais (IND5)', act));
@@ -1220,6 +1297,7 @@
       container.innerHTML = '';
       const sec = document.createElement('div');
       sec.id = 'sec-grupo-processos';
+      // Removed body color override to avoid affecting global text color
       const mainEl = document.querySelector('main.content') || document.querySelector('main');
       if (mainEl) {
         let hdr = document.getElementById('sectionHeaderStrip');
@@ -2373,7 +2451,7 @@
       }
 
       const style = document.createElement('style');
-      style.textContent = `#sec-prob #probCards { display:grid; width:100%; grid-template-columns: repeat(3, minmax(320px, 1fr)); gap:12px; align-items:stretch; }
+      style.textContent = `#sec-prob #probCards { display:grid; width:100%; grid-template-columns: repeat(3, minmax(320px, 1fr)); gap:12px; align-items:stretch; color:#b91c1c; }
         @media (max-width: 1200px) { #sec-prob #probCards { grid-template-columns: repeat(3, minmax(280px, 1fr)); } }
         @media (max-width: 1024px) { #sec-prob #probCards { grid-template-columns: repeat(2, minmax(280px, 1fr)); } }
         @media (max-width: 640px) { #sec-prob #probCards { grid-template-columns: 1fr; } }`;

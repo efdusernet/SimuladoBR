@@ -193,7 +193,16 @@
           <div class="cell" data-cell="OV-R5C11" data-format="percent" data-key="last30.others.reprovado">&nbsp;</div>
         </div>
       </div>
-      <div style="margin:14px 0 6px; font-size:0.75rem; font-weight:600; color:#0f172a;">Histórico de Simulados</div>
+      <div style="margin:14px 0 6px; font-size:0.75rem; font-weight:600; color:#fff;">Histórico de Simulados</div>
+      <style>
+        /* Force black text for columns: Data(1), Título(2), Tipo(3), Acertos(4) */
+        #attemptsHistoryTable td:nth-child(1),
+        #attemptsHistoryTable td:nth-child(2),
+        #attemptsHistoryTable td:nth-child(3),
+        #attemptsHistoryTable td:nth-child(4){ color:#111827 !important; }
+        /* Force black text for table header */
+        #attemptsHistoryTable thead th{ color:#111827 !important; }
+      </style>
       <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; background:#fff;">
         <table id="attemptsHistoryTable" style="width:100%; border-collapse:collapse; font-size:0.62rem;">
           <thead style="background:#f8fafc;">
@@ -329,7 +338,7 @@
       </section>
       <section id="sec-prob" class="section" aria-labelledby="tab-prob">
         <style id="probCardsStyles">
-          #sec-prob #probCards { display:grid; width:100%; grid-template-columns: repeat(3, minmax(320px, 1fr)); gap:12px; align-items:stretch; }
+          #sec-prob #probCards { display:grid; width:100%; grid-template-columns: repeat(3, minmax(320px, 1fr)); gap:12px; align-items:stretch; color:#b91c1c; }
           @media (max-width: 1200px) { #sec-prob #probCards { grid-template-columns: repeat(3, minmax(280px, 1fr)); } }
           @media (max-width: 1024px) { #sec-prob #probCards { grid-template-columns: repeat(2, minmax(280px, 1fr)); } }
           @media (max-width: 640px) { #sec-prob #probCards { grid-template-columns: 1fr; } }

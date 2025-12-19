@@ -481,3 +481,8 @@ body.has-sidebar{ padding-left: 260px; }
 		body.has-sidebar{ padding-left: 0; }
 }
 
+/* Ensure text inside main.content is white by default */
+main.content{ color:#fff; }
+/* Text color for ov-grid component */
+.ov-grid{ color:#fff; }
+

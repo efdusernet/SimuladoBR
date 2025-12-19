@@ -1,6 +1,6 @@
 <style>
   .pass-probability {
-    border: none;
+    border: 4px solid transparent;
     border-radius: 8px;
     padding: 6px 12px;
     background: #fff;
@@ -27,20 +27,24 @@
   }
   /* Background performance classes (mirror lastExamResults thresholds) */
   .pass-probability.perf-gt85 { 
-    background-image: linear-gradient(90deg, #0A7A0A 0%, #006400 100%); 
-    background-color: #0A7A0A; 
+    background-image: none;
+    background-color: #fff;
+    border-color: #0A7A0A;
   }
   .pass-probability.perf-75-85 { 
-    background-image: linear-gradient(90deg, #66E166 0%, #32CD32 100%);
-    background-color: #32CD32;
+    background-image: none;
+    background-color: #fff;
+    border-color: #32CD32;
   }
   .pass-probability.perf-70-74 { 
-    background-image: linear-gradient(90deg, #FFF7ED 0%, #FED7AA 100%);
-    background-color: #FED7AA;
+    background-image: none;
+    background-color: #fff;
+    border-color: #FED7AA;
   }
   .pass-probability.perf-lt70 {
-    background-image: linear-gradient(90deg, #FEE2E2 0%, #FCA5A5 100%);
-    background-color: #FCA5A5;
+    background-image: none;
+    background-color: #fff;
+    border-color: #FCA5A5;
   }
 </style>
 <div class="pass-probability" role="group" aria-label="Probabilidade de aprovação">

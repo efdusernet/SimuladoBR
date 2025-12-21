@@ -140,6 +140,13 @@
         </select>
       </div>
       <div>
+        <label for="seed">Seed*</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="checkbox" id="seed" />
+          <span class="hint">Questão seed</span>
+        </div>
+      </div>
+      <div>
         <label for="iddominiogeral">Domínio Geral</label>
         <select id="iddominiogeral"></select>
       </div>
@@ -260,6 +267,13 @@
             <option value="single">Opção única (rádio)</option>
             <option value="multi">Múltipla escolha (checkbox)</option>
           </select>
+        </div>
+        <div>
+          <label for="seedNav">Seed*</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" id="seedNav" />
+            <span class="hint">Questão seed</span>
+          </div>
         </div>
         <div>
           <label for="iddominiogeralNav">Domínio Geral</label>
@@ -881,6 +895,7 @@
       const payload = {
         descricao,
         tiposlug,
+        seed: !!$('seed').checked,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
@@ -914,6 +929,7 @@
       $('imagemUrl').value = '';
       $('imagemPreview').innerHTML = '';
       $('explicacao').value = '';
+      try { $('seed').checked = false; } catch{}
       // limpar selects e tipo
       try { $('examType').value = ''; } catch{}
       try { $('versaoExame').value = ''; } catch{}
@@ -1012,6 +1028,7 @@
 
         $('descricaoNav').value = q.descricao || '';
         $('tipoNav').value = (q.tiposlug || 'single');
+        try { $('seedNav').checked = !!q.seed; } catch(_){ }
         
         // Wait for selects to be populated before setting values
         await Promise.all([
@@ -1197,6 +1214,7 @@
       const payload = {
         descricao,
         tiposlug,
+        seed: !!$('seedNav').checked,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,

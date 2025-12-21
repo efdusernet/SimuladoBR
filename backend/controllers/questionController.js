@@ -19,6 +19,18 @@ exports.createQuestion = async (req, res, next) => {
 		const b = req.body || {};
 		const descricao = (b.descricao || '').trim();
 		if (!descricao) return next(badRequest('descricao required', 'DESCRICAO_REQUIRED'));
+		// seed is mandatory
+		let seed = null;
+		if (typeof b.seed === 'boolean') seed = b.seed;
+		else if (typeof b.seed === 'string') {
+			const s = b.seed.trim().toLowerCase();
+			if (s === 'true' || s === '1') seed = true;
+			if (s === 'false' || s === '0') seed = false;
+		} else if (typeof b.seed === 'number') {
+			if (b.seed === 1) seed = true;
+			if (b.seed === 0) seed = false;
+		}
+		if (seed == null) return next(badRequest('seed required', 'SEED_REQUIRED'));
 		// Decide tipo e multiplaescolha
 		const tiposlug = (b.tiposlug || '').trim().toLowerCase() || null;
 		let multipla = null;
@@ -89,10 +101,10 @@ exports.createQuestion = async (req, res, next) => {
 			idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame
 		) VALUES (
 			:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
-			:createdByUserId, :createdByUserId, false, false, 1,
+			:createdByUserId, :createdByUserId, false, :seed, 1,
 			:idprincipio, :dica, :multipla, :codigocategoria, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame
 		) RETURNING id`;
-		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
+		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, seed, codareaconhecimento, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
 			// Safer: fetch with SELECT currval... but RETURNING should give us id in r[0][0].id depending on dialect
 			const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
@@ -203,6 +215,7 @@ exports.getQuestionById = async (req, res, next) => {
 		if (!Number.isFinite(id)) return next(badRequest('invalid id', 'INVALID_ID'));
 
 	const qsql = `SELECT q.id, q.descricao, q.tiposlug, q.iddominio, q.codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
+						 q.seed,
 												 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
 												 q.versao_exame,
 												 et.slug AS exam_type_slug, et.nome AS exam_type_nome
@@ -241,6 +254,7 @@ exports.getQuestionById = async (req, res, next) => {
 			id: base.id,
 			descricao: base.descricao,
 			tiposlug: base.tiposlug,
+			seed: base.seed === true || base.seed === 't',
 			iddominio: base.iddominio,
 			codareaconhecimento: base.codareaconhecimento,
 			codgrupoprocesso: base.codgrupoprocesso,
@@ -272,6 +286,18 @@ exports.updateQuestion = async (req, res, next) => {
 
 		const descricao = (b.descricao || '').trim();
 		if (!descricao) return next(badRequest('descricao required', 'DESCRICAO_REQUIRED'));
+		// seed is mandatory
+		let seed = null;
+		if (typeof b.seed === 'boolean') seed = b.seed;
+		else if (typeof b.seed === 'string') {
+			const s = b.seed.trim().toLowerCase();
+			if (s === 'true' || s === '1') seed = true;
+			if (s === 'false' || s === '0') seed = false;
+		} else if (typeof b.seed === 'number') {
+			if (b.seed === 1) seed = true;
+			if (b.seed === 0) seed = false;
+		}
+		if (seed == null) return next(badRequest('seed required', 'SEED_REQUIRED'));
 		const tiposlug = (b.tiposlug || '').trim().toLowerCase() || null;
 		let multipla = null;
 		if (typeof b.multiplaescolha === 'boolean') multipla = b.multiplaescolha;
@@ -319,6 +345,7 @@ exports.updateQuestion = async (req, res, next) => {
 				descricao = :descricao,
 				tiposlug = :tiposlug,
 				multiplaescolha = :multipla,
+				seed = :seed,
 				iddominio = :iddominio,
 				codareaconhecimento = :codareaconhecimento,
 				codgrupoprocesso = :codgrupoprocesso,
@@ -334,7 +361,7 @@ exports.updateQuestion = async (req, res, next) => {
 				alteradousuario = :updatedByUserId,
 				dataalteracao = CURRENT_TIMESTAMP
 			WHERE id = :id`;
-			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
 			// Navegação: atualizar/inserir opções sem checagem dinâmica de colunas
 			try {

@@ -68,8 +68,10 @@
     .form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     @media (max-width: 720px){ .form-grid{ grid-template-columns: 1fr; } }
     .opts{ margin-top:8px; }
-    .opt{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+    .opt{ display:flex; gap:8px; align-items:flex-start; margin-bottom:10px; }
     .opt input[type="text"]{ flex: 1; }
+    .opt .opt-fields{ flex: 1; display:flex; flex-direction:column; gap:6px; }
+    .opt textarea{ width: 100%; }
     .actions{ display:flex; gap:12px; margin-top: 16px; }
     .btn{ background:#2b6cb0; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
     .btn.secondary{ background:#edf2f7; color:#2b6cb0; border:1px solid #c6d3ff; }
@@ -412,7 +414,7 @@
       preview.innerHTML = `<img src="${src}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" onerror="this.parentElement.innerHTML='<span style=color:red>Erro ao carregar imagem</span>'" />`;
     }
 
-    function makeOptRow(text = '', correta = false){
+    function makeOptRow(text = '', correta = false, explicacao = ''){
       const wrap = document.createElement('div');
       wrap.className = 'opt';
       const tipo = $('tipo').value;
@@ -424,6 +426,14 @@
       input.type = 'text';
       input.placeholder = 'Texto da alternativa';
       input.value = text || '';
+
+      const fields = document.createElement('div');
+      fields.className = 'opt-fields';
+      const exp = document.createElement('textarea');
+      exp.rows = 2;
+      exp.placeholder = 'Explicação da alternativa (opcional)';
+      exp.value = explicacao || '';
+
       const del = document.createElement('button');
       del.className = 'btn secondary';
       del.type = 'button';
@@ -437,8 +447,10 @@
         }
       });
 
+      fields.appendChild(input);
+      fields.appendChild(exp);
       wrap.appendChild(check);
-      wrap.appendChild(input);
+      wrap.appendChild(fields);
       wrap.appendChild(del);
       return wrap;
     }
@@ -453,9 +465,13 @@
     $('tipo').addEventListener('change', ()=>{
       // Rebuild checks to correct control type
       const list = $('opts');
-      const current = Array.from(list.children).map(row => ({ text: row.querySelector('input[type=text]').value, correta: row.querySelector('input[type=checkbox],input[type=radio]').checked }));
+      const current = Array.from(list.children).map(row => ({
+        text: row.querySelector('input[type=text]')?.value || '',
+        correta: !!row.querySelector('input[type=checkbox],input[type=radio]')?.checked,
+        explicacao: row.querySelector('textarea')?.value || ''
+      }));
       list.innerHTML='';
-      current.forEach(o => list.appendChild(makeOptRow(o.text, o.correta)));
+      current.forEach(o => list.appendChild(makeOptRow(o.text, o.correta, o.explicacao)));
     });
 
     function readOptions(){
@@ -466,6 +482,7 @@
       rows.forEach(r => {
         const text = r.querySelector('input[type=text]').value.trim();
         const correta = r.querySelector('input[type=checkbox],input[type=radio]').checked;
+        const explicacao = (r.querySelector('textarea')?.value || '').trim();
         if (text){ out.push({ descricao: text, correta }); if (correta) correctCount++; }
       });
       if (tipo === 'single' && correctCount > 1){
@@ -473,11 +490,24 @@
         let seen = false;
         out.forEach(o => { if (o.correta){ if (!seen) { seen = true; } else { o.correta = false; } } });
       }
+      // Add explicacao back to each option preserving order
+      // (we only include it for options that have text)
+      {
+        const filteredRows = rows
+          .map(r => ({
+            text: (r.querySelector('input[type=text]')?.value || '').trim(),
+            exp: (r.querySelector('textarea')?.value || '').trim()
+          }))
+          .filter(x => x.text);
+        for (let i = 0; i < out.length; i++) {
+          out[i].explicacao = filteredRows[i] ? filteredRows[i].exp : '';
+        }
+      }
       return out;
     }
 
     // NAV: option helpers
-    function makeOptRowNav(text = '', correta = false){
+    function makeOptRowNav(text = '', correta = false, explicacao = ''){
       const wrap = document.createElement('div');
       wrap.className = 'opt';
       const tipo = $('tipoNav').value;
@@ -489,6 +519,14 @@
       input.type = 'text';
       input.placeholder = 'Texto da alternativa';
       input.value = text || '';
+
+      const fields = document.createElement('div');
+      fields.className = 'opt-fields';
+      const exp = document.createElement('textarea');
+      exp.rows = 2;
+      exp.placeholder = 'Explicação da alternativa (opcional)';
+      exp.value = explicacao || '';
+
       const del = document.createElement('button');
       del.className = 'btn secondary';
       del.type = 'button';
@@ -500,8 +538,10 @@
           document.querySelectorAll('#optsNav input[type=radio][name=corretaNav]').forEach(r=>{ if (r !== check) r.checked = false; });
         }
       });
+      fields.appendChild(input);
+      fields.appendChild(exp);
       wrap.appendChild(check);
-      wrap.appendChild(input);
+      wrap.appendChild(fields);
       wrap.appendChild(del);
       return wrap;
     }
@@ -519,11 +559,23 @@
       rows.forEach(r => {
         const text = r.querySelector('input[type=text]').value.trim();
         const correta = r.querySelector('input[type=checkbox],input[type=radio]').checked;
+        const explicacao = (r.querySelector('textarea')?.value || '').trim();
         if (text){ out.push({ descricao: text, correta }); if (correta) correctCount++; }
       });
       if (tipo === 'single' && correctCount > 1){
         let seen = false;
         out.forEach(o => { if (o.correta){ if (!seen) { seen = true; } else { o.correta = false; } } });
+      }
+      {
+        const filteredRows = rows
+          .map(r => ({
+            text: (r.querySelector('input[type=text]')?.value || '').trim(),
+            exp: (r.querySelector('textarea')?.value || '').trim()
+          }))
+          .filter(x => x.text);
+        for (let i = 0; i < out.length; i++) {
+          out[i].explicacao = filteredRows[i] ? filteredRows[i].exp : '';
+        }
       }
       return out;
     }
@@ -993,7 +1045,7 @@
         const list = $('optsNav');
         list.innerHTML = '';
         const arr = Array.isArray(q.options) ? q.options : [];
-        if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta))); }
+        if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta, o.explicacao || ''))); }
         ensureAtLeastTwoNav();
 
         navState.currentId = id;
@@ -1101,9 +1153,13 @@
     $('clearOptsNav').onclick = function(e){ e.preventDefault(); $('optsNav').innerHTML=''; ensureAtLeastTwoNav(); };
     $('tipoNav').addEventListener('change', ()=>{
       const list = $('optsNav');
-      const current = Array.from(list.children).map(row => ({ text: row.querySelector('input[type=text]').value, correta: row.querySelector('input[type=checkbox],input[type=radio]').checked }));
+      const current = Array.from(list.children).map(row => ({
+        text: row.querySelector('input[type=text]')?.value || '',
+        correta: !!row.querySelector('input[type=checkbox],input[type=radio]')?.checked,
+        explicacao: row.querySelector('textarea')?.value || ''
+      }));
       list.innerHTML='';
-      current.forEach(o => list.appendChild(makeOptRowNav(o.text, o.correta)));
+      current.forEach(o => list.appendChild(makeOptRowNav(o.text, o.correta, o.explicacao)));
     });
 
     $('saveNav').addEventListener('click', async ()=>{

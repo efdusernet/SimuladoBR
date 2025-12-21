@@ -40,6 +40,8 @@ exports.createQuestion = async (req, res, next) => {
 	const dica = (b.dica || null);
 	const imagemUrl = (b.imagemUrl || b.imagem_url || '').trim() || null;
 	const versaoExame = (b.versao_exame || b.versaoExame || '').trim() || null;
+	// Legacy: previously a single explanation per question. Now we store per-option.
+	// If provided, we use it as a fallback for the correct option.
 	const explicacao = (b.explicacao != null) ? String(b.explicacao).trim() : null;
 		const options = Array.isArray(b.options) ? b.options : [];
 		// exam type: accept id or slug
@@ -105,25 +107,39 @@ exports.createQuestion = async (req, res, next) => {
 			const incomingOpts = Array.isArray(options) ? options : [];
 			let normalized = incomingOpts
 				.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
-				.map(o => ({ descricao: o.descricao.trim(), correta: !!o.correta }));
+				.map(o => ({
+					descricao: o.descricao.trim(),
+					correta: !!o.correta,
+					explicacao: (o.explicacao != null) ? String(o.explicacao).trim() : ''
+				}));
 			if (normalized.length >= 2) {
 				if (!multipla) {
 					let seen = false;
 					normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
 				}
+				let correctOptIndex = -1;
+				normalized.forEach((o, idx) => { if (o.correta && correctOptIndex === -1) correctOptIndex = idx; });
+				if (correctOptIndex >= 0 && (!normalized[correctOptIndex].explicacao || !normalized[correctOptIndex].explicacao.trim()) && explicacao) {
+					normalized[correctOptIndex].explicacao = explicacao;
+				}
 				for (const opt of normalized) {
-					await sequelize.query(
-						'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario, alteradousuario, datacadastro, dataalteracao) VALUES (:qid,:descricao,:correta,false,:uid,:uid,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)',
+					const ins = await sequelize.query(
+						'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario, alteradousuario, datacadastro, dataalteracao) VALUES (:qid,:descricao,:correta,false,:uid,:uid,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id',
 						{ replacements: { qid: createdId, descricao: opt.descricao, correta: opt.correta, uid: createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
+					);
+					const insertedOptRow = Array.isArray(ins) && ins[0] && Array.isArray(ins[0]) ? ins[0][0] : null;
+					const optId = insertedOptRow && insertedOptRow.id != null ? Number(insertedOptRow.id) : null;
+					if (!optId) throw new Error('Could not retrieve created option id');
+
+					// Ensure one explanation row per option (descricao is NOT NULL; allow empty string).
+					await sequelize.query(
+						`INSERT INTO public.explicacaoguia (idquestao, idrespostaopcao, descricao, datacadastro, dataalteracao, excluido, criadousuario, alteradousuario)
+						 VALUES (:qid, :oid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`,
+						{ replacements: { qid: createdId, oid: optId, descricao: opt.explicacao || '', uid: createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
 					);
 				}
 			}
-			// Insert explicacao if provided (audit columns)
-			if (explicacao != null && explicacao !== '') {
-				const insertE = `INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido, criadousuario, alteradousuario)
-									 VALUES (:qid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`;
-				await sequelize.query(insertE, { replacements: { qid: createdId, descricao: explicacao, uid: createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
-			}
+			// Note: legacy question-level explicacao is now handled as a fallback for the correct option.
 		});
 
 		return res.status(201).json({ id: createdId });
@@ -197,19 +213,29 @@ exports.getQuestionById = async (req, res, next) => {
 		if (!row || !row[0]) return next(notFound('not found', 'QUESTION_NOT_FOUND'));
 		const base = row[0];
 
-		const osql = `SELECT descricao, iscorreta AS correta
-								FROM public.respostaopcao
-								WHERE idquestao = :id AND (excluido = FALSE OR excluido IS NULL)`;
+		const osql = `SELECT ro.id, ro.descricao, ro.iscorreta AS correta,
+							eg.descricao AS explicacao
+						FROM public.respostaopcao ro
+						LEFT JOIN public.explicacaoguia eg
+							ON eg.idrespostaopcao = ro.id AND (eg.excluido = FALSE OR eg.excluido IS NULL)
+						WHERE ro.idquestao = :id AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+						ORDER BY ro.id`;
 		const opts = await sequelize.query(osql, { replacements: { id }, type: sequelize.QueryTypes.SELECT });
 
 		let explicacao = null;
+		// Backward-compat: keep question.explicacao using either legacy general row (idrespostaopcao IS NULL)
+		// or the correct option explanation.
 		try {
 			const esql = `SELECT descricao FROM public.explicacaoguia
-								WHERE idquestao = :id AND (excluido = FALSE OR excluido IS NULL)
-								ORDER BY dataalteracao DESC LIMIT 1`;
+						WHERE idquestao = :id AND idrespostaopcao IS NULL AND (excluido = FALSE OR excluido IS NULL)
+						ORDER BY dataalteracao DESC LIMIT 1`;
 			const erow = await sequelize.query(esql, { replacements: { id }, type: sequelize.QueryTypes.SELECT });
 			if (erow && erow[0] && erow[0].descricao != null) explicacao = String(erow[0].descricao);
 		} catch(_) {}
+		if (!explicacao && Array.isArray(opts)) {
+			const correct = opts.find(o => o && o.correta);
+			if (correct && correct.explicacao != null) explicacao = String(correct.explicacao);
+		}
 
 		return res.json({
 			id: base.id,
@@ -264,6 +290,7 @@ exports.updateQuestion = async (req, res, next) => {
 	const dica = (b.dica || null);
 	const imagemUrl = (b.imagemUrl || b.imagem_url || '').trim() || null;
 	const versaoExame = (b.versao_exame || b.versaoExame || '').trim() || null;
+		// Legacy: question-level explanation. We treat it as a fallback for the correct option.
 		const explicacao = (b.explicacao != null) ? String(b.explicacao) : null;
 		// Audit: updatedByUserId for respostaopcao on update
 		const updatedByUserId = Number.isFinite(Number(b.updatedByUserId)) ? Number(b.updatedByUserId) : null;
@@ -314,29 +341,46 @@ exports.updateQuestion = async (req, res, next) => {
 				const incomingOpts = Array.isArray(b.options) ? b.options : [];
 				let normalized = incomingOpts
 					.filter(o => o && typeof o.descricao === 'string' && o.descricao.trim() !== '')
-					.map(o => ({ descricao: o.descricao.trim(), correta: !!o.correta }));
+					.map(o => ({
+						descricao: o.descricao.trim(),
+						correta: !!o.correta,
+						explicacao: (o.explicacao != null) ? String(o.explicacao).trim() : ''
+					}));
 				if (normalized.length >= 2) {
 					if (!multipla) {
 						let seen = false;
 						normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
 					}
+					let correctOptIndex = -1;
+					normalized.forEach((o, idx) => { if (o.correta && correctOptIndex === -1) correctOptIndex = idx; });
+					if (correctOptIndex >= 0 && (!normalized[correctOptIndex].explicacao || !normalized[correctOptIndex].explicacao.trim()) && explicacao) {
+						normalized[correctOptIndex].explicacao = String(explicacao).trim();
+					}
+
 					const existing = await sequelize.query(
 						'SELECT id FROM public.respostaopcao WHERE idquestao = :qid AND (excluido = FALSE OR excluido IS NULL) ORDER BY id',
 						{ replacements: { qid: id }, type: sequelize.QueryTypes.SELECT, transaction: t }
 					);
 					const existingIds = existing.map(r => Number(r.id)).filter(Number.isFinite);
+					const finalOptionIds = [];
 					for (let i = 0; i < normalized.length; i++) {
 						const opt = normalized[i];
 						if (i < existingIds.length) {
+							const optId = existingIds[i];
 							await sequelize.query(
 								'UPDATE public.respostaopcao SET descricao = :descricao, iscorreta = :correta, alteradousuario = :updatedByUserId, dataalteracao = CURRENT_TIMESTAMP WHERE id = :id',
-								{ replacements: { descricao: opt.descricao, correta: opt.correta, id: existingIds[i], updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+								{ replacements: { descricao: opt.descricao, correta: opt.correta, id: optId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t }
 							);
+							finalOptionIds.push(optId);
 						} else {
-							await sequelize.query(
-								'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario, alteradousuario, datacadastro, dataalteracao) VALUES (:qid,:descricao,:correta,false,:createdByUserId,:createdByUserId,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)',
+							const ins = await sequelize.query(
+								'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario, alteradousuario, datacadastro, dataalteracao) VALUES (:qid,:descricao,:correta,false,:createdByUserId,:createdByUserId,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id',
 								{ replacements: { qid: id, descricao: opt.descricao, correta: opt.correta, createdByUserId: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
 							);
+							const insertedOptRow = Array.isArray(ins) && ins[0] && Array.isArray(ins[0]) ? ins[0][0] : null;
+							const optId = insertedOptRow && insertedOptRow.id != null ? Number(insertedOptRow.id) : null;
+							if (!optId) throw new Error('Could not retrieve inserted option id');
+							finalOptionIds.push(optId);
 						}
 					}
 					if (existingIds.length > normalized.length) {
@@ -345,29 +389,40 @@ exports.updateQuestion = async (req, res, next) => {
 							'UPDATE public.respostaopcao SET excluido = TRUE, dataalteracao = CURRENT_TIMESTAMP WHERE id = ANY(:ids)',
 							{ replacements: { ids: toRemove }, type: sequelize.QueryTypes.UPDATE, transaction: t }
 						);
+						// Also mark linked explanations as excluded
+						try {
+							await sequelize.query(
+								'UPDATE public.explicacaoguia SET excluido = TRUE, dataalteracao = CURRENT_TIMESTAMP WHERE idrespostaopcao = ANY(:ids)',
+								{ replacements: { ids: toRemove }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+							);
+						} catch(_) { /* ignore */ }
+					}
+
+					// Upsert explanations per option (one row per option)
+					for (let i = 0; i < finalOptionIds.length; i++) {
+						const optId = finalOptionIds[i];
+						const expText = (normalized[i] && normalized[i].explicacao != null) ? String(normalized[i].explicacao).trim() : '';
+						const existingExp = await sequelize.query(
+							'SELECT id FROM public.explicacaoguia WHERE idquestao = :qid AND idrespostaopcao = :oid LIMIT 1',
+							{ replacements: { qid: id, oid: optId }, type: sequelize.QueryTypes.SELECT, transaction: t }
+						);
+						if (existingExp && existingExp[0] && existingExp[0].id != null) {
+							await sequelize.query(
+								'UPDATE public.explicacaoguia SET descricao = :descricao, dataalteracao = CURRENT_TIMESTAMP, alteradousuario = :uid, excluido = FALSE WHERE id = :eid',
+								{ replacements: { descricao: expText || '', uid: updatedByUserId, eid: Number(existingExp[0].id) }, type: sequelize.QueryTypes.UPDATE, transaction: t }
+							);
+						} else {
+							await sequelize.query(
+								`INSERT INTO public.explicacaoguia (idquestao, idrespostaopcao, descricao, datacadastro, dataalteracao, excluido, criadousuario, alteradousuario)
+								 VALUES (:qid, :oid, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`,
+								{ replacements: { qid: id, oid: optId, descricao: expText || '', uid: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
+							);
+						}
 					}
 				}
 			} catch(_){ /* ignora erros de opções */ }
 
-			// Replace explanation: update existing row if present; otherwise insert one
-			if (explicacao != null) {
-				const existingExp = await sequelize.query(
-					`SELECT id FROM public.explicacaoguia WHERE idquestao = :id LIMIT 1`,
-					{ replacements: { id }, type: sequelize.QueryTypes.SELECT, transaction: t }
-				);
-				if (existingExp && existingExp[0] && existingExp[0].id != null) {
-					await sequelize.query(
-						`UPDATE public.explicacaoguia SET descricao = :descricao, dataalteracao = CURRENT_TIMESTAMP, alteradousuario = :userId WHERE id = :expId`,
-						{ replacements: { descricao: explicacao, userId: updatedByUserId, expId: Number(existingExp[0].id) }, type: sequelize.QueryTypes.UPDATE, transaction: t }
-					);
-				} else {
-					await sequelize.query(
-						`INSERT INTO public.explicacaoguia (idquestao, descricao, datacadastro, dataalteracao, excluido, criadousuario, alteradousuario)
-						 VALUES (:id, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false, :uid, :uid)`,
-						{ replacements: { id, descricao: explicacao, uid: updatedByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t }
-					);
-				}
-			}
+			// Note: legacy question-level explicacao is now treated as a fallback for the correct option.
 		});
 
 		logQuestionSubmission({ route: 'updateQuestion:done', id, descricao, optionsCount: Array.isArray(b.options) ? b.options.length : 0 });

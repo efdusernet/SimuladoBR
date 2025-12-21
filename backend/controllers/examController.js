@@ -262,9 +262,20 @@ exports.selectQuestions = async (req, res, next) => {
 
     const baseQuestionSelect = (extraWhere, limit, extraReplacements = {}) => {
       const queryReplacements = { ...replacements, limit, ...extraReplacements };
-      return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl", eg.descricao AS explicacao
+      return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl",
+              eg.descricao AS explicacao
         FROM questao q
-        LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg.excluido = false OR eg.excluido IS NULL)
+        LEFT JOIN explicacaoguia eg
+               ON eg.idrespostaopcao = (
+                    SELECT ro.id
+                      FROM respostaopcao ro
+                     WHERE ro.idquestao = q.id
+                       AND (ro.iscorreta = TRUE OR ro.iscorreta = 't')
+                       AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+                     ORDER BY ro.id
+                     LIMIT 1
+               )
+              AND (eg.excluido = false OR eg.excluido IS NULL)
         WHERE ${whereSqlUsed} ${extraWhere ? ' AND ' + extraWhere : ''}
         ORDER BY random()
         LIMIT :limit`, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
@@ -942,17 +953,26 @@ exports.getQuestion = async (req, res, next) => {
     if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
     if (!Number.isInteger(index) || index < 0 || index >= s.questionIds.length) return next(badRequest('invalid index', 'INVALID_INDEX'));
     const qid = s.questionIds[index];
-    const qQ = `
-      SELECT q.id, q.descricao, q.tiposlug, q.interacaospec, q.multiplaescolha AS multiplaescolha,
-             eg."Descricao" AS explicacao,
-             qt.ui_schema AS ui_schema
-        FROM questao q
-        LEFT JOIN explicacaoguia eg
-               ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
-        LEFT JOIN question_type qt
-               ON qt.slug = q.tiposlug AND (qt.ativo = TRUE OR qt.ativo IS NULL)
-       WHERE q.id = :id
-       LIMIT 1`;
+        const qQ = `
+          SELECT q.id, q.descricao, q.tiposlug, q.interacaospec, q.multiplaescolha AS multiplaescolha,
+            eg.descricao AS explicacao,
+            qt.ui_schema AS ui_schema
+       FROM questao q
+       LEFT JOIN explicacaoguia eg
+         ON eg.idrespostaopcao = (
+              SELECT ro.id
+           FROM respostaopcao ro
+          WHERE ro.idquestao = q.id
+            AND (ro.iscorreta = TRUE OR ro.iscorreta = 't')
+            AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+          ORDER BY ro.id
+          LIMIT 1
+         )
+        AND (eg.excluido = false OR eg.excluido IS NULL)
+       LEFT JOIN question_type qt
+         ON qt.slug = q.tiposlug AND (qt.ativo = TRUE OR qt.ativo IS NULL)
+      WHERE q.id = :id
+      LIMIT 1`;
     const qRows = await sequelize.query(qQ, { replacements: { id: qid }, type: sequelize.QueryTypes.SELECT });
     if (!qRows || !qRows.length) return next(notFound('question not found', 'QUESTION_NOT_FOUND'));
     const q = qRows[0];

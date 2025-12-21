@@ -108,12 +108,12 @@ Aceita:
 		"codgrupoprocesso": 3,
 		"dica": "Opcional",
 		"options": [
-			{ "descricao": "A", "correta": true },
+			{ "descricao": "A", "correta": true, "explicacao": "Por que A é correta (opcional)" },
 			{ "descricao": "B" },
 			{ "descricao": "C" },
 			{ "descricao": "D" }
 		],
-		"explicacao": "Texto opcional"
+		"explicacao": "(legado) explicação opcional; usada como fallback para a alternativa correta"
 	}
 ]
 ```
@@ -130,10 +130,10 @@ Aceita:
 			{ "descricao": "B" }
 		]},
 		{ "descricao": "Questão 2", "tiposlug": "multi", "options": [
-			{ "descricao": "A", "correta": true },
+			{ "descricao": "A", "correta": true, "explicacao": "(opcional) justificativa para A" },
 			{ "descricao": "B", "correta": true },
 			{ "descricao": "C" }
-		], "explicacao": "Exemplo com multi" }
+		], "explicacao": "(legado) fallback para a primeira correta se options[].explicacao vier vazio" }
 	]
 }
 ```
@@ -159,7 +159,8 @@ Aceita:
 Notas do bulk:
 - É obrigatório informar um tipo de exame (por item ou no default do lote): `examTypeId` ou `examTypeSlug`.
 - Para `single`, o backend força no máximo uma correta.
-- Explicações (quando presentes) são inseridas em `explicacaoguia`.
+- Explicações são gravadas em `explicacaoguia` por alternativa (uma linha por opção de resposta). Use `options[].explicacao`.
+- O campo `explicacao` (legado) é aceito e usado como fallback para a alternativa correta quando `options[].explicacao` não vier.
 
 ## Páginas admin
 

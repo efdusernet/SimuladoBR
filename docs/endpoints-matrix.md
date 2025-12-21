@@ -69,11 +69,11 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
-| POST | `/api/questions` | Admin | Body: `{ descricao, tiposlug?, multiplaescolha?, examTypeSlug?, examTypeId?, iddominio?, codareaconhecimento?, codgrupoprocesso?, dica?, options?: [{ descricao, correta? }], explicacao?, imagem_url? }` | `{ questionId, message, optionsCreated }` | Cria questão unitária com alternativas. |
+| POST | `/api/questions` | Admin | Body: `{ descricao, tiposlug?, multiplaescolha?, examTypeSlug?, examTypeId?, iddominio?, codareaconhecimento?, codgrupoprocesso?, dica?, options?: [{ descricao, correta?, explicacao? }], explicacao?, imagem_url? }` | `{ questionId, message, optionsCreated }` | Cria questão unitária com alternativas (explicação por alternativa via `options[].explicacao`; `explicacao` é legado/fallback). |
 | GET | `/api/questions` | Admin | Query: `limit`, `offset` | `[{ Id, Descricao, TipoSlug, ExamTypeId, ... }]` | Lista questões (admin). |
 | GET | `/api/questions/:id` | Admin | Path: `id` | `{ Id, Descricao, TipoSlug, ExamTypeId, Options: [...], ... }` | Busca questão por ID (admin). |
 | GET | `/api/questions/view/:id` | X-Session-Token | Path: `id` | `{ Id, Descricao, TipoSlug, Options: [...], ... }` | Busca questão por ID (usuário autenticado, sem admin). |
-| PUT | `/api/questions/:id` | Admin | Path: `id` Body: `{ descricao?, tiposlug?, examTypeId?, options?, explicacao?, imagem_url?, ... }` | `{ message, questionId, optionsCreated?, optionsUpdated?, optionsDeleted? }` | Atualiza questão e alternativas. |
+| PUT | `/api/questions/:id` | Admin | Path: `id` Body: `{ descricao?, tiposlug?, examTypeId?, options?: [{ descricao, correta?, explicacao? }], explicacao?, imagem_url?, ... }` | `{ message, questionId, optionsCreated?, optionsUpdated?, optionsDeleted? }` | Atualiza questão e alternativas (explicação por alternativa via `options[].explicacao`; `explicacao` é legado/fallback). |
 | POST | `/api/questions/bulk` | Admin | Body (JSON): array ou `{ examTypeSlug?, questions: [...] }` ou Multipart: `file` (JSON/XML) | `{ inserted, skipped, errors: [...] }` | Carga em massa de questões (JSON/XML). |
 
 ---

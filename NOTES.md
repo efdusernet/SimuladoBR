@@ -61,10 +61,10 @@ Observação: permissões de schema do Postgres precisam permitir CREATE/ALTER n
       "descricao": "Enunciado...",     // obrigatório
       "tiposlug": "single",            // ou "multi"
       "options": [
-        { "descricao": "A", "correta": true },
+        { "descricao": "A", "correta": true, "explicacao": "(opcional) justificativa da alternativa" },
         { "descricao": "B" }
       ],
-      "explicacao": "opcional",
+      "explicacao": "(legado) opcional; fallback para a alternativa correta",
       // overrides do lote
       "iddominio": 1,
       "codareaconhecimento": 2,
@@ -95,7 +95,8 @@ Observação: permissões de schema do Postgres precisam permitir CREATE/ALTER n
 Notas:
 - `examType` é obrigatório (no lote ou por item). Aceito por slug (ex.: `pmp`) ou por id numérico.
 - Para `single`, se vier mais de uma alternativa correta, somente a primeira é mantida como correta.
-- Se `explicacao` estiver presente, tentamos gravar em `explicacaoguia` (falha não aborta a questão).
+- Explicações por alternativa: use `options[].explicacao` (grava em `explicacaoguia` por opção).
+- `explicacao` (legado) é aceito como fallback para a alternativa correta; falha ao gravar não aborta a questão.
 
 ## Frontend
 

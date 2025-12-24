@@ -64,29 +64,39 @@
         .content{
             flex:1 1 auto; overflow-y:auto; padding:10px 10px calc(env(safe-area-inset-bottom) + 20px) 10px;
             background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
-                      const adminModal = (typeof window.openAdminModal === 'function') ? window.openAdminModal() : document.getElementById('adminModal');
-                      if (!adminModal) return;
-                      // scroll to reconcile section (first panel)
-                      try { adminModal.querySelector('h3')?.scrollIntoView({behavior:'smooth'}); } catch(_){ }
+                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+        }
+        .section{display:none}
+        .section.active{display:block}
+        .title{font-size:1.6rem; text-align:center; margin:4px 0 6px}
+        .debug{font-size:0.9rem; color:var(--muted); text-align:center; margin:0 0 16px}
+        .card-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; width:100%; max-width:320px; margin:0 auto; justify-items:center; }
+        .card{
             background:#1e293b; border:1px solid rgba(255,255,255,0.06);
             width:60px; height:60px;
             display:flex; align-items:center; justify-content:center;
             border-radius:12px;
             box-shadow:
-                      const adminModal = (typeof window.openAdminModal === 'function') ? window.openAdminModal() : document.getElementById('adminModal');
-                      if (!adminModal) return;
-                      // Focus userId field & highlight fixture box
-                      try {
-                          const userField = document.getElementById('fxUserId');
-                          if (userField){ userField.focus(); userField.scrollIntoView({behavior:'smooth', block:'center'}); }
-                          // fallback: select by heading text
-                          const heading = Array.from(adminModal.querySelectorAll('h3')).find(h => /Gerar Tentativa Fixture/i.test(h.textContent||''));
-                          const panel = heading ? heading.parentElement : null;
-                          if (panel){
-                              panel.style.outline='2px solid #0d9488';
-                              setTimeout(()=>{ panel.style.outline=''; }, 2400);
-                          }
-                      } catch(_){ }
+                0 2px 4px rgba(0,0,0,.22),
+                0 6px 14px rgba(0,0,0,.32),
+                0 12px 28px rgba(0,0,0,.38);
+            cursor:pointer; transition: transform .18s ease, box-shadow .22s ease;
+            padding:6px 8px; outline:none; color:#ffffff; font-weight:500;
+            position:relative; overflow:hidden;
+        }
+        .card:hover{
+            transform: scale(1.08);
+            box-shadow:
+                0 4px 6px rgba(0,0,0,.28),
+                0 10px 20px rgba(0,0,0,.40),
+                0 18px 36px rgba(0,0,0,.46);
+        }
+        .card:active{
+            transform: scale(0.97);
+            box-shadow:
+                0 2px 3px rgba(0,0,0,.30),
+                0 6px 12px rgba(0,0,0,.36);
         }
         .thumb{ width:28px !important; height:28px !important; border-radius:8px; object-fit:cover !important; display:block; margin:0 auto; }
         .card--simulador{ flex-direction:column; gap:6px; align-items:center; justify-content:center; overflow:hidden; display:flex; height:100%; }

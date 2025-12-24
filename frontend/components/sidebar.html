@@ -245,6 +245,7 @@
     <div class="sidebar-user-info">
       <p class="sidebar-user-name" id="sidebarUserName">Carregando...</p>
       <p class="sidebar-user-email" id="sidebarUserEmail">usuario@email.com</p>
+      <p class="sidebar-user-email" id="sidebarUserEcoVersion" style="margin-top:-2px">ECO: —</p>
     </div>
   </div>
 
@@ -414,8 +415,31 @@
           avatarEl.textContent = user.Nome.charAt(0).toUpperCase();
         }
       }
+
+      await loadEcoVersion();
     } catch (error) {
       logger.error('Erro ao carregar dados do usuário:', error);
+    }
+  }
+
+  async function loadEcoVersion() {
+    const ecoEl = document.getElementById('sidebarUserEcoVersion');
+    if (!ecoEl) return;
+    try {
+      const token = localStorage.getItem('sessionToken');
+      if (!token) { ecoEl.textContent = 'ECO: —'; return; }
+
+      const resp = await fetch('/api/users/me/eco-version?examTypeSlug=pmp', {
+        headers: { 'X-Session-Token': token },
+        cache: 'no-store',
+        credentials: 'include'
+      });
+      if (!resp.ok) { ecoEl.textContent = 'ECO: —'; return; }
+      const data = await resp.json().catch(() => null);
+      const code = data && data.effective && data.effective.version && data.effective.version.code;
+      ecoEl.textContent = 'ECO: ' + (code ? String(code) : '—');
+    } catch (_e) {
+      ecoEl.textContent = 'ECO: —';
     }
   }
 

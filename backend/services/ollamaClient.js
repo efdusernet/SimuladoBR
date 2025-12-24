@@ -103,8 +103,54 @@ async function generateJsonInsights({ context, kpis, timeseries }) {
   }
 }
 
+async function generateJsonLiteratureSuggestions({ context, eco, examType }) {
+  if (!isEnabled()) {
+    return { usedOllama: false, suggestions: null };
+  }
+
+  const system = {
+    role: 'system',
+    content: [
+      'Você é um assistente de estudo para certificação PMP.',
+      'Sugira literaturas (livros/guias) alinhadas ao ECO informado.',
+      'Não invente links ou autores inexistentes.',
+      'Retorne JSON estritamente válido no formato pedido.'
+    ].join(' ')
+  };
+
+  const user = {
+    role: 'user',
+    content: JSON.stringify({
+      task: 'Sugerir literaturas por idioma baseadas na versão atual do ECO do usuário',
+      context,
+      examType,
+      eco,
+      outputSchema: {
+        headline: 'string curta',
+        pt: [
+          { title: 'string', note: 'string curta explicando por que é relevante' }
+        ],
+        en: [
+          { title: 'string', note: 'string curta explicando por que é relevante' }
+        ]
+      }
+    })
+  };
+
+  try {
+    const resp = await chat({ messages: [system, user], format: 'json' });
+    const content = resp && resp.message && resp.message.content ? resp.message.content : '';
+    const parsed = JSON.parse(content);
+    return { usedOllama: true, suggestions: parsed, model: resp.model || null };
+  } catch (err) {
+    logger.warn('Falha ao gerar sugestões de literatura via Ollama; usando fallback', { error: err.message });
+    return { usedOllama: false, suggestions: null };
+  }
+}
+
 module.exports = {
   isEnabled,
   chat,
   generateJsonInsights,
+  generateJsonLiteratureSuggestions,
 };

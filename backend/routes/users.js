@@ -203,6 +203,131 @@ router.get('/me', async (req, res, next) => {
     }
 });
 
+// GET /api/users/me/eco-version?examTypeSlug=pmp
+// Returns the effective ECO version for the logged user (override -> current -> latest).
+router.get('/me/eco-version', async (req, res, next) => {
+    try {
+        const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
+
+        let user = null;
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+            try {
+                const decoded = jwt.verify(sessionToken, jwtSecret);
+                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
+                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
+            } catch (_) { /* ignore */ }
+        }
+        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+        const examTypeSlug = String(req.query.examTypeSlug || 'pmp').trim().toLowerCase();
+        const examType = await db.ExamType.findOne({ where: { Slug: examTypeSlug } });
+        if (!examType) return next(notFound('Exam type not found', 'EXAM_TYPE_NOT_FOUND', { examTypeSlug }));
+
+        const examTypeId = Number(examType.Id);
+        const userId = Number(user.Id);
+        const sequelize = db.sequelize;
+        let examContentVersionId = null;
+        let source = null;
+
+        // 1) Override per user
+        try {
+            const rows = await sequelize.query(
+                `SELECT uecv.exam_content_version_id AS id
+                   FROM user_exam_content_version uecv
+                  WHERE uecv.user_id = :uid
+                    AND uecv.exam_type_id = :examTypeId
+                    AND uecv.active = TRUE
+                    AND (uecv.starts_at IS NULL OR uecv.starts_at <= NOW())
+                    AND (uecv.ends_at IS NULL OR uecv.ends_at > NOW())
+                  ORDER BY uecv.id DESC
+                  LIMIT 1`,
+                { replacements: { uid: userId, examTypeId }, type: sequelize.QueryTypes.SELECT }
+            );
+            if (Array.isArray(rows) && rows[0] && rows[0].id != null) {
+                const n = Number(rows[0].id);
+                if (Number.isFinite(n) && n > 0) { examContentVersionId = n; source = 'override'; }
+            }
+        } catch (_) { /* ignore */ }
+
+        // 2) Current/default
+        if (!examContentVersionId) {
+            try {
+                const rows = await sequelize.query(
+                    `SELECT exam_content_version_id AS id
+                       FROM exam_content_current_version
+                      WHERE exam_type_id = :examTypeId
+                      LIMIT 1`,
+                    { replacements: { examTypeId }, type: sequelize.QueryTypes.SELECT }
+                );
+                if (Array.isArray(rows) && rows[0] && rows[0].id != null) {
+                    const n = Number(rows[0].id);
+                    if (Number.isFinite(n) && n > 0) { examContentVersionId = n; source = 'current'; }
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        // 3) Latest
+        if (!examContentVersionId) {
+            try {
+                const rows = await sequelize.query(
+                    `SELECT id
+                       FROM exam_content_version
+                      WHERE exam_type_id = :examTypeId
+                      ORDER BY effective_from DESC NULLS LAST, id DESC
+                      LIMIT 1`,
+                    { replacements: { examTypeId }, type: sequelize.QueryTypes.SELECT }
+                );
+                if (Array.isArray(rows) && rows[0] && rows[0].id != null) {
+                    const n = Number(rows[0].id);
+                    if (Number.isFinite(n) && n > 0) { examContentVersionId = n; source = 'latest'; }
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        let version = null;
+        if (examContentVersionId) {
+            try {
+                const rows = await sequelize.query(
+                    `SELECT id, exam_type_id, code, effective_from, notes
+                       FROM exam_content_version
+                      WHERE id = :id
+                      LIMIT 1`,
+                    { replacements: { id: examContentVersionId }, type: sequelize.QueryTypes.SELECT }
+                );
+                if (Array.isArray(rows) && rows[0]) {
+                    version = {
+                        id: Number(rows[0].id),
+                        examTypeId: Number(rows[0].exam_type_id),
+                        code: rows[0].code || null,
+                        effectiveFrom: rows[0].effective_from ? String(rows[0].effective_from) : null,
+                        notes: rows[0].notes || null
+                    };
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        return res.json({
+            userId,
+            examType: { id: examTypeId, slug: examTypeSlug, nome: examType.Nome || null },
+            effective: {
+                source,
+                examContentVersionId: examContentVersionId || null,
+                version
+            }
+        });
+    } catch (err) {
+        logger.error('Erro /users/me/eco-version:', err);
+        return next(internalError('Internal error', 'USER_ME_ECO_VERSION_ERROR', err));
+    }
+});
+
 /**
  * GET /api/users/me/stats/daily?days=30
  * Retorna série diária de métricas de tentativas (started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent).

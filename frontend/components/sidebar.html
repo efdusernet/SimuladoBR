@@ -303,7 +303,6 @@
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dashboard">Estatísticas</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dominios">Domínios</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=prob">Probabilidade de Sucesso</a>
-        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=literaturas">Literaturas sugeridas</a>
         <a class="sidebar-accordion-item" href="/pages/InsightsIA.html">Insights da IA</a>
       </div>
     </div>
@@ -832,8 +831,6 @@
         await renderDominios(indicadoresSection);
       } else if (key === 'prob' || key === 'probabilidade' || key === 'probabilidade-de-sucesso') {
         await renderProbabilidade(indicadoresSection);
-      } else if (key === 'literaturas' || key === 'literaturas-sugeridas' || key === 'literatura') {
-        await renderLiteraturasSugeridas(indicadoresSection);
       } else {
         indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
       }
@@ -2351,135 +2348,6 @@
         probCards.appendChild(expl);
       } catch(e){ probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Erro ao carregar dados</div>'; }
     } catch(e){ logger.error('[Sidebar] renderProbabilidade error:', e); container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Probabilidade de Sucesso.</div></div></div>'; }
-  }
-
-  async function renderLiteraturasSugeridas(container){
-    try {
-      container.innerHTML = '';
-
-      const mainEl = document.querySelector('main.content') || document.querySelector('main');
-      if (mainEl) {
-        let hdr = document.getElementById('sectionHeaderStrip');
-        if (!hdr) {
-          hdr = document.createElement('div');
-          hdr.id = 'sectionHeaderStrip';
-          mainEl.insertBefore(hdr, mainEl.firstChild);
-        }
-        hdr.innerHTML = '';
-        const headerStrip = document.createElement('div');
-        headerStrip.setAttribute('aria-label', 'Cabeçalho Literaturas sugeridas');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
-        headerStrip.style.color = '#ffffff';
-        headerStrip.style.padding = '12px 14px';
-        headerStrip.style.borderRadius = '8px';
-        headerStrip.style.margin = '0 0 10px 0';
-        headerStrip.style.display = 'flex';
-        headerStrip.style.alignItems = 'center';
-        headerStrip.style.justifyContent = 'space-between';
-        const headerTitle = document.createElement('div');
-        headerTitle.textContent = 'Literaturas sugeridas';
-        headerTitle.style.fontSize = '0.95rem';
-        headerTitle.style.fontWeight = '700';
-        headerTitle.style.letterSpacing = '0.3px';
-        headerStrip.appendChild(headerTitle);
-        hdr.appendChild(headerStrip);
-      }
-
-      const wrap = document.createElement('div');
-      wrap.className = 'ov-wrapper';
-
-      const card = document.createElement('div');
-      card.style.maxWidth = '620px';
-      card.style.margin = '10px auto 20px';
-      card.style.background = '#fff';
-      card.style.padding = '14px 16px';
-      card.style.borderRadius = '10px';
-      card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
-      card.style.border = '1px solid #e2e8f0';
-
-      const info = document.createElement('div');
-      info.style.fontSize = '0.72rem';
-      info.style.color = '#475569';
-      info.style.marginBottom = '10px';
-      info.textContent = 'Carregando sugestões…';
-      card.appendChild(info);
-
-      function sectionTitle(txt){
-        const h = document.createElement('div');
-        h.textContent = txt;
-        h.style.fontSize = '0.85rem';
-        h.style.fontWeight = '700';
-        h.style.color = '#0f172a';
-        h.style.margin = '12px 0 8px';
-        return h;
-      }
-      function listBlock(items){
-        const ul = document.createElement('ul');
-        ul.style.margin = '0';
-        ul.style.paddingLeft = '18px';
-        ul.style.display = 'grid';
-        ul.style.gap = '8px';
-        (items || []).forEach(it => {
-          const li = document.createElement('li');
-          const title = it && it.title ? String(it.title) : '';
-          const note = it && it.note ? String(it.note) : '';
-          li.innerHTML = `<div style="font-size:0.78rem;color:#0f172a;font-weight:600">${escapeHtml(title)}</div>` +
-                         (note ? `<div style="font-size:0.70rem;color:#475569;margin-top:2px">${escapeHtml(note)}</div>` : '');
-          ul.appendChild(li);
-        });
-        return ul;
-      }
-      function escapeHtml(s){
-        return String(s || '').replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-      }
-
-      const ptMount = document.createElement('div');
-      const enMount = document.createElement('div');
-
-      card.appendChild(ptMount);
-      card.appendChild(enMount);
-      wrap.appendChild(card);
-      container.appendChild(wrap);
-
-      const headers = (() => {
-        const h = { 'Accept':'application/json' };
-        try {
-          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
-          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
-          if (sessionToken) h['X-Session-Token'] = sessionToken;
-        } catch(_){ }
-        return h;
-      })();
-
-      const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
-      const url = base + '/api/ai/literature-suggestions?examTypeSlug=pmp';
-      const resp = await fetch(url, { headers, cache: 'no-store', credentials: 'include' });
-      const raw = await resp.text();
-      let data = null;
-      try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
-      if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
-
-      const ecoCode = data && data.eco && data.eco.code ? String(data.eco.code) : null;
-      const usedOllama = data && data.meta && data.meta.usedOllama;
-      info.textContent = 'ECO: ' + (ecoCode || '—') + ' · Fonte: ' + (usedOllama ? 'IA' : 'regras');
-
-      const s = data && data.suggestions ? data.suggestions : {};
-      const pt = Array.isArray(s.pt) ? s.pt : [];
-      const en = Array.isArray(s.en) ? s.en : [];
-
-      ptMount.innerHTML = '';
-      ptMount.appendChild(sectionTitle('Literatura em Português'));
-      ptMount.appendChild(pt.length ? listBlock(pt) : document.createTextNode('—'));
-
-      enMount.innerHTML = '';
-      enMount.appendChild(sectionTitle('Literatura em Inglês'));
-      enMount.appendChild(en.length ? listBlock(en) : document.createTextNode('—'));
-    } catch(e){
-      logger.error('[Sidebar] renderLiteraturasSugeridas error:', e);
-      container.innerHTML = '<div class="ov-wrapper"><div style="max-width:620px;margin:10px auto 20px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;color:#b91c1c;font-size:0.8rem">Erro ao carregar sugestões de literatura.</div></div>';
-    }
   }
 
   window.loadIndicadoresIntoSection = loadIndicadoresIntoSection;

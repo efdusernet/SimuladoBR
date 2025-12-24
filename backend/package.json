@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "start:sync": "node syncStart.js",
+    "start:win": "powershell -NoProfile -ExecutionPolicy Bypass -File start-windows.ps1",
+    "start:sync:win": "powershell -NoProfile -ExecutionPolicy Bypass -File start-sync-windows.ps1",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:apply-sql": "node scripts/apply_sql.js",
     "role:grant-admin": "node scripts/grant_admin.js"

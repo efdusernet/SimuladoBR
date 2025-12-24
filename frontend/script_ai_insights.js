@@ -1,8 +1,8 @@
 (function(){
-  const tokenInput = document.getElementById('sessionToken');
   const btn = document.getElementById('btnCarregar');
   const loadingEl = document.getElementById('loading');
   const errorEl = document.getElementById('error');
+  const meEmailEl = document.getElementById('meEmail');
 
   const kpiReadiness = document.getElementById('kpiReadiness');
   const kpiConsistency = document.getElementById('kpiConsistency');
@@ -17,8 +17,17 @@
   const chartScoreEl = document.getElementById('chartScore');
   const chartRatesEl = document.getElementById('chartRates');
 
-  // Prefill token
-  try { const st = localStorage.getItem('sessionToken'); if (st && tokenInput && !tokenInput.value) tokenInput.value = st; } catch(_){ }
+  function buildAuthHeaders(){
+    const headers = { 'Accept': 'application/json' };
+    try {
+      const jwtTok = ((localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '')).trim();
+      const jwtType = ((localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer')).trim() || 'Bearer';
+      const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+      if (sessionToken) headers['X-Session-Token'] = sessionToken;
+    } catch(_){ }
+    return headers;
+  }
 
   function setLoading(on){ if (loadingEl) loadingEl.style.display = on ? 'block' : 'none'; }
   function setError(on){ if (errorEl) errorEl.style.display = on ? 'block' : 'none'; }
@@ -164,21 +173,35 @@
     }
   }
 
-  async function loadAll(){
-    const token = tokenInput ? (tokenInput.value || '').trim() : '';
-    if (tokenInput && !token) { alert('Session token obrigatório'); return; }
-    if (tokenInput) {
-      try { localStorage.setItem('sessionToken', token); } catch(_) {}
+  async function loadMe(){
+    try {
+      const resp = await fetch('/api/users/me', {
+        headers: buildAuthHeaders(),
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (!resp.ok) throw new Error('ME_NOT_OK');
+      const me = await resp.json();
+      const email = (me && (me.Email || me.email)) ? String(me.Email || me.email) : '—';
+      if (meEmailEl) meEmailEl.textContent = email;
+      return me;
+    } catch(_){
+      if (meEmailEl) meEmailEl.textContent = '—';
+      return null;
     }
+  }
 
+  async function loadAll(){
     setLoading(true);
     setError(false);
 
     try {
       const days = 30;
+      await loadMe();
       const resp = await fetch(`/api/ai/insights?days=${days}`, {
-        headers: token ? { 'X-Session-Token': token } : {},
-        credentials: 'include'
+        headers: buildAuthHeaders(),
+        credentials: 'include',
+        cache: 'no-store',
       });
       if (!resp.ok) throw new Error('Falha na resposta');
       const data = await resp.json();
@@ -192,5 +215,5 @@
   }
 
   if (btn) btn.addEventListener('click', loadAll);
-  if (tokenInput && (tokenInput.value || '').trim()) setTimeout(loadAll, 50);
+  setTimeout(loadAll, 50);
 })();

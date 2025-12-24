@@ -1574,6 +1574,17 @@
                         Define uma versão de ECO específica para um usuário (normalmente baseada na compra). Se removido, volta para a versão vigente padrão.
                     </p>
                     <div style="display:grid;gap:10px;margin-bottom:12px">
+                        <div style="display:flex;flex-direction:column;gap:6px">
+                            <label for="adminUserSearchQuery" style="font-size:0.75rem;color:var(--muted)">Buscar usuário</label>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                                <input id="adminUserSearchQuery" type="text" placeholder="Digite nome, @usuario ou email" style="flex:1;min-width:220px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                                <button id="adminUserSearchBtn" type="button" style="padding:10px 12px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer">Buscar</button>
+                            </div>
+                            <select id="adminUserSearchSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+                                <option value="">Digite acima e clique Buscar</option>
+                            </select>
+                            <div id="adminUserSearchStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+                        </div>
                         <div style="display:flex;flex-direction:column;gap:4px">
                             <label for="adminUserIdOverride" style="font-size:0.75rem;color:var(--muted)">User ID *</label>
                             <input id="adminUserIdOverride" type="number" min="1" placeholder="ex: 123" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
@@ -1954,6 +1965,10 @@
             const adminClearUserOverrideBtn = document.getElementById('adminClearUserOverrideBtn');
             const adminUserOverrideOutput = document.getElementById('adminUserOverrideOutput');
             const adminUserIdOverrideHint = document.getElementById('adminUserIdOverrideHint');
+            const adminUserSearchQuery = document.getElementById('adminUserSearchQuery');
+            const adminUserSearchBtn = document.getElementById('adminUserSearchBtn');
+            const adminUserSearchSelect = document.getElementById('adminUserSearchSelect');
+            const adminUserSearchStatus = document.getElementById('adminUserSearchStatus');
 
             // Unified modal open/close to avoid click-through caused by lingering `inert`.
             function openAdminModal(){
@@ -2289,6 +2304,97 @@
                 } catch(e){
                     adminUserIdOverrideHint.textContent = `Usuário ${uid}`;
                 }
+            }
+
+            function buildAdminUserLabel(u){
+                const id = u && (u.Id != null ? u.Id : u.id);
+                const nome = u && (u.Nome || u.nome) ? String(u.Nome || u.nome) : '';
+                const usern = u && (u.NomeUsuario || u.nomeUsuario) ? String(u.NomeUsuario || u.nomeUsuario) : '';
+                const email = u && (u.Email || u.email) ? String(u.Email || u.email) : '';
+                const parts = [String(id || '')].filter(Boolean);
+                if (nome) parts.push(nome);
+                if (usern) parts.push('(@' + usern + ')');
+                if (email) parts.push('<' + email + '>');
+                return parts.join(' - ');
+            }
+
+            async function searchAdminUsers(){
+                if (!adminUserSearchQuery || !adminUserSearchSelect) return;
+                const q = String(adminUserSearchQuery.value || '').trim();
+                if (adminUserSearchStatus) adminUserSearchStatus.textContent = '';
+
+                adminUserSearchSelect.disabled = true;
+                adminUserSearchSelect.innerHTML = '<option value="">Buscando...</option>';
+
+                if (!q) {
+                    adminUserSearchSelect.innerHTML = '<option value="">Digite nome, @usuario ou email</option>';
+                    adminUserSearchSelect.disabled = true;
+                    if (adminUserSearchStatus) adminUserSearchStatus.textContent = '';
+                    return;
+                }
+
+                try {
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const url = base + '/api/admin/users/search?q=' + encodeURIComponent(q) + '&limit=25';
+                    const resp = await fetch(url, { cache: 'no-store', credentials: 'include' });
+                    const raw = await resp.text();
+                    let data = null;
+                    try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                    if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+
+                    const items = (data && Array.isArray(data.items)) ? data.items : [];
+                    adminUserSearchSelect.innerHTML = '';
+                    const opt0 = document.createElement('option');
+                    opt0.value = '';
+                    opt0.textContent = items.length ? 'Selecione um usuário...' : 'Nenhum usuário encontrado';
+                    adminUserSearchSelect.appendChild(opt0);
+
+                    for (const u of items) {
+                        const id = u && (u.Id != null ? Number(u.Id) : Number(u.id));
+                        if (!id || !isFinite(id) || id <= 0) continue;
+                        const o = document.createElement('option');
+                        o.value = String(id);
+                        o.textContent = buildAdminUserLabel(u);
+                        adminUserSearchSelect.appendChild(o);
+                    }
+
+                    adminUserSearchSelect.disabled = items.length === 0;
+                    if (adminUserSearchStatus) adminUserSearchStatus.textContent = items.length ? (items.length + ' resultado(s)') : '0 resultado';
+                } catch (e) {
+                    adminUserSearchSelect.innerHTML = '<option value="">Erro na busca</option>';
+                    adminUserSearchSelect.disabled = true;
+                    if (adminUserSearchStatus) adminUserSearchStatus.textContent = (e && e.message) ? e.message : String(e);
+                }
+            }
+
+            if (adminUserSearchBtn) {
+                adminUserSearchBtn.addEventListener('click', () => { searchAdminUsers(); });
+            }
+            if (adminUserSearchQuery) {
+                adminUserSearchQuery.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchAdminUsers();
+                    }
+                });
+            }
+            if (adminUserSearchSelect) {
+                adminUserSearchSelect.addEventListener('change', async () => {
+                    const val = String(adminUserSearchSelect.value || '').trim();
+                    const uid = Number(val);
+                    if (!adminUserIdOverride || !uid || !isFinite(uid) || uid <= 0) return;
+                    adminUserIdOverride.value = String(uid);
+                    await loadAdminUserLabel();
+
+                    const examTypeId = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+                    if (!examTypeId) return;
+                    await loadAdminContentVersions(examTypeId);
+                    if (adminUserExamContentVersionSelect && adminExamContentVersionSelect){
+                        adminUserExamContentVersionSelect.innerHTML = adminExamContentVersionSelect.innerHTML;
+                        adminUserExamContentVersionSelect.disabled = adminExamContentVersionSelect.disabled;
+                    }
+                    await maybeLoadUserOverride();
+                });
             }
 
             if (adminUserExamTypeSelect) {

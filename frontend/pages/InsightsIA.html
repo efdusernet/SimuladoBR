@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/logout.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Insights da IA</title>
+  <style>
+    :root{
+      --primary: #0b5ed7;
+      --muted: #6c757d;
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --subtext: #334155;
+    }
+    body{ margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+    h1{ font-size:1rem; margin:12px 8px; font-weight:600; padding-left:8px; }
+
+    .menu-toggle{
+      position: fixed; top: 8px; left: 8px; z-index: 1100;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 8px;
+      border: 1px solid #d6d9e0; background:#fff; cursor:pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover{ background:#f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile{
+      display:inline-block; width: 18px; height: 2px; background: #333; border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    .menu-panel{
+      position: fixed; top: 44px; left: 8px; z-index: 1099;
+      background:#fff; border:1px solid #d6d9e0; border-radius:10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px; padding: 6px; display:none;
+    }
+    .menu-panel.open{ display:block; }
+    .menu-panel a{ display:block; padding: 6px 8px; color:#222; text-decoration:none; border-radius:6px; }
+    .menu-panel a:hover{ background:#f4f7fb; }
+
+    .wrap{ padding: 0 8px 16px; }
+
+    .controls{
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap: wrap;
+    }
+    .controls label{ font-size: 0.75rem; font-weight: 700; color: var(--subtext); }
+    .controls input{
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      min-width: 240px;
+    }
+    .controls button{
+      padding: 8px 12px;
+      border: 1px solid var(--primary);
+      background: var(--primary);
+      color: #fff;
+      border-radius: 8px;
+      cursor:pointer;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .grid{
+      margin-top: 10px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .card{
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .card h2{ margin:0 0 6px; font-size: 0.75rem; color: var(--subtext); }
+    .value{ font-size: 1.15rem; font-weight: 800; color: var(--text); }
+
+    .section{
+      margin-top: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .section-title{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .section-title h2{ margin:0; font-size:0.85rem; }
+    .badge{
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #0f172a;
+      background:#f1f5f9;
+      border:1px solid #e2e8f0;
+      padding: 4px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    ul{ margin: 8px 0 0; padding-left: 18px; color: var(--subtext); }
+    li{ margin: 4px 0; font-size: 0.85rem; line-height: 1.35; }
+    .empty{ color: #64748b; }
+
+    .chart{ margin-top: 8px; width: 100%; overflow:hidden; }
+
+    #loading{ display:none; margin-top: 10px; font-size: 0.85rem; color: #64748b; }
+    #error{ display:none; margin-top: 10px; font-size: 0.85rem; color: #b91c1c; }
+
+    @media (min-width: 640px){
+      h1{ font-size:1.1rem; margin:16px; padding-left:35px; }
+      .wrap{ padding: 0 16px 24px; }
+      .grid{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+  </button>
+  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/pages/Indicadores.html" rel="noopener">Indicadores</a>
+    <a href="/pages/progressoGeral.html" rel="noopener">Progresso Geral</a>
+    <a href="#" class="page-logout">Sair</a>
+  </nav>
+
+  <h1>Insights da IA</h1>
+
+  <div class="wrap">
+    <div class="controls">
+      <label for="sessionToken">Session token</label>
+      <input id="sessionToken" type="text" placeholder="Cole seu X-Session-Token" />
+      <button id="btnCarregar" type="button">Carregar</button>
+    </div>
+
+    <div id="loading">Carregando insights...</div>
+    <div id="error">Falha ao carregar. Verifique token e servidor.</div>
+
+    <div class="grid" aria-label="KPIs">
+      <div class="card"><h2>Prontidão (0–100)</h2><div class="value" id="kpiReadiness">—</div></div>
+      <div class="card"><h2>Consistência (dias ativos)</h2><div class="value" id="kpiConsistency">—</div></div>
+      <div class="card"><h2>Score médio (período)</h2><div class="value" id="kpiAvgScore">—</div></div>
+      <div class="card"><h2>Taxa de conclusão</h2><div class="value" id="kpiCompletion">—</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        <h2 id="aiHeadline">Insights</h2>
+        <div class="badge" id="ollamaBadge">—</div>
+      </div>
+      <ul id="aiInsights"></ul>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><h2>Alertas / Riscos</h2></div>
+      <ul id="aiRisks"></ul>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><h2>Ações sugeridas (7 dias)</h2></div>
+      <ul id="aiActions"></ul>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><h2>Evolução do score (média diária)</h2></div>
+      <div class="chart" id="chartScore"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><h2>Taxas: conclusão x abandono</h2></div>
+      <div class="chart" id="chartRates"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const menuToggle = document.getElementById('menuToggle');
+      const pageMenu = document.getElementById('pageMenu');
+      function setOpen(open){
+        pageMenu.classList.toggle('open', open);
+        pageMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+        menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      menuToggle.addEventListener('click', () => setOpen(!pageMenu.classList.contains('open')));
+      document.addEventListener('click', (e) => {
+        if (!pageMenu.classList.contains('open')) return;
+        if (pageMenu.contains(e.target) || menuToggle.contains(e.target)) return;
+        setOpen(false);
+      });
+    })();
+  </script>
+  <script src="/script_ai_insights.js"></script>
+</body>
+</html>

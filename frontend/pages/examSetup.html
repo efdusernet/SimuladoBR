@@ -296,7 +296,7 @@
     <div class="tabs">
       <div class="tab active" data-aba="dominios">Domínios</div>
       <div class="tab" data-aba="grupos">Grupo de Processos</div>
-      <div class="tab" data-aba="areas">Área de Conhecimento</div>
+      <!-- Área de Conhecimento desativada -->
       <div class="tab" data-aba="abordagem">Abordagem</div>
     </div>
 
@@ -456,9 +456,10 @@
     } catch(e){}
 
     // State for meta lists and selections
+    // Área de Conhecimento desativada (aba + endpoints + filtros)
     let abaAtual = 'dominios';
-    let meta = { dominios: [], grupos: [], areas: [], categorias: [] };
-    let selecionados = { dominios: [], grupos: [], areas: [], categorias: [] }; // arrays of ids (categorias: single id stored as array)
+    let meta = { dominios: [], grupos: [], categorias: [] };
+    let selecionados = { dominios: [], grupos: [], categorias: [] }; // arrays of ids (categorias: single id stored as array)
   // Placeholder para função de atualização de contagem (será definida mais abaixo)
   // Isso evita ReferenceError em chamadas iniciais durante o carregamento.
   let scheduleAtualizarDisponiveis = function(){};
@@ -476,7 +477,6 @@
       const token = getSessionToken();
       // Usar count=1 para não acionar bypassFilters de FULL_Q no checkAvailability
       const payload = { count: 1, onlyCount: true, examType: currentExamType };
-      if (selecionados.areas.length) payload.areas = selecionados.areas;
       if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
       if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
@@ -497,7 +497,6 @@
       const url = base + '/api/exams/select';
       const token = getSessionToken();
       const payload = { count: 1, onlyCount: true, examType: currentExamType, onlyNew: true };
-      if (selecionados.areas.length) payload.areas = selecionados.areas;
       if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
       if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
@@ -512,7 +511,7 @@
 
     // Debounced updater disponível globalmente para ser chamado ao clicar nos filtros
     scheduleAtualizarDisponiveis = debounce(async () => {
-      const temFiltros = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length) > 0;
+      const temFiltros = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
       if (!temFiltros) { return; }
       try { resumoQtd.textContent = '...'; } catch(_){ }
       const disponiveis = await countForCurrentFilters();
@@ -536,9 +535,10 @@
         if (parsed && typeof parsed === 'object') {
           if (Array.isArray(parsed.dominios)) selecionados.dominios = parsed.dominios.map(Number).filter(n=>!Number.isNaN(n));
           if (Array.isArray(parsed.grupos)) selecionados.grupos = parsed.grupos.map(Number).filter(n=>!Number.isNaN(n));
-          if (Array.isArray(parsed.areas)) selecionados.areas = parsed.areas.map(Number).filter(n=>!Number.isNaN(n));
           if (Array.isArray(parsed.categorias)) selecionados.categorias = parsed.categorias.map(Number).filter(n=>!Number.isNaN(n));
-          if (parsed.activeTab && (parsed.activeTab === 'dominios' || parsed.activeTab === 'grupos' || parsed.activeTab === 'areas' || parsed.activeTab === 'abordagem')) abaAtual = parsed.activeTab;
+          if (parsed.activeTab && (parsed.activeTab === 'dominios' || parsed.activeTab === 'grupos' || parsed.activeTab === 'abordagem')) abaAtual = parsed.activeTab;
+          // Área de Conhecimento desativada: se veio salva como aba ativa, cai para Domínios
+          if (parsed.activeTab === 'areas') abaAtual = 'dominios';
           if ((parsed.onlyNew === true || parsed.onlyNew === 'true') && !bloqueado) {
             try { onlyNewInput.checked = true; } catch(e){}
           }
@@ -565,7 +565,7 @@
           else { arr.push(id); btn.classList.add('active'); }
           // Ao selecionar qualquer filtro, limpar o campo de quantidade
           try {
-            const totalSel = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length);
+            const totalSel = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length);
             if (totalSel > 0) {
               quantidadeInput.value = '';
             }
@@ -580,7 +580,7 @@
     async function atualizarResumo() {
       resumoQtd.textContent = quantidadeInput.value || '-';
         // Se não houver filtros selecionados, manter o comportamento anterior (mostrar quantidade digitada)
-        const filtrosSelecionados = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length) > 0;
+        const filtrosSelecionados = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
         if (!filtrosSelecionados) {
           resumoQtd.textContent = quantidadeInput.value || '-';
         }
@@ -591,13 +591,12 @@
       };
       pushFrom(meta.dominios, selecionados.dominios);
       pushFrom(meta.grupos, selecionados.grupos);
-      pushFrom(meta.areas, selecionados.areas);
       pushFrom(meta.categorias, selecionados.categorias);
       resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
         // Atualiza a contagem disponível para os filtros (se houver)
         scheduleAtualizarDisponiveis();
       // Se premium e sem filtros, mostrar total de inéditas gerais (sem filtros)
-      if (!bloqueado && !(selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length)) {
+      if (!bloqueado && !(selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length)) {
         try {
           resumoIneditas.textContent = '...';
           // consulta sem filtros
@@ -616,7 +615,7 @@
 
     function salvarSelecoes() {
       try {
-        const payload = { dominios: selecionados.dominios, grupos: selecionados.grupos, areas: selecionados.areas, categorias: selecionados.categorias, activeTab: abaAtual };
+        const payload = { dominios: selecionados.dominios, grupos: selecionados.grupos, categorias: selecionados.categorias, activeTab: abaAtual };
         if (!bloqueado) payload.onlyNew = !!onlyNewInput.checked;
         localStorage.setItem('examFilters', JSON.stringify(payload));
       } catch(e) {}
@@ -631,7 +630,6 @@
         salvarSelecoes();
         if (abaAtual === 'dominios') renderChecklist(meta.dominios);
         else if (abaAtual === 'grupos') renderChecklist(meta.grupos);
-        else if (abaAtual === 'areas') renderChecklist(meta.areas);
         else if (abaAtual === 'abordagem') renderChecklist(meta.categorias);
         atualizarResumo();
       });
@@ -650,7 +648,7 @@
 
     function validateForm(){
       startError.style.display = 'none';
-      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length) > 0;
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
       const raw = quantidadeInput.value;
       const val = Number(raw);
       // Permitir iniciar com apenas filtros se houver focos selecionados
@@ -677,7 +675,6 @@
       // Regra: se quantidade for FULL_Q, não aplicar filtros de Domínio/Grupo/Área
       const bypassFilters = (cnum === FULL_Q);
       if (!bypassFilters) {
-        if (selecionados.areas.length) payload.areas = selecionados.areas;
         if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
         if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       }
@@ -705,7 +702,7 @@
     function resolveEffectiveCount(){
       const raw = quantidadeInput.value;
       const val = Number(raw);
-      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length) > 0;
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
       if (raw && !Number.isNaN(val) && val >= 1) {
         return Math.max(1, Math.min(limiteQuestoes, val));
       }
@@ -736,7 +733,7 @@
       if (errorBox) errorBox.style.display = 'none';
       if (!validateForm()) return;
 
-      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length + selecionados.categorias.length) > 0;
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
       const userProvided = !!quantidadeInput.value;
       let effCount = resolveEffectiveCount();
 
@@ -867,21 +864,20 @@
     async function loadMeta(){
       try {
         const base = (BACKEND_BASE || '').replace(/\/$/, '');
-        const [doms, grps, ars, cats] = await Promise.all([
+        const [doms, grps, cats] = await Promise.all([
           fetchJson(base + '/api/meta/dominios'),
           fetchJson(base + '/api/meta/grupos'),
-          fetchJson(base + '/api/meta/areas'),
+          // Área de Conhecimento desativada
+          // fetchJson(base + '/api/meta/areas'),
           fetchJson(base + '/api/meta/categorias')
         ]);
         meta.dominios = Array.isArray(doms) ? doms : [];
         meta.grupos = Array.isArray(grps) ? grps : [];
-        meta.areas = Array.isArray(ars) ? ars : [];
         meta.categorias = Array.isArray(cats) ? cats : [];
       } catch (e) {
         logger.warn('Falha ao carregar metadados, usando listas vazias.', e);
         meta.dominios = meta.dominios || [];
         meta.grupos = meta.grupos || [];
-        meta.areas = meta.areas || [];
         meta.categorias = meta.categorias || [];
       }
       try {
@@ -893,7 +889,6 @@
       if (tabEl) tabEl.classList.add('active');
       if (abaAtual === 'dominios') renderChecklist(meta.dominios);
       else if (abaAtual === 'grupos') renderChecklist(meta.grupos);
-      else if (abaAtual === 'areas') renderChecklist(meta.areas);
       else if (abaAtual === 'abordagem') renderChecklist(meta.categorias);
       atualizarResumo();
     }

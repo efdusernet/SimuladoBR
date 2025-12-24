@@ -129,6 +129,7 @@
         #card-exam-mock,
         #card-indicadores,
         #card-progresso-geral,
+        #card-insights-ia,
         .card[aria-label="Simulador"],
         .card[aria-label="Dica do dia"],
         .card[aria-label="Estou pronto?"] {
@@ -140,6 +141,7 @@
         #card-exam-mock::before,
         #card-indicadores::before,
         #card-progresso-geral::before,
+        #card-insights-ia::before,
         .card[aria-label="Simulador"]::before,
         .card[aria-label="Dica do dia"]::before,
         .card[aria-label="Estou pronto?"]::before {
@@ -162,6 +164,7 @@
         #card-exam-mock:hover::before,
         #card-indicadores:hover::before,
         #card-progresso-geral:hover::before,
+        #card-insights-ia:hover::before,
         .card[aria-label="Simulador"]:hover::before,
         .card[aria-label="Dica do dia"]:hover::before,
         .card[aria-label="Estou pronto?"]:hover::before {
@@ -172,6 +175,7 @@
         #card-exam-mock .card-label,
         #card-indicadores .card-label,
         #card-progresso-geral .card-label,
+        #card-insights-ia .card-label,
         .card[aria-label="Simulador"] .card-label,
         .card[aria-label="Dica do dia"] .card-label,
         .card[aria-label="Estou pronto?"] .card-label {
@@ -186,6 +190,7 @@
         #card-exam-mock .thumb,
         #card-indicadores .thumb,
         #card-progresso-geral .thumb,
+        #card-insights-ia .thumb,
         .card[aria-label="Simulador"] .thumb,
         .card[aria-label="Dica do dia"] .thumb,
         .card[aria-label="Estou pronto?"] .thumb {
@@ -870,6 +875,10 @@
                     <img src="assets/historia.png" alt="Progresso geral" class="thumb" />
                     <span class="card-label">Histórico</span>
                 </div>
+                <div id="card-insights-ia" class="card card--simulador" data-card="insights-ia" aria-label="Insights da IA" role="button" tabindex="0">
+                    <img src="assets/kpi.png" alt="Insights da IA" class="thumb" />
+                    <span class="card-label">Insights IA</span>
+                </div>
                 <div class="card card--simulador" data-full="https://picsum.photos/800/800?random=6" aria-label="Estou pronto?" role="button" tabindex="0">
                     <img src="assets/pronto.png" alt="Estou pronto?" class="thumb" />
                     <span class="card-label">Estou pronto?</span>
@@ -1526,6 +1535,81 @@
                 </form>
                 <div id="fixtureOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
             </div>
+
+            <!-- Accordion: Versão atual do exame (ECO) -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">📚 Versão atual do exame (ECO)</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">
+                        Define a versão padrão do blueprint (ECO) por tipo de exame. Usuários com compra específica podem ter override por usuário.
+                    </p>
+                    <div style="display:grid;gap:10px;margin-bottom:12px">
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            <label for="adminExamTypeSelect" style="font-size:0.75rem;color:var(--muted)">Tipo de Exame *</label>
+                            <select id="adminExamTypeSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem">
+                                <option value="">Carregando...</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            <label for="adminExamContentVersionSelect" style="font-size:0.75rem;color:var(--muted)">Versão atual *</label>
+                            <select id="adminExamContentVersionSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+                                <option value="">Selecione um tipo de exame</option>
+                            </select>
+                        </div>
+                        <button id="adminSetCurrentVersionBtn" type="button" style="margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">
+                            Salvar versão atual
+                        </button>
+                    </div>
+                    <div id="adminExamContentVersionOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+                </div>
+            </div>
+
+            <!-- Accordion: Override por Usuário (compra) -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">👤 Override por Usuário (compra)</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">
+                        Define uma versão de ECO específica para um usuário (normalmente baseada na compra). Se removido, volta para a versão vigente padrão.
+                    </p>
+                    <div style="display:grid;gap:10px;margin-bottom:12px">
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            <label for="adminUserIdOverride" style="font-size:0.75rem;color:var(--muted)">User ID *</label>
+                            <input id="adminUserIdOverride" type="number" min="1" placeholder="ex: 123" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            <label for="adminUserExamTypeSelect" style="font-size:0.75rem;color:var(--muted)">Tipo de Exame *</label>
+                            <select id="adminUserExamTypeSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem">
+                                <option value="">Carregando...</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            <label for="adminUserExamContentVersionSelect" style="font-size:0.75rem;color:var(--muted)">Versão ECO (override) *</label>
+                            <select id="adminUserExamContentVersionSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+                                <option value="">Selecione User ID + tipo de exame</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button id="adminSetUserOverrideBtn" type="button" style="flex:1;min-width:180px;margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">
+                                Salvar override
+                            </button>
+                            <button id="adminClearUserOverrideBtn" type="button" style="flex:1;min-width:180px;margin-top:4px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer">
+                                Remover override
+                            </button>
+                        </div>
+                    </div>
+                    <div id="adminUserOverrideOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+                </div>
+            </div>
             
             <!-- Accordion: Resetar Senha -->
             <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
@@ -1666,6 +1750,14 @@
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
                         logger.info('[index.html] Navegando para Indicadores.html');
                         window.location.assign('/pages/Indicadores.html');
+                        return;
+                    }
+                    // Insights da IA: abre página dedicada
+                    const isInsightsAI = (card.id === 'card-insights-ia') || (card.getAttribute('data-card') === 'insights-ia');
+                    if (isInsightsAI) {
+                        try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                        logger.info('[index.html] Navegando para InsightsIA.html');
+                        window.location.assign('/pages/InsightsIA.html');
                         return;
                     }
                     // Exception: use this card for Histórico modal, not exam setup
@@ -1848,6 +1940,20 @@
             const reconcileToDate = document.getElementById('reconcileToDate');
             const reconcileMode = document.getElementById('reconcileMode');
             const reconcileDryRun = document.getElementById('reconcileDryRun');
+
+            // Exam content version (ECO) admin controls
+            const adminExamTypeSelect = document.getElementById('adminExamTypeSelect');
+            const adminExamContentVersionSelect = document.getElementById('adminExamContentVersionSelect');
+            const adminSetCurrentVersionBtn = document.getElementById('adminSetCurrentVersionBtn');
+            const adminExamContentVersionOutput = document.getElementById('adminExamContentVersionOutput');
+
+            // Per-user override controls
+            const adminUserIdOverride = document.getElementById('adminUserIdOverride');
+            const adminUserExamTypeSelect = document.getElementById('adminUserExamTypeSelect');
+            const adminUserExamContentVersionSelect = document.getElementById('adminUserExamContentVersionSelect');
+            const adminSetUserOverrideBtn = document.getElementById('adminSetUserOverrideBtn');
+            const adminClearUserOverrideBtn = document.getElementById('adminClearUserOverrideBtn');
+            const adminUserOverrideOutput = document.getElementById('adminUserOverrideOutput');
             
             // Set default dates (last 30 days)
             if (reconcileFromDate && reconcileToDate) {
@@ -1981,6 +2087,302 @@
                     } finally {
                         reconcileBtn.disabled = false;
                         reconcileBtn.textContent = 'Executar Reconciliação';
+                    }
+                });
+            }
+
+            // Load exam types and versions into the admin modal
+            async function loadAdminExamTypes(){
+                try {
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const resp = await fetch(base + '/api/exams/types', { cache: 'no-store', credentials: 'include' });
+                    const list = resp.ok ? await resp.json() : [];
+                    const types = Array.isArray(list) ? list : [];
+                    const selects = [adminExamTypeSelect, adminUserExamTypeSelect].filter(Boolean);
+                    selects.forEach(sel => {
+                        sel.innerHTML = '';
+                        const opt0 = document.createElement('option');
+                        opt0.value = '';
+                        opt0.textContent = 'Selecione...';
+                        sel.appendChild(opt0);
+                    });
+                    for (const t of types){
+                        const dbId = (t && t._dbId != null) ? Number(t._dbId) : null;
+                        if (!dbId || !isFinite(dbId) || dbId <= 0) continue;
+                        const slug = (t && t.id) ? String(t.id) : '';
+                        const nome = (t && t.nome) ? String(t.nome) : slug;
+                        selects.forEach(sel => {
+                            const opt = document.createElement('option');
+                            opt.value = String(dbId);
+                            opt.textContent = nome + (slug ? ` (${slug})` : '');
+                            sel.appendChild(opt);
+                        });
+                    }
+                } catch(e){
+                    const selects = [adminExamTypeSelect, adminUserExamTypeSelect].filter(Boolean);
+                    selects.forEach(sel => {
+                        sel.innerHTML = '';
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = 'Falha ao carregar tipos';
+                        sel.appendChild(opt);
+                    });
+                }
+            }
+
+            async function loadAdminContentVersions(examTypeId){
+                if (!adminExamContentVersionSelect) return;
+                adminExamContentVersionSelect.disabled = true;
+                adminExamContentVersionSelect.innerHTML = '';
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'Carregando versões...';
+                adminExamContentVersionSelect.appendChild(opt);
+
+                try {
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const url = base + '/api/admin/exams/content-versions?examTypeId=' + encodeURIComponent(String(examTypeId));
+                    const resp = await fetch(url, { cache: 'no-store', credentials: 'include' });
+                    const raw = await resp.text();
+                    let data = null;
+                    try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                    if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+
+                    const versions = (data && Array.isArray(data.versions)) ? data.versions : [];
+                    const currentId = (data && data.currentVersionId != null) ? Number(data.currentVersionId) : null;
+                    adminExamContentVersionSelect.innerHTML = '';
+                    const opt1 = document.createElement('option');
+                    opt1.value = '';
+                    opt1.textContent = versions.length ? 'Selecione...' : 'Nenhuma versão cadastrada';
+                    adminExamContentVersionSelect.appendChild(opt1);
+                    for (const v of versions){
+                        const id = (v && v.id != null) ? Number(v.id) : null;
+                        if (!id || !isFinite(id) || id <= 0) continue;
+                        const code = (v && v.code) ? String(v.code) : ('v' + id);
+                        const eff = (v && v.effectiveFrom) ? String(v.effectiveFrom).split('T')[0] : '';
+                        const label = eff ? `${code} - ${eff}` : code;
+                        const o = document.createElement('option');
+                        o.value = String(id);
+                        o.textContent = label;
+                        if (currentId && id === currentId) o.selected = true;
+                        adminExamContentVersionSelect.appendChild(o);
+                    }
+                    adminExamContentVersionSelect.disabled = versions.length === 0;
+
+                    if (adminExamContentVersionOutput){
+                        adminExamContentVersionOutput.style.display = 'block';
+                        adminExamContentVersionOutput.textContent = JSON.stringify({ examTypeId: Number(examTypeId), currentVersionId: currentId, versionsCount: versions.length }, null, 2);
+                    }
+                } catch(e){
+                    adminExamContentVersionSelect.innerHTML = '';
+                    const optE = document.createElement('option');
+                    optE.value = '';
+                    optE.textContent = 'Erro ao carregar versões';
+                    adminExamContentVersionSelect.appendChild(optE);
+                    if (adminExamContentVersionOutput){
+                        adminExamContentVersionOutput.style.display = 'block';
+                        adminExamContentVersionOutput.textContent = 'Erro:\n' + (e && e.message ? e.message : String(e));
+                    }
+                }
+            }
+
+            if (adminExamTypeSelect) {
+                adminExamTypeSelect.addEventListener('change', async () => {
+                    const examTypeId = Number(adminExamTypeSelect.value);
+                    if (!examTypeId) {
+                        if (adminExamContentVersionSelect){
+                            adminExamContentVersionSelect.disabled = true;
+                            adminExamContentVersionSelect.innerHTML = '<option value="">Selecione um tipo de exame</option>';
+                        }
+                        return;
+                    }
+                    await loadAdminContentVersions(examTypeId);
+                });
+                // initial load
+                loadAdminExamTypes();
+            }
+
+            async function maybeLoadUserOverride(){
+                try {
+                    const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+                    const et = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+                    if (!uid || !et) return;
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const url = base + '/api/admin/exams/user-content-version?userId=' + encodeURIComponent(String(uid)) + '&examTypeId=' + encodeURIComponent(String(et));
+                    const resp = await fetch(url, { cache: 'no-store', credentials: 'include' });
+                    const raw = await resp.text();
+                    let data = null;
+                    try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                    if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+                    const ov = data && data.override ? data.override : null;
+                    if (ov && adminUserExamContentVersionSelect) {
+                        const vid = Number(ov.examContentVersionId);
+                        const opt = adminUserExamContentVersionSelect.querySelector('option[value="' + String(vid) + '"]');
+                        if (opt) adminUserExamContentVersionSelect.value = String(vid);
+                    }
+                    if (adminUserOverrideOutput){
+                        adminUserOverrideOutput.style.display = 'block';
+                        adminUserOverrideOutput.textContent = JSON.stringify(data, null, 2);
+                    }
+                } catch(e){
+                    if (adminUserOverrideOutput){
+                        adminUserOverrideOutput.style.display = 'block';
+                        adminUserOverrideOutput.textContent = 'Erro ao consultar override:\n' + (e && e.message ? e.message : String(e));
+                    }
+                }
+            }
+
+            if (adminUserExamTypeSelect) {
+                adminUserExamTypeSelect.addEventListener('change', async () => {
+                    const examTypeId = Number(adminUserExamTypeSelect.value);
+                    const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+                    if (!uid || !examTypeId) {
+                        if (adminUserExamContentVersionSelect){
+                            adminUserExamContentVersionSelect.disabled = true;
+                            adminUserExamContentVersionSelect.innerHTML = '<option value="">Selecione User ID + tipo de exame</option>';
+                        }
+                        return;
+                    }
+                    await loadAdminContentVersions(examTypeId);
+                    // copy list into user select
+                    if (adminUserExamContentVersionSelect && adminExamContentVersionSelect){
+                        adminUserExamContentVersionSelect.innerHTML = adminExamContentVersionSelect.innerHTML;
+                        adminUserExamContentVersionSelect.disabled = adminExamContentVersionSelect.disabled;
+                    }
+                    await maybeLoadUserOverride();
+                });
+            }
+            if (adminUserIdOverride) {
+                adminUserIdOverride.addEventListener('blur', async () => {
+                    // when user id becomes available, reload versions if exam type selected
+                    const examTypeId = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+                    const uid = Number(adminUserIdOverride.value);
+                    if (!uid || !examTypeId) return;
+                    await loadAdminContentVersions(examTypeId);
+                    if (adminUserExamContentVersionSelect && adminExamContentVersionSelect){
+                        adminUserExamContentVersionSelect.innerHTML = adminExamContentVersionSelect.innerHTML;
+                        adminUserExamContentVersionSelect.disabled = adminExamContentVersionSelect.disabled;
+                    }
+                    await maybeLoadUserOverride();
+                });
+            }
+
+            if (adminSetUserOverrideBtn) {
+                adminSetUserOverrideBtn.addEventListener('click', async () => {
+                    const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+                    const examTypeId = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+                    const examContentVersionId = adminUserExamContentVersionSelect ? Number(adminUserExamContentVersionSelect.value) : null;
+                    if (!uid || !examTypeId || !examContentVersionId){
+                        alert('Preencha User ID, tipo de exame e versão.');
+                        return;
+                    }
+                    adminSetUserOverrideBtn.disabled = true;
+                    const oldTxt = adminSetUserOverrideBtn.textContent;
+                    adminSetUserOverrideBtn.textContent = 'Salvando...';
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const url = base + '/api/admin/exams/user-content-version';
+                        const resp = await fetch(url, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: uid, examTypeId, examContentVersionId, source: 'adminModal' }),
+                            credentials: 'include'
+                        });
+                        const raw = await resp.text();
+                        let data = null;
+                        try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                        if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+                        if (adminUserOverrideOutput){
+                            adminUserOverrideOutput.style.display = 'block';
+                            adminUserOverrideOutput.textContent = 'OK\n' + JSON.stringify(data, null, 2);
+                        }
+                        await maybeLoadUserOverride();
+                    } catch(e){
+                        if (adminUserOverrideOutput){
+                            adminUserOverrideOutput.style.display = 'block';
+                            adminUserOverrideOutput.textContent = 'Erro ao salvar override:\n' + (e && e.message ? e.message : String(e));
+                        }
+                    } finally {
+                        adminSetUserOverrideBtn.disabled = false;
+                        adminSetUserOverrideBtn.textContent = oldTxt;
+                    }
+                });
+            }
+
+            if (adminClearUserOverrideBtn) {
+                adminClearUserOverrideBtn.addEventListener('click', async () => {
+                    const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+                    const examTypeId = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+                    if (!uid || !examTypeId){
+                        alert('Preencha User ID e tipo de exame.');
+                        return;
+                    }
+                    adminClearUserOverrideBtn.disabled = true;
+                    const oldTxt = adminClearUserOverrideBtn.textContent;
+                    adminClearUserOverrideBtn.textContent = 'Removendo...';
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const url = base + '/api/admin/exams/user-content-version?userId=' + encodeURIComponent(String(uid)) + '&examTypeId=' + encodeURIComponent(String(examTypeId));
+                        const resp = await fetch(url, { method: 'DELETE', credentials: 'include' });
+                        const raw = await resp.text();
+                        let data = null;
+                        try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                        if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+                        if (adminUserOverrideOutput){
+                            adminUserOverrideOutput.style.display = 'block';
+                            adminUserOverrideOutput.textContent = 'OK\n' + JSON.stringify(data, null, 2);
+                        }
+                        await maybeLoadUserOverride();
+                    } catch(e){
+                        if (adminUserOverrideOutput){
+                            adminUserOverrideOutput.style.display = 'block';
+                            adminUserOverrideOutput.textContent = 'Erro ao remover override:\n' + (e && e.message ? e.message : String(e));
+                        }
+                    } finally {
+                        adminClearUserOverrideBtn.disabled = false;
+                        adminClearUserOverrideBtn.textContent = oldTxt;
+                    }
+                });
+            }
+
+            if (adminSetCurrentVersionBtn) {
+                adminSetCurrentVersionBtn.addEventListener('click', async () => {
+                    const examTypeId = adminExamTypeSelect ? Number(adminExamTypeSelect.value) : null;
+                    const examContentVersionId = adminExamContentVersionSelect ? Number(adminExamContentVersionSelect.value) : null;
+                    if (!examTypeId || !examContentVersionId){
+                        alert('Selecione o tipo de exame e a versão.');
+                        return;
+                    }
+                    adminSetCurrentVersionBtn.disabled = true;
+                    const oldTxt = adminSetCurrentVersionBtn.textContent;
+                    adminSetCurrentVersionBtn.textContent = 'Salvando...';
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const url = base + '/api/admin/exams/content-current';
+                        const resp = await fetch(url, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ examTypeId, examContentVersionId }),
+                            credentials: 'include'
+                        });
+                        const raw = await resp.text();
+                        let data = null;
+                        try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                        if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+                        if (adminExamContentVersionOutput){
+                            adminExamContentVersionOutput.style.display = 'block';
+                            adminExamContentVersionOutput.textContent = 'OK\n' + JSON.stringify(data, null, 2);
+                        }
+                        // refresh list so selection reflects current
+                        await loadAdminContentVersions(examTypeId);
+                    } catch(e){
+                        if (adminExamContentVersionOutput){
+                            adminExamContentVersionOutput.style.display = 'block';
+                            adminExamContentVersionOutput.textContent = 'Erro ao salvar:\n' + (e && e.message ? e.message : String(e));
+                        }
+                    } finally {
+                        adminSetCurrentVersionBtn.disabled = false;
+                        adminSetCurrentVersionBtn.textContent = oldTxt;
                     }
                 });
             }

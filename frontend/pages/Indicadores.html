@@ -121,7 +121,7 @@
     <div class="tabs" role="tablist" aria-label="Categorias de Indicadores">
       <button class="tab-btn active" data-tab="geral" role="tab" aria-selected="true">Visão Geral</button>
       <button class="tab-btn" data-tab="grupos" role="tab" aria-selected="false">Grupo Processos</button>
-      <button class="tab-btn" data-tab="topico" role="tab" aria-selected="false">Tópico</button>
+      <!-- Aba "Tópico" desativada (Área de conhecimento) -->
         <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
         <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
         <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false">Estatísticas</button>
@@ -238,9 +238,7 @@
     <section id="sec-grupos" class="section" aria-labelledby="tab-grupos">
       <div id="processGroupsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
     </section>
-    <section id="sec-topico" class="section" aria-labelledby="tab-topico">
-      <div id="areaConhecimentoContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
-    </section>
+    <!-- Seção "Tópico" desativada (Área de conhecimento) -->
     <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem">
       <div id="approachContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
     </section>
@@ -259,7 +257,7 @@
         <div id="indicadoresIntro" style="margin:0 0 14px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.66rem; line-height:1.35; color:#334155; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
           <strong style="display:block; font-size:0.7rem; margin-bottom:4px;">Como interpretar estes indicadores</strong>
           <span style="display:block; margin-bottom:4px;">Exames e quizzes em <em>Visão Geral</em> abrangem tentativas completas ("Exames realizados") e tentativas rápidas/parciais ("Quiz realizados") nos últimos períodos (30d e 60d). Colunas Apr% e Rep%: aprovação / reprovação.</span>
-          <span style="display:block; margin-bottom:4px;">As abas <em>Grupo Processos</em>, <em>Tópico</em> e <em>Abordagem</em> mostram distribuição de acertos/erros. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
+          <span style="display:block; margin-bottom:4px;">As abas <em>Grupo Processos</em> e <em>Abordagem</em> mostram distribuição de acertos/erros. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
           <span style="display:block; margin-bottom:4px;">Esta aba <em>Estatísticas</em> usa agregação diária persistente (mesmo após expurgos). Fórmulas: Abandono = abandonadas / iniciadas; Conclusão = finalizadas / iniciadas; Expurgo = expurgadas / abandonadas. Score médio é ponderado pelo número de questões respondidas no dia.</span>
           <span style="display:block; margin-bottom:4px;">Abandono pode ser classificado como <em>Timeout</em> (inatividade excede limite), <em>Baixo progresso</em> (poucas questões após tempo mínimo) ou abandono manual. Expurgo remove tentativas abandonadas antigas preservando métricas.</span>
           <span style="display:block;">Limites de tempo e janelas são definidos pela política interna e já aplicados nos cálculos exibidos.</span>
@@ -417,7 +415,6 @@
     const sectionsMap = {
       geral: document.getElementById('sec-geral'),
       grupos: document.getElementById('sec-grupos'),
-      topico: document.getElementById('sec-topico'),
       abordagem: document.getElementById('sec-abordagem'),
       detalhes: document.getElementById('sec-detalhes'),
       dashboard: document.getElementById('sec-dashboard'),
@@ -432,7 +429,6 @@
         Object.values(sectionsMap).forEach(sec => sec && sec.classList.remove('active'));
         if (sectionsMap[tab]) {
           sectionsMap[tab].classList.add('active');
-          if (tab === 'topico') loadAreaConhecimentoStats();
           if (tab === 'abordagem') loadAbordagemStats();
           if (tab === 'detalhes') loadDetailsLast();
           if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
@@ -444,7 +440,7 @@
     // Public helper: programmatically activate a tab and trigger loaders
     window.activateTab = function(tab){
       try {
-        const allowed = ['geral','grupos','topico','abordagem','detalhes','dashboard','dominios','prob'];
+        const allowed = ['geral','grupos','abordagem','detalhes','dashboard','dominios','prob'];
         const key = String(tab||'').toLowerCase();
         if (!allowed.includes(key)) return false;
         const target = document.querySelector(`.tab-btn[data-tab="${key}"]`) || document.getElementById(`tab-${key}`);
@@ -455,7 +451,6 @@
         if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
         Object.keys(sectionsMap).forEach(k => sectionsMap[k] && sectionsMap[k].classList.remove('active'));
         if (sectionsMap[key]) sectionsMap[key].classList.add('active');
-        if (key === 'topico') loadAreaConhecimentoStats();
         if (key === 'abordagem') loadAbordagemStats();
         if (key === 'detalhes') loadDetailsLast();
         if (key === 'dashboard' && !_dashLoadedOnce) loadDashboard();
@@ -603,7 +598,6 @@
       // Only call loader for the initial tab if it's NOT 'detalhes'
       if (tab === 'geral') loadOverview();
       if (tab === 'grupos') loadProcessGroupStats();
-      if (tab === 'topico') loadAreaConhecimentoStats();
       if (tab === 'abordagem') loadAbordagemStats();
       if (tab === 'dashboard') loadDashboard();
       if (tab === 'dominios') loadDominiosLazy();
@@ -1010,93 +1004,11 @@
 
     loadProcessGroupStats();
 
-    // IND8: % Acertos/Erros por Área de Conhecimento
+    // IND8: % Acertos/Erros por Área de Conhecimento (desativado)
     async function loadAreaConhecimentoStats(){
-        console.log('[DIAG] loadAreaConhecimentoStats chamada');
-        try {
-          const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-          // Corrigido: endpoint atualizado para area-knowledge-stats
-          const examTypeId = await getCurrentExamTypeId();
-          const url = examTypeId ? `/api/indicators/area-knowledge-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/area-knowledge-stats';
-          const res = await fetch(url, { headers });
-          console.log('[DIAG] loadAreaConhecimentoStats fetch status:', res.status);
-          const data = await res.json().catch(()=>null);
-          console.log('[DIAG] loadAreaConhecimentoStats dados recebidos:', data);
-        } catch(e) { console.error('[DIAG] loadAreaConhecimentoStats erro:', e); }
-      const container = document.getElementById('areaConhecimentoContainer');
-      if (!container) return;
-      container.innerHTML = '';
-      try {
-        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-        const examTypeId = await getCurrentExamTypeId();
-        const url = examTypeId ? `/api/indicators/area-knowledge-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/area-knowledge-stats';
-        const res = await fetch(url, { headers });
-        if (res.status === 401 || res.status === 403) {
-          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
-          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
-          return;
-        }
-        if (!res.ok) {
-          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por área de conhecimento.</div>';
-          return;
-        }
-        const data = await res.json();
-        let areas = data && data.areas ? data.areas : [];
-        if (areas.length === 0) {
-          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhuma área de conhecimento encontrada.</div>';
-          return;
-        }
-        // Ordena pelo id
-        areas = areas.slice().sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
-        areas.forEach(a => {
-          const row = document.createElement('div');
-          row.style.display = 'flex';
-          row.style.alignItems = 'center';
-          row.style.gap = '12px';
-          row.style.flexWrap = 'wrap';
-
-          const label = document.createElement('div');
-          label.style.fontWeight = '600';
-          label.style.minWidth = '180px';
-          label.style.fontSize = '0.9rem';
-          label.textContent = `${a.id} - ${a.descricao || `Área ${a.id}`}`;
-
-          const chartWrapper = document.createElement('div');
-          chartWrapper.style.flex = '1';
-          chartWrapper.style.minWidth = '300px';
-
-          const chart = document.createElement('sb-hbar');
-          const pctAcertos = a.percentAcertos !== undefined ? Math.round(a.percentAcertos) : 0;
-          const pctErros = a.percentErros !== undefined ? Math.round(a.percentErros) : 0;
-          const cAcertos = Number(a.acertos || 0);
-          const cErros = Number(a.erros || 0);
-          const item = {
-            label: '',
-            max: 100,
-            segments: [
-              { label: 'Acertos', value: pctAcertos, color: '#2b8a3e' },
-              { label: 'Erros', value: pctErros, color: '#dc3545' }
-            ]
-          };
-          chart.setAttribute('data', JSON.stringify([item]));
-          chart.setAttribute('height', '14');
-          chart.setAttribute('show-percent', '');
-
-          chartWrapper.appendChild(chart);
-          row.appendChild(label);
-          const counts = document.createElement('div');
-          counts.style.fontSize = '0.85rem';
-          counts.style.color = '#475569';
-          counts.style.minWidth = '64px';
-          counts.style.textAlign = 'center';
-          counts.textContent = `${cAcertos}/${cErros}`;
-          row.appendChild(counts);
-          row.appendChild(chartWrapper);
-          container.appendChild(row);
-        });
-      } catch(err) {
-        container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de áreas de conhecimento.</div>';
-      }
+      // Aba "Tópico" desativada.
+      // Endpoint relacionado (desativado): GET /api/indicators/area-knowledge-stats
+      return;
     }
 
     // IND9: % Acertos/Erros por Abordagem (categoriaquestao)
@@ -1313,7 +1225,7 @@
       if (sel) sel.addEventListener('change', ()=> loadDashboard());
     })();
 
-    // Tab switching: load IND8 when Tópico tab is activated
+    // Tab switching: Tópico desativado
     tabButtons.forEach(btn => {
       btn.addEventListener('click', function(){
         const tab = btn.getAttribute('data-tab');
@@ -1321,7 +1233,6 @@
         Object.values(sectionsMap).forEach(sec => sec && sec.classList.remove('active'));
         if (sectionsMap[tab]) {
           sectionsMap[tab].classList.add('active');
-          if (tab === 'topico') loadAreaConhecimentoStats();
           if (tab === 'abordagem') loadAbordagemStats();
           if (tab === 'detalhes') loadDetailsLast();
           if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();

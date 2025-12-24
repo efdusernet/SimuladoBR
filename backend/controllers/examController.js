@@ -287,11 +287,113 @@ exports.selectQuestions = async (req, res, next) => {
       const actualPretestCount = pretestRows.length;
 
       // 2) Regular distributed questions via ECO table (iddominiogeral share)
-      // Load ECO shares (id_dominio, share). Assume table eco with columns id_dominio (int) and share (numeric/percent)
+      // Load ECO shares (id_dominio, share).
+      // Supports both legacy table names (eco) and quoted ("ECO").
+      // If versioning tables exist, select the ECO rows for the effective version:
+      // - Prefer per-user override (user_exam_content_version)
+      // - Else fall back to admin/default (exam_content_current_version)
+      // - Else fall back to latest known version for that exam_type
       let ecoShares = [];
-      try {
-        ecoShares = await sequelize.query(`SELECT id_dominio, share FROM eco`, { type: sequelize.QueryTypes.SELECT });
-      } catch (e) { ecoShares = []; }
+      const examTypeIdForEco = Number(examTypeId) || null;
+      const userIdForEco = Number((user && (user.Id || user.id)) || 0) || null;
+      let examContentVersionIdForEco = null;
+
+      if (examTypeIdForEco && userIdForEco) {
+        try {
+          const row = await sequelize.query(
+            `SELECT uecv.exam_content_version_id AS id
+               FROM user_exam_content_version uecv
+              WHERE uecv.user_id = :uid
+                AND uecv.exam_type_id = :examTypeId
+                AND uecv.active = TRUE
+                AND (uecv.starts_at IS NULL OR uecv.starts_at <= NOW())
+                AND (uecv.ends_at IS NULL OR uecv.ends_at > NOW())
+              ORDER BY uecv.id DESC
+              LIMIT 1`,
+            { replacements: { uid: userIdForEco, examTypeId: examTypeIdForEco }, type: sequelize.QueryTypes.SELECT }
+          );
+          if (Array.isArray(row) && row[0] && row[0].id != null) {
+            const n = Number(row[0].id);
+            if (Number.isFinite(n) && n > 0) examContentVersionIdForEco = n;
+          }
+        } catch (_) { /* ignore */ }
+
+        if (!examContentVersionIdForEco) {
+          try {
+            const row = await sequelize.query(
+              `SELECT exam_content_version_id AS id
+                 FROM exam_content_current_version
+                WHERE exam_type_id = :examTypeId
+                LIMIT 1`,
+              { replacements: { examTypeId: examTypeIdForEco }, type: sequelize.QueryTypes.SELECT }
+            );
+            if (Array.isArray(row) && row[0] && row[0].id != null) {
+              const n = Number(row[0].id);
+              if (Number.isFinite(n) && n > 0) examContentVersionIdForEco = n;
+            }
+          } catch (_) { /* ignore */ }
+        }
+
+        if (!examContentVersionIdForEco) {
+          try {
+            const row = await sequelize.query(
+              `SELECT id
+                 FROM exam_content_version
+                WHERE exam_type_id = :examTypeId
+                ORDER BY effective_from DESC NULLS LAST, id DESC
+                LIMIT 1`,
+              { replacements: { examTypeId: examTypeIdForEco }, type: sequelize.QueryTypes.SELECT }
+            );
+            if (Array.isArray(row) && row[0] && row[0].id != null) {
+              const n = Number(row[0].id);
+              if (Number.isFinite(n) && n > 0) examContentVersionIdForEco = n;
+            }
+          } catch (_) { /* ignore */ }
+        }
+      }
+
+      const ecoQueries = [
+        {
+          sql: `SELECT e.id_dominio, e.share
+                  FROM eco e
+                 WHERE e.exam_content_version_id = :examContentVersionId`,
+          replacements: { examContentVersionId: examContentVersionIdForEco }
+        },
+        {
+          sql: `SELECT e.id_dominio, e.share
+                  FROM "ECO" e
+                 WHERE e.exam_content_version_id = :examContentVersionId`,
+          replacements: { examContentVersionId: examContentVersionIdForEco }
+        },
+        // Fallbacks for older schemas
+        {
+          sql: `SELECT id_dominio, share FROM eco WHERE (:examTypeId IS NULL) OR (id = :examTypeId)`,
+          replacements: { examTypeId: examTypeIdForEco }
+        },
+        {
+          sql: `SELECT id_dominio, share FROM "ECO" WHERE (:examTypeId IS NULL) OR (id = :examTypeId)`,
+          replacements: { examTypeId: examTypeIdForEco }
+        },
+        { sql: `SELECT id_dominio, share FROM eco`, replacements: {} },
+        { sql: `SELECT id_dominio, share FROM "ECO"`, replacements: {} },
+      ];
+
+      for (const q of ecoQueries) {
+        try {
+          // Skip version-filtered queries when version is unknown
+          if (q.sql.includes('exam_content_version_id') && !examContentVersionIdForEco) continue;
+          const rows = await sequelize.query(q.sql, {
+            replacements: q.replacements,
+            type: sequelize.QueryTypes.SELECT
+          });
+          if (Array.isArray(rows) && rows.length) {
+            ecoShares = rows;
+            break;
+          }
+        } catch (_) {
+          // try next
+        }
+      }
 
       // Compute allocations
       let allocations = [];

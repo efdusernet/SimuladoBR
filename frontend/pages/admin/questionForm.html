@@ -140,10 +140,10 @@
         </select>
       </div>
       <div>
-        <label for="seed">Seed*</label>
+        <label for="seed">Questão gratuita*</label>
         <div style="display:flex; gap:8px; align-items:center;">
           <input type="checkbox" id="seed" />
-          <span class="hint">Questão seed</span>
+          <span class="hint">Disponibilizar para usuários do gratuito?</span>
         </div>
       </div>
       <div>
@@ -154,10 +154,7 @@
         <label for="iddominio">Domínio (opcional)</label>
         <select id="iddominio"></select>
       </div>
-      <div>
-        <label for="area">Área do conhecimento</label>
-        <select id="area"></select>
-      </div>
+      <!-- Área do conhecimento desativada -->
       <div>
         <label for="grupo">Grupo de processo</label>
         <select id="grupo"></select>
@@ -269,10 +266,10 @@
           </select>
         </div>
         <div>
-          <label for="seedNav">Seed*</label>
+          <label for="seedNav">Questão gratuita*</label>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="checkbox" id="seedNav" />
-            <span class="hint">Questão seed</span>
+            <span class="hint">Disponibilizar para usuários do gratuito?</span>
           </div>
         </div>
         <div>
@@ -283,10 +280,7 @@
           <label for="iddominioNav">Domínio (opcional)</label>
           <select id="iddominioNav"></select>
         </div>
-        <div>
-          <label for="areaNav">Área do conhecimento</label>
-          <select id="areaNav"></select>
-        </div>
+        <!-- Área do conhecimento desativada -->
         <div>
           <label for="grupoNav">Grupo de processo</label>
           <select id="grupoNav"></select>
@@ -675,24 +669,10 @@
     }
 
     async function loadAreas(targetId = 'area'){
-      try {
-        const sel = $(targetId);
-        sel.innerHTML = '<option value="">Carregando...</option>';
-        const list = await fetchMetaOnce('areas', '/api/meta/areas');
-        sel.innerHTML = '';
-        const optNone = document.createElement('option');
-        optNone.value = '';
-        optNone.textContent = '— Selecione —';
-        sel.appendChild(optNone);
-        (list || []).forEach(a => {
-          const o = document.createElement('option');
-          o.value = a.id;
-          o.textContent = `${a.id} - ${a.descricao || 'N/A'}`;
-          sel.appendChild(o);
-        });
-      } catch(e) {
-        logger.error('[loadAreas] error:', e);
-      }
+      // Área do conhecimento desativada
+      // Endpoint relacionado (desativado aqui): GET /api/meta/areas
+      // const list = await fetchMetaOnce('areas', '/api/meta/areas');
+      return;
     }
 
     async function loadGrupos(targetId = 'grupo'){
@@ -832,7 +812,6 @@
       const examTypeId = ($('examType').value || '').trim();
       const iddominio = ($('iddominio').value || '').trim();
       const versao_exame = ($('versaoExame').value || '').trim();
-      const area = ($('area').value || '').trim();
       const grupo = ($('grupo').value || '').trim();
       const iddominiogeral = ($('iddominiogeral').value || '').trim();
       const idprincipio = ($('idprincipio').value || '').trim();
@@ -899,7 +878,6 @@
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
-        codareaconhecimento: area ? Number(area) : undefined,
         codgrupoprocesso: grupo ? Number(grupo) : undefined,
         iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
@@ -936,7 +914,6 @@
       try { $('tipo').value = 'single'; } catch{}
       try { $('iddominiogeral').value = ''; } catch{}
       try { $('iddominio').value = ''; } catch{}
-      try { $('area').value = ''; } catch{}
       try { $('grupo').value = ''; } catch{}
       try { $('idprincipio').value = ''; } catch{}
       try { $('codigocategoria').value = ''; } catch{}
@@ -1033,7 +1010,6 @@
         // Wait for selects to be populated before setting values
         await Promise.all([
           loadDominios('iddominioNav'),
-          loadAreas('areaNav'),
           loadGrupos('grupoNav'),
           loadPrincipios('idprincipioNav'),
           loadCategorias('codigocategoriaNav'),
@@ -1042,7 +1018,6 @@
         ]);
         
         $('iddominioNav').value = q.iddominio != null ? String(q.iddominio) : '';
-        $('areaNav').value = q.codareaconhecimento != null ? String(q.codareaconhecimento) : '';
         $('grupoNav').value = q.codgrupoprocesso != null ? String(q.codgrupoprocesso) : '';
         $('iddominiogeralNav').value = q.iddominiogeral != null ? String(q.iddominiogeral) : '';
         $('idprincipioNav').value = q.idprincipio != null ? String(q.idprincipio) : '';
@@ -1189,7 +1164,6 @@
       const examTypeId = ($('examTypeNav').value || '').trim();
       const iddominio = ($('iddominioNav').value || '').trim();
       const versao_exame = ($('versaoExameNav').value || '').trim();
-      const area = ($('areaNav').value || '').trim();
       const grupo = ($('grupoNav').value || '').trim();
       const iddominiogeral = ($('iddominiogeralNav').value || '').trim();
       const idprincipio = ($('idprincipioNav').value || '').trim();
@@ -1218,7 +1192,6 @@
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
-        codareaconhecimento: area ? Number(area) : undefined,
         codgrupoprocesso: grupo ? Number(grupo) : undefined,
         iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
@@ -1259,7 +1232,6 @@
     loadVersoesExame('versaoExame');
     loadDominioGeral();
     loadDominios('iddominio');
-    loadAreas('area');
     loadGrupos('grupo');
     loadPrincipios('idprincipio');
     loadCategorias('codigocategoria');
@@ -1273,7 +1245,6 @@
     loadExamTypes('examTypeNav');
     loadDominioGeral('iddominiogeralNav');
     loadDominios('iddominioNav');
-    loadAreas('areaNav');
     loadGrupos('grupoNav');
     loadPrincipios('idprincipioNav');
     loadCategorias('codigocategoriaNav');

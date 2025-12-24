@@ -26,6 +26,24 @@ router.get('/', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/users/:id
+// Lookup a single user for admin UIs (Id + Nome + NomeUsuario + Email)
+// Note: do not use regex params here because the current router/path-to-regexp version rejects them.
+router.get('/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params && req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'User id inválido' });
+
+    const user = await db.User.findByPk(id, { attributes: ['Id', 'Nome', 'NomeUsuario', 'Email'] });
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    return res.json(user);
+  } catch (e) {
+    console.error('[admin_users][GET] error:', e && e.message);
+    return res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 /**
  * POST /api/admin/users/reset-password
  * Admin endpoint to reset any user's password by email

@@ -1008,6 +1008,32 @@
             })();
         </script>
 
+        <script>
+            (function(){
+                async function applyFeatureFlags(){
+                    try {
+                        const el = document.getElementById('card-insights-ia');
+                        if (!el) return;
+                        const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000').replace(/\/$/,'');
+                        const cfg = await fetch(base + '/api/meta/config', { cache: 'no-store', credentials: 'include' })
+                            .then(r => r.ok ? r.json() : null)
+                            .catch(() => null);
+                        if (cfg && cfg.ollamaEnabled === false) {
+                            el.style.display = 'none';
+                        } else if (cfg && cfg.ollamaEnabled === true) {
+                            el.style.display = '';
+                        }
+                    } catch(_e) {}
+                }
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', applyFeatureFlags);
+                } else {
+                    applyFeatureFlags();
+                }
+            })();
+        </script>
+
         <!-- Load and mount PassProbability component below lastExamResults -->
         <script>
             (function(){

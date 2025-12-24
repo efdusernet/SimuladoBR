@@ -99,7 +99,8 @@ exports.getConfig = (_req, res, next) => {
       return Number.isFinite(n) && n > 0 ? Math.floor(n) : 25;
     })();
     const examVersion = (process.env.EXAM_VER || '').trim();
-    return res.json({ fullExamQuestionCount, freeExamQuestionLimit, examVersion });
+    const ollamaEnabled = String(process.env.OLLAMA_ENABLED || '').toLowerCase() === 'true';
+    return res.json({ fullExamQuestionCount, freeExamQuestionLimit, examVersion, ollamaEnabled });
   } catch (e) {
     return next(internalError('Erro interno', 'GET_CONFIG_ERROR', e));
   }

@@ -26,6 +26,49 @@ router.get('/', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/users/search?q=...
+// Busca usuários por Nome / NomeUsuario / Email (e Id se numérico) para UIs administrativas.
+// IMPORTANT: must be declared BEFORE '/:id' to avoid being captured by the param route.
+router.get('/search', requireAdmin, async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+
+    if (!q) return res.json({ q: '', count: 0, items: [] });
+
+    const Op = db.Sequelize && db.Sequelize.Op;
+    const whereOr = [];
+
+    if (/^\d+$/.test(q)) {
+      const id = Number(q);
+      if (Number.isFinite(id) && id > 0) whereOr.push({ Id: id });
+    }
+
+    if (Op) {
+      // Escape % and _ so the query behaves as a literal contains-search.
+      const like = '%' + q.replace(/[%_]/g, (m) => '\\' + m) + '%';
+      whereOr.push({ Nome: { [Op.iLike]: like } });
+      whereOr.push({ NomeUsuario: { [Op.iLike]: like } });
+      whereOr.push({ Email: { [Op.iLike]: like } });
+    }
+
+    const where = Op ? { [Op.or]: whereOr } : undefined;
+    if (!where) return res.json({ q, count: 0, items: [] });
+
+    const users = await db.User.findAll({
+      attributes: ['Id', 'Nome', 'NomeUsuario', 'Email'],
+      where,
+      limit,
+      order: [['Id', 'DESC']]
+    });
+
+    return res.json({ q, count: users.length, items: users });
+  } catch (e) {
+    console.error('[admin_users][SEARCH] error:', e && e.message);
+    return res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 // GET /api/admin/users/:id
 // Lookup a single user for admin UIs (Id + Nome + NomeUsuario + Email)
 // Note: do not use regex params here because the current router/path-to-regexp version rejects them.

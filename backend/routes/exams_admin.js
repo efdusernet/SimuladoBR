@@ -10,6 +10,254 @@ const { badRequest, internalError, notFound } = require('../middleware/errors');
 // Admin-only endpoints for lifecycle management
 // Lightweight probe endpoint for front-end admin menu detection (returns 204 if admin)
 router.get('/probe', requireAdmin, (req, res) => res.status(204).end());
+
+// Exam content (ECO) versioning admin endpoints
+// GET /api/admin/exams/content-versions?examTypeId=1
+// Returns all known versions for an exam type and the currently selected default.
+router.get('/content-versions', requireAdmin, async (req, res, next) => {
+    try {
+        const examTypeId = Number(req.query && req.query.examTypeId);
+        if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
+            return next(badRequest('examTypeId inválido', 'EXAM_TYPE_ID_INVALID'));
+        }
+
+        const versions = await db.sequelize.query(
+            `SELECT id, exam_type_id AS "examTypeId", code, effective_from AS "effectiveFrom", notes
+               FROM exam_content_version
+              WHERE exam_type_id = :examTypeId
+              ORDER BY effective_from DESC NULLS LAST, id DESC`,
+            { replacements: { examTypeId }, type: db.Sequelize.QueryTypes.SELECT }
+        );
+
+        let currentVersionId = null;
+        try {
+            const cv = await db.sequelize.query(
+                `SELECT exam_content_version_id AS id
+                   FROM exam_content_current_version
+                  WHERE exam_type_id = :examTypeId
+                  LIMIT 1`,
+                { replacements: { examTypeId }, type: db.Sequelize.QueryTypes.SELECT }
+            );
+            if (Array.isArray(cv) && cv[0] && cv[0].id != null) {
+                const n = Number(cv[0].id);
+                if (Number.isFinite(n) && n > 0) currentVersionId = n;
+            }
+        } catch (_) {
+            // table may not exist yet
+        }
+
+        return res.json({ examTypeId, currentVersionId, versions: Array.isArray(versions) ? versions : [] });
+    } catch (err) {
+        return next(internalError('Erro ao listar versões de conteúdo', 'ADMIN_LIST_CONTENT_VERSIONS_ERROR', err));
+    }
+});
+
+// PUT /api/admin/exams/content-current
+// Body: { examTypeId, examContentVersionId }
+router.put('/content-current', requireAdmin, express.json(), async (req, res, next) => {
+    try {
+        const examTypeId = Number(req.body && req.body.examTypeId);
+        const examContentVersionId = Number(req.body && req.body.examContentVersionId);
+        if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
+            return next(badRequest('examTypeId inválido', 'EXAM_TYPE_ID_INVALID'));
+        }
+        if (!Number.isFinite(examContentVersionId) || examContentVersionId <= 0) {
+            return next(badRequest('examContentVersionId inválido', 'EXAM_CONTENT_VERSION_ID_INVALID'));
+        }
+
+        // Validate version exists and matches exam type
+        const v = await db.sequelize.query(
+            `SELECT id, exam_type_id AS "examTypeId", code, effective_from AS "effectiveFrom", notes
+               FROM exam_content_version
+              WHERE id = :id
+              LIMIT 1`,
+            { replacements: { id: examContentVersionId }, type: db.Sequelize.QueryTypes.SELECT }
+        );
+        const versionRow = Array.isArray(v) ? v[0] : null;
+        if (!versionRow) return next(notFound('Versão de conteúdo não encontrada', 'EXAM_CONTENT_VERSION_NOT_FOUND'));
+        if (Number(versionRow.examTypeId) !== examTypeId) {
+            return next(badRequest('Versão não pertence ao examTypeId informado', 'EXAM_CONTENT_VERSION_TYPE_MISMATCH'));
+        }
+
+        await db.sequelize.query(
+            `INSERT INTO exam_content_current_version (exam_type_id, exam_content_version_id, updated_at)
+             VALUES (:examTypeId, :examContentVersionId, NOW())
+             ON CONFLICT (exam_type_id)
+             DO UPDATE SET exam_content_version_id = EXCLUDED.exam_content_version_id, updated_at = NOW()`,
+            { replacements: { examTypeId, examContentVersionId }, type: db.Sequelize.QueryTypes.INSERT }
+        );
+
+        return res.json({ ok: true, examTypeId, currentVersionId: examContentVersionId, version: versionRow });
+    } catch (err) {
+        return next(internalError('Erro ao definir versão atual de conteúdo', 'ADMIN_SET_CURRENT_CONTENT_VERSION_ERROR', err));
+    }
+});
+
+// GET /api/admin/exams/user-content-version?userId=123&examTypeId=1
+// Returns the active per-user override for the exam type (if any)
+router.get('/user-content-version', requireAdmin, async (req, res, next) => {
+    try {
+        const userId = Number(req.query && req.query.userId);
+        const examTypeId = Number(req.query && req.query.examTypeId);
+        if (!Number.isFinite(userId) || userId <= 0) {
+            return next(badRequest('userId inválido', 'USER_ID_INVALID'));
+        }
+        if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
+            return next(badRequest('examTypeId inválido', 'EXAM_TYPE_ID_INVALID'));
+        }
+
+        const rows = await db.sequelize.query(
+            `SELECT id,
+                    user_id AS "userId",
+                    exam_type_id AS "examTypeId",
+                    exam_content_version_id AS "examContentVersionId",
+                    active,
+                    starts_at AS "startsAt",
+                    ends_at AS "endsAt",
+                    source,
+                    external_reference AS "externalReference",
+                    notes,
+                    created_at AS "createdAt",
+                    updated_at AS "updatedAt"
+               FROM user_exam_content_version
+              WHERE user_id = :userId
+                AND exam_type_id = :examTypeId
+                AND active = TRUE
+                AND (starts_at IS NULL OR starts_at <= NOW())
+                AND (ends_at IS NULL OR ends_at > NOW())
+              ORDER BY id DESC
+              LIMIT 1`,
+            { replacements: { userId, examTypeId }, type: db.Sequelize.QueryTypes.SELECT }
+        );
+        return res.json({ userId, examTypeId, override: (Array.isArray(rows) && rows[0]) ? rows[0] : null });
+    } catch (err) {
+        return next(internalError('Erro ao consultar override do usuário', 'ADMIN_GET_USER_CONTENT_VERSION_ERROR', err));
+    }
+});
+
+// PUT /api/admin/exams/user-content-version
+// Body: { userId, examTypeId, examContentVersionId, startsAt?, endsAt?, source?, externalReference?, notes? }
+router.put('/user-content-version', requireAdmin, express.json(), async (req, res, next) => {
+    try {
+        const userId = Number(req.body && req.body.userId);
+        const examTypeId = Number(req.body && req.body.examTypeId);
+        const examContentVersionId = Number(req.body && req.body.examContentVersionId);
+        const startsAt = (req.body && req.body.startsAt) ? String(req.body.startsAt) : null;
+        const endsAt = (req.body && req.body.endsAt) ? String(req.body.endsAt) : null;
+        const source = (req.body && req.body.source) ? String(req.body.source) : 'admin';
+        const externalReference = (req.body && req.body.externalReference) ? String(req.body.externalReference) : null;
+        const notes = (req.body && req.body.notes) ? String(req.body.notes) : null;
+
+        if (!Number.isFinite(userId) || userId <= 0) {
+            return next(badRequest('userId inválido', 'USER_ID_INVALID'));
+        }
+        if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
+            return next(badRequest('examTypeId inválido', 'EXAM_TYPE_ID_INVALID'));
+        }
+        if (!Number.isFinite(examContentVersionId) || examContentVersionId <= 0) {
+            return next(badRequest('examContentVersionId inválido', 'EXAM_CONTENT_VERSION_ID_INVALID'));
+        }
+
+        // Validate user exists
+        const user = await db.User.findByPk(userId);
+        if (!user) return next(notFound('Usuário não encontrado', 'USER_NOT_FOUND'));
+
+        // Validate version exists and matches exam type
+        const v = await db.sequelize.query(
+            `SELECT id, exam_type_id AS "examTypeId", code, effective_from AS "effectiveFrom", notes
+               FROM exam_content_version
+              WHERE id = :id
+              LIMIT 1`,
+            { replacements: { id: examContentVersionId }, type: db.Sequelize.QueryTypes.SELECT }
+        );
+        const versionRow = Array.isArray(v) ? v[0] : null;
+        if (!versionRow) return next(notFound('Versão de conteúdo não encontrada', 'EXAM_CONTENT_VERSION_NOT_FOUND'));
+        if (Number(versionRow.examTypeId) !== examTypeId) {
+            return next(badRequest('Versão não pertence ao examTypeId informado', 'EXAM_CONTENT_VERSION_TYPE_MISMATCH'));
+        }
+
+        let insertedRow = null;
+        await db.sequelize.transaction(async (t) => {
+            // Deactivate any existing active overrides for the pair
+            await db.sequelize.query(
+                `UPDATE user_exam_content_version
+                    SET active = FALSE,
+                        updated_at = NOW()
+                  WHERE user_id = :userId
+                    AND exam_type_id = :examTypeId
+                    AND active = TRUE`,
+                { replacements: { userId, examTypeId }, type: db.Sequelize.QueryTypes.UPDATE, transaction: t }
+            );
+
+            const rows = await db.sequelize.query(
+                `INSERT INTO user_exam_content_version (
+                    user_id, exam_type_id, exam_content_version_id,
+                    active, starts_at, ends_at, source, external_reference, notes,
+                    created_at, updated_at
+                 ) VALUES (
+                    :userId, :examTypeId, :examContentVersionId,
+                    TRUE,
+                    CASE WHEN :startsAt IS NULL OR :startsAt = '' THEN NULL ELSE :startsAt::timestamptz END,
+                    CASE WHEN :endsAt IS NULL OR :endsAt = '' THEN NULL ELSE :endsAt::timestamptz END,
+                    :source, :externalReference, :notes,
+                    NOW(), NOW()
+                 )
+                 RETURNING id,
+                           user_id AS "userId",
+                           exam_type_id AS "examTypeId",
+                           exam_content_version_id AS "examContentVersionId",
+                           active,
+                           starts_at AS "startsAt",
+                           ends_at AS "endsAt",
+                           source,
+                           external_reference AS "externalReference",
+                           notes,
+                           created_at AS "createdAt",
+                           updated_at AS "updatedAt"`,
+                {
+                    replacements: { userId, examTypeId, examContentVersionId, startsAt, endsAt, source, externalReference, notes },
+                    type: db.Sequelize.QueryTypes.SELECT,
+                    transaction: t
+                }
+            );
+            insertedRow = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+        });
+
+        return res.json({ ok: true, userId, examTypeId, override: insertedRow, version: versionRow });
+    } catch (err) {
+        return next(internalError('Erro ao definir override do usuário', 'ADMIN_SET_USER_CONTENT_VERSION_ERROR', err));
+    }
+});
+
+// DELETE /api/admin/exams/user-content-version?userId=123&examTypeId=1
+// Deactivates the active override (falls back to default/current)
+router.delete('/user-content-version', requireAdmin, async (req, res, next) => {
+    try {
+        const userId = Number(req.query && req.query.userId);
+        const examTypeId = Number(req.query && req.query.examTypeId);
+        if (!Number.isFinite(userId) || userId <= 0) {
+            return next(badRequest('userId inválido', 'USER_ID_INVALID'));
+        }
+        if (!Number.isFinite(examTypeId) || examTypeId <= 0) {
+            return next(badRequest('examTypeId inválido', 'EXAM_TYPE_ID_INVALID'));
+        }
+
+        await db.sequelize.query(
+            `UPDATE user_exam_content_version
+                SET active = FALSE,
+                    updated_at = NOW()
+              WHERE user_id = :userId
+                AND exam_type_id = :examTypeId
+                AND active = TRUE`,
+            { replacements: { userId, examTypeId }, type: db.Sequelize.QueryTypes.UPDATE }
+        );
+
+        return res.json({ ok: true, userId, examTypeId });
+    } catch (err) {
+        return next(internalError('Erro ao limpar override do usuário', 'ADMIN_CLEAR_USER_CONTENT_VERSION_ERROR', err));
+    }
+});
+
 router.post('/mark-abandoned', requireAdmin, examController.markAbandonedAttempts);
 router.post('/purge-abandoned', requireAdmin, examController.purgeAbandonedAttempts);
 

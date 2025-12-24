@@ -1,0 +1,1978 @@
+1 Um Scrum Master está trabalhando com uma equipe ágil recém-formada em seus primeiros sprints. A equipe está ansiosa para melhorar sua velocidade de sprint, mas tem dificuldade em prever com precisão quanto trabalho pode assumir em cada sprint. Após o segundo sprint, notam que a velocidade está abaixo do esperado, o que afeta o moral e gera incerteza sobre o desempenho futuro.
+
+Como Scrum Master, o que você deve fazer para ajudar a equipe a lidar com esse problema e melhorar sua velocidade de sprint?
+Sua resposta está incorreta
+
+Aconselhe a equipe a reduzir o escopo da sprint para que os números de velocidade pareçam melhores, focando apenas nas histórias de usuário mais simples
+Explicação
+Reduzir o escopo da sprint para melhorar os números de velocidade pode trazer um aumento temporário nos indicadores, mas não aborda a causa raiz do problema. Focar apenas nas histórias mais simples pode limitar o crescimento da equipe e sua capacidade de lidar com tarefas mais complexas no futuro.
+Resposta correta
+
+*Fazer com que a equipe revise suas estimativas e os feedbacks das retrospectivas para identificar discrepâncias nos pontos de história e ajustar o planejamento dos próximos sprints
+Explicação
+Revisar estimativas e os feedbacks das retrospectivas ajuda a equipe a identificar discrepâncias nos pontos de história e aprimorar a precisão no planejamento dos próximos sprints. Ao ajustar as estimativas com base no desempenho passado, a equipe consegue prever melhor quanto trabalho pode assumir, o que tende a melhorar a velocidade.
+
+Incentivar a equipe a aumentar a quantidade de pontos de história atribuídos a cada história para impulsionar rapidamente a velocidade, independentemente da complexidade
+Explicação
+Aumentar os pontos de história atribuídos sem considerar a complexidade infla artificialmente a velocidade. Essa abordagem não corrige a questão subjacente das estimativas imprecisas e pode levar a expectativas irrealistas e a um planejamento ruim no longo prazo.
+
+Agendar uma reunião com as partes interessadas para explicar a baixa velocidade da equipe e pressionar por mais recursos a fim de aumentar o ritmo de entrega
+Explicação
+Agendar uma reunião com as partes interessadas para explicar a baixa velocidade e solicitar mais recursos não é uma solução sustentável. É importante abordar fatores internos que afetam a velocidade, como estimativas imprecisas ou requisitos pouco claros, antes de buscar recursos externos.
+Domínio
+People
+
+
+
+
+2 Em um projeto ágil de desenvolvimento de robótica, um time multifuncional de engenheiros, desenvolvedores de software e testadores trabalha no design de robôs autônomos. Na última retrospectiva, a equipe levantou preocupações sobre recorrentes falhas de comunicação entre os times de hardware e software, causando atrasos na integração de funcionalidades centrais. Os membros sentem falta de alinhamento, e as tarefas frequentemente são mal interpretadas devido ao conhecimento em silos.
+
+Como Scrum Master, qual é o melhor curso de ação para melhorar a colaboração e garantir uma integração mais suave daqui para frente?
+Sua resposta está incorreta
+
+Aumentar o foco em software funcionando ao invés de documentação abrangente, priorizando a conclusão de funcionalidades mesmo que a compreensão sobre a integração seja adiada
+Explicação
+Aumentar o foco em software funcionando e priorizar a conclusão de funcionalidades pode trazer ganhos de curto prazo, mas sem tratar os problemas de comunicação e alinhamento entre hardware e software, os desafios de integração tendem a persistir.
+
+Defender times auto-organizados permitindo que os grupos de hardware e software definam e gerenciem seu trabalho de forma independente, reduzindo a sobrecarga de dependências
+Explicação
+Permitir que hardware e software operem de forma mais independente pode piorar os problemas de comunicação e desalinhamento já existentes. É essencial o Scrum Master facilitar a colaboração entre os times para garantir integração bem-sucedida.
+Resposta correta
+
+*Incentivar colaboração frequente, fazendo pairing entre engenheiros e desenvolvedores em tarefas multifuncionais no próximo sprint para melhorar o entendimento compartilhado
+Explicação
+Promover colaboração frequente por meio de pairing em tarefas multifuncionais ajuda a aumentar o entendimento compartilhado e o alinhamento entre os times, levando a integrações mais suaves e menos atrasos por falhas de comunicação.
+
+Aplicar o princípio Ágil da “simplicidade — a arte de maximizar a quantidade de trabalho não feito” eliminando discussões sobrepostas entre os papéis de hardware e software
+Explicação
+Eliminar discussões sobrepostas não resolve a causa raiz de comunicação deficiente e desalinhamento. O foco deve ser melhorar a colaboração e o entendimento compartilhado, não apenas reduzir conversas.
+Domínio
+People
+
+
+
+
+
+3 Um gerente de projeto está revisando relatórios de desempenho de sua equipe. Ele percebe que tende a focar mais nas conquistas de membros que compartilham pontos de vista e ideias semelhantes aos seus. Essa tendência resulta em ignorar possíveis problemas ou baixo desempenho na equipe. Qual viés cognitivo está sendo exibido neste cenário?
+Resposta correta
+
+*Viés de confirmação (Confirmation bias)
+Explicação
+Viés de confirmação é a tendência de buscar, interpretar, favorecer e recordar informações que confirmem crenças pré-existentes. Aqui, o gerente foca nas conquistas de quem compartilha sua visão, ignorando sinais que contrariem essas crenças.
+
+Viés retrospectivo (Hindsight bias)
+Explicação
+Hindsight bias é acreditar, após um evento, que teria previsto o resultado. Não é o caso, pois o gerente está avaliando desempenho atual, não revisitando o passado.
+Sua resposta está incorreta
+
+Viés de ancoragem (Anchoring bias)
+Explicação
+Ancoragem é confiar excessivamente na primeira informação recebida. Não se aplica aqui; o comportamento está ligado a favorecer pontos de vista semelhantes, não a uma âncora inicial.
+
+Viés de disponibilidade (Availability bias)
+Explicação
+Disponibilidade é superestimar a importância de informações mais acessíveis. O caso é mais sobre favorecer visões semelhantes do que sobre a disponibilidade da informação.
+Explicação geral
+
+Viés de confirmação é a tendência de favorecer informações que confirmem crenças ou valores pré-existentes, ignorando ou desvalorizando as contraditórias. Neste cenário, o gerente nota e valoriza mais as conquistas alinhadas a seus pontos de vista, exibindo esse viés.
+Domínio
+Process
+
+
+
+
+4 Você está gerenciando um projeto de expansão de rede de telecom em uma área urbana em rápido crescimento. Em uma fase crítica, surge um conflito significativo entre a equipe de engenharia de rede e o contratado externo sobre a integração de novo hardware. Os engenheiros afirmam que o design do contratado não atende às especificações técnicas, enquanto o contratado insiste que as solicitações são vagas e impraticáveis. Com o aumento do conflito, ambos passam a se afastar das discussões diretas, evitando resolução e deixando o problema sem solução. Qual estilo de resolução de conflitos está sendo exibido?
+Sua resposta está incorreta
+
+Abrandamento (Smoothing)
+Explicação
+Smoothing é minimizar diferenças e enfatizar interesses comuns para manter harmonia. Aqui, as partes estão evitando discussões, não tentando suavizar o conflito.
+
+Compromisso (Compromising)
+Explicação
+Comprometer-se envolve concessões mútuas para chegar ao meio-termo. Neste cenário, nenhuma parte demonstra disposição para ceder, resultando em impasse.
+
+Colaboração (Collaborating)
+Explicação
+Colaborar envolve trabalhar juntos para uma solução mutuamente benéfica. As partes estão se retirando das discussões, inviabilizando a colaboração.
+Resposta correta
+
+*Retirada/Afastamento (Withdrawal)
+Explicação
+Retirada é evitar o confronto, afastando-se do conflito e deixando-o sem resolução, o que é prejudicial por não tratar as causas subjacentes.
+Domínio
+People
+
+
+
+
+
+5 Uma equipe de projeto está envolvida na produção de trens people mover, e o gerente de qualidade apoia a equipe durante uma inspeção de qualidade. Alguns defeitos menores são identificados. O gerente de qualidade sugere corrigi-los imediatamente sem documentação ou trâmites de processo. Como gerente de projeto, qual deve ser o próximo passo?
+
+Instruir a equipe a adiar a correção até que os defeitos se tornem mais significativos e então tratá-los com documentação formal
+Explicação
+Atrasar correções até ficarem significativas não é recomendado. Todos os defeitos devem ser tratados prontamente, seguindo processos de documentação e aprovação, para manter a qualidade e a integridade do projeto. Adiar aumenta custos, retrabalho e risco de atrasos.
+Sua resposta está incorreta
+
+Prosseguir com a correção dos defeitos, mas evitar documentação, já que a natureza menor não exige seguir o processo
+Explicação
+Corrigir sem documentação gera falta de transparência e rastreabilidade. Mesmo defeitos menores devem seguir o processo de qualidade para garantir consistência, conformidade e histórico adequado.
+
+Permitir que o gerente de qualidade corrija imediatamente, ignorando a papelada para ganhar tempo e evitar atrasos
+Explicação
+Autorizar correções sem documentação compromete a rastreabilidade e a responsabilidade. É essencial seguir os processos estabelecidos de gestão da qualidade e aprovações antes de efetuar mudanças.
+Resposta correta
+
+*Garantir que o gerente de qualidade siga os processos estabelecidos de gestão da qualidade, incluindo documentação e aprovações adequadas, antes de qualquer correção
+Explicação
+Seguir os processos de qualidade com documentação e aprovações mantém os padrões do projeto, permite rastrear mudanças, identificar causas raiz e prevenir recorrências.
+Domínio
+Process
+
+
+
+
+
+
+6 Você está gerenciando um projeto de construção de um novo edifício de escritórios. O projeto está em andamento quando uma mudança regulatória externa exige ajustes no design para atender a novos padrões ambientais. O cliente está preocupado com o possível impacto de custo, e você precisa decidir como prosseguir mantendo o cronograma e garantindo conformidade. O que fazer a seguir?
+
+Revisar imediatamente o design para atender aos novos requisitos regulatórios e solicitar verba adicional ao cliente para cobrir possíveis aumentos de custo
+Explicação
+Revisar o design sem discutir implicações de custo com o cliente pode gerar conflitos e problemas financeiros. É crucial colaborar e avaliar o impacto antes de mudanças significativas.
+Sua resposta está incorreta
+
+Aceitar as mudanças regulatórias e implementá-las sem discutir custos com o cliente, priorizando conformidade em detrimento do orçamento
+Explicação
+Implementar sem discutir custos pode causar excesso orçamentário e insatisfação. É essencial envolver o cliente e manter comunicação aberta.
+Resposta correta
+
+*Colaborar com o cliente para avaliar o impacto de custo e considerar alternativas que minimizem o impacto mantendo a conformidade
+Explicação
+Colaboração e avaliação conjunta das alternativas garantem transparência, mitigam impacto financeiro e preservam o relacionamento, assegurando conformidade com os novos padrões.
+
+Prosseguir com o design original e ignorar as mudanças regulatórias, já que o cliente está preocupado com custos e prazos
+Explicação
+Ignorar mudanças regulatórias pode levar a não conformidade, penalidades e riscos legais. É essencial adequar-se às normas.
+Domínio
+Business Environment
+
+
+
+
+
+
+7 Você gerencia um projeto global de desenvolvimento de software com equipes distribuídas em cinco países. No meio do projeto, as partes interessadas reclamam de falta de atualizações oportunas, e alguns membros desconhecem mudanças críticas discutidas em reuniões devido a fusos horários.
+
+Como gerente do projeto, qual é o passo mais apropriado para abordar o problema?
+
+Aplicar planejamento em ondas sucessivas (rolling wave) e adiar mudanças na estratégia de comunicação para a próxima fase, quando houver mais informações
+Explicação
+Adiar ajustes de comunicação não resolve a necessidade imediata de atualizações oportunas. É preciso adaptar a comunicação em tempo real.
+Sua resposta está incorreta
+
+Solicitar que todos os membros enviem relatórios diários de status a um repositório central para visibilidade do progresso
+Explicação
+Relatórios diários aumentam visibilidade, mas podem não tratar a causa de não receber atualizações no tempo certo. É mais importante melhorar métodos e estratégias de comunicação.
+Resposta correta
+
+*Atualizar o plano de gerenciamento das comunicações para incluir métodos assíncronos e adequar estratégias aos fusos e preferências dos stakeholders
+Explicação
+Ajustar o plano para incluir comunicação assíncrona e personalizada por fuso e preferência garante que todos recebam atualizações no tempo certo, reduzindo lacunas.
+
+Introduzir um daily stand-up em horário global fixo para que todos participem
+Explicação
+Um horário fixo global pode ser inviável e prejudicar engajamento devido a fusos distintos.
+Domínio
+Process
+
+
+
+
+
+8 Em um projeto ágil em nuvem, a equipe usa TDD para garantir alta qualidade. O gerente está preocupado que o ritmo dos testes esteja desacelerando o progresso, especialmente com histórias mais complexas. As partes interessadas exigem entregas mais rápidas para prazos de mercado. Como equilibrar velocidade e qualidade?
+
+Aprovar reduzir o TDD, focando apenas em escrever código e deixando testes para o fim do sprint
+Explicação
+Postergar testes compromete a qualidade. TDD é essencial para qualidade consistente; pular ou adiar testes aumenta riscos de defeitos.
+
+Direcionar a equipe a continuar com TDD, mas reduzir rigorosamente a quantidade de testes unitários, desde que a funcionalidade principal esteja intacta
+Explicação
+Reduzir testes unitários derruba a qualidade e permite bugs não detectados em componentes.
+Sua resposta está incorreta
+
+Sugerir adiar a fase de testes para a próxima iteração e focar em aumentar velocidade agora
+Explicação
+Adiar testes para acelerar entrega resulta em qualidade inferior e mais retrabalho. O equilíbrio vem de testar continuamente.
+Resposta correta
+
+*Consultar equipe e stakeholders para encontrar um meio-termo, como ajustar o escopo ou adotar uma abordagem de testes modificada, mantendo TDD
+Explicação
+Alinhar expectativas por meio de negociação de escopo e adaptação controlada do processo mantém qualidade enquanto viabiliza prazos.
+Domínio
+Business Environment
+
+
+
+
+
+
+
+9 Gianna, Scrum Master, lidera uma equipe ágil que luta para resolver uma história complexa, prioridade máxima do próximo sprint. Apesar de semanas de trabalho, não encontraram solução. Com o prazo chegando, é crucial um plano para concluir a história no próximo sprint. Qual deve ser o próximo passo de Gianna?
+Sua resposta está incorreta
+
+Atribuir diretamente tarefas a membros específicos para garantir conclusão, mesmo que alguns trabalhem mais
+Explicação
+Atribuição direta minando a auto-organização reduz moral e senso de propriedade.
+
+Times ágeis são autodirigidos; deixe que a equipe resolva sozinha
+Explicação
+Embora autodirigidos, cabe ao Scrum Master facilitar remoção de impedimentos. Ausência de suporte pode prolongar o problema.
+
+Incentivar a equipe a escalar à gerência para obter mais recursos
+Explicação
+Escalar por recursos vai contra a auto-organização e empoderamento. O ideal é a equipe encontrar soluções colaborativas.
+Resposta correta
+
+*Facilitar uma retrospectiva para identificar impedimentos e soluções, incentivando quebrar a história em tarefas menores
+Explicação
+Retrospectiva focada em impedimentos e decomposição da história aumenta clareza, reduz riscos e melhora chances de conclusão.
+Domínio
+People
+
+
+
+
+
+
+10 Um gerente de projeto supervisiona uma atualização de infraestrutura de TI. O cronograma é apertado, mas há preocupações recentes com a qualidade do código. Ele precisa decidir entre investir em mais QC para garantir padrões técnicos ou seguir como está assumindo o risco de retrabalho. Para decidir, ele cria uma representação visual com opções, probabilidades e resultados (custos, atrasos, impacto em satisfação). Qual técnica está sendo usada?
+Resposta correta
+
+*Análise de árvore de decisão (Decision tree analysis)
+Explicação
+Árvores de decisão representam visualmente opções, probabilidades e resultados, permitindo avaliação sistemática de custos, benefícios e riscos de cada escolha.
+Sua resposta está incorreta
+
+Análise SWOT
+Explicação
+SWOT avalia forças, fraquezas, oportunidades e ameaças, mas não mapeia probabilidades e resultados de opções específicas.
+
+Análise custo-benefício
+Explicação
+Útil para comparar custos e benefícios, porém não oferece a mesma representação de caminhos, probabilidades e desfechos que a árvore de decisão.
+
+Simulação de Monte Carlo
+Explicação
+Monte Carlo modela incertezas com variáveis aleatórias, mas não é a ferramenta principal quando se busca mapa visual de opções e desfechos.
+Domínio
+Process
+
+
+
+
+
+
+11 Você gerencia um projeto de perfuração e extração offshore de US$ 300 milhões. Em execução, por requisitos de águas profundas, a equipe escolhe uma sonda semissubmersível. Um stakeholder discorda dessa técnica e aconselha usar um drillship por flexibilidade e mobilização mais rápida. Sua discordância persistente está causando atrasos. O que o gerente de projeto deve fazer primeiro?
+Sua resposta está incorreta
+
+Escalar o problema aos patrocinadores conforme a estratégia de engajamento de stakeholders
+Explicação
+Escalar sem antes entender as preocupações não é a primeira medida. Deve-se tentar resolver no nível do GP antes de envolver instâncias superiores.
+Resposta correta
+
+*Iniciar uma conversa direta com o stakeholder para entender suas preocupações
+Explicação
+Ouvir ativamente o stakeholder permite abordar pontos e buscar resolução benéfica ao objetivo do projeto.
+
+Remover imediatamente o stakeholder do projeto
+Explicação
+Remoção sem entender preocupações é inadequada.
+
+Ignorar as objeções e prosseguir com a abordagem selecionada
+Explicação
+Ignorar preocupações de stakeholders-chave pode causar mais atrasos e arriscar o sucesso.
+Domínio
+People
+
+
+
+
+
+
+12 Você acabou de assumir a gerência de um projeto de construção de edifício composto, complexo, com vários stakeholders e prazos apertados. A equipe é nova e a maioria tem pouca experiência em projetos. Nas reuniões iniciais, você nota incerteza sobre papéis, hesitação para decidir e dependência de sua orientação. Você precisa estabelecer direção, construir confiança e garantir entregas já na iniciação. Qual estilo de liderança adotar?
+Sua resposta está incorreta
+
+Liderança Servidora (Servant Leadership)
+Explicação
+Funciona bem com equipes experientes e autônomas; aqui falta experiência e autodireção.
+
+Liderança Transformacional
+Explicação
+Inspira e motiva, mas exige visão e comprometimento do time, menos adequado para equipe muito inexperiente.
+Resposta correta
+
+*Liderança Diretiva (Directive Leadership)
+Explicação
+Fornece instruções claras, orientação e estrutura, ajudando o time a entender papéis e responsabilidades no início.
+
+Laissez-Faire
+Explicação
+Abordagem “mãos livres” requer alta autonomia, podendo gerar confusão e falta de direção em equipes novas.
+Domínio
+People
+
+
+
+
+
+
+13 Você gerencia um projeto para criar formulários front-end com PowerApps. Um membro vem perdendo prazos em vários sprints, atrasando tarefas dependentes. Apesar de ter habilidades, entrega atualizações incompletas e parece desengajado nas reuniões. Outros estão preocupados com o impacto no progresso. O que fazer?
+
+Escalar de imediato ao gerente funcional e solicitar substituição
+Explicação
+Escalar cedo demais pode prejudicar confiança e dinâmica do time.
+Resposta correta
+
+*Conduzir uma conversa privada para entender causas-raiz e oferecer apoio/recursos para melhorar desempenho
+Explicação
+Liderança empática e resolução proativa: primeiro engajar privadamente para entender e apoiar. Escalar ou expor publicamente pode danificar confiança.
+
+Redistribuir as tarefas para quem tem melhor desempenho
+Explicação
+Resolve temporariamente, mas não trata a raiz do problema e pode sobrecarregar outros.
+
+Tratar o assunto na próxima reunião para responsabilização pública
+Explicação
+Confronto público pode ser constrangedor e não está alinhado ao código de ética.
+Domínio
+People
+
+
+
+
+
+
+14 Você gerencia um projeto ágil de e-commerce com sprints de duas semanas. O time tem perdido metas por várias iterações; histórias ficam incompletas e carregadas para o sprint seguinte. O que fazer para melhorar o desempenho?
+
+Realocar tarefas para membros mais rápidos
+Explicação
+Minaria confiança e colaboração. Ágil incentiva propriedade compartilhada e ritmo sustentável.
+Sua resposta está incorreta
+
+Estender a duração do sprint
+Explicação
+Mudar duração para “corrigir” velocidade não é recomendado. Consistência dá previsibilidade; isso evita a causa raiz e quebra o ritmo.
+Resposta correta
+
+*Facilitar uma retrospectiva para identificar causas raiz e apoiar a melhoria contínua
+Explicação
+Alinha-se aos princípios ágeis e ao domínio People: reflexão, colaboração e melhoria. Evita culpabilização e mudanças reativas sem diagnóstico.
+
+Pedir ao PO para reduzir itens no futuro
+Explicação
+Limitar escopo pode ajudar no curto prazo, mas não aborda por que a equipe está lutando (excesso de compromisso, histórias pouco claras, débito técnico, ineficiências de processo).
+Domínio
+People
+
+
+
+
+
+15 Você gerencia um projeto de edifício residencial alto, com prazos apertados e frentes paralelas (MEP, estrutura, interiores). Nas últimas semanas, a equipe trabalha horas estendidas. Você observa baixa moral e queda de produtividade; vários relatam burnout e falta de equilíbrio. Qual a melhor ação?
+
+Oferecer treinamento adicional
+Explicação
+Treinamento não aborda diretamente desmotivação por sobrecarga.
+Resposta correta
+
+*Reavaliar cronograma e distribuição de carga de trabalho, iniciando ações corretivas para melhorar o moral
+Explicação
+Diante de sinais de burnout, ajuste proativo de carga e agenda sustenta produtividade de longo prazo. Envolver a equipe no planejamento, demonstrar empatia e tomar medidas corretivas restaura confiança.
+
+Aumentar a supervisão e pressionar mais para cumprir o cronograma
+Explicação
+Mais pressão em equipe já sobrecarregada piora burnout e produtividade, podendo gerar absenteísmo ou turnover.
+
+Demitir os de baixo desempenho e substituir
+Explicação
+Não trata a causa raiz que é a sobrecarga. Primeiro entender e ajustar gestão de carga.
+Domínio
+People
+
+
+
+
+
+
+16 Você gerencia um projeto de desenvolvimento de software para um aplicativo corporativo. Um stakeholder-chave do cliente, responsável por requisitos e aprovações, tem sido pouco responsivo e lento no feedback, atrasando a finalização de requisitos e impactando o cronograma. O que fazer?
+
+Remover o stakeholder do registro de stakeholders
+Explicação
+Não deve ser o primeiro passo; é preciso tentar engajar antes de medidas extremas.
+Sua resposta está incorreta
+
+Enviar um aviso formal lembrando responsabilidades e prazos
+Explicação
+Um lembrete formal sem conversa prévia soa como escalada e pode prejudicar a relação.
+Resposta correta
+
+*Convidar para uma conversa individual, entender preocupações e reengajar
+Explicação
+A comunicação direta permite construir rapport, tratar impedimentos e incentivar participação. Escalar só após tentativas falhas de engajamento.
+
+Prosseguir finalizando requisitos como prioridade e tratar a falta de envolvimento depois
+Explicação
+Ignorar a falta de participação não é recomendado e pode resultar em desalinhamento de expectativas.
+Domínio
+People
+
+
+
+
+
+
+17 Uma equipe ágil trabalha em um projeto AML para monitoramento em tempo real. Na revisão do sprint, fica claro que uma história-chave de sinalização de transações suspeitas não foi concluída e irá transbordar. A equipe está frustrada: alguns culpam dependências externas; outros, subestimativa. O PO teme impacto na confiança dos stakeholders. Como líder ágil, o que fazer?
+Resposta correta
+
+*Incentivar a equipe a revisitar como a história foi dimensionada e discutida no planejamento, colhendo sugestões para evitar recorrências
+Explicação
+Revisitar dimensionamento e discussões no planejamento ajuda a identificar falhas de entendimento e melhorar estimativas e processos, aumentando eficiência de entrega.
+
+Sugerir ao PO adiar a história para um sprint mais previsível e focar em itens de menor risco
+Explicação
+Adiar não trata a causa raiz; é melhor corrigir processos de planejamento e sizing.
+
+Propor que especialistas no domínio concluam a história no início do próximo sprint
+Explicação
+Pode acelerar pontualmente, mas não resolve causas subjacentes de estimativa e planejamento.
+
+Notificar stakeholders do transbordo e propor resequenciamento do backlog
+Explicação
+Traz transparência, porém não trata problemas internos que levaram ao transbordo.
+Domínio
+People
+
+
+
+
+
+
+18 Você gerencia um upgrade de sistemas financeiros. O patrocinador, preocupado com prazos regulatórios, quer atualizações diárias de progresso e riscos. A equipe multifuncional prefere semanais para evitar sobrecarga de relatórios e focar em entregas. O desalinhamento está afetando moral e produtividade. O que fazer?
+Sua resposta está incorreta
+
+Insistir em atualizações semanais para proteger produtividade e evitar microgerenciamento
+Explicação
+O gerente deve equilibrar necessidades de stakeholders e equipe; favorecer um lado prejudica o outro.
+
+Atender ao pedido do patrocinador e iniciar atualizações diárias, ignorando preocupações da equipe
+Explicação
+Abordagem unilateral que prejudica moral e foco da equipe.
+
+Para comprometer, alternar entre diárias e semanais
+Explicação
+Alternância gera confusão e inconsistência na cadência de comunicação.
+Resposta correta
+
+*Facilitar uma discussão entre patrocinador e equipe para acordar um plano de comunicação balanceado que atenda a ambos
+Explicação
+Reunir as partes para alinhar expectativas e combinar uma cadência mútua preserva transparência, foco e relacionamento.
+Domínio
+People
+
+
+
+
+
+
+19 Você gerencia um projeto de transformação digital e implementou um novo software de gestão de portfólio para visibilidade e colaboração. A maioria adotou bem, mas um membro experiente resiste, preferindo e-mails e planilhas. A recusa causa lacunas de comunicação e inconsistências no acompanhamento. O que fazer?
+Resposta correta
+
+*Conversar com o membro para entender preocupações, explicar benefícios e oferecer suporte/treinamento
+Explicação
+Treinamento e esclarecimento de benefícios ajudam a reduzir resistência e promover adoção.
+Sua resposta está incorreta
+
+Atribuir o trabalho a outra pessoa
+Explicação
+Não trata a causa raiz da resistência.
+
+Abrir exceção para que continue com seus métodos
+Explicação
+Exceções sinalizam que padrões são opcionais e minam a responsabilidade.
+
+Remover a pessoa do projeto
+Explicação
+Último recurso, apenas após esgotar alternativas de engajamento e suporte.
+Domínio
+People
+
+
+
+
+
+
+20 Zach é gerente sênior mentorando John, um gerente júnior liderando sua primeira equipe multifuncional. Durante a execução, conflitos frequentes surgem sobre propriedade de tarefas e abordagens técnicas, afetando colaboração e progresso. John pede conselhos para lidar construtivamente preservando relações e foco em objetivos. Que técnica recomendar?
+
+Imposição (Forcing)
+Explicação
+Impor solução gera ressentimento e raramente cria benefício mútuo.
+Sua resposta está incorreta
+
+Evitação (Avoiding)
+Explicação
+Ignorar conflitos não resolve causas e eles tendem a ressurgir.
+Resposta correta
+
+*Colaboração (Collaborating)
+Explicação
+Trabalhar juntos para uma solução ganha-ganha, ouvindo ativamente e atendendo necessidades de todas as partes.
+
+Retirada (Withdrawing)
+Explicação
+Afastar-se pode desescalar, mas não resolve o conflito.
+Domínio
+People
+
+
+
+
+
+
+21 Você lidera a implementação de um software corporativo com equipes de TI, finanças e operações. Prioridades e estilos de comunicação distintos causam mal-entendidos e atrasos. Surgem lacunas e silos, afetando o progresso. Qual a melhor forma de melhorar a colaboração entre funções?
+Sua resposta está incorreta
+
+Atribuir a cada função uma meta separada
+Explicação
+Metas separadas reforçam silos. É preciso um objetivo comum.
+Resposta correta
+
+*Facilitar reuniões regulares multifuncionais com agenda clara e metas compartilhadas
+Explicação
+Reuniões e sessões de feedback estruturadas promovem atualização, resolução de problemas em tempo real e colaboração.
+
+Enviar um relatório semanal a todos com o resumo das atividades
+Explicação
+Informativo, porém não permite discussão interativa nem resolução imediata.
+
+Pedir que cada líder funcione de forma independente e reporte a você
+Explicação
+Isola as funções e reduz oportunidades de entendimento e solução conjunta.
+Domínio
+People
+
+
+
+
+
+22 Você gerencia um projeto para agilizar a operação de front desk em uma rede hoteleira com check-in móvel e pagamento automático. A equipe sugere remover checagens manuais de identidade para membros de fidelidade, reduzindo tempo de check-in. O time de relações com hóspedes teme prejuízo ao atendimento personalizado, e o time de segurança de TI se preocupa com conformidade a leis de privacidade. O que fazer a seguir?
+
+Prosseguir com a mudança, pois ela se alinha ao objetivo de eficiência
+Explicação
+Seguir sem tratar preocupações de stakeholders pode gerar riscos e consequências negativas.
+
+Iniciar o processo de Monitorar Comunicações para garantir que mensagens sobre mudanças cheguem a todos
+Explicação
+Comunicação é importante, mas antes é necessário tratar as preocupações levantadas.
+Resposta correta
+
+*Iniciar o processo de Gerenciar Engajamento das Partes Interessadas para entender e tratar as preocupações de forma colaborativa
+Explicação
+Gerenciar o engajamento permite compreender e endereçar as preocupações de ambos os times, levando a uma solução que satisfaça stakeholders e assegure o sucesso do projeto.
+Sua resposta está incorreta
+
+Usar o processo de Controle da Qualidade para validar se o novo processo atende expectativas
+Explicação
+Prematuro antes de abordar preocupações e alinhar o processo às expectativas.
+Domínio
+Business Environment
+
+
+
+
+
+23 Uma equipe trabalha em um projeto de TI em nuvem para uma empresa global. No meio do projeto, o cliente solicita integração com um provedor adicional de nuvem, exigindo mudanças de arquitetura e novos relacionamentos com fornecedores. Qual a melhor forma de integrar essa mudança mantendo alinhamento com o ambiente de negócios?
+Resposta correta
+
+*Avaliar o impacto estratégico da nova integração, engajar stakeholders para priorizar a mudança e ajustar escopo e cronograma de forma iterativa, usando mind mapping para explorar visualmente impactos e riscos
+Explicação
+Avaliar impacto estratégico, engajar stakeholders e ajustar iterativamente permite flexibilidade e alinhamento. Mind mapping ajuda a visualizar efeitos e riscos para decisões informadas.
+
+Atualizar o termo de abertura e iniciar um processo formal de mudança antes de qualquer negociação com fornecedores
+Explicação
+Útil para documentação e aprovação, porém pode deixar de priorizar engajamento contínuo e ajustes iterativos cruciais para o alinhamento.
+
+Criar uma análise detalhada de custo-benefício, congelar o escopo e implementar após aprovações financeiras
+Explicação
+Congelar escopo reduz adaptabilidade às necessidades em mudança. Esperar aprovações pode atrasar a integração.
+Sua resposta está incorreta
+
+Iniciar uma avaliação completa de riscos e submeter ao board de governança antes de ajustar o plano
+Explicação
+Gerir riscos é importante, mas pode negligenciar engajamento e ajustes iterativos necessários ao alinhamento.
+Domínio
+Business Environment
+
+
+
+
+
+24 Você gerencia um projeto complexo para uma plataforma de gestão de investimentos que deve atender a requisitos regulatórios em múltiplas jurisdições, expectativas em evolução e alta volatilidade de mercado. A empresa quer lançar versão com dados de mercado em tempo real e recomendações personalizadas, mas a tecnologia ainda é incipiente e precisa de iterações.
+
+Como integrar abordagens ágeis e preditivas para garantir conformidade e capacidade de resposta a mudanças?
+
+Implementar uma abordagem preditiva altamente estruturada para definir marcos e cronogramas detalhados de conformidade; usar ágil apenas para desenvolvimento de features e isolar compliance do fluxo ágil
+Explicação
+Isolar compliance pode gerar desalinhamento entre requisitos regulatórios e desenvolvimento, além de reduzir adaptabilidade a mudanças.
+
+Criar equipes autônomas separadas para compliance (preditiva) e features (ágil), com interação mínima e integração final
+Explicação
+Cria silos, dificulta comunicação e pode causar desafios na integração tardia.
+Resposta correta
+
+*Adotar uma abordagem híbrida: técnicas preditivas para compliance, documentação legal e planejamento inicial; métodos ágeis para desenvolvimento de funcionalidades, testes de mercado e melhorias iterativas, com pontos claros de integração e supervisão de um comitê gestor
+Explicação
+A abordagem híbrida equilibra previsibilidade e flexibilidade, garantindo alinhamento e evitando desalinhamento entre compliance e evolução do produto.
+
+Usar apenas ágil em todo o projeto e tratar compliance apenas ao final
+Explicação
+Adiar compliance aumenta risco de retrabalho, atrasos e não conformidade.
+Domínio
+Business Environment
+
+
+
+
+
+25 Você gerencia o lançamento incremental de uma linha de bebidas em múltiplos mercados. A oferta inicial foca uma região; futuras liberações dependem do sucesso dessa fase. Durante o projeto, você percebe que preferências dos clientes e tendências mudam rapidamente. Qual é a melhor abordagem?
+
+Implementar uma nova fase detalhada de pesquisa de mercado antes dos próximos incrementos, pausando as entregas até coletar e analisar todos os dados
+Explicação
+Pausar pode atrasar excessivamente. Melhor coletar feedback continuamente e ajustar conforme avança.
+
+Focar apenas na fase inicial e cancelar futuras para reavaliar totalmente o produto
+Explicação
+Perde oportunidades e reduz capacidade de adaptação a tendências.
+
+Manter especificações e prazos originais, alinhando fases futuras ao plano inicial apesar das mudanças
+Explicação
+Ignorar mudanças de mercado pode levar a produto desalinhado às necessidades dos clientes.
+Resposta correta
+
+*Adotar flexibilidade: concluir a primeira fase, incorporar feedback nos próximos incrementos e monitorar mercados regionais para ajustar funcionalidades e marketing
+Explicação
+Permite responder a mudanças mantendo alinhamento com objetivos de negócio e competitividade.
+Domínio
+Business Environment
+
+
+
+
+
+26 Você gerencia um projeto de produção de fertilizantes para uma multinacional com diferentes ambientes regulatórios, normas culturais e expectativas regionais. A empresa tem um padrão global de gerenciamento de projetos, mas há diferenças significativas em sustentabilidade, segurança e leis trabalhistas locais. Qual a melhor abordagem para alinhar padrão global e realidades locais?
+
+Seguir estritamente o padrão global e criar fluxos regionais independentes para tratar discrepâncias, minimizando interação cruzada
+Explicação
+Operações em silos prejudicam colaboração e podem falhar em atender requisitos locais.
+
+Estabelecer um comitê global que imponha uniformidade com ajustes mínimos a regulações/culturas locais
+Explicação
+Ignorar diferenças locais pode levar a não conformidade e insatisfação de stakeholders.
+Resposta correta
+
+*Adaptar os padrões globais para contemplar requisitos regulatórios e necessidades de stakeholders locais, garantindo conformidade com práticas regionais de sustentabilidade e segurança, mantendo alinhamento com objetivos globais
+Explicação
+Equilibra consistência global com relevância local, assegurando conformidade e objetivos do negócio.
+Sua resposta está incorreta
+
+Delegar às gestões regionais a definição exclusiva de práticas, ignorando o framework global
+Explicação
+Gera inconsistências e conflitos com objetivos corporativos.
+Domínio
+Business Environment
+
+
+
+
+
+27 Em um projeto de transporte e logística, equipes distintas cuidam de gestão de frota, otimização de rotas e atendimento. Contudo, atuam isoladamente, criando silos que prejudicam o fluxo de informação e decisões, impactando prazos e satisfação do cliente. O que o gerente de projeto deve fazer?
+Resposta correta
+
+*Criar uma força-tarefa temporária para analisar objetivos e fluxos de cada departamento e desenvolver um plano abrangente de integração para compartilhamento de informações e colaboração
+Explicação
+Uma análise detalhada seguida de plano de integração aborda a raiz dos silos e promove uma operação coesa.
+
+Implementar estratégia de mudança focada em ajustes comportamentais de curto prazo, como bonificar líderes por comunicação interdepartamental
+Explicação
+Pode trazer ganhos temporários, mas não trata a causa estrutural dos silos.
+
+Definir KPIs estratégicos por departamento alinhados aos indicadores do projeto
+Explicação
+Útil, porém sozinho pode não resolver o bloqueio estrutural de fluxo e decisão.
+Sua resposta está incorreta
+
+Realizar briefings executivos para comunicar o impacto dos silos e pedir intervenção da liderança
+Explicação
+Ajuda na conscientização, mas pode ser insuficiente sem um plano prático de integração.
+Domínio
+Business Environment
+
+
+
+
+28 Uma equipe está desenvolvendo uma plataforma de reservas de viagens usando uma abordagem ágil. A empresa valoriza a transparência ao permitir que stakeholders observem o trabalho diário da equipe e suas práticas de tomada de decisão. No entanto, vários parceiros de negócios começam a contornar o product owner e direcionar feedback em tempo real diretamente aos membros da equipe, interrompendo o foco e causando ajustes inconsistentes de funcionalidades. Qual é a maneira mais apropriada para o gerente de projeto abordar isso, garantindo alinhamento com os valores ágeis e expectativas do ambiente de negócios?
+Resposta correta
+
+*Coordenar com o product owner para definir limites na interação dos stakeholders, reforçando ciclos estruturados de feedback e minimizando a influência ad hoc na execução do sprint
+Explicação
+Na metodologia ágil, o product owner é responsável por gerenciar as interações com stakeholders e priorizar feedback. Ao coordenar com o product owner para definir limites de interação, o gerente de projeto reforça ciclos estruturados de feedback e minimiza influências ad hoc na execução do sprint, garantindo alinhamento com os valores ágeis e mantendo o foco na entrega de valor.
+
+Estabelecer uma estrutura de interlocução com stakeholders com pontos de contato designados e encaminhar todas as entradas por meio de um comitê semanal de revisão de issues para manter a integridade do processo
+Explicação
+Estabelecer uma estrutura formal com pontos de contato e encaminhar entradas a um comitê semanal pode introduzir burocracia e atrasos. Isso tende a não se alinhar aos princípios ágeis de comunicação direta e resposta rápida ao feedback, potencialmente prejudicando o progresso do projeto.
+
+Implantar um framework formal de engajamento de stakeholders que categorize níveis de envolvimento e use revisões por estágio para avaliar a validade de fluxos de feedback direto
+Explicação
+Implantar um framework formal com categorização de envolvimento e revisões por estágio pode introduzir complexidade e processos rígidos que contrariam o valor ágil de responder a mudanças mais do que seguir um plano. Não é adequado para tratar a questão imediata de stakeholders que contornam o product owner e atrapalham o foco da equipe.
+Sua resposta está incorreta
+
+Redirecionar as entradas dos stakeholders por uma fila de documentação, validando-as contra KPIs estratégicos antes de agendá-las para iterações futuras
+Explicação
+Redirecionar entradas por uma fila de documentação para validação contra KPIs estratégicos adiciona sobrecarga e atrasos na incorporação de feedback valioso. Isso não se alinha aos princípios de colaboração, transparência e resposta rápida, reduzindo agilidade e capacidade de adaptação às mudanças.
+Domínio
+Business Environment
+
+
+
+
+29 Sua organização está lançando um novo produto de cartão de crédito usando DSDM para responder rapidamente à oferta de um concorrente. No meio do projeto, os departamentos jurídico e de compliance introduzem gates adicionais de aprovação que não foram considerados no ciclo atual de desenvolvimento. Com um prazo fixo ditado pelo timing de mercado, você reconhece que tratar essas entradas tardias pode atrapalhar a entrega. Qual é o curso de ação mais apropriado em alinhamento com os princípios DSDM e o ambiente de negócios?
+
+Formar uma força-tarefa para redefinir a arquitetura de entrega a fim de acomodar integração de compliance iterativa, seguida de reestruturação do escopo base usando controles preditivos
+Explicação
+Redefinir arquitetura e aplicar controles preditivos contraria o princípio DSDM de abraçar mudanças e responder rapidamente a novos requisitos. Não se alinha à natureza iterativa e incremental do DSDM.
+
+Engajar representantes de assurance corporativa para iniciar uma revisão completa de prontidão de compliance e integrar os achados em um roadmap revisado com phase-gates
+Explicação
+Engajar assurance para revisão completa e inserir gates pode introduzir atrasos e romper o cronograma, não priorizando respostas rápidas às mudanças, o que é crítico com prazos de mercado fixos.
+
+Adiar decisões de desenvolvimento até que conselheiros de riscos concluam uma análise de impacto independente e então gerar um business case para ampliar tolerâncias do projeto
+Explicação
+Adiar decisões para análises independentes e buscar ampliar tolerâncias causa novos atrasos, comprometendo a resposta rápida de DSDM.
+Resposta correta
+
+*Trabalhar com compliance e stakeholders de produto em uma sessão estruturada de planejamento para determinar quais necessidades regulatórias podem ser tratadas dentro do timebox vigente por meio de repriorização direcionada e ajustes de recursos
+Explicação
+Planejamento estruturado com repriorização e ajuste de recursos permite adaptar rapidamente aos requisitos novos sem romper o timebox, alinhando-se aos princípios DSDM e às restrições de mercado.
+Domínio
+Business Environment
+
+
+
+
+30 Uma equipe está desenvolvendo uma nova plataforma de streaming para uma empresa de entretenimento, seguindo Feature-Driven Development (FDD). No meio do projeto, o marketing pressiona por um recurso urgente para um evento global de um celebridade, agendado para semanas adiante. O recurso não estava na lista original de features. Qual é a melhor abordagem para tratar esse pedido alinhando prioridades de negócio?
+
+Iniciar um processo formal de controle integrado de mudanças, incluindo análise de impacto, para avaliar a mudança via PMO antes de atualizar a linha de base do escopo
+Explicação
+Embora estruturado, isso adiciona processos formais pesados que não se alinham ao FDD, que é ágil e leve, e não suportam adaptação rápida a necessidades dinâmicas.
+
+Realizar uma reunião com toda a equipe para realocar recursos ao novo recurso, colocando-o imediatamente no topo do backlog de features para cumprir o prazo de marketing
+Explicação
+Repriorizar às pressas sem avaliação e alinhamento com prioridades de negócio pode causar disrupções e comprometer metas do projeto.
+Resposta correta
+
+*Trabalhar com especialistas de domínio e stakeholders para avaliar a urgência, repriorizar a lista de features e ajustar o plano de desenvolvimento iterativamente usando princípios de FDD
+Explicação
+Colaboração para avaliar urgência, repriorizar e ajustar iterativamente mantém flexibilidade e resposta às necessidades de negócio, alinhando-se ao FDD.
+Sua resposta está incorreta
+
+Ativar um ciclo de gestão de realização de benefícios, compilar um relatório de impacto de negócio e submetê-lo ao board de portfólio para alinhamento entre iniciativas
+Explicação
+Pode trazer entendimento, mas é um processo longo que pode atrasar a entrega do recurso urgente.
+Domínio
+Business Environment
+
+
+
+
+31 Uma equipe usa Disciplined Agile (DA) para gerir o design e desenvolvimento de veículos elétricos (EVs) para uma montadora global. No meio do projeto, o cliente solicita mudança na tecnologia de bateria, o que afeta especificações de desempenho e conformidade regulatória. Qual é a melhor forma de integrar essa mudança mantendo agilidade de negócio?
+
+Conduzir uma análise de riscos e criar um plano detalhado de gerenciamento de riscos para documentar impactos potenciais nos prazos e orçamento antes de qualquer mudança de design
+Explicação
+Boa prática de documentação, mas foca mais em registrar impactos do que endereçar ativamente a mudança mantendo agilidade.
+Resposta correta
+
+*Consultar stakeholders de negócio e o product owner para avaliar o impacto estratégico da mudança, atualizar o plano de entrega da solução e repriorizar backlogs com base em valor ao cliente e conformidade regulatória
+Explicação
+Engajar stakeholders e PO para avaliar impacto estratégico, atualizar o plano e repriorizar por valor e compliance integra a mudança preservando agilidade e alinhamento.
+
+Iniciar um processo formal de controle de escopo, reavaliar a linha de base do projeto e atualizar o plano para refletir as novas especificações de bateria
+Explicação
+Necessário em algum momento, mas prioriza formalismo em detrimento da agilidade e adaptação dinâmica.
+Sua resposta está incorreta
+
+Implementar a mudança diretamente, seguindo o método do caminho crítico para não afetar o cronograma, sem envolver stakeholders
+Explicação
+Ignora impactos estratégicos e valor ao cliente; ausência de engajamento de stakeholders é arriscada.
+Domínio
+Business Environment
+
+
+
+
+32 Uma consultoria gerencia um projeto de fabricação de laptops para uma marca global. No meio do projeto, o cliente muda prioridades estratégicas para focar em dispositivos energeticamente eficientes, solicitando mudanças no design térmico e componentes de bateria. O gerente deve integrar essa mudança preservando o alinhamento com metas de negócio. O que fazer?
+
+Iniciar uma análise extensa de custo-benefício, pausar o escopo atual e submeter um business case revisado ao conselho para nova autorização
+Explicação
+Pode causar atrasos e custos adicionais; reautorização pode ser desnecessária neste estágio e prejudicar o progresso.
+Resposta correta
+
+*Avaliar a mudança estratégica com stakeholders-chave, analisar impacto no business case e na realização de benefícios, e integrá-la ao projeto por meio de planejamento colaborativo
+Explicação
+Avaliar com stakeholders e integrar via planejamento colaborativo assegura alinhamento com novas prioridades sem perder foco nas metas.
+
+Atualizar o plano de gerenciamento de integração, consultar o CCB e definir nova linha de base de requisitos antes de liberar ao time de design
+Explicação
+Importante para governança, mas pode não ser a forma mais efetiva inicial para integrar a mudança estratégica.
+Sua resposta está incorreta
+
+Escalar a mudança ao PMO corporativo e solicitar que seja tratada como um programa separado sob uma nova governança
+Explicação
+Exagero que pode duplicar esforços e recursos; melhor integrar ao projeto existente.
+Domínio
+Business Environment
+
+
+
+
+33 Você lidera um projeto para modernizar sistemas de faturamento e relacionamento com clientes para uma grande operadora de telecom. Embora a solução técnica esteja pronta para implantação, pesquisas internas revelam que muitos funcionários da linha de frente desconhecem o novo sistema e se sentem despreparados para a mudança. O que fazer para apoiar prontidão de negócio e adoção estratégica?
+
+Documentar o feedback e escalar ao patrocinador, solicitando imposição de uso obrigatório do sistema em todos os departamentos
+Explicação
+Imposição top-down pode gerar resistência. Melhor envolver stakeholders, comunicar e treinar para construir adesão.
+
+Adiar a data de go-live e iniciar uma auditoria completa de impacto da mudança, incluindo análise regulatória e validação de riscos técnicos, antes de reagendar
+Explicação
+Pode ser necessário em alguns casos, mas não aborda diretamente prontidão e adoção; foca em auditorias em vez de capacitação dos usuários.
+Resposta correta
+
+*Parceria com líderes de negócio e champions de mudança para desenvolver treinamentos direcionados, mecanismos de suporte contínuo e planos de comunicação que reforcem os benefícios da mudança
+Explicação
+Treinamento direcionado, suporte contínuo e comunicação dos benefícios promovem prontidão e adoção efetiva.
+Sua resposta está incorreta
+
+Prosseguir com a implantação como planejado, assumindo que a resistência diminuirá quando forem obrigados a usar o sistema
+Explicação
+Arriscado; é melhor tratar preocupações proativamente, treinar e apoiar para reduzir resistência.
+Domínio
+Business Environment
+
+
+
+
+34 Uma consultoria entrega um portal de onboarding de clientes para um banco usando Scrum. Na terceira sprint review, stakeholders seniores se preocupam ao ver o burndown estagnar no meio da sprint, indicando pouco progresso. O gerente deve responder mantendo transparência, alinhamento aos valores ágeis e metas de negócio. O que fazer?
+
+Encomendar um relatório de análise de variância comparando velocidade estimada e real e recomendar um processo gateado de aprovação antes de histórias entrarem em futuras sprints
+Explicação
+Introduz burocracia e contraria o princípio ágil de responder a mudanças; foco deve ser em ajustes em tempo real.
+
+Iniciar um workshop de validação de escopo com executivos e congelar mudanças nos entregáveis da sprint para evitar mais atrasos
+Explicação
+Rigidez limita adaptação; ágil valoriza flexibilidade e melhoria contínua.
+
+Submeter um compromisso de sprint revisado com novas metas de pontos e emitir um aviso formal de desvio aos stakeholders
+Explicação
+Pode gerar clima de culpa; é melhor focar em colaboração e solução de problemas.
+Resposta correta
+
+*Revisar o burndown com a equipe, identificar impedimentos ou itens mal estimados e colaborar com o product owner para ajustar o backlog se necessário
+Explicação
+Promove transparência, colaboração e melhoria contínua, permitindo ajustes necessários em tempo real.
+Domínio
+Business Environment
+
+
+
+
+35 Uma equipe técnica desenvolve um site responsivo e multilíngue. Na Sprint 2, há incerteza sobre integrar uma API de tradução de terceiros e propõe-se um spike para avaliar viabilidade. O gerente quer manter alinhamento com princípios ágeis e expectativas de negócio. Qual a melhor ação?
+
+Escalar a incerteza ao comitê de steering do programa e recomendar congelar o backlog da sprint até decisão final sobre a abordagem da API
+Explicação
+Contraria flexibilidade e adaptabilidade ágeis, gerando atrasos desnecessários.
+
+Adiar a tarefa de pesquisa até uma sprint dedicada de planejamento, permitindo explorar todas as soluções sem restrições de tempo
+Explicação
+Adiar pode acumular incertezas e bloquear progresso; incertezas devem ser tratadas conforme surgem.
+Resposta correta
+
+*Alocar tempo dentro da sprint para o spike, definir um timebox e garantir que a saída seja documentada como aprendizados ou recomendações para orientar futuras histórias
+Explicação
+Trata incertezas prontamente, mantém progresso e transforma aprendizado em insumos para próximas histórias.
+Sua resposta está incorreta
+
+Aprovar o spike, mas exigir especificação técnica detalhada e aval do board de arquitetura antes de iniciar implementação
+Explicação
+Exigir documentação pesada e sign-off antes de pesquisar contraria documentação leve e aprendizado iterativo do ágil.
+Domínio
+Business Environment
+
+
+
+
+36 Uma consultoria desenvolve dashboards de portfólio para a divisão de analytics de um grande cliente, aplicando Ágil e TDD. No meio da sprint, o CRO levanta preocupação: alguns dashboards ainda não incluem KPIs de compliance exigidos por políticas de governança. O que fazer para alinhar à estratégia sem romper os fluxos ágeis e TDD?
+Resposta correta
+
+*Trabalhar com o product owner para traduzir requisitos de KPIs de compliance em user stories, definir critérios de aceitação, criar testes unitários que guiem o desenvolvimento e priorizá-los nas próximas sprints
+Explicação
+Traduz requisitos em histórias com critérios e testes orientadores, preservando princípios de Ágil e TDD e incorporando compliance sem disruptura.
+
+Acionar uma avaliação integrada de mudanças baseada em riscos, seguida de revisão de matriz de impacto de controles com auditoria interna, antes de tocar a lógica dos dashboards
+Explicação
+Adiciona atrasos e burocracia, contrários ao fluxo iterativo e incremental.
+
+Escalar a preocupação ao Agile Steering Group, propor uma força-tarefa de compliance e aguardar resolução antes de continuar o trabalho da sprint
+Explicação
+Introduz camadas de governança e espera, atrasando a resposta.
+Sua resposta está incorreta
+
+Agendar uma sessão de alinhamento de escopo no meio da sprint com stakeholders seniores para revalidar o backlog e inserir KPIs na iteração atual
+Explicação
+Inserir novos itens no meio da sprint pode causar creep e romper cadência de TDD e Ágil.
+Domínio
+Business Environment
+
+
+
+
+37 Você gerencia um projeto ágil de uma empresa de manufatura de agri-produtos para implementar um sistema automatizado de inventário e cadeia de suprimentos. Você é responsável por emitir um RFP para fornecedores.
+
+Qual deve ser incluído no RFP para alinhar a proposta do fornecedor à metodologia ágil e às necessidades da empresa?
+
+Definir claramente especificações técnicas detalhadas, incluindo arquitetura e ferramentas exatas, garantindo que o fornecedor siga a solução prescrita sem desvios
+Explicação
+Prescrever arquitetura e ferramentas limita flexibilidade e inovação alinhadas ao ágil, que prioriza colaboração, adaptabilidade e resposta a mudanças.
+Resposta correta
+
+*Descrever resultados de negócio desejados, requisitos funcionais de alto nível e enfatizar a experiência do fornecedor em metodologias ágeis, garantindo flexibilidade no desenvolvimento e alinhamento às metas da empresa
+Explicação
+Resultados e requisitos de alto nível permitem entendimento dos objetivos e entregáveis; experiência ágil assegura adaptação a mudanças e colaboração.
+
+Especificar cronograma e orçamento fixos e exigir compromisso do fornecedor por todo o projeto
+Explicação
+Rigidez em cronograma e orçamento não se alinha bem ao ágil, que abraça requisitos cambiantes e entregas incrementais.
+Sua resposta está incorreta
+
+Focar apenas na proposta de custo do fornecedor, sem considerar abordagem, expertise ou capacidade de atuar em ambiente ágil
+Explicação
+Custo isolado não garante adequação às necessidades específicas nem aos princípios ágeis.
+Domínio
+Process
+
+
+
+
+38 Você gerencia um projeto de cidade inteligente e é responsável por emitir um IFB para selecionar contratados em uma fase crítica. O governo impõe requisitos rigorosos, incluindo teto de orçamento, metas de sustentabilidade e exigências de tecnologia avançada para infraestrutura inteligente.
+
+Qual deve ser uma consideração-chave ao preparar o IFB para alinhar metas do projeto e regulações governamentais?
+
+Garantir que o IFB descreva escopo e entregáveis, mas evitar especificar requisitos tecnológicos específicos para permitir flexibilidade nas propostas
+Explicação
+Descrever escopo é essencial, porém especificar requisitos tecnológicos é crucial para atender exigências avançadas do governo. Flexibilidade excessiva pode gerar ambiguidade e não conformidade.
+Resposta correta
+
+*Definir claramente critérios de avaliação, incluindo custo, cronograma e conformidade com padrões ambientais, para auxiliar a comissão na decisão informada
+Explicação
+Critérios claros permitem avaliação com base em metas-chave: teto de orçamento, sustentabilidade e tecnologia avançada, alinhando metas do projeto e regulações.
+Sua resposta está incorreta
+
+Fornecer apenas um esboço geral dos objetivos, sem detalhar marcos ou entregáveis, permitindo propostas sem restrições
+Explicação
+Propostas podem se tornar vagas; sem marcos/entregáveis, é difícil verificar alinhamento com metas e regulações.
+
+Focar o IFB exclusivamente em propostas de custo, incentivando o menor preço e ignorando qualidade, cronograma ou sustentabilidade
+Explicação
+Priorizar custo e ignorar fatores críticos pode resultar em não conformidade e insucesso do projeto.
+Domínio
+Process
+
+
+
+
+39 Você gerencia um projeto ágil na aviação para um sistema de rastreamento de manutenção. Em uma Sprint Review, é necessária decisão entre priorizar um novo recurso (alertas automatizados) ou corrigir um bug crítico (relatórios imprecisos). Qual técnica de decisão usar?
+
+Decisão Autocrática
+Explicação
+Uma única pessoa decide sem entrada do time; não é efetivo em ambiente ágil colaborativo.
+
+Multivotação
+Explicação
+Ajuda a reduzir opções, mas pode não ser ideal para priorizar entre feature e bug crítico.
+
+Técnica Delphi
+Explicação
+Feedback anônimo iterativo entre especialistas; pode não ser eficiente para decisões rápidas no ágil.
+Resposta correta
+
+*Decisão por Consenso (Consensus Decision Making)
+Explicação
+Busca acordo onde todos apoiam a decisão final, promovendo colaboração, comunicação e adesão, adequado para priorização em ágil.
+Domínio
+Process
+
+
+
+
+40 Você gerencia um projeto de gerenciamento de banco de dados, desenhando e implantando um novo sistema de dados de clientes. No processo de Definir Atividades, você precisa criar uma lista detalhada de atividades com atributos essenciais à execução.
+
+Qual deve ser incluído como atributo de atividade?
+
+O gerente de projeto responsável por cada atividade para garantir liderança
+Explicação
+Importante para papéis e responsabilidades, mas não é um atributo da atividade em si.
+
+Os tempos de início e término de cada tarefa para acompanhar desempenho
+Explicação
+Pertencem à programação e gestão de cronograma, não a atributos da atividade.
+Resposta correta
+
+*A sequência de tarefas, incluindo relações e dependências com outras atividades
+Explicação
+Entender ordem e dependências é crítico para planejamento e execução eficazes.
+Sua resposta está incorreta
+
+O custo estimado de cada atividade para monitorar implicações financeiras
+Explicação
+Custos pertencem ao orçamento e gestão financeira, não a atributos da atividade.
+Domínio
+Process
+
+
+
+
+41 Você gerencia um projeto para implementar um novo LMS em uma universidade. Na análise quantitativa de riscos, é preciso avaliar probabilidade e impacto em cronograma e orçamento. Um risco identificado: a infraestrutura atual pode não ser compatível com o novo sistema, causando custos e atrasos adicionais.
+
+O que fazer a seguir para a análise quantitativa desse risco?
+Resposta correta
+
+*Usar simulação de Monte Carlo para estimar impacto potencial em cronograma e custos, incorporando vários cenários
+Explicação
+Monte Carlo permite análise abrangente ao considerar múltiplos cenários e probabilidades, gerando uma faixa de resultados possíveis para apoiar decisões e mitigação.
+
+Adicionar reserva de contingência ao orçamento baseada em um percentual do custo total
+Explicação
+Útil como resposta, mas não é análise quantitativa específica do risco de compatibilidade.
+
+Calcular o Valor Monetário Esperado (EMV) usando probabilidade de falha da infraestrutura e aumento de custos
+Explicação
+Válido, porém pode não capturar a variedade de cenários que Monte Carlo oferece.
+Sua resposta está incorreta
+
+Implementar um processo de controle de mudanças para tratar o risco independentemente de probabilidade ou impacto
+Explicação
+É uma resposta de governança, não uma análise quantitativa do risco específico.
+Domínio
+Process
+
+
+
+
+42 Você gerencia um projeto de TI em saúde para implantar um novo EHR em um hospital. O sistema visa melhorar cuidado ao paciente, otimizar fluxos e reduzir custos administrativos. Na fase de Realização de Benefícios, nota-se que, embora operacional, os benefícios esperados (melhores desfechos e redução de custos) não estão se materializando.
+
+O que fazer a seguir para tratar essa discrepância?
+
+Iniciar uma revisão pós-implantação para identificar causas e reportar achados
+Explicação
+Boa prática para identificar causas; ajuda a entender o que falhou e como corrigir.
+
+Ajustar metas do projeto para refletir benefícios atuais e descontinuar monitoramento
+Explicação
+Não é adequado abandonar o monitoramento; é preciso entender causas e tomar ações corretivas.
+Resposta correta
+
+*Conduzir uma auditoria minuciosa de benefícios para determinar lacunas entre esperado e realizado e então recomendar ações corretivas
+Explicação
+Uma auditoria completa identifica causas e orienta ações para perseguir benefícios pretendidos do EHR.
+Sua resposta está incorreta
+
+Focar apenas em métricas financeiras para justificar o investimento
+Explicação
+Visão estreita; é necessário avaliar benefícios de forma holística para atingir objetivos.
+Domínio
+Process
+
+
+
+
+43 Você gerencia um projeto ESG para um aplicativo de monitoramento de impacto ambiental. Na Sprint Planning, surge discussão: como priorizar histórias de privacidade de dados e compliance regulatório enquanto se equilibram metas ambientais?
+
+O que o Scrum Master deve fazer para decisões eficazes no planejamento?
+
+Focar apenas em features ambientais e adiar histórias não ambientais
+Explicação
+Negligencia privacidade e compliance críticos; é preciso balancear requisitos.
+Resposta correta
+
+*Trabalhar com o Product Owner para garantir que histórias ambientais e de compliance sejam priorizadas por valor de negócio, urgência e prazos regulatórios
+Explicação
+Priorização baseada em valor, urgência e prazos regulares assegura equilíbrio e decisões alinhadas aos objetivos.
+
+Priorizar primeiro histórias de privacidade por serem críticas à conformidade e confiança
+Explicação
+Importante, mas priorizar isoladamente pode desequilibrar o escopo; considerar o conjunto de objetivos.
+Sua resposta está incorreta
+
+Pedir que a equipe se auto-organize e escolha histórias que preferem
+Explicação
+Pode não garantir equilíbrio entre impacto ambiental e compliance; é necessário visão do PO e objetivos do projeto.
+Domínio
+Process
+
+
+
+
+44 Você gerencia um projeto de construção que inclui um bloco de desenvolvimento de software com infraestrutura de TI especializada. No planejamento, é preciso definir abordagens de aquisição, qualidade e padrões de documentação. O que consultar para alinhar com práticas organizacionais estabelecidas?
+
+Referir-se aos fatores ambientais da empresa para tipos de contrato usados
+Explicação
+Ajuda a entender fatores externos, mas não oferece orientação específica sobre padrões e procedimentos internos.
+Resposta correta
+
+*Consultar os ativos de processos organizacionais (OPAs) para templates, procedimentos padrão e dados históricos
+Explicação
+OPAs trazem informações valiosas sobre como aquisição, qualidade e documentação foram tratados em projetos anteriores, fundamentando o projeto atual.
+
+Analisar o registro de riscos para verificar como atrasos de aquisição foram tratados em projetos similares
+Explicação
+Útil para riscos, mas não trata diretamente padrões gerais de aquisição, qualidade e documentação.
+Sua resposta está incorreta
+
+Revisar o termo de abertura para detalhes de controle de mudanças e desempenho de fornecedores
+Explicação
+Importante para escopo e gestão de fornecedores, mas não substitui a abrangência dos OPAs em processos e padrões.
+Domínio
+Process
+
+
+
+
+45 Você gerencia um projeto de infraestrutura de TI para atualizar rede interna e armazenamento de dados. No planejamento de riscos, a equipe identifica um risco crítico: um fornecedor chave pode não entregar servidores de alta performance a tempo, atrasando a implantação. Qual a melhor estratégia de resposta ao risco?
+
+Aceitar o risco e informar stakeholders apenas se o atraso ocorrer
+Explicação
+Abordagem reativa que pode levar a atrasos significativos sem mitigação pronta.
+Resposta correta
+
+*Desenvolver cláusula de penalidade no contrato do fornecedor e garantir um fornecedor backup como contingência
+Explicação
+Incentiva a entrega pontual e cria plano alternativo para mitigar atrasos.
+
+Atribuir o risco a um membro para monitorar desempenho do fornecedor e reportar nos dailies
+Explicação
+Monitoramento é útil, mas sem medidas contratuais e contingência é insuficiente.
+Sua resposta está incorreta
+
+Priorizar tarefas de configuração de servidor e concluí-las cedo para reduzir tempo total
+Explicação
+Boa prática de planejamento, porém não responde ao risco de atraso do fornecedor.
+Domínio
+Process
+
+
+
+
+46 Você gerencia um projeto para terceirizar um processo crítico a um BPO. Na execução, o time do BPO começa a trabalhar em tarefas adicionais fora do escopo inicial, causando confusão e sobrecarga de recursos. O que fazer?
+
+Incluir as novas tarefas na próxima sprint para manter o ritmo e evitar atrasos de aprovação
+Explicação
+Leva a escopo inchado sem controle e potencialmente a atrasos; é necessário processo de mudança formal.
+Resposta correta
+
+*Submeter uma solicitação formal de mudança para avaliar impacto das novas tarefas e atualizar a linha de base do escopo se aprovado
+Explicação
+Permite avaliação adequada do impacto em escopo, cronograma e recursos, com transparência e governança.
+
+Prosseguir com as tarefas extras, pois agregam valor e mostram proatividade do fornecedor
+Explicação
+Sem aprovação formal, gera confusão e sobrecarga desnecessária.
+Sua resposta está incorreta
+
+Atualizar imediatamente a linha de base do escopo e alocação de recursos, já que o trabalho começou
+Explicação
+Atualizar sem o devido processo pode causar desalinhamento com objetivos e expectativas.
+Domínio
+Process
+
+
+
+
+47 Você gerencia um projeto ágil para um comércio de ouro varejista, construindo uma ferramenta que transforma notas fiscais de compra de ouro em um banco de dados pesquisável. Na fase de monitoramento e controle, um stakeholder-chave expressa preocupação de que os dados digitalizados não estão alinhados aos formatos originais, gerando riscos de compliance. O que fazer?
+
+Pedir à equipe que pause as sprints e redesenhe imediatamente o backend para cobrir todas as variações de formato
+Explicação
+Interrompe progresso e pode levar a escopo inchado; é preciso abordagem colaborativa e estratégica.
+
+Registrar o feedback para sprints futuras e continuar com o plano atual
+Explicação
+Ignorar a preocupação imediata pode resultar em problemas de conformidade e insatisfação; é necessário agir prontamente.
+Resposta correta
+
+*Engajar o stakeholder para esclarecer questões específicas de compliance, atualizar o issue log e trabalhar com o Product Owner para priorizar mudanças necessárias no backlog
+Explicação
+Abordagem colaborativa que trata a preocupação enquanto mantém o ritmo do projeto e o alinhamento com metas.
+Sua resposta está incorreta
+
+Escalar ao patrocinador e pedir decisão sobre continuar ou não o projeto
+Explicação
+Último recurso; primeiro deve-se engajar e buscar solução dentro da equipe e com o PO.
+Domínio
+Process
+
+
+
+
+48 Você gerencia um projeto ágil em uma firma de auditoria, construindo uma ferramenta digital para automatizar partes do processo de auditoria. No meio do projeto, membros são realocados para auditorias regulatórias urgentes, causando falta de recursos, enquanto surgem novas oportunidades de alto valor. Como responder para gerir a escassez e continuar entregando valor?
+
+Colocar o projeto atual em pausa até que a equipe completa retorne, focando apenas nas novas oportunidades
+Explicação
+Pode levar a atrasos e metas perdidas; é melhor buscar solução que permita entregar valor apesar da escassez.
+
+Escalar ao patrocinador e pedir que escolham projetos a cancelar por insuficiência de recursos
+Explicação
+Não é a mais efetiva inicialmente; devem-se explorar opções para gerir a escassez proativamente.
+Resposta correta
+
+*Repriorizar o product backlog com o Product Owner para focar entregáveis de alto valor viáveis com a equipe disponível e considerar apoio temporário
+Explicação
+Abordagem proativa que mantém entrega de valor e trata a escassez com reforço temporário se necessário.
+Sua resposta está incorreta
+
+Adicionar horas extras aos remanescentes para manter velocidade e cumprir compromissos
+Explicação
+Leva a burnout e queda de produtividade; é preferível soluções sustentáveis.
+Domínio
+Process
+
+
+
+
+49 Você gerencia um projeto ágil para um app de táxi compartilhado. A equipe relata atrasos recorrentes nas entregas de sprint por histórias pouco claras e mudanças frequentes nos requisitos das APIs de backend. O que fazer para tratar os atrasos e manter o projeto no trilho?
+
+Aumentar a duração das sprints para dar mais tempo às mudanças e débito técnico
+Explicação
+Não aborda a causa raiz (clareza das histórias e estabilidade das APIs) e pode gerar falsa sensação de segurança.
+
+Pedir que a equipe pule as sprint reviews temporariamente e foque apenas em concluir itens do backlog mais rápido
+Explicação
+Remove feedback e alinhamento com stakeholders, gerando retrabalho e não aborda a necessidade de histórias claras e APIs estáveis.
+Resposta correta
+
+*Trabalhar com o Product Owner e stakeholders para melhorar o refinement do backlog e garantir que as histórias estejam melhor definidas e priorizadas antes de cada sprint
+Explicação
+Ataca diretamente as causas raiz, melhorando eficiência e eficácia da equipe.
+Sua resposta está incorreta
+
+Realocar alguns desenvolvedores para projetos de alta prioridade para reduzir a pressão sobre o time atual
+Explicação
+Pode piorar atrasos e quebrar coesão; não resolve as causas subjacentes.
+Domínio
+Process
+
+
+
+
+50 Você gerencia um projeto híbrido no setor de FMCG para lançar um novo alimento embalado. O projeto combina elementos preditivos (tarefas regulatórias e de manufatura) com práticas ágeis (marketing e iteração de design). Nos testes, surgem problemas de qualidade na vida útil e integridade da embalagem. O que fazer, mantendo alinhamento com ambas as abordagens?
+
+Aplicar um processo preditivo de controle de mudanças para revisar todo o design e interromper iterações ágeis até encontrar a causa raiz
+Explicação
+Interrompe o fluxo do projeto e contradiz as práticas ágeis; é preciso tratar qualidade sem comprometer a agilidade.
+
+Escalar ao patrocinador e pedir decisão sobre prosseguir com o lançamento
+Explicação
+Sem ações proativas, pode atrasar decisões e progresso; é crucial agir de imediato.
+Resposta correta
+
+*Iniciar uma revisão multifuncional para identificar a causa raiz, atualizar o backlog de qualidade e adaptar iterações futuras incluindo checkpoints adicionais de testes de qualidade
+Explicação
+Alinha-se a preditivo e ágil, permitindo melhoria contínua e tratamento efetivo dos problemas.
+Sua resposta está incorreta
+
+Documentar os defeitos e movê-los para uma versão futura, focando cronograma atual
+Explicação
+Deixar problemas de qualidade para depois é arriscado; melhor integrá-los ao plano atual.
+Domínio
+Process
+
+
+
+
+51 Você gerencia um projeto ágil para uma fabricante de equipamentos industriais, desenvolvendo uma nova linha. Durante a sprint, surge um problema significativo: um componente crítico do fornecedor tem defeito de fabricação, podendo atrasar cronograma e aumentar custos. Como gerir o problema para minimizar impacto?
+
+Escalar imediatamente à alta gestão, pedindo verba adicional para agilizar aquisição de novos componentes
+Explicação
+Prematuro e pode causar alarme. Primeiro é preciso avaliar impacto e envolver a equipe na solução.
+Resposta correta
+
+*Registrar o problema no issue tracker ágil, discuti-lo no próximo daily stand-up e ajustar o sprint backlog para tratá-lo sem impactar o cronograma geral
+Explicação
+Permite colaboração para solução, priorizando o problema na sprint e minimizando impacto no cronograma.
+
+Ignorar o problema por ser menor e focar nas tarefas do backlog
+Explicação
+Não é proativo; um defeito crítico exige atenção imediata.
+Sua resposta está incorreta
+
+Trabalhar com o fornecedor para resolver o defeito, mas atrasar a sprint até a resolução completa, sem mudanças na agenda
+Explicação
+Equilíbrio é necessário: tratar com o fornecedor e manter progresso da sprint; parar a sprint não é eficiente.
+Domínio
+Process
+
+
+
+
+52 Você gerencia um projeto Ágil na indústria química para desenvolver um novo processo de um produto chave. A equipe está na fase de planejamento, e os stakeholders têm expectativas variadas sobre funcionalidades e métricas de desempenho. Alguns focam em rapidez ao mercado, outros em segurança ambiental e compliance. Como gerente, como abordar o planejamento para alinhar essas expectativas?
+
+Priorizar rapidez ao mercado e começar imediatamente, adiando discussões de segurança e compliance para depois do lançamento
+Explicação
+Priorizar velocidade e adiar segurança/compliance pode gerar riscos e problemas futuros. É essencial abordar todas as expectativas e preocupações dos stakeholders na fase de planejamento para garantir sucesso do projeto.
+Resposta correta
+
+*Usar técnicas colaborativas como Histórias de Usuário e Refinamento de Backlog (Backlog Grooming) para alinhar stakeholders nas funcionalidades mais importantes, garantindo que o backlog inclua critérios de desempenho e de compliance
+Explicação
+Técnicas colaborativas como Histórias de Usuário e Refinamento de Backlog promovem comunicação aberta e alinhamento entre stakeholders com expectativas diversas. Ao incluir critérios de desempenho e compliance no backlog, a equipe pode priorizar e tratar todos os aspectos importantes do projeto.
+
+Alocar recursos primeiro para segurança e compliance, garantindo cobertura total antes de considerar desempenho ou tempo ao mercado
+Explicação
+Embora segurança e compliance sejam cruciais, focar exclusivamente neles sem considerar rapidez ao mercado pode causar atrasos e perder oportunidades. É importante equilibrar todas as expectativas e requisitos.
+Sua resposta está incorreta
+
+Criar um plano detalhado com marcos estritos que satisfaçam rapidez ao mercado e requisitos de compliance e comunicá-lo a todos os stakeholders
+Explicação
+Ter um plano com marcos para ambos os aspectos é bom, mas comunicação e colaboração contínuas com stakeholders são essenciais para garantir alinhamento ao longo do projeto.
+Domínio
+Process
+
+
+
+
+53 Você gerencia um projeto Ágil para desenvolver um app móvel de pagamentos UPI. Na fase de testes, são encontrados defeitos críticos relacionados a segurança das transações e responsividade da interface. Como abordar esses defeitos para garantir prontidão para o lançamento?
+
+Registrar os defeitos no issue tracker, atribuí-los à equipe para correção imediata e adiar o lançamento até resolver todos os defeitos
+Explicação
+Registrar e atribuir defeitos é boa prática, porém adiar o lançamento até resolver todos os defeitos pode não ser eficiente. É importante priorizar e tratar os defeitos críticos primeiro para garantir prontidão.
+Resposta correta
+
+*Conduzir análise de causa raiz dos defeitos, priorizá-los pelo impacto em funcionalidade e segurança, corrigir os de maior prioridade e retestar o app antes do lançamento
+Explicação
+Uma abordagem sistemática que analisa causas raiz, prioriza por impacto e corrige os defeitos mais críticos, seguida de retestes, eleva a qualidade geral antes do lançamento.
+
+Marcar os defeitos como baixa prioridade e tratá-los na próxima sprint, já que o lançamento está próximo
+Explicação
+Marcar defeitos críticos como baixa prioridade próximo ao lançamento compromete a qualidade e a experiência do usuário. É fundamental tratar prontamente os defeitos críticos.
+Sua resposta está incorreta
+
+Ignorar defeitos de interface por não afetarem o core do UPI, focando apenas em segurança
+Explicação
+Mesmo sem afetar o core, defeitos de UI impactam experiência e percepção. É essencial tratar os defeitos críticos, incluindo de responsividade, para um lançamento bem-sucedido.
+Domínio
+Process
+
+
+
+
+54 Você gerencia um projeto Ágil para um chatbot no site de uma consultoria, usando Scrum, no meio do desenvolvimento. Stakeholders pedem cronograma acelerado para um lançamento parcial por necessidade de negócio. Como responder e gerenciar a agenda mantendo qualidade?
+
+Realocar recursos de outros projetos para acelerar o desenvolvimento, garantindo lançamento no prazo
+Explicação
+Realocar pode prejudicar outros projetos e não garantir conclusão bem-sucedida. É preciso considerar impactos gerais antes de decidir.
+Resposta correta
+
+*Priorizar as funcionalidades essenciais do chatbot para o primeiro lançamento, ajustar o sprint backlog e comunicar o novo cronograma aos stakeholders
+Explicação
+Focar nas funcionalidades essenciais permite entregar valor dentro do prazo acelerado. Ajustar backlog e comunicar o novo cronograma garante transparência e alinhamento.
+
+Estender a duração da sprint para acomodar todas as funcionalidades pedidas e entregar o escopo completo
+Explicação
+Estender sprint para caber tudo pode não atender a urgência. É essencial balancear escopo e cronograma mantendo qualidade.
+Sua resposta está incorreta
+
+Solicitar redução de escopo e negociar cronograma mais longo para manter o conjunto original de funcionalidades
+Explicação
+Pode não ser viável se a necessidade de negócio exigir lançamento acelerado. É melhor equilibrar escopo, cronograma e qualidade.
+Domínio
+Process
+
+
+
+
+55 Você gerencia uma migração de infraestrutura para cloud. Na sprint review, discutem mudanças e você quer priorizar as funcionalidades de maior valor. Você usa o “teste dos 100 dólares”. Qual o propósito dessa técnica?
+
+Calcular o custo de cada funcionalidade com base no tempo de execução e ajustar o orçamento
+Explicação
+Não é o propósito do teste dos 100 dólares, que prioriza por valor percebido, não por custo.
+Resposta correta
+
+*Priorizar funcionalidades alocando um orçamento hipotético de US$ 100 aos stakeholders, permitindo que “gastem” em itens que acreditam entregar mais valor
+Explicação
+O teste permite priorização participativa por valor percebido, indicando o que é mais importante para o projeto.
+
+Determinar quais funcionalidades são necessárias e descartar as desnecessárias
+Explicação
+O foco não é necessidade vs. descarte, mas priorização por valor.
+Sua resposta está incorreta
+
+Definir especificações técnicas de cada funcionalidade com base nos recursos e capacidades da equipe
+Explicação
+A técnica não trata especificações técnicas, e sim priorização por valor.
+Domínio
+Process
+
+
+
+
+56 Você gerencia um projeto Ágil de arquitetura e usa JIRA para issues. Durante uma sprint, surge um problema crítico de escalabilidade que requer atenção imediata. Como gerenciá-lo no JIRA?
+
+Criar uma nova issue, atribuí-la ao líder da equipe e marcá-la como “Done” para fechar rápido
+Explicação
+Marcar como “Done” sem tratar não resolve. É preciso atribuir corretamente e priorizar pelo impacto na sprint e nos objetivos.
+Resposta correta
+
+*Registrar a issue no JIRA, atribuir ao membro apropriado, adicionar detalhes relevantes e priorizá-la conforme impacto na sprint e nos objetivos do projeto
+Explicação
+Isso garante gestão eficaz, resolução oportuna e evita que a issue seja negligenciada.
+
+Ignorar por ora e tratar no próximo planejamento de sprint, pois não é urgente
+Explicação
+Problemas críticos de escalabilidade devem ser tratados prontamente para evitar consequências negativas.
+Sua resposta está incorreta
+
+Criar uma tarefa e atribuir ao patrocinador para resolução imediata
+Explicação
+O patrocinador não é o papel adequado para resolver questões técnicas de escalabilidade; deve-se atribuir a quem tem expertise.
+Domínio
+Process
+
+
+
+
+57 Você gerencia um projeto Ágil de software de IA com cientistas de dados, engenheiros de ML e desenvolvedores. Há atrasos por falta de recursos e realocação de membros. Qual seu primeiro passo para tratar a gestão de recursos?
+
+Contratar imediatamente novos membros para substituir recursos faltantes, garantindo que o projeto se mantenha no trilho
+Explicação
+Contratar imediatamente pode não ser eficaz; onboarding demanda tempo. Primeiro avalie a situação e ajuste o plano.
+Resposta correta
+
+*Revisar a alocação atual de recursos, colaborar com a equipe para repriorizar tarefas e ajustar o sprint backlog às novas restrições
+Explicação
+Revisar e repriorizar com a equipe permite realocar tarefas efetivamente e seguir com os recursos disponíveis.
+
+Estender o cronograma do projeto para acomodar os atrasos
+Explicação
+Pode afetar dependências e prazos; primeiro ajuste alocação e backlog antes de considerar extensão.
+Sua resposta está incorreta
+
+Focar nas tarefas críticas sem considerar a escassez de recursos
+Explicação
+Ignora a causa raiz e pode gerar mais atrasos; é necessário ajuste consciente às restrições.
+Domínio
+Process
+
+
+
+
+58 Você prepara documentação detalhada de requisitos para um novo software: funcionais, não funcionais e de negócio. O que assegurar nesse processo?
+
+Focar apenas nos requisitos funcionais, pois se relacionam diretamente às necessidades do usuário
+Explicação
+Negligenciar não funcionais e de negócio pode resultar em sistema que não atende desempenho nem objetivos de negócio.
+Resposta correta
+
+*Incluir análise detalhada das necessidades dos stakeholders, documentar claramente requisitos funcionais, não funcionais e de negócio, assegurando alinhamento com escopo e objetivos
+Explicação
+Análise abrangente e documentação completa, alinhadas ao escopo e objetivos, garantem que o software atenda usuários e negócio.
+
+Focar apenas nos não funcionais, por influenciarem desempenho e satisfação
+Explicação
+Ignora o que o sistema deve fazer; é necessário cobrir todos os tipos de requisitos.
+Sua resposta está incorreta
+
+Garantir que apenas a equipe de desenvolvimento crie a documentação, por ser especialista
+Explicação
+Perspectiva limitada; envolver stakeholders de áreas diversas assegura captura precisa e alinhamento ao objetivo.
+Domínio
+Process
+
+
+
+
+59 Você gerencia um projeto Ágil de cibersegurança com recursos automatizados. Na fase de encerramento, o que priorizar para fechar adequadamente o projeto?
+
+Conduzir uma sprint final para concluir todas as funcionalidades pendentes antes do encerramento
+Explicação
+Pode introduzir riscos e atrasos. Priorize integração das funcionalidades existentes em produção e UAT antes de fechar.
+Resposta correta
+
+*Garantir que todos os recursos de segurança estejam integrados ao ambiente de produção, concluir os testes finais de aceitação de usuários e fazer a passagem formal ao time de operações com documentação
+Explicação
+Integração, UAT e handover com documentação são cruciais para encerramento adequado e transição para operação.
+
+Focar apenas em fechar o orçamento e liberar a equipe
+Explicação
+Negligencia a integração e o handover dos entregáveis; é essencial priorizar entrega e transição antes do fechamento.
+Sua resposta está incorreta
+
+Fazer uma retrospectiva sobre os riscos mitigados
+Explicação
+Útil para aprendizado, mas não deve ser o foco único no encerramento; é preciso completar integração, UAT e handover.
+Domínio
+Process
+
+
+
+
+60 Sua equipe desenvolve um jogo móvel com Ágil. Para eficiência e redução de desperdício, a organização adota Lean. Como PM, qual deve ser seu foco primário na execução para alinhar ao Lean?
+
+Aumentar frequência de reuniões de status para monitorar atividade
+Explicação
+Aumentar reuniões pode gerar sobrecarga e desperdício; Lean foca em eliminar atividades sem valor.
+
+Enfatizar entrega antecipada sobrecarregando sprints com máximo de itens
+Explicação
+Sobrecarga causa burnout, queda de qualidade e mais desperdício; Lean busca otimizar fluxo.
+Resposta correta
+
+*Identificar e eliminar atividades sem valor, otimizar o fluxo da equipe e melhorar continuamente processos por meio de feedback de stakeholders
+Explicação
+Esses são princípios centrais de Lean, focando em reduzir desperdício, melhorar eficiência e entregar valor.
+Sua resposta está incorreta
+
+Priorizar adicionar mais desenvolvedores para acelerar ciclos de release
+Explicação
+Adicionar pessoas pode gerar ineficiências e mais desperdício; Lean foca em otimizar processos existentes.
+Domínio
+Process
+
+
+
+
+61 Você gerencia a reestruturação de infraestrutura cloud para escalabilidade e custo. No refinement, a equipe usa MoSCoW para priorizar entregáveis. Qual é o propósito primário dessa técnica?
+
+Estimar custo de cada item do backlog e fechar o orçamento
+Explicação
+MoSCoW categoriza por necessidade; não é para estimar custos e orçamento.
+Resposta correta
+
+*Categorizar funcionalidades e requisitos por necessidade, alinhando equipe e stakeholders sobre o que deve ser entregue versus o que pode ser adiado ou excluído
+Explicação
+MoSCoW ajuda a focar nos entregáveis críticos, criando entendimento claro de prioridades.
+
+Determinar tarefas para engenheiros sênior vs. desenvolvedores júnior
+Explicação
+MoSCoW não trata alocação por senioridade.
+Sua resposta está incorreta
+
+Identificar dependências técnicas entre componentes para sequenciar o trabalho
+Explicação
+Técnica foca em necessidade, não em sequenciamento técnico.
+Domínio
+Process
+
+
+
+
+62 Você gerencia um dashboard de portfólio para uma firma de investimentos. No meio da execução, stakeholders pedem mais analytics em tempo real e opções de cripto, impactando escopo/custo/prazo. Qual a função primária do CCB?
+
+Criar previsões financeiras detalhadas para suportar mudanças
+Explicação
+Previsões podem fazer parte da avaliação, mas a função principal é gerir solicitações de mudança.
+Resposta correta
+
+*Avaliar, aprovar, adiar ou rejeitar solicitações de mudança e garantir alinhamento com as linhas de base do projeto
+Explicação
+O CCB mantém alinhamento a escopo, custo e cronograma, decidindo sobre mudanças de forma governada.
+
+Implementar todas as mudanças aprovadas e rastrear sua execução
+Explicação
+Implementação cabe à equipe do projeto; o CCB aprova/nega/adia.
+Sua resposta está incorreta
+
+Garantir que a equipe aplique mudanças via ações corretivas
+Explicação
+Pode supervisionar, mas seu papel principal é decidir sobre mudanças e manter alinhamento.
+Domínio
+Process
+
+
+
+
+63 Mary gerencia um time Ágil de app de busca de empregos com features inovadoras (IA em currículos, chats em tempo real). Nas primeiras iterações, estimar histórias é difícil pela novidade e falta de dados históricos. O que fazer para ajudar mantendo princípios Ágeis?
+
+Instruir a criar um WBS detalhado por história e estimar horas de todas as tarefas
+Explicação
+Contraria simplicidade e flexibilidade do Ágil, gera microgestão e reduz adaptação.
+Resposta correta
+
+*Facilitar uma sessão de Planning Poker com story points para estimar colaborativamente cada história
+Explicação
+Permite compartilhar perspectivas, discutir complexidade e chegar a consenso. Story points capturam estimativas relativas diante de novidade e falta de histórico.
+
+Usar Técnica Delphi para obter input anônimo de especialistas e fechar estimativas pela média
+Explicação
+Pode ajudar, mas não mantém colaboração e transparência do Ágil.
+Sua resposta está incorreta
+
+Pedir cálculo de valor agregado após a sprint para validar retroativamente as estimativas
+Explicação
+Ágil foca em melhoria contínua durante a iteração; validar só ao final perde oportunidade de correção de curso.
+Domínio
+Process
+
+
+
+
+64 Você gerencia um projeto para redesenhar operações de um showroom de roupas. A equipe usa dados de tráfego dos últimos seis meses para entender padrões e alinhar equipe/marketing. Aplicando análise de tendências para identificar mudanças em horários de pico e sazonalidade. Qual é o benefício primário da análise de tendências neste contexto?
+
+Ajuda a estabelecer linhas de base de desempenho de escopo comparando engajamento histórico e planejado
+Explicação
+A análise de tendências ajuda a estabelecer linhas de base comparando dados históricos com engajamento planejado. Ao identificar mudanças em picos e sazonalidade, a equipe melhor alinha equipe e marketing às necessidades dos clientes.
+Resposta correta
+
+*Apoia decisões futuras ao identificar padrões que podem impactar previsões e desempenho do projeto
+Explicação
+Embora apoie decisões futuras, o benefício primário aqui é estabelecer linhas de base de desempenho via comparação histórico/planejado.
+
+Garante que todas as variações de visitas planejadas sejam aprovadas por controle formal de mudanças
+Explicação
+A análise não garante aprovações formais; foca em compreensão de padrões para alinhar recursos.
+Sua resposta está incorreta
+
+Habilita comunicação em tempo real com stakeholders ao visualizar KPIs durante sprint reviews
+Explicação
+Pode apoiar comunicação, mas o foco é estabelecer linhas de base com base em padrões históricos.
+Domínio
+Process
+
+
+
+
+65 Em um projeto Ágil fintech usando Scrum, várias features precisam atender normas regulatórias estritas. Como tratar riscos regulatórios sem desacelerar a entrega?
+
+Usar Control Risks para revisar riscos regulatórios na retrospectiva e aplicar lições à próxima sprint
+Explicação
+Revisar só na retrospectiva pode atrasar o tratamento. É crucial endereçar riscos em tempo real.
+Resposta correta
+
+*Incorporar verificações de compliance regulatório na Definition of Done e revisá-las em cada sprint review
+Explicação
+Incluir compliance na DoD garante que as features atendam normas antes de serem consideradas completas, com monitoramento contínuo em cada review.
+
+Incluir riscos regulatórios no risk register e atribuí-los a uma equipe de compliance fora do Ágil
+Explicação
+Cria silos e barreiras de comunicação; é melhor integrar compliance ao processo Ágil.
+Sua resposta está incorreta
+
+Documentar regras de compliance no termo de abertura e consultá-lo antes de cada planejamento
+Explicação
+Insuficiente para assegurar compliance contínuo; é preciso integrar verificações ao fluxo Ágil.
+Domínio
+Process
+
+
+
+
+66 Uma consultoria usa Ágil Iterativo para customizar SAP (compras e planejamento). Na Sprint 3, descobre-se que o workflow de aprovação de compras não reflete mudanças regulatórias recentes. O cliente exige correção urgente antes de seguir. O que fazer?
+Resposta correta
+
+*Discutir o problema com o product owner, adicioná-lo ao product backlog e permitir que a equipe o repriorize na próxima sprint planning
+Explicação
+Colaboração com o PO e priorização por valor permite adaptar rapidamente dentro do framework iterativo, mantendo flexibilidade e responsividade.
+
+Parar a sprint atual, iniciar uma retrospectiva com stakeholders e redefinir o escopo
+Explicação
+Interrompe o processo Ágil e pode causar atrasos; é melhor priorizar no backlog e ajustar o planejamento.
+
+Criar um documento de controle de mudanças, obter sign-off do CCB e atribuir a uma sub-equipe de compliance
+Explicação
+Introduz burocracia e atraso; no Ágil, é mais efetivo adaptar rapidamente via backlog e planejamento.
+Sua resposta está incorreta
+
+Escalar à liderança e iniciar um fluxo waterfall paralelo para tratar compliance separadamente
+Explicação
+Contraria princípios Ágeis de colaboração, flexibilidade e desenvolvimento iterativo.
+Domínio
+Process
+
+
+
+
+67 Você gerencia um projeto de fabricação de medicamentos para uma farmacêutica multinacional. No Plan Risk Management, a equipe desenvolve um RBS para identificar e categorizar riscos: Compliance Regulatório, Atrasos na Cadeia de Suprimentos, Falhas de Produção. O patrocinador sugere adicionar Riscos Políticos por mudanças em governos locais que podem afetar operações. O que fazer a seguir no desenvolvimento do RBS?
+
+Atualizar imediatamente o RBS com Riscos Políticos e ajustar o risk register
+Explicação
+Atualizar sem avaliação pode levar a classificações incorretas e confusão. É importante validar a necessidade da nova categoria.
+
+Avaliar Riscos Políticos no risk register e categorizá-los dentro de Compliance e Cadeia de Suprimentos para simplificar
+Explicação
+Pode não capturar a natureza única desses riscos e levar a lacunas na mitigação. Considerar categoria separada pode ser essencial.
+Resposta correta
+
+*Validar a inclusão de Riscos Políticos por meio de análise qualitativa com especialistas (SMEs) em regulação e relações internacionais
+Explicação
+Validar com SMEs garante justificativa da nova categoria e alinhamento às necessidades específicas do projeto, avaliando impacto e probabilidade.
+Sua resposta está incorreta
+
+Iniciar uma solicitação de mudança no Perform Integrated Change Control para aprovar a adição da categoria
+Explicação
+Pode ser necessário para formalizar alterações, mas primeiro é preciso validar a inclusão com análise qualitativa.
+Domínio
+Process
+
+
+
+
+68 Você gerencia um catálogo inteligente para app de delivery, usando Kanban. Observa acúmulo de tarefas em “In Progress”, com cards parados por dias. Mesmo assim, o time puxa novas tarefas por pressão de marketing. O que fazer para melhorar fluxo e reforçar disciplina?
+
+Aplicar Perform Integrated Change Control para ajustar formalmente limites de WIP e documentar novas prioridades dos stakeholders
+Explicação
+Introduz mudanças formais sem tratar a causa raiz (acúmulo e gargalo).
+Resposta correta
+
+*Usar o princípio Kanban de limitar WIP para interromper novos pull-ins, analisar gargalos atuais e trabalhar com o time para restaurar o fluxo
+Explicação
+Limitar WIP mantém o fluxo e evita sobrecarga. Analisar e tratar gargalos resolve o problema na raiz e reforça disciplina de processo.
+
+Iniciar uma reavaliação de riscos para analisar se a pressão de stakeholders deve ser registrada como risco de throughput
+Explicação
+Pode ser útil, mas não aborda a necessidade imediata de restaurar o fluxo via limites de WIP.
+Sua resposta está incorreta
+
+Facilitar análise de causa raiz e impor limites de WIP acordados conforme Control Quality
+Explicação
+Ajuda, mas a prioridade aqui é interromper a entrada de novas tarefas e restaurar o fluxo primeiro.
+Domínio
+Process
+
+
+
+
+69 Você gerencia automação de rastreamento de contêineres e documentação aduaneira em portos da Ásia e Europa. Durante a execução, custos de integração de APIs de despachos aduaneiros sobem inesperadamente por atualizações regulatórias regionais. O projeto está dentro da linha de base de custo, mas o CPI do pacote de trabalho específico caiu abaixo de 0,85 por dois ciclos.
+
+O que fazer para manter controle de custos?
+
+Acionar Perform Integrated Change Control para revisar a linha de base de custos global
+Explicação
+Revisar a linha de base global não trata o sobrecusto específico do pacote. É preciso ações corretivas direcionadas.
+
+Re-baseline no plano de gestão de custos e redefinir o limite de CPI para acomodar flutuações
+Explicação
+Ajustar limites não resolve a causa do desempenho de custo abaixo do esperado.
+Resposta correta
+
+*Conduzir análise de causa raiz dos estouros de custo e implementar ações corretivas via Control Costs
+Explicação
+Entender as causas e corrigir com ações direcionadas é a forma adequada de retomar controle de custos.
+Domínio
+Process
+
+
+
+
+70 Você gerencia um projeto de laboratório forense privado. O Plano de Comunicações define preferências, frequência de updates e um portal compartilhado. No meio da execução, um toxicologista perde um update por não checar o portal, e o cliente reclama de respostas atrasadas e progresso pouco claro.
+
+O que fazer a seguir para tratar os problemas de comunicação?
+Resposta correta
+
+*Reavaliar requisitos de comunicação dos stakeholders e submeter uma solicitação de mudança para atualizar o Plano de Comunicações
+Explicação
+Reavaliar e atualizar o plano é essencial para ajustar preferências, frequência e métodos, evitando repetição do problema.
+
+Escalar via Perform Integrated Change Control para supervisão executiva
+Explicação
+Pode ser desnecessário; o problema é mais de ajuste de preferências e métodos de comunicação.
+
+Iniciar Manage Stakeholder Engagement para tratar expectativas e influenciar comportamento
+Explicação
+Importante, mas primeiro reavalie e atualize o plano antes de engajar para ajustar expectativas.
+Sua resposta está incorreta
+
+Adicionar o problema ao issue log e adiar ação até o próximo Monitor Communications
+Explicação
+Adiar pode ampliar frustrações; é melhor agir prontamente atualizando o plano.
+Domínio
+Process
+
+
+
+
+71 Johnson gerencia um projeto público de drenagem com tubos Hume em distrito rural em rápido desenvolvimento. No Identify Stakeholders, ele revisa registros oficiais, plantas de utilidades e licenças, construindo um registro preliminar. Um engenheiro de campo informa que vendedores informais e pequenos agricultores próximos à escavação não constam nos registros, mas podem ser afetados (acesso, desvio de escoamento).
+
+O que fazer a seguir para garantir identificação de stakeholders completa e alinhada às boas práticas?
+
+Excluir indivíduos não registrados, pois não constam oficialmente
+Explicação
+Erro: mesmo sem registro oficial, podem ser significativamente afetados. Devem ser considerados.
+Resposta correta
+
+*Organizar um workshop de identificação de stakeholders com membros da comunidade, ONGs e líderes locais para captar stakeholders informais e sub-representados
+Explicação
+Workshop com comunidade e líderes assegura captura de stakeholders informais e seus pontos de vista no planejamento e execução.
+Sua resposta está incorreta
+
+Atualizar o registro com nomes de vendedores e agricultores com base no input do engenheiro
+Explicação
+É um passo proativo, mas o ideal é um processo participativo amplo para identificação completa.
+
+Solicitar ao patrocinador validação sobre incluir informais no plano de engajamento
+Explicação
+Pode ajudar no alinhamento, mas é melhor envolver ativamente esses públicos na identificação, não depender apenas da decisão do patrocinador.
+Domínio
+Process
+
+
+
+
+72 Lisa gerencia um projeto de plataforma de perfuração offshore em óleo e gás, envolvendo aquisição de equipamentos especializados, mão de obra e materiais de vários fornecedores. Qual é o objetivo primário das negociações de aquisição?
+
+Garantir menor preço possível, reduzindo custos, independentemente de qualidade ou desempenho
+Explicação
+Preço é importante, mas não deve comprometer qualidade e desempenho.
+Resposta correta
+
+*Estabelecer acordos mutuamente benéficos com termos, condições e expectativas claros, assegurando qualidade, custo e entrega no prazo de bens e serviços
+Explicação
+Em projetos de alto risco, acordos claros que garantam qualidade, custo e prazos são cruciais para o sucesso.
+
+Evitar todos os riscos com contratos de preço fixo que garantam ausência de estouros
+Explicação
+Podem mitigar alguns riscos, mas não eliminam todos. O objetivo vai além de travar custos.
+Sua resposta está incorreta
+
+Finalizar escopo e entregáveis com fornecedores, garantindo que não haja mudanças após assinatura
+Explicação
+Flexibilidade é necessária para lidar com imprevistos; bloquear mudanças pode prejudicar o projeto.
+Domínio
+Process
+
+
+
+
+73 Você gerencia a implantação de um LMS em uma universidade. Devido à complexidade, foi definida reserva de contingência no orçamento para imprevistos. Qual é o propósito primário dessa reserva?
+
+Cobrir custos esperados e planejados (upgrades, manutenção, suporte de longo prazo)
+Explicação
+Custos esperados devem estar no orçamento, não na contingência.
+Resposta correta
+
+*Prover orçamento para riscos e incertezas imprevistos durante a execução (desafios técnicos não antecipados, atrasos de recursos)
+Explicação
+A reserva cobre eventos inesperados que podem impactar custos e cronograma.
+
+Pagar por mudanças de escopo pedidas por stakeholders (novos recursos)
+Explicação
+Mudanças de escopo devem ser tratadas por controle de mudanças e financiamento próprio.
+Sua resposta está incorreta
+
+Custear terminar o projeto antes do planejado (mão de obra adicional)
+Explicação
+Custos de aceleração devem entrar no orçamento, não na contingência.
+Domínio
+Process
+
+
+
+
+74 Você lidera um projeto Ágil para desenvolver urna eletrônica segura e amigável. Em Scrum, após cada sprint, há retrospectivas para revisar processos, comunicação e desempenho. Qual é o propósito primário da retrospectiva?
+
+Avaliar a funcionalidade da urna e garantir atendimento às especificações técnicas do escopo
+Explicação
+Mais alinhado à aceitação e QA, não ao objetivo da retrospectiva.
+
+Avaliar orçamento, verificar custos e identificar economias para a próxima sprint
+Explicação
+Finanças não são o foco principal da retrospectiva.
+Resposta correta
+
+*Revisar desempenho do time, discutir o que funcionou, identificar melhorias e definir ações para a próxima sprint a fim de elevar colaboração e eficiência
+Explicação
+A retrospectiva busca melhoria contínua do processo e da colaboração do time.
+Sua resposta está incorreta
+
+Garantir satisfação de stakeholders e colher feedback para features além do escopo atual
+Explicação
+Importante para produto, mas não é o foco principal da retrospectiva.
+Domínio
+Process
+
+
+
+
+75 Você gerencia desenvolvimento de uma vacina: pesquisa, ensaios clínicos, aprovações regulatórias e fabricação. Há múltiplos riscos (cadeia de suprimentos, barreiras regulatórias, segurança). Por que o planejamento de respostas a riscos é crucial?
+
+Eliminar todos os riscos, garantindo conclusão no prazo e orçamento sem atrasos
+Explicação
+Impossível eliminar todos os riscos em projetos complexos; foco é gerenciar e mitigar.
+Resposta correta
+
+*Desenvolver planos de contingência para riscos identificados, priorizar estratégias de resposta e assegurar adaptação a eventos inesperados mantendo os objetivos
+Explicação
+Planejamento de respostas prepara a equipe para desafios e incertezas ao longo do ciclo, aumentando chances de sucesso.
+
+Documentar riscos e adicioná-los ao termo de abertura para informar stakeholders sem gestão ativa
+Explicação
+Gestão ativa é essencial; apenas documentar não basta.
+Sua resposta está incorreta
+
+Atribuir culpa a stakeholders caso riscos ocorram, garantindo accountability antecipada
+Explicação
+Foco deve ser em soluções e mitigação; culpar não contribui para gestão eficaz.
+Domínio
+Process
+
+
+
+
+76 Você gerencia um projeto Ágil para implantar sistema automatizado de ponto (entradas/saídas), usando Scrum. Qual é o papel principal do Scrum Master?
+
+Garantir requisitos totalmente documentados upfront e impedir mudanças de escopo nas sprints
+Explicação
+Contraria a adaptação e entrega de valor do Ágil.
+Resposta correta
+
+*Proteger a equipe de interrupções externas, facilitar cerimônias de Scrum e treinar o time em práticas Ágeis para melhorar eficiência e colaboração
+Explicação
+O Scrum Master remove impedimentos, facilita o processo e promove colaboração e eficiência.
+
+Escrever histórias, criar backlog e priorizar features para atender objetivos de negócio
+Explicação
+Responsabilidades do Product Owner, não do Scrum Master.
+Sua resposta está incorreta
+
+Gerir orçamento, acompanhar desempenho financeiro e reportar à alta gestão
+Explicação
+Função típica do gerente de projeto/controle financeiro, não do Scrum Master.
+Domínio
+Process
+
+
+
+
+77 Clara gerencia projeto crítico em um banco para instalar robôs que automatizam processamento de documentos, detecção de fraude e verificação de clientes. Envolve aquisição de robótica, software e integração de múltiplos fornecedores. Os robôs devem atender padrões de segurança e integrar-se ao TI existente.
+
+Qual é o benefício chave de conduzir análise de riscos de aquisição?
+
+Garantir entrega no prazo e orçamento, focando principalmente em redução de custos em ciclos futuros
+Explicação
+Importante, mas o benefício chave vai além de custos e prazos.
+Resposta correta
+
+*Identificar e mitigar riscos de desempenho de fornecedores, compliance regulatório e compatibilidade técnica, assegurando que cronograma e qualidade não sejam impactados
+Explicação
+Em projeto complexo e de alto impacto, a análise foca riscos críticos de fornecedores, conformidade e integração, protegendo cronograma e qualidade.
+
+Clarificar o processo de aquisição, minimizando ambiguidade de escopo e estabelecendo termos rígidos
+Explicação
+Útil, mas a análise de riscos busca principalmente identificar e tratar riscos que podem comprometer o sucesso.
+Sua resposta está incorreta
+
+Negociar para reduzir pagamentos iniciais, diminuindo risco financeiro imediato
+Explicação
+Estratégia financeira, não o benefício central da análise de riscos de aquisição.
+Domínio
+Process

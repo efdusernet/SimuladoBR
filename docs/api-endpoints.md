@@ -8,6 +8,20 @@ Observações gerais
 - Autorização por token de sessão do app: header `X-Session-Token: <sessionToken>` quando indicado.
 - Responses em JSON; erros comuns: 400 (payload inválido), 404 (não encontrado), 500 (erro interno).
 
+## GET /api/ai/insights?days=30
+Retorna um “dashboard” de insights: KPIs agregados do período + série diária + recomendações geradas (Ollama quando habilitado; fallback por regras quando não).
+
+- Auth: `X-Session-Token` (resolução via middleware `requireUserSession`)
+- Query:
+  - `days` (1–180; default 30)
+- Response (sucesso):
+  - `kpis`: `{ readinessScore, consistencyScore, avgScorePercent, completionRate, abandonRate, trendDeltaScore7d }`
+  - `timeseries`: lista diária com `{ date, avgScorePercent, completionRate, abandonRate, started, finished }`
+  - `ai`: `{ headline, insights[], risks[], actions7d[], focusAreas[] }`
+- Observações:
+  - Não envia texto de questões ao modelo (apenas métricas agregadas)
+  - Pode ser usado diretamente pela página `frontend/pages/InsightsIA.html`
+
 ## POST /api/admin/exams/fixture-attempt
 Cria uma tentativa finalizada artificial ("fixture") para testes e estatísticas sem processo de resposta manual.
 

@@ -303,7 +303,7 @@
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dashboard">Estatísticas</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dominios">Domínios</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=prob">Probabilidade de Sucesso</a>
-        <a class="sidebar-accordion-item" href="/pages/InsightsIA.html">Insights da IA</a>
+        <a class="sidebar-accordion-item" id="sidebarInsightsAiLink" href="/pages/InsightsIA.html">Insights da IA</a>
       </div>
     </div>
 
@@ -440,6 +440,28 @@
       ecoEl.textContent = 'ECO: ' + (code ? String(code) : '—');
     } catch (_e) {
       ecoEl.textContent = 'ECO: —';
+    }
+  }
+
+  async function applyFeatureFlags() {
+    try {
+      const link = document.getElementById('sidebarInsightsAiLink');
+      if (!link) return;
+
+      const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '').trim();
+      const url = (base ? base.replace(/\/$/, '') : '') + '/api/meta/config';
+
+      const cfg = await fetch(url, { cache: 'no-store', credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+
+      if (cfg && cfg.ollamaEnabled === false) {
+        link.style.display = 'none';
+      } else if (cfg && cfg.ollamaEnabled === true) {
+        link.style.display = '';
+      }
+    } catch (_e) {
+      // If config can't be loaded, keep default visibility.
     }
   }
 
@@ -2725,6 +2747,7 @@
 
   // Initialize
   loadUserData();
+  applyFeatureFlags();
   setupNavigation();
   checkAdminAccess();
   restoreNavigationState();

@@ -345,6 +345,9 @@
         </svg>
       </button>
       <div class="sidebar-accordion-content">
+        <button class="sidebar-accordion-item" data-admin-action="fixture">
+          Administração
+        </button>
         <button class="sidebar-accordion-item" data-admin-action="cadastrar-questao">
           Cadastrar questão
         </button>
@@ -356,9 +359,6 @@
         </button>
         <button class="sidebar-accordion-item" data-admin-action="notificacoes">
           Notificações
-        </button>
-        <button class="sidebar-accordion-item" data-admin-action="fixture">
-          Gerar tentativa fixture
         </button>
         <button class="sidebar-accordion-item" data-admin-action="reconcile">
           Reconciliar estatísticas
@@ -2511,8 +2511,15 @@
         // Open admin modal and scroll to fixture section
         const adminModal = document.getElementById('adminModal');
         if (adminModal) {
-          adminModal.classList.add('active');
-          adminModal.setAttribute('aria-hidden', 'false');
+          if (typeof window.openAdminModal === 'function') {
+            window.openAdminModal();
+          } else {
+            try { adminModal.removeAttribute('inert'); } catch(_){ }
+            adminModal.classList.add('active');
+            adminModal.setAttribute('aria-hidden', 'false');
+            adminModal.style.display = 'flex';
+            adminModal.style.pointerEvents = 'auto';
+          }
           // Hide bottom nav if exists
           const nav = document.querySelector('.bottom-nav');
           if (nav) nav.style.display = 'none';
@@ -2530,8 +2537,15 @@
         // Open admin modal and scroll to reconcile section
         const adminModal = document.getElementById('adminModal');
         if (adminModal) {
-          adminModal.classList.add('active');
-          adminModal.setAttribute('aria-hidden', 'false');
+          if (typeof window.openAdminModal === 'function') {
+            window.openAdminModal();
+          } else {
+            try { adminModal.removeAttribute('inert'); } catch(_){ }
+            adminModal.classList.add('active');
+            adminModal.setAttribute('aria-hidden', 'false');
+            adminModal.style.display = 'flex';
+            adminModal.style.pointerEvents = 'auto';
+          }
           // Hide bottom nav if exists
           const nav = document.querySelector('.bottom-nav');
           if (nav) nav.style.display = 'none';

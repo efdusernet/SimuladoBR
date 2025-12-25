@@ -295,7 +295,7 @@
         </svg>
       </button>
       <div class="sidebar-accordion-content">
-        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=geral">Visão Geral</a>
+        <a class="sidebar-accordion-item" href="/index.html">Visão Geral</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=grupos">Grupo de Processos</a>
         <!-- "Tópico" desativado (Área de conhecimento) -->
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=abordagem">Abordagem</a>
@@ -754,6 +754,16 @@
         try { e.preventDefault(); e.stopPropagation(); } catch(_){}
         const href = item.getAttribute('href') || '';
 
+        // "Visão Geral" é o dashboard do index.html (não é uma aba da página Indicadores.html)
+        if (/^\/(?:index\.html)?$/i.test(href) || /^\/index\.html$/i.test(href)) {
+          try {
+            sessionStorage.setItem('currentSection', 'indicadores');
+            sessionStorage.setItem('currentSubsection', 'geral');
+          } catch(_){ }
+          (window.top || window).location.assign('/index.html');
+          return;
+        }
+
         // Permitir navegação para páginas fora do fluxo de abas de Indicadores
         // (ex.: Dashboard dedicado de IA)
         if (/\/pages\/InsightsIA\.html(?:\?.*)?$/i.test(href)) {
@@ -1064,7 +1074,25 @@
   async function loadIndicadoresIntoSection(tab) {
     try {
       const indicadoresSection = document.getElementById('indicadores');
-      if (!indicadoresSection) throw new Error('Indicadores section not found in index.html');
+      if (!indicadoresSection) {
+        // This is not index.html (standalone page)
+        const key = String(tab || 'geral').toLowerCase();
+
+        // "Visão Geral" deve abrir no dashboard (index.html), não em Indicadores.html
+        if (key === 'geral') {
+          try {
+            sessionStorage.setItem('currentSection', 'indicadores');
+            sessionStorage.setItem('currentSubsection', 'geral');
+          } catch(_){ }
+          (window.top || window).location.assign('/index.html');
+          return;
+        }
+
+        // Outras abas continuam indo para a página dedicada de Indicadores
+        const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
+        (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+        return;
+      }
       const key = String(tab || 'geral').toLowerCase();
       // Activate indicadores section
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -2672,12 +2700,13 @@
       'indicadores': (tab) => {
         logger.info('[Sidebar] Indicadores clicked, tab:', tab);
         const layout = document.body.getAttribute('data-layout');
-        if (layout === 'desktop') {
+        const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
+        const canEmbedHere = !!document.getElementById('indicadores');
+        if (layout === 'desktop' && canEmbedHere) {
           loadIndicadoresIntoSection(tab || 'geral');
-        } else {
-          const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
-          (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+          return;
         }
+        (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
       },
       'progresso-geral': () => {
         logger.info('[Sidebar] Progresso-geral clicked');
@@ -2685,7 +2714,7 @@
         logger.info('[Sidebar] Current layout:', layout);
         
         // No modo desktop, carregar dentro do index.html
-        if (layout === 'desktop') {
+        if (layout === 'desktop' && document.getElementById('progresso-geral')) {
           logger.info('[Sidebar] Desktop mode - loading progresso geral into section');
           loadProgressoGeralIntoSection();
         } else {
@@ -2700,7 +2729,7 @@
         logger.info('[Sidebar] Current layout:', layout);
         
         // No modo desktop, não precisa verificar senha (usuário já está autenticado)
-        if (layout === 'desktop') {
+        if (layout === 'desktop' && document.getElementById('profile')) {
           logger.info('[Sidebar] Desktop mode - loading settings directly');
           loadSettingsIntoProfile();
         } else {

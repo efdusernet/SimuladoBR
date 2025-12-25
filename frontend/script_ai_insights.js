@@ -3,6 +3,9 @@
   const loadingEl = document.getElementById('loading');
   const errorEl = document.getElementById('error');
   const meEmailEl = document.getElementById('meEmail');
+  const lastUpdatedEl = document.getElementById('lastUpdated');
+
+  const defaultLoadingText = loadingEl ? loadingEl.textContent : 'Carregando insights...';
 
   const kpiReadiness = document.getElementById('kpiReadiness');
   const kpiConsistency = document.getElementById('kpiConsistency');
@@ -19,6 +22,8 @@
   const indicatorsBoxEl = document.getElementById('indicatorsBox');
   const indicatorsErrorsEl = document.getElementById('indicatorsErrors');
 
+  const CACHE_KEY = 'aiInsightsCache_v1';
+
   function buildAuthHeaders(){
     const headers = { 'Accept': 'application/json' };
     try {
@@ -31,8 +36,56 @@
     return headers;
   }
 
-  function setLoading(on){ if (loadingEl) loadingEl.style.display = on ? 'block' : 'none'; }
+  function setLoading(on){
+    if (!loadingEl) return;
+    if (on) loadingEl.textContent = defaultLoadingText;
+    loadingEl.style.display = on ? 'block' : 'none';
+  }
   function setError(on){ if (errorEl) errorEl.style.display = on ? 'block' : 'none'; }
+
+  function setHint(msg){
+    if (!loadingEl) return;
+    loadingEl.textContent = String(msg || '');
+    loadingEl.style.display = 'block';
+  }
+
+  function fmtDateTime(ts){
+    try {
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return '—';
+      return d.toLocaleString('pt-BR');
+    } catch(_){
+      return '—';
+    }
+  }
+
+  function setLastUpdated(ts){
+    if (!lastUpdatedEl) return;
+    if (!ts) {
+      lastUpdatedEl.textContent = 'Última atualização: —';
+      return;
+    }
+    lastUpdatedEl.textContent = `Última atualização: ${fmtDateTime(ts)}`;
+  }
+
+  function loadCached(){
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (!parsed.data || typeof parsed.data !== 'object') return null;
+      return parsed;
+    } catch(_){
+      return null;
+    }
+  }
+
+  function saveCached(payload){
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+    } catch(_){ }
+  }
 
   function pct(v){ if (v == null) return '—'; return (Number(v) * 100).toFixed(1) + '%'; }
   function score(v){ if (v == null) return '—'; return Number(v).toFixed(1) + '%'; }
@@ -63,12 +116,17 @@
     return String(n);
   }
 
-  function renderTopBottom(tb, valueSuffix){
+  function renderTopBottom(tb, valueSuffix, noteText){
     const weakest = tb && Array.isArray(tb.weakest) ? tb.weakest : [];
     const strongest = tb && Array.isArray(tb.strongest) ? tb.strongest : [];
     const li = (it) => `<li>${escapeHtml(String(it.label || '—'))}: ${escapeHtml(String(it.value))}${valueSuffix || ''}</li>`;
     const left = weakest.length ? weakest.map(li).join('') : '<li class="empty">—</li>';
     const right = strongest.length ? strongest.map(li).join('') : '<li class="empty">—</li>';
+
+    const noteHtml = noteText
+      ? `<div class="tb-note muted small">${escapeHtml(String(noteText))}</div>`
+      : '';
+    const cardClass = noteText ? 'card tb-has-note' : 'card';
 
     function formatBarValue(v, suffix){
       const n = Number(v);
@@ -117,19 +175,21 @@
 
     return `
       <div class="split">
-        <div class="card">
+        <div class="${cardClass}">
           <h3>Piores</h3>
           <div class="tb-card">
             <div class="tb-list"><ul>${left}</ul></div>
             ${renderMiniBars(weakest, '--muted', valueSuffix)}
           </div>
+          ${noteHtml}
         </div>
-        <div class="card">
+        <div class="${cardClass}">
           <h3>Melhores</h3>
           <div class="tb-card">
             <div class="tb-list"><ul>${right}</ul></div>
             ${renderMiniBars(strongest, '--primary', valueSuffix)}
           </div>
+          ${noteHtml}
         </div>
       </div>
     `;
@@ -160,7 +220,11 @@
     parts.push(renderTopBottom(s.IND10, '%'));
 
     parts.push(`<div class="kv"><span class="k">IND12</span><span class="v">Domínios agregados (% ponderado)</span></div>`);
-    parts.push(renderTopBottom(s.IND12, '%'));
+    parts.push(renderTopBottom(
+      s.IND12,
+      '%',
+      'Mostra sua % de acertos por domínio, ponderada pela quantidade de questões (domínios com mais questões têm mais peso).'
+    ));
 
     indicatorsBoxEl.innerHTML = parts.join('');
 
@@ -324,9 +388,15 @@
     setLoading(true);
     setError(false);
 
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset._oldText = btn.textContent;
+      btn.textContent = 'Atualizando...';
+    }
+
     try {
       const days = 30;
-      await loadMe();
+      const me = await loadMe();
       const resp = await fetch(`/api/ai/insights?days=${days}`, {
         headers: buildAuthHeaders(),
         credentials: 'include',
@@ -347,14 +417,49 @@
       }
       const data = await resp.json();
       render(data);
+
+      const email = (me && (me.Email || me.email)) ? String(me.Email || me.email) : null;
+      const storedAt = Date.now();
+      saveCached({ storedAt, days, email, data });
+      setLastUpdated(storedAt);
+      setLoading(false);
     } catch(e) {
       logger.error(e);
       setError(true);
-    }
 
-    setLoading(false);
+      const cached = loadCached();
+      if (cached && cached.storedAt) {
+        setLastUpdated(cached.storedAt);
+      }
+      setLoading(false);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        const old = btn.dataset._oldText;
+        if (old) btn.textContent = old;
+        delete btn.dataset._oldText;
+      }
+    }
   }
 
   if (btn) btn.addEventListener('click', loadAll);
-  setTimeout(loadAll, 50);
+
+  // Renderiza do cache (se existir) e só atualiza via clique no botão.
+  (function initFromCache(){
+    const cached = loadCached();
+    if (cached && cached.data) {
+      if (meEmailEl && cached.email) meEmailEl.textContent = cached.email;
+      setLastUpdated(cached.storedAt);
+      setError(false);
+      setLoading(false);
+      // Pequeno delay para o layout (sidebar/content) estabilizar antes de desenhar gráficos
+      setTimeout(() => {
+        try { render(cached.data); } catch(e) { logger.error(e); }
+      }, 80);
+    } else {
+      setLastUpdated(null);
+      setError(false);
+      setHint('Clique em “Atualizar” para carregar os insights.');
+    }
+  })();
 })();

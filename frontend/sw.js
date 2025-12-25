@@ -202,8 +202,12 @@ async function networkFirstWithCache(request, cacheName) {
         const responseToCache = response.clone();
         const headers = new Headers(responseToCache.headers);
         headers.set('sw-cache-time', Date.now().toString());
-        
-        const cachedResponse = new Response(responseToCache.body, {
+
+        // 204/205/304 cannot have a body; also guard against null body streams
+        const nullBodyStatuses = new Set([204, 205, 304]);
+        const body = (nullBodyStatuses.has(responseToCache.status) || responseToCache.body == null) ? null : responseToCache.body;
+
+        const cachedResponse = new Response(body, {
           status: responseToCache.status,
           statusText: responseToCache.statusText,
           headers: headers

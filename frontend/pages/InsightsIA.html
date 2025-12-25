@@ -2,10 +2,14 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <script src="/utils/layoutManager.js"></script>
   <script src="/utils/logger.js"></script>
   <script src="/utils/logout.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Insights da IA</title>
+  <link rel="stylesheet" href="/layouts/mobile-layout.css">
+  <link rel="stylesheet" href="/layouts/desktop-layout.css" media="(min-width: 768px)">
+  <link rel="stylesheet" href="/layouts/fullscreen-layout.css">
   <style>
     :root{
       --primary: #0b5ed7;
@@ -41,6 +45,10 @@
     .menu-panel a{ display:block; padding: 6px 8px; color:#222; text-decoration:none; border-radius:6px; }
     .menu-panel a:hover{ background:#f4f7fb; }
 
+    /* Quando estiver no desktop (layout com sidebar), este menu mobile não deve aparecer */
+    body[data-layout='desktop'] .menu-toggle{ display: none !important; }
+    body[data-layout='desktop'] .menu-panel{ display: none !important; }
+
     .wrap{ padding: 0 8px 16px; }
 
     .controls{
@@ -70,6 +78,10 @@
       cursor:pointer;
       font-weight: 700;
       font-size: 0.8rem;
+    }
+    .controls button:disabled{
+      opacity: 0.65;
+      cursor: not-allowed;
     }
 
     .grid{
@@ -123,10 +135,32 @@
     .tb-list{ flex: 1 1 auto; min-width: 0; }
     .tb-chart{ flex: 0 0 120px; width: 120px; }
     .tb-chart svg{ width: 120px; height: 82px; display:block; }
+    /* Nota no rodapé do card com altura mínima (sem sobrepor conteúdo) */
+    .tb-has-note{
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      align-items: start;
+    }
+    .tb-has-note .tb-note{ margin-top: 8px; text-align: left; }
+    /* Limita a coluna da lista para não empurrar o gráfico para a direita */
+    .tb-has-note .tb-card{
+      display: grid;
+      grid-template-columns: fit-content(360px) 120px;
+      column-gap: 10px;
+      align-items: start;
+    }
+    .tb-has-note .tb-list{ min-width: 0; }
+    .tb-has-note .tb-chart{ justify-self: start; }
     @media (max-width: 420px){
       .tb-card{ flex-direction: column; }
       .tb-chart{ width: 100%; flex-basis: auto; }
       .tb-chart svg{ width: 100%; }
+    }
+    /* No mobile mantém comportamento; só ajusta espaçamento natural */
+    @media (max-width: 420px){
+      .tb-has-note .tb-note{ margin-top: 10px; }
+      .tb-has-note .tb-card{ grid-template-columns: 1fr; }
+      .tb-has-note .tb-chart{ width: 100%; }
     }
     @media (min-width: 640px){
       .split{ grid-template-columns: 1fr 1fr; }
@@ -142,66 +176,105 @@
       .wrap{ padding: 0 16px 24px; }
       .grid{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
+
+    /* Desktop layout (LayoutManager): manter aparência clara dentro de .content */
+    body[data-layout='desktop'] .content{ background: var(--bg) !important; color: var(--text) !important; }
+
+    /* KPI cards: manter valor abaixo do texto mesmo no desktop-layout global (.card flex-row) */
+    body[data-layout='desktop'] .grid .kpi-card{
+      display: block !important;
+    }
+    body[data-layout='desktop'] .grid .kpi-card .value{
+      display: block;
+    }
+
+    /* Cards com nota (IND12): não herdar flex-row do desktop-layout global */
+    body[data-layout='desktop'] .tb-has-note{
+      display: grid !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
   </style>
 </head>
 <body>
-  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
-    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
-  </button>
-  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
-    <a href="/" rel="noopener">Início (Menu)</a>
-    <a href="/pages/Indicadores.html" rel="noopener">Indicadores</a>
-    <a href="/pages/progressoGeral.html" rel="noopener">Progresso Geral</a>
-    <a href="#" class="page-logout">Sair</a>
-  </nav>
+  <div id="sidebarMount"></div>
+  <main class="content">
+    <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+      <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+    </button>
+    <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+      <a href="/" rel="noopener">Início (Menu)</a>
+      <a href="/pages/Indicadores.html" rel="noopener">Indicadores</a>
+      <a href="/pages/progressoGeral.html" rel="noopener">Progresso Geral</a>
+      <a href="#" class="page-logout">Sair</a>
+    </nav>
 
-  <h1>Insights da IA</h1>
+    <h1>Insights da IA</h1>
 
-  <div class="wrap">
-    <div id="loading">Carregando insights...</div>
-    <div id="error">Falha ao carregar. Verifique login e servidor.</div>
-
-    <div class="grid" aria-label="KPIs">
-      <div class="card"><h2>Prontidão (0–100)</h2><div class="value" id="kpiReadiness">—</div></div>
-      <div class="card"><h2>Consistência (dias ativos)</h2><div class="value" id="kpiConsistency">—</div></div>
-      <div class="card"><h2>Score médio (período)</h2><div class="value" id="kpiAvgScore">—</div></div>
-      <div class="card"><h2>Taxa de conclusão</h2><div class="value" id="kpiCompletion">—</div></div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">
-        <h2 id="aiHeadline">Insights</h2>
-        <div class="badge" id="ollamaBadge">—</div>
+    <div class="wrap">
+      <div class="controls" aria-label="Controles">
+        <button id="btnCarregar" type="button">Atualizar</button>
+        <span id="lastUpdated" class="muted small">Última atualização: —</span>
+        <span class="muted small">Usuário: <strong id="meEmail">—</strong></span>
       </div>
-      <ul id="aiInsights"></ul>
-    </div>
 
-    <div class="section">
-      <div class="section-title"><h2>Alertas / Riscos</h2></div>
-      <ul id="aiRisks"></ul>
-    </div>
+      <div id="loading">Carregando insights...</div>
+      <div id="error">Falha ao carregar. Verifique login e servidor.</div>
 
-    <div class="section">
-      <div class="section-title"><h2>Ações sugeridas (7 dias)</h2></div>
-      <ul id="aiActions"></ul>
-    </div>
+      <div class="grid" aria-label="KPIs">
+        <div class="card kpi-card">
+          <h2>Sua escala de preparação de 0 a 100</h2>
+          <div class="value" id="kpiReadiness">—</div>
+        </div>
+        <div class="card kpi-card">
+          <h2>Consistência (dias ativos)</h2>
+          <div class="value" id="kpiConsistency">—</div>
+        </div>
+        <div class="card kpi-card">
+          <h2>Score médio (período)</h2>
+          <div class="value" id="kpiAvgScore">—</div>
+        </div>
+        <div class="card kpi-card">
+          <h2>Taxa de conclusão</h2>
+          <div class="value" id="kpiCompletion">—</div>
+        </div>
+      </div>
 
-    <div class="section" id="indicatorsSection">
-      <div class="section-title"><h2>Indicadores (IND1–IND7 e IND9–IND12)</h2></div>
-      <div id="indicatorsErrors" class="small" style="display:none"></div>
-      <div id="indicatorsBox" class="small"><span class="muted">—</span></div>
-    </div>
+      <div class="section">
+        <div class="section-title">
+          <h2 id="aiHeadline">Insights</h2>
+          <div class="badge" id="ollamaBadge">—</div>
+        </div>
+        <ul id="aiInsights"></ul>
+      </div>
 
-    <div class="section">
-      <div class="section-title"><h2>Evolução do score (média diária)</h2></div>
-      <div class="chart" id="chartScore"></div>
-    </div>
+      <div class="section">
+        <div class="section-title"><h2>Alertas / Riscos</h2></div>
+        <ul id="aiRisks"></ul>
+      </div>
 
-    <div class="section">
-      <div class="section-title"><h2>Taxas: conclusão x abandono</h2></div>
-      <div class="chart" id="chartRates"></div>
+      <div class="section">
+        <div class="section-title"><h2>Ações sugeridas (7 dias)</h2></div>
+        <ul id="aiActions"></ul>
+      </div>
+
+      <div class="section" id="indicatorsSection">
+        <div class="section-title"><h2>Indicadores (IND1–IND7 e IND9–IND12)</h2></div>
+        <div id="indicatorsErrors" class="small" style="display:none"></div>
+        <div id="indicatorsBox" class="small"><span class="muted">—</span></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><h2>Evolução do score (média diária)</h2></div>
+        <div class="chart" id="chartScore"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><h2>Taxas: conclusão x abandono</h2></div>
+        <div class="chart" id="chartRates"></div>
+      </div>
     </div>
-  </div>
+  </main>
 
   <script>
     (function(){
@@ -218,6 +291,22 @@
         if (pageMenu.contains(e.target) || menuToggle.contains(e.target)) return;
         setOpen(false);
       });
+    })();
+  </script>
+  <script>
+    (function(){
+      function initLayout(){
+        try {
+          if (window.LayoutManager && typeof window.LayoutManager.init === 'function') {
+            window.LayoutManager.init();
+          }
+        } catch(_){ }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLayout);
+      } else {
+        initLayout();
+      }
     })();
   </script>
   <script src="/script_ai_insights.js"></script>

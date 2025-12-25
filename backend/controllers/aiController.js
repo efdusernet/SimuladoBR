@@ -138,7 +138,7 @@ function enrichAiWithRules(ai, { kpis, examInfo }) {
 
   const completionPct = Number(kpis.completionRate || 0) * 100;
   const completionPct1 = Math.round(completionPct * 10) / 10;
-  const examSoon = examInfo && examInfo.daysToExam != null && examInfo.daysToExam >= 0 && examInfo.daysToExam <= 60;
+  const examSoon = examInfo && examInfo.daysToExam != null && examInfo.daysToExam >= 0 && examInfo.daysToExam < 75;
 
   // Comentário útil sobre os números (evita ficar só "o número")
   const commentary = buildKpiCommentary({ kpis, examInfo });
@@ -150,6 +150,14 @@ function enrichAiWithRules(ai, { kpis, examInfo }) {
   // Alertas: baixa conclusão deve aparecer como risco
   if (completionPct < 60) {
     out.risks = addUnique(out.risks, `Baixa taxa de conclusão (${completionPct1}%): priorize finalizar os simulados iniciados para ganhar consistência e dados confiáveis.`);
+  }
+
+  // Prazo curto: se houver qualquer risco, explicitar que o deadline aumenta a criticidade
+  if (examSoon && Array.isArray(out.risks) && out.risks.length > 0 && examInfo && examInfo.examDateRaw) {
+    out.risks = addUnique(
+      out.risks,
+      `Prazo curto: seu exame está em ~${examInfo.daysToExam} dia(s) (${examInfo.examDateRaw}). Trate os alertas acima como prioritários para não comprometer o deadline.`
+    );
   }
 
   // Deadline: se exame em <= 2 meses + conclusão muito baixa => risco de prazo

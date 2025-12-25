@@ -30,7 +30,9 @@ async function getAreaConhecimentoStats(req, res, next){
     }
 
     // Calcular acertos/erros por área de conhecimento
-    const sql = `
+    // Observação: algumas bases podem não ter a tabela de referência `areaconhecimento`.
+    // Então tentamos com JOIN (para pegar descrição) e, se falhar, refazemos sem JOIN.
+    const sqlWithJoin = `
       WITH pq AS (
         SELECT
           aq.id AS aqid,
@@ -62,8 +64,46 @@ async function getAreaConhecimentoStats(req, res, next){
       GROUP BY area_id, area_nome
       ORDER BY area_nome;
     `;
+
+    const sqlNoJoin = `
+      WITH pq AS (
+        SELECT
+          aq.id AS aqid,
+          q.codareaconhecimento AS area_id,
+          NULL::text AS area_nome,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
+        FROM exam_attempt_question aq
+        LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+        JOIN questao q ON q.id = aq.question_id
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
+        JOIN exam_attempt a ON a.id = aq.attempt_id
+        WHERE aq.attempt_id = :idExame
+          AND q.codareaconhecimento IS NOT NULL
+          ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+        GROUP BY aq.id, q.codareaconhecimento
+      )
+      SELECT
+        area_id,
+        area_nome,
+        COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS acertos,
+        COUNT(*) FILTER (WHERE NOT (chosen_count = correct_count AND chosen_correct_count = correct_count))::int AS erros,
+        COUNT(*)::int AS total
+      FROM pq
+      WHERE correct_count > 0
+      GROUP BY area_id, area_nome
+      ORDER BY area_id;
+    `;
+
     const replacements = hasExamType ? { idExame, examTypeId } : { idExame };
-    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
+    let rows;
+    try {
+      rows = await sequelize.query(sqlWithJoin, { replacements, type: sequelize.QueryTypes.SELECT });
+    } catch (errJoin) {
+      rows = await sequelize.query(sqlNoJoin, { replacements, type: sequelize.QueryTypes.SELECT });
+    }
 
     const areas = (rows || []).map(r => {
       const total = Number(r.total) || 1;
@@ -84,7 +124,10 @@ async function getAreaConhecimentoStats(req, res, next){
 
     return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, areas });
   } catch(err){
-    return next(internalError('Erro interno', 'AREA_CONHECIMENTO_STATS_ERROR', err));
+    const publicMsg = process.env.NODE_ENV === 'development'
+      ? `Erro interno: ${err && err.message ? String(err.message) : 'desconhecido'}`
+      : 'Erro interno';
+    return next(internalError(publicMsg, 'AREA_CONHECIMENTO_STATS_ERROR', err));
   }
 }
 
@@ -706,6 +749,8 @@ async function getPerformancePorDominio(req, res, next){
   try {
     // Modo de seleção do exame: 'best' ou 'last'. Aceita examMode ou exam_mode para flexibilidade.
     const examMode = req.query.examMode || req.query.exam_mode || 'last';
+    const rawMax = parseInt(req.query.max_exams, 10);
+    const maxExams = Number.isFinite(rawMax) ? Math.min(Math.max(rawMax, 1), 200) : null;
     const userIdParam = parseInt(req.query.idUsuario, 10);
     // Fallback em ordem: idUsuario query, req.user.sub (padronizado nos outros controles), req.user.id.
     const userId = Number.isFinite(userIdParam) && userIdParam > 0
@@ -728,10 +773,11 @@ async function getPerformancePorDominio(req, res, next){
         AND a.finished_at IS NOT NULL
         AND a.exam_mode = 'full'
       ORDER BY a.finished_at DESC
+      ${maxExams ? 'LIMIT :maxExams' : ''}
     `;
     
     const exams = await sequelize.query(examsSql, { 
-      replacements: { userId }, 
+      replacements: { userId, ...(maxExams ? { maxExams } : {}) }, 
       type: sequelize.QueryTypes.SELECT 
     });
 

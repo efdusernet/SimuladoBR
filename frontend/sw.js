@@ -8,7 +8,7 @@ const logger = (self && self.logger) ? self.logger : {
   error: (...args) => { try { console.error(...args); } catch(_){} }
 };
 
-const VERSION = '2.0.10';
+const VERSION = '2.0.11';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -123,6 +123,11 @@ self.addEventListener('fetch', event => {
   }
 
   // Estratégia 2: Network-First com Cache Fallback para API
+  // IMPORTANT: do not cache AI endpoints (highly dynamic + used for debugging timeouts)
+  if (url.pathname.startsWith('/api/ai/')) {
+    event.respondWith(fetch(new Request(request, { cache: 'no-store' })));
+    return;
+  }
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkFirstWithCache(request, CACHES.API));
     return;

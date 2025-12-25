@@ -195,11 +195,75 @@ router.get('/me', async (req, res, next) => {
             BloqueioAtivado: user.BloqueioAtivado,
             DataCadastro: user.DataCadastro ? new Date(user.DataCadastro).toISOString() : null,
             DataAlteracao: user.DataAlteracao ? new Date(user.DataAlteracao).toISOString() : null,
+            DataExame: user.DataExame ?? null,
             TipoUsuario: isAdmin ? 'admin' : 'user'
         });
     } catch (err) {
         logger.error('Erro /users/me:', err);
         return next(internalError('Internal error', 'USER_ME_ERROR', err));
+    }
+});
+
+// PUT /api/users/me/exam-date
+// Atualiza a data prevista do exame real do próprio usuário.
+// Formato exigido: dd/mm/yyyy (armazenado em Usuario.data_exame).
+router.put('/me/exam-date', async (req, res, next) => {
+    try {
+        const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
+
+        let user = null;
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+            try {
+                const decoded = jwt.verify(sessionToken, jwtSecret);
+                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
+                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
+            } catch (_) {
+                // ignore
+            }
+        }
+        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+        if (!user) {
+            const Op = db.Sequelize && db.Sequelize.Op;
+            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+            user = await User.findOne({ where });
+        }
+        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+        const raw = (req.body && (req.body.data_exame ?? req.body.DataExame ?? req.body.dataExame)) ?? null;
+        const value = raw == null ? null : String(raw).trim();
+        if (value && !/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+            return next(badRequest('Formato inválido. Use dd/mm/yyyy', 'INVALID_EXAM_DATE_FORMAT'));
+        }
+        if (value) {
+            const [dd, mm, yyyy] = value.split('/').map(v => parseInt(v, 10));
+            const dt = new Date(Date.UTC(yyyy, mm - 1, dd));
+            const ok = dt.getUTCFullYear() === yyyy && (dt.getUTCMonth() + 1) === mm && dt.getUTCDate() === dd;
+            if (!ok) {
+                return next(badRequest('Data inválida', 'INVALID_EXAM_DATE_VALUE'));
+            }
+
+            // Não permitir datas no passado (comparação por data local do servidor)
+            const inputYmd = (yyyy * 10000) + (mm * 100) + dd;
+            const now = new Date();
+            const todayYmd = (now.getFullYear() * 10000) + ((now.getMonth() + 1) * 100) + now.getDate();
+            if (inputYmd < todayYmd) {
+                return next(badRequest('Data não pode ser no passado', 'EXAM_DATE_IN_PAST'));
+            }
+        }
+
+        await user.update({
+            DataExame: value || null,
+            DataAlteracao: new Date()
+        });
+
+        return res.json({
+            success: true,
+            DataExame: user.DataExame ?? null
+        });
+    } catch (err) {
+        logger.error('Erro PUT /users/me/exam-date:', err);
+        return next(internalError('Erro interno', 'USER_EXAM_DATE_UPDATE_ERROR', err));
     }
 });
 

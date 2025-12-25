@@ -331,6 +331,9 @@
         <button class="sidebar-accordion-item" data-section="configuracoes" data-config="perfil">
           Perfil
         </button>
+        <button class="sidebar-accordion-item" data-section="configuracoes" data-config="data-exame">
+          Data exame
+        </button>
       </div>
     </div>
 
@@ -465,6 +468,247 @@
     }
   }
 
+  function ddmmyyyyToIso(value) {
+    if (value == null) return '';
+    const raw = String(value).trim();
+    if (!raw) return '';
+
+    // Allow values that include time (take first 10 chars)
+    const s10 = raw.length >= 10 ? raw.slice(0, 10) : raw;
+
+    // dd/mm/yyyy
+    let m = s10.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) {
+      const dd = m[1], mm = m[2], yyyy = m[3];
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // yyyy-mm-dd (in case the DB was manually filled or legacy)
+    m = s10.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      return s10;
+    }
+
+    // dd-mm-yyyy
+    m = s10.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (m) {
+      const dd = m[1], mm = m[2], yyyy = m[3];
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return '';
+  }
+
+  function isoToDdmmyyyy(value) {
+    if (!value || typeof value !== 'string') return '';
+    const m = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return '';
+    const yyyy = m[1], mm = m[2], dd = m[3];
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  function getTodayIsoLocal() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function ensureExamDateModal() {
+    let modal = document.getElementById('examDateModal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'examDateModal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.style.display = 'none';
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.background = 'rgba(0,0,0,0.45)';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '9999';
+    modal.style.padding = '16px';
+
+    modal.innerHTML = `
+      <div id="examDateModalCard" style="width:min(420px, 92vw); background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="font-weight:700; font-size:1rem; color:#0f172a;">Data do exame</div>
+          <button id="examDateCloseBtn" type="button" aria-label="Fechar" style="border:1px solid #e2e8f0; background:#ffffff; border-radius:10px; padding:6px 10px; cursor:pointer; color:#0f172a;">×</button>
+        </div>
+
+        <div style="margin-top:12px; font-size:0.82rem; color:#334155;">Selecione a data prevista do seu exame real.</div>
+
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+          <label for="examDateInput" style="font-size:0.78rem; color:#0f172a; font-weight:600;">Data</label>
+          <input id="examDateInput" type="date" style="border:1px solid #e2e8f0; border-radius:10px; padding:10px; font-size:0.9rem; color:#0f172a;" />
+          <div id="examDateError" style="display:none; font-size:0.78rem; color:#b91c1c;"></div>
+        </div>
+
+        <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px;">
+          <button id="examDateCancelBtn" type="button" style="border:1px solid #e2e8f0; background:#ffffff; border-radius:10px; padding:10px 12px; cursor:pointer; color:#0f172a;">Cancelar</button>
+          <button id="examDateSaveBtn" type="button" style="border:1px solid #0f172a; background:#0f172a; border-radius:10px; padding:10px 12px; cursor:pointer; color:#ffffff; font-weight:700;">Salvar</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const card = modal.querySelector('#examDateModalCard');
+    const close = () => {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      const err = modal.querySelector('#examDateError');
+      if (err) { err.style.display = 'none'; err.textContent = ''; }
+    };
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) close();
+    });
+    if (card) {
+      card.addEventListener('click', (e) => {
+        try { e.stopPropagation(); } catch(_){ }
+      });
+    }
+
+    const closeBtn = modal.querySelector('#examDateCloseBtn');
+    const cancelBtn = modal.querySelector('#examDateCancelBtn');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    if (cancelBtn) cancelBtn.addEventListener('click', close);
+
+    document.addEventListener('keydown', (e) => {
+      try {
+        if (e.key === 'Escape' && modal.style.display !== 'none') close();
+      } catch(_){ }
+    });
+
+    const saveBtn = modal.querySelector('#examDateSaveBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const token = localStorage.getItem('sessionToken') || '';
+        const input = modal.querySelector('#examDateInput');
+        const err = modal.querySelector('#examDateError');
+        if (!token) {
+          if (err) { err.textContent = 'Sessão não encontrada. Faça login novamente.'; err.style.display = 'block'; }
+          return;
+        }
+        const iso = input ? String(input.value || '').trim() : '';
+        if (!iso) {
+          if (err) { err.textContent = 'Selecione uma data.'; err.style.display = 'block'; }
+          return;
+        }
+
+        // Bloquear datas no passado
+        try {
+          const todayIso = getTodayIsoLocal();
+          if (iso < todayIso) {
+            if (err) { err.textContent = 'Selecione uma data de hoje ou futura.'; err.style.display = 'block'; }
+            return;
+          }
+        } catch (_e) { /* ignore */ }
+
+        const ddmmyyyy = isoToDdmmyyyy(iso);
+        if (!ddmmyyyy) {
+          if (err) { err.textContent = 'Data inválida.'; err.style.display = 'block'; }
+          return;
+        }
+
+        try {
+          if (err) { err.style.display = 'none'; err.textContent = ''; }
+          saveBtn.disabled = true;
+          saveBtn.style.opacity = '0.8';
+
+          const resp = await fetch('/api/users/me/exam-date', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Session-Token': token
+            },
+            credentials: 'include',
+            body: JSON.stringify({ data_exame: ddmmyyyy })
+          });
+
+          const text = await resp.text();
+          let data = null;
+          try { data = text ? JSON.parse(text) : null; } catch(_) { data = null; }
+
+          if (!resp.ok) {
+            const msg = (data && (data.message || data.error)) ? (data.message || data.error) : (text || `Erro ${resp.status}`);
+            if (err) { err.textContent = String(msg); err.style.display = 'block'; }
+            return;
+          }
+
+          try {
+            if (typeof window.showTemporaryNotification === 'function') {
+              window.showTemporaryNotification('Data do exame atualizada.');
+            }
+          } catch(_){ }
+
+          close();
+        } catch (e) {
+          if (err) { err.textContent = 'Erro ao salvar. Tente novamente.'; err.style.display = 'block'; }
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.style.opacity = '1';
+        }
+      });
+    }
+
+    return modal;
+  }
+
+  async function openExamDateModal() {
+    const modal = ensureExamDateModal();
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+
+    const input = modal.querySelector('#examDateInput');
+    const err = modal.querySelector('#examDateError');
+    const saveBtn = modal.querySelector('#examDateSaveBtn');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    if (input) {
+      input.disabled = true;
+      input.value = '';
+      // Impede seleção de datas no passado
+      try { input.min = getTodayIsoLocal(); } catch(_){ }
+    }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.8'; }
+
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      if (!token) {
+        if (err) { err.textContent = 'Sessão não encontrada. Faça login novamente.'; err.style.display = 'block'; }
+        return;
+      }
+
+      const resp = await fetch('/api/users/me', {
+        headers: { 'X-Session-Token': token },
+        cache: 'no-store',
+        credentials: 'include'
+      });
+
+      if (!resp.ok) {
+        if (err) { err.textContent = 'Não foi possível carregar a data atual.'; err.style.display = 'block'; }
+        return;
+      }
+
+      const user = await resp.json().catch(() => null);
+      const current = user && (user.DataExame || user.data_exame) ? String(user.DataExame || user.data_exame) : '';
+      const iso = ddmmyyyyToIso(current);
+      if (input) {
+        input.value = iso || '';
+      }
+    } catch (e) {
+      if (err) { err.textContent = 'Erro ao carregar. Tente novamente.'; err.style.display = 'block'; }
+    } finally {
+      if (input) input.disabled = false;
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+    }
+  }
+
   // Navigation handlers
   function setupNavigation() {
     // Home
@@ -575,6 +819,12 @@
       item.addEventListener('click', () => {
         const config = item.dataset.config;
         logger.info('[Sidebar] Config item clicked:', config);
+        if (config === 'data-exame') {
+          document.querySelectorAll('.sidebar-nav-item, .sidebar-accordion-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          openExamDateModal();
+          return;
+        }
         navigateToSection('configuracoes', config);
       });
     });

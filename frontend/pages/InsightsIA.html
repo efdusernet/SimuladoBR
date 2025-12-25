@@ -110,6 +110,27 @@
     ul{ margin: 8px 0 0; padding-left: 18px; color: var(--subtext); }
     li{ margin: 4px 0; font-size: 0.85rem; line-height: 1.35; }
     .empty{ color: #64748b; }
+    .kv{ display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; margin-top: 6px; }
+    .k{ font-size: 0.75rem; font-weight: 800; color: var(--subtext); }
+    .v{ font-size: 0.85rem; color: var(--text); }
+    .muted{ color: #64748b; }
+    .split{ display:grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+    .split .card{ padding: 8px 10px; }
+    .split h3{ margin:0 0 6px; font-size: 0.8rem; color: var(--subtext); }
+    .small{ font-size: 0.8rem; color: var(--subtext); }
+
+    .tb-card{ display:flex; gap:10px; align-items:flex-start; }
+    .tb-list{ flex: 1 1 auto; min-width: 0; }
+    .tb-chart{ flex: 0 0 120px; width: 120px; }
+    .tb-chart svg{ width: 120px; height: 82px; display:block; }
+    @media (max-width: 420px){
+      .tb-card{ flex-direction: column; }
+      .tb-chart{ width: 100%; flex-basis: auto; }
+      .tb-chart svg{ width: 100%; }
+    }
+    @media (min-width: 640px){
+      .split{ grid-template-columns: 1fr 1fr; }
+    }
 
     .chart{ margin-top: 8px; width: 100%; overflow:hidden; }
 
@@ -163,6 +184,12 @@
     <div class="section">
       <div class="section-title"><h2>Ações sugeridas (7 dias)</h2></div>
       <ul id="aiActions"></ul>
+    </div>
+
+    <div class="section" id="indicatorsSection">
+      <div class="section-title"><h2>Indicadores (IND1–IND7 e IND9–IND12)</h2></div>
+      <div id="indicatorsErrors" class="small" style="display:none"></div>
+      <div id="indicatorsBox" class="small"><span class="muted">—</span></div>
     </div>
 
     <div class="section">

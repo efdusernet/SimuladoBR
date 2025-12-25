@@ -16,6 +16,8 @@
 
   const chartScoreEl = document.getElementById('chartScore');
   const chartRatesEl = document.getElementById('chartRates');
+  const indicatorsBoxEl = document.getElementById('indicatorsBox');
+  const indicatorsErrorsEl = document.getElementById('indicatorsErrors');
 
   function buildAuthHeaders(){
     const headers = { 'Accept': 'application/json' };
@@ -45,6 +47,132 @@
     if (!el) return;
     if (!arr || !arr.length) { el.innerHTML = `<li class="empty">${emptyText}</li>`; return; }
     el.innerHTML = arr.map(s => `<li>${escapeHtml(String(s))}</li>`).join('');
+  }
+
+  function fmtPct(v){
+    if (v == null) return '—';
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    return n.toFixed(2) + '%';
+  }
+
+  function fmtNum(v){
+    if (v == null) return '—';
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    return String(n);
+  }
+
+  function renderTopBottom(tb, valueSuffix){
+    const weakest = tb && Array.isArray(tb.weakest) ? tb.weakest : [];
+    const strongest = tb && Array.isArray(tb.strongest) ? tb.strongest : [];
+    const li = (it) => `<li>${escapeHtml(String(it.label || '—'))}: ${escapeHtml(String(it.value))}${valueSuffix || ''}</li>`;
+    const left = weakest.length ? weakest.map(li).join('') : '<li class="empty">—</li>';
+    const right = strongest.length ? strongest.map(li).join('') : '<li class="empty">—</li>';
+
+    function formatBarValue(v, suffix){
+      const n = Number(v);
+      if (!Number.isFinite(n)) return '—';
+      const txt = Number.isInteger(n) ? String(n) : n.toFixed(2);
+      return txt + (suffix || '');
+    }
+
+    function renderMiniBars(items, colorCssVar, valueSuffix){
+      const vals = (items || []).map(it => Number(it && it.value)).filter(v => Number.isFinite(v));
+      const max = Math.max(1, Math.max(...vals, 100));
+      const W = 120;
+      const H = 82;
+      const pad = 6;
+      const barH = 10;
+      const gap = 6;
+      const primary = cssVar(colorCssVar, cssVar('--primary', '#0b5ed7'));
+      const bg = '#f1f5f9';
+      const stroke = '#e2e8f0';
+      const labelColor = '#000';
+
+      const rows = (items || []).slice(0, 5);
+      const bars = rows.map((it, idx) => {
+        const v = Number(it && it.value);
+        const pct = Number.isFinite(v) ? Math.max(0, Math.min(1, v / max)) : 0;
+        const x0 = pad;
+        const y0 = pad + idx * (barH + gap);
+        const w0 = W - pad * 2;
+        const w1 = Math.max(0, Math.round(w0 * pct));
+        const label = formatBarValue(v, valueSuffix);
+        const tx = x0 + w0 - 2;
+        const ty = y0 + barH - 2;
+        return `
+          <rect x="${x0}" y="${y0}" width="${w0}" height="${barH}" rx="3" fill="${bg}" stroke="${stroke}" />
+          <rect x="${x0}" y="${y0}" width="${w1}" height="${barH}" rx="3" fill="${primary}" />
+          <text x="${tx}" y="${ty}" text-anchor="end" font-size="9" fill="${labelColor}">${escapeHtml(String(label))}</text>
+        `;
+      }).join('');
+
+      return `
+        <div class="tb-chart" aria-hidden="true">
+          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="split">
+        <div class="card">
+          <h3>Piores</h3>
+          <div class="tb-card">
+            <div class="tb-list"><ul>${left}</ul></div>
+            ${renderMiniBars(weakest, '--muted', valueSuffix)}
+          </div>
+        </div>
+        <div class="card">
+          <h3>Melhores</h3>
+          <div class="tb-card">
+            <div class="tb-list"><ul>${right}</ul></div>
+            ${renderMiniBars(strongest, '--primary', valueSuffix)}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderIndicators(data){
+    if (!indicatorsBoxEl) return;
+    const s = data && data.indicatorsSummary ? data.indicatorsSummary : null;
+    if (!s) { indicatorsBoxEl.innerHTML = '<span class="muted">Sem indicadores no payload</span>'; return; }
+
+    const parts = [];
+    parts.push(`<div class="kv"><span class="k">IND1</span><span class="v">Exames completos (${escapeHtml(String(s.IND1?.days ?? '—'))}d): ${escapeHtml(String(s.IND1?.totalExams ?? '—'))}</span></div>`);
+    parts.push(`<div class="kv"><span class="k">IND2</span><span class="v">Aprovação: ${escapeHtml(fmtPct(s.IND2?.approvalRatePercent))} (n=${escapeHtml(fmtNum(s.IND2?.total))})</span></div>`);
+    parts.push(`<div class="kv"><span class="k">IND3</span><span class="v">Reprovação: ${escapeHtml(fmtPct(s.IND3?.failureRatePercent))} (n=${escapeHtml(fmtNum(s.IND3?.total))})</span></div>`);
+    parts.push(`<div class="kv"><span class="k">IND4</span><span class="v">Questões disponíveis (tipo ${escapeHtml(fmtNum(s.IND4?.examTypeId))}): ${escapeHtml(fmtNum(s.IND4?.questionsAvailable))}</span></div>`);
+    parts.push(`<div class="kv"><span class="k">IND5</span><span class="v">Questões respondidas (tipo ${escapeHtml(fmtNum(s.IND5?.examTypeId))}): ativas ${escapeHtml(fmtNum(s.IND5?.answeredDistinctActive))} / histórico ${escapeHtml(fmtNum(s.IND5?.answeredDistinctHistorical))}</span></div>`);
+    parts.push(`<div class="kv"><span class="k">IND6</span><span class="v">Horas totais (tipo ${escapeHtml(fmtNum(s.IND6?.examTypeId))}): ${escapeHtml(fmtNum(s.IND6?.totalHours))}</span></div>`);
+
+    parts.push(`<div class="kv"><span class="k">IND11</span><span class="v">Tempo médio/questão (${escapeHtml(fmtNum(s.IND11?.days))}d): ${escapeHtml(fmtNum(s.IND11?.avgMinutes))} min (${escapeHtml(fmtNum(s.IND11?.avgSeconds))} s), n=${escapeHtml(fmtNum(s.IND11?.totalQuestions))}</span></div>`);
+
+    parts.push(`<div class="kv"><span class="k">IND7</span><span class="v">Grupos de processo (% corretas)</span></div>`);
+    parts.push(renderTopBottom(s.IND7, '%'));
+
+    parts.push(`<div class="kv"><span class="k">IND9</span><span class="v">Abordagem (% acertos)</span></div>`);
+    parts.push(renderTopBottom(s.IND9, '%'));
+
+    parts.push(`<div class="kv"><span class="k">IND10</span><span class="v">Domínios (melhor simulado, %)</span></div>`);
+    parts.push(renderTopBottom(s.IND10, '%'));
+
+    parts.push(`<div class="kv"><span class="k">IND12</span><span class="v">Domínios agregados (% ponderado)</span></div>`);
+    parts.push(renderTopBottom(s.IND12, '%'));
+
+    indicatorsBoxEl.innerHTML = parts.join('');
+
+    if (indicatorsErrorsEl) {
+      const errs = data && data.meta && Array.isArray(data.meta.indicatorErrors) ? data.meta.indicatorErrors : [];
+      if (errs.length) {
+        indicatorsErrorsEl.style.display = 'block';
+        indicatorsErrorsEl.textContent = 'Falhas ao calcular alguns INDs: ' + errs.map(e => `${e.indicator}: ${e.error}`).join(' | ');
+      } else {
+        indicatorsErrorsEl.style.display = 'none';
+      }
+    }
   }
 
   function escapeHtml(s){
@@ -165,6 +293,7 @@
 
     renderScoreChart(data.timeseries || []);
     renderRatesChart(data.timeseries || []);
+    renderIndicators(data);
 
     // Used Ollama badge
     const badge = document.getElementById('ollamaBadge');
@@ -203,7 +332,19 @@
         credentials: 'include',
         cache: 'no-store',
       });
-      if (!resp.ok) throw new Error('Falha na resposta');
+      if (!resp.ok) {
+        let payload = null;
+        try {
+          payload = await resp.clone().json();
+        } catch(_) {
+          // ignore
+        }
+        const msg = payload && (payload.message || payload.code)
+          ? `${payload.code || resp.status}: ${payload.message || 'Erro'}`
+          : `${resp.status}: Falha na resposta`;
+        const rid = payload && payload.requestId ? ` (requestId=${payload.requestId})` : '';
+        throw new Error(msg + rid);
+      }
       const data = await resp.json();
       render(data);
     } catch(e) {

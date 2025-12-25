@@ -1,6 +1,6 @@
 param(
   [int]$OllamaTimeoutMs = 60000,
-  [int]$OllamaInsightsTimeoutMs = 180000
+  [int]$OllamaInsightsTimeoutMs = 720000
 )
 
 $env:OLLAMA_TIMEOUT_MS = "$OllamaTimeoutMs"

@@ -1,5 +1,38 @@
 const { logger } = require('../utils/logger');
 
+let UndiciAgent = null;
+try {
+  // Node's built-in fetch is powered by undici and supports the `dispatcher` option.
+  // Using an Agent lets us control headers/body timeouts that otherwise can fire
+  // before our AbortController timeout.
+  // eslint-disable-next-line global-require
+  ({ Agent: UndiciAgent } = require('undici'));
+} catch {
+  UndiciAgent = null;
+}
+
+const dispatcherCache = new Map();
+
+function getUndiciTimeouts(timeoutMs) {
+  const t = Number(timeoutMs);
+  const base = Number.isFinite(t) ? t : 20000;
+  // Add a small cushion so undici doesn't win the race against our AbortController.
+  const cushionMs = 5000;
+  const headersTimeoutMs = Math.max(5000, base + cushionMs);
+  const bodyTimeoutMs = Math.max(5000, base + cushionMs);
+  return { headersTimeoutMs, bodyTimeoutMs };
+}
+
+function getUndiciDispatcher(timeoutMs) {
+  if (!UndiciAgent) return null;
+  const { headersTimeoutMs, bodyTimeoutMs } = getUndiciTimeouts(timeoutMs);
+  const key = `${headersTimeoutMs}:${bodyTimeoutMs}`;
+  if (dispatcherCache.has(key)) return dispatcherCache.get(key);
+  const dispatcher = new UndiciAgent({ headersTimeout: headersTimeoutMs, bodyTimeout: bodyTimeoutMs });
+  dispatcherCache.set(key, dispatcher);
+  return dispatcher;
+}
+
 function getEnv(name, fallback) {
   const v = process.env[name];
   return (v == null || String(v).trim() === '') ? fallback : String(v).trim();
@@ -23,16 +56,67 @@ function stripCodeFences(text) {
     .trim();
 }
 
+function extractFirstJsonValue(text) {
+  const s = String(text || '');
+  const firstObj = s.indexOf('{');
+  const firstArr = s.indexOf('[');
+  const start = (firstObj === -1)
+    ? firstArr
+    : (firstArr === -1 ? firstObj : Math.min(firstObj, firstArr));
+  if (start === -1) return null;
+
+  const stack = [];
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === '{' || ch === '[') {
+      stack.push(ch);
+      continue;
+    }
+
+    if (ch === '}' || ch === ']') {
+      const last = stack[stack.length - 1];
+      const matches = (last === '{' && ch === '}') || (last === '[' && ch === ']');
+      if (matches) stack.pop();
+      if (stack.length === 0) {
+        return s.slice(start, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
 function tryParseJsonLenient(text) {
-  const cleaned = stripCodeFences(text);
+  const cleaned = stripCodeFences(text).replace(/^\uFEFF/, '');
   const candidates = [];
   if (cleaned) candidates.push(cleaned);
 
-  const firstObj = cleaned.indexOf('{');
-  const lastObj = cleaned.lastIndexOf('}');
-  if (firstObj !== -1 && lastObj !== -1 && lastObj > firstObj) {
-    candidates.push(cleaned.slice(firstObj, lastObj + 1));
-  }
+  const extracted = extractFirstJsonValue(cleaned);
+  if (extracted) candidates.push(extracted);
 
   for (const cand of candidates) {
     // 1) strict parse
@@ -58,7 +142,12 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
+    const fetchOptions = { ...options, signal: controller.signal };
+    if (!fetchOptions.dispatcher) {
+      const dispatcher = getUndiciDispatcher(timeoutMs);
+      if (dispatcher) fetchOptions.dispatcher = dispatcher;
+    }
+    const res = await fetch(url, fetchOptions);
     return res;
   } catch (err) {
     const msg = err && err.message ? String(err.message) : '';
@@ -67,6 +156,40 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
       const e = new Error(`Timeout após ${timeoutMs}ms`);
       e.cause = err;
       throw e;
+    }
+
+    // Undici-specific timeouts can fire before AbortController if not configured.
+    try {
+      const code = err && err.code ? String(err.code) : (err && err.cause && err.cause.code ? String(err.cause.code) : null);
+      if (code === 'UND_ERR_HEADERS_TIMEOUT') {
+        const { headersTimeoutMs } = getUndiciTimeouts(timeoutMs);
+        const e = new Error(`Timeout ao aguardar headers do Ollama (undici) após ~${headersTimeoutMs}ms`);
+        e.cause = err;
+        throw e;
+      }
+      if (code === 'UND_ERR_BODY_TIMEOUT') {
+        const { bodyTimeoutMs } = getUndiciTimeouts(timeoutMs);
+        const e = new Error(`Timeout ao receber body do Ollama (undici) após ~${bodyTimeoutMs}ms`);
+        e.cause = err;
+        throw e;
+      }
+    } catch (e) {
+      if (e && e.message && e.message !== msg) throw e;
+    }
+
+    // Enrich typical Node/undici network failures (e.g. ECONNREFUSED)
+    try {
+      const cause = err && err.cause ? err.cause : null;
+      const code = cause && cause.code ? String(cause.code) : (err && err.code ? String(err.code) : null);
+      const causeMsg = cause && cause.message ? String(cause.message) : null;
+      const extra = [code, causeMsg].filter(Boolean).join(' - ');
+      if (extra) {
+        const e = new Error(`${msg || 'fetch failed'} (${extra})`);
+        e.cause = err;
+        throw e;
+      }
+    } catch (e) {
+      if (e && e.message && e.message !== msg) throw e;
     }
     throw err;
   } finally {
@@ -93,7 +216,7 @@ async function chat({ model, messages, format = undefined, options = undefined, 
   if (options) body.options = options;
 
   // Local inference can be slow on some machines; keep this conservative but practical.
-  const envTimeoutMs = getEnvInt('OLLAMA_TIMEOUT_MS', 60000, { min: 5000, max: 300000 });
+  const envTimeoutMs = getEnvInt('OLLAMA_TIMEOUT_MS', 60000, { min: 5000, max: 900000 });
   const effectiveTimeoutMs = Number.isFinite(Number(timeoutMs)) ? Number(timeoutMs) : envTimeoutMs;
 
   const res = await fetchWithTimeout(url, {
@@ -110,16 +233,29 @@ async function chat({ model, messages, format = undefined, options = undefined, 
   return res.json();
 }
 
-async function generateJsonInsights({ context, kpis, timeseries }) {
+async function generateJsonInsights({ context, kpis, timeseries, indicators = undefined }) {
   if (!isEnabled()) {
-    return { usedOllama: false, insights: null };
+    return { usedOllama: false, insights: null, insightsTimeoutMs: null };
   }
 
   const insightsTimeoutMs = getEnvInt(
     'OLLAMA_INSIGHTS_TIMEOUT_MS',
-    getEnvInt('OLLAMA_TIMEOUT_MS', 60000, { min: 5000, max: 300000 }),
-    { min: 5000, max: 300000 }
+    getEnvInt('OLLAMA_TIMEOUT_MS', 60000, { min: 5000, max: 900000 }),
+    { min: 5000, max: 900000 }
   );
+
+  const debugTimeouts = {
+    env: {
+      OLLAMA_TIMEOUT_MS: process.env.OLLAMA_TIMEOUT_MS || null,
+      OLLAMA_INSIGHTS_TIMEOUT_MS: process.env.OLLAMA_INSIGHTS_TIMEOUT_MS || null,
+      OLLAMA_URL: process.env.OLLAMA_URL || null,
+      OLLAMA_MODEL: process.env.OLLAMA_MODEL || null,
+    },
+    computed: {
+      insightsTimeoutMs,
+      undici: getUndiciTimeouts(insightsTimeoutMs),
+    },
+  };
 
   const system = {
     role: 'system',
@@ -141,6 +277,7 @@ async function generateJsonInsights({ context, kpis, timeseries }) {
       context,
       kpis,
       timeseries,
+      indicators,
       outputSchema: {
         headline: 'string curta (<= 90 chars)',
         insights: 'array 3-5 strings (<= 120 chars cada)',
@@ -161,17 +298,17 @@ async function generateJsonInsights({ context, kpis, timeseries }) {
       format: 'json',
       // Keep Insights snappy: prefer quick fallback over long waits.
       timeoutMs: insightsTimeoutMs,
-      options: { num_predict: 160, temperature: 0.1 },
+      options: { num_predict: 240, temperature: 0.1 },
     });
     const content = resp && resp.message && resp.message.content ? resp.message.content : '';
     const parsed = tryParseJsonLenient(content);
     if (!parsed) {
       throw new Error('Resposta do Ollama não é JSON válido');
     }
-    return { usedOllama: true, insights: parsed, model: resp.model || null };
+    return { usedOllama: true, insights: parsed, model: resp.model || null, insightsTimeoutMs, debugTimeouts };
   } catch (err) {
     logger.warn(`Falha ao gerar insights via Ollama; usando fallback (${err.message})`, { error: err.message });
-    return { usedOllama: false, insights: null };
+    return { usedOllama: false, insights: null, insightsTimeoutMs, debugTimeouts, error: err && err.message ? String(err.message) : 'Erro' };
   }
 }
 

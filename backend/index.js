@@ -5,7 +5,20 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
-require('dotenv').config();
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load backend/.env explicitly (independent of process.cwd())
+// and override only OLLAMA_* keys so timeouts don't get stuck due to
+// previously-set Windows/terminal environment variables.
+const dotenvResult = dotenv.config({ path: path.resolve(__dirname, '.env') });
+if (dotenvResult && dotenvResult.parsed) {
+	for (const [key, value] of Object.entries(dotenvResult.parsed)) {
+		if (key && key.startsWith('OLLAMA_')) {
+			process.env[key] = String(value);
+		}
+	}
+}
 
 // Initialize structured logging system
 const { logger } = require('./utils/logger');
@@ -127,7 +140,6 @@ app.use(`${API_BASE}`, (req, res, next) => {
 
 // Serve frontend estático: sirva dist (se existir) primeiro para assets otimizados,
 // mas mantenha a pasta frontend como fallback para HTML e demais arquivos.
-const path = require('path');
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const fs = require('fs');

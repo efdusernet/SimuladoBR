@@ -69,6 +69,107 @@ function computeTrend(last, prev) {
   return a - b;
 }
 
+function parseBrazilianDateToLocalMidnight(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const s10 = raw.length >= 10 ? raw.slice(0, 10) : raw;
+  const m = s10.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const dd = Number(m[1]);
+  const mm = Number(m[2]);
+  const yyyy = Number(m[3]);
+  if (!Number.isFinite(dd) || !Number.isFinite(mm) || !Number.isFinite(yyyy)) return null;
+  const dt = new Date(yyyy, mm - 1, dd);
+  if (dt.getFullYear() !== yyyy || dt.getMonth() !== (mm - 1) || dt.getDate() !== dd) return null;
+  dt.setHours(0, 0, 0, 0);
+  return dt;
+}
+
+function getLocalMidnightNow() {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return now;
+}
+
+function addUnique(list, item) {
+  const arr = Array.isArray(list) ? list : [];
+  if (!item) return arr;
+  const s = String(item).trim();
+  if (!s) return arr;
+  const norm = (x) => String(x || '').trim().toLowerCase();
+  const seen = new Set(arr.map(norm));
+  if (seen.has(norm(s))) return arr;
+  return [...arr, s];
+}
+
+function buildKpiCommentary({ kpis, examInfo }) {
+  const parts = [];
+  const completionPct = Math.round((Number(kpis.completionRate || 0) * 100) * 10) / 10;
+  if (Number.isFinite(completionPct)) {
+    if (completionPct >= 80) {
+      parts.push(`Taxa de conclusão de ${completionPct}%: ótimo sinal — você está finalizando a maioria dos simulados iniciados, o que gera um histórico confiável.`);
+    } else if (completionPct >= 50) {
+      parts.push(`Taxa de conclusão de ${completionPct}%: razoável, mas ainda há espaço para melhorar consistência (finalizar o que começa).`);
+    } else {
+      parts.push(`Taxa de conclusão de ${completionPct}%: baixa — isso significa que muitos simulados iniciados não são finalizados, o que prejudica a consolidação e a leitura real do seu nível.`);
+    }
+  }
+
+  const avg = kpis.avgScorePercent;
+  if (avg != null && Number.isFinite(Number(avg))) {
+    const a = Math.round(Number(avg) * 10) / 10;
+    if (a >= 80) parts.push(`Score médio de ${a}%: forte; foque em reduzir variação e manter consistência.`);
+    else if (a >= 70) parts.push(`Score médio de ${a}%: perto do patamar de aprovação; revisão dirigida pode destravar os pontos finais.`);
+    else parts.push(`Score médio de ${a}%: sugere reforçar base e revisar erros antes de priorizar volume.`);
+  }
+
+  if (examInfo && examInfo.examDateRaw && examInfo.daysToExam != null && examInfo.daysToExam >= 0) {
+    parts.push(`Sua data prevista de exame está em ${examInfo.daysToExam} dia(s) (${examInfo.examDateRaw}).`);
+  }
+
+  return parts.join(' ');
+}
+
+function enrichAiWithRules(ai, { kpis, examInfo }) {
+  const out = ai && typeof ai === 'object' ? { ...ai } : {};
+  out.insights = Array.isArray(out.insights) ? out.insights.slice() : [];
+  out.risks = Array.isArray(out.risks) ? out.risks.slice() : [];
+  out.actions7d = Array.isArray(out.actions7d) ? out.actions7d.slice() : [];
+
+  const completionPct = Number(kpis.completionRate || 0) * 100;
+  const completionPct1 = Math.round(completionPct * 10) / 10;
+  const examSoon = examInfo && examInfo.daysToExam != null && examInfo.daysToExam >= 0 && examInfo.daysToExam <= 60;
+
+  // Comentário útil sobre os números (evita ficar só "o número")
+  const commentary = buildKpiCommentary({ kpis, examInfo });
+  if (commentary) {
+    const hasKpiComment = out.insights.some(s => /taxa de conclus|score m[ée]dio|data prevista de exame/i.test(String(s || '')));
+    if (!hasKpiComment) out.insights = addUnique(out.insights, commentary);
+  }
+
+  // Alertas: baixa conclusão deve aparecer como risco
+  if (completionPct < 60) {
+    out.risks = addUnique(out.risks, `Baixa taxa de conclusão (${completionPct1}%): priorize finalizar os simulados iniciados para ganhar consistência e dados confiáveis.`);
+  }
+
+  // Deadline: se exame em <= 2 meses + conclusão muito baixa => risco de prazo
+  if (examSoon && completionPct < 30) {
+    out.risks = addUnique(
+      out.risks,
+      `Risco de prazo: seu exame está em ~${examInfo.daysToExam} dia(s) (${examInfo.examDateRaw}) e sua taxa de conclusão está em ${completionPct1}%. Nesse ritmo, há risco de não consolidar o conhecimento a tempo.`
+    );
+  }
+
+  // Ação sugerida: meta de taxa de conclusão
+  let target = Math.round(Math.min(90, Math.max(30, completionPct + 20)));
+  if (examSoon) target = Math.round(Math.min(90, Math.max(target, 50)));
+  if (target > Math.round(completionPct)) {
+    out.actions7d = addUnique(out.actions7d, `Aumentar taxa de conclusão para ${target}% (próximos 7 dias).`);
+  }
+
+  return out;
+}
+
 function buildFallbackInsights({ kpis, trendDelta }) {
   const insights = [];
   const risks = [];
@@ -156,9 +257,10 @@ async function getInsightsDashboard(req, res, next) {
     const indicatorTimings = indicatorResults.map(r => ({ indicator: r.name, ok: r.ok, ms: r.ms }));
 
     const userStatsService = buildUserStatsService(db);
-    const [summary, daily] = await Promise.all([
+    const [summary, daily, userRow] = await Promise.all([
       userStatsService.getSummary(userId, days),
       userStatsService.getDailyStats(userId, days),
+      db.User ? db.User.findByPk(userId, { attributes: ['DataExame'] }) : Promise.resolve(null),
     ]);
 
     const series = (daily || []).map(r => ({
@@ -203,10 +305,21 @@ async function getInsightsDashboard(req, res, next) {
       trendDeltaScore7d: trendDelta,
     };
 
+    const examDateRaw = userRow && userRow.DataExame ? String(userRow.DataExame) : null;
+    const examDateLocal = parseBrazilianDateToLocalMidnight(examDateRaw);
+    const todayLocal = getLocalMidnightNow();
+    const daysToExam = examDateLocal ? Math.round((examDateLocal.getTime() - todayLocal.getTime()) / (24 * 60 * 60 * 1000)) : null;
+    const examInfo = {
+      examDateRaw: examDateRaw || null,
+      daysToExam: Number.isFinite(daysToExam) ? daysToExam : null,
+    };
+
     const context = {
       app: 'SimuladosBR',
       userId,
       periodDays: days,
+      examDate: examInfo.examDateRaw,
+      daysToExam: examInfo.daysToExam,
       note: 'Dados agregados por dia; inclui indicadores IND1..IND7 e IND9..IND12 (valores resumidos); não inclui texto das questões.',
       indicatorParams: {
         ind10ExamMode: 'best',
@@ -238,7 +351,8 @@ async function getInsightsDashboard(req, res, next) {
     };
 
     const ollama = await generateJsonInsights({ context, kpis, timeseries: timeseriesForAi, indicators: indicatorsSummary });
-    const ai = ollama.insights || buildFallbackInsights({ kpis, trendDelta });
+    const baseAi = ollama.insights || buildFallbackInsights({ kpis, trendDelta });
+    const ai = enrichAiWithRules(baseAi, { kpis, examInfo });
 
     return res.json({
       success: true,

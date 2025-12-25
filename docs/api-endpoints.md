@@ -21,6 +21,30 @@ Retorna um “dashboard” de insights: KPIs agregados do período + série diá
 - Observações:
   - Não envia texto de questões ao modelo (apenas métricas agregadas)
   - Pode ser usado diretamente pela página `frontend/pages/InsightsIA.html`
+  - Regras adicionais (server-side, além do que a IA possa retornar):
+    - Sempre adiciona um comentário contextual sobre KPIs (ex.: o que significa a **taxa de conclusão** no contexto).
+    - Se `kpis.completionRate < 0.60`, garante um alerta em `ai.risks` para **baixa taxa de conclusão**.
+    - Se o usuário tiver `Usuario.data_exame` preenchido (formato `dd/mm/yyyy`) e o exame estiver em **menos de 75 dias**, adiciona um alerta de **prazo curto** que prioriza os riscos.
+    - Se o exame estiver em **menos de 75 dias** e `kpis.completionRate < 0.30`, adiciona `ai.risks` com **risco de prazo**.
+    - Inclui em `ai.actions7d` uma ação do tipo: **"Aumentar taxa de conclusão para X% (próximos 7 dias)"**.
+
+## GET /api/users/me
+Retorna dados básicos do usuário autenticado.
+
+- Auth: `X-Session-Token`
+- Response (sucesso): inclui `DataExame` quando disponível.
+
+## PUT /api/users/me/exam-date
+Atualiza a data prevista do exame real do próprio usuário.
+
+- Auth: `X-Session-Token`
+- CSRF: obrigatório (header `X-CSRF-Token`) por ser método state-changing.
+- Body: `{ data_exame: "dd/mm/yyyy" }` (aceita também `DataExame` / `dataExame`)
+- Validações:
+  - Formato obrigatório `dd/mm/yyyy`.
+  - Data válida de calendário (ex.: 31/02 inválido).
+  - **Não permite data no passado**.
+- Response (sucesso): `{ success: true, DataExame }`
 
 ## POST /api/admin/exams/fixture-attempt
 Cria uma tentativa finalizada artificial ("fixture") para testes e estatísticas sem processo de resposta manual.

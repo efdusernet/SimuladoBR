@@ -277,6 +277,12 @@ const examSchemas = {
         'any.required': 'Respostas são obrigatórias'
       })
   }),
+
+  checkAnswer: Joi.object({
+    questionId: commonSchemas.questionId.required(),
+    optionId: Joi.number().integer().positive().optional(),
+    optionIds: Joi.array().items(Joi.number().integer().positive()).optional(),
+  }),
   
   startOnDemand: Joi.object({
     examTypeId: commonSchemas.examTypeId,

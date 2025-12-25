@@ -692,11 +692,15 @@
                     return !!(EXAM_BP && EXAM_BP.multiplaSelecao);
                   })();
                   if (isMulti) {
-                    const optionIds = Array.isArray(a && a.optionIds) ? a.optionIds.map(Number).filter(n => Number.isFinite(n)) : [];
-                    answers.push({ questionId, optionIds });
+                    const optionIds = Array.isArray(a && a.optionIds) ? a.optionIds.map(Number).filter(n => Number.isFinite(n) && n > 0) : [];
+                    const obj = { questionId };
+                    if (optionIds.length) obj.optionIds = optionIds;
+                    answers.push(obj);
                   } else {
-                    const optionId = a && a.optionId ? Number(a.optionId) : null;
-                    answers.push({ questionId, optionId });
+                    const optionId = (a && a.optionId != null && String(a.optionId).trim() !== '') ? Number(a.optionId) : null;
+                    const obj = { questionId };
+                    if (Number.isFinite(optionId) && optionId > 0) obj.optionId = optionId;
+                    answers.push(obj);
                   }
                 }
 
@@ -1036,6 +1040,160 @@
               if (cont) cont.addEventListener('click', nextQuestion);
               const back = $('backBtn');
               if (back) back.addEventListener('click', prevQuestion);
+
+              // Botão: Conferir resposta
+              (function initCheckAnswer(){
+                const btn = document.getElementById('checkAnswerBtn');
+                if (!btn) return;
+
+                function bump(){
+                  try {
+                    btn.classList.remove('btn-bump');
+                    // force reflow to restart animation
+                    void btn.offsetWidth;
+                    btn.classList.add('btn-bump');
+                    setTimeout(()=>{ try{ btn.classList.remove('btn-bump'); } catch(_){ } }, 260);
+                  } catch(_){ }
+                }
+
+                function clearFeedback(ac){
+                  try {
+                    const wraps = ac ? Array.from(ac.querySelectorAll('.option')) : [];
+                    wraps.forEach(w => {
+                      w.classList.remove('ans-correct','ans-wrong','reveal-correct');
+                      const exp = w.querySelector('.opt-expl');
+                      if (exp) exp.remove();
+                    });
+                  } catch(_){ }
+                }
+
+                function addExplanationToWrap(wrap, text){
+                  try {
+                    if (!wrap) return;
+                    const exp = String(text || '').trim();
+                    if (!exp) return;
+                    const el = document.createElement('div');
+                    el.className = 'opt-expl';
+                    el.innerHTML = `<strong>Explicação:</strong> ${exp}`;
+                    wrap.appendChild(el);
+                  } catch(_){ }
+                }
+
+                async function handleClick(){
+                  bump();
+                  try {
+                    const q = QUESTIONS[currentIdx];
+                    if (!q || q.id == null) { try { showToast('Questão inválida.'); } catch(_){} return; }
+
+                    const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${currentIdx}`;
+                    const a = ANSWERS[qKey] || null;
+
+                    const isMulti = (function(){
+                      try {
+                        if (q && typeof q.type === 'string') {
+                          const t = q.type.toLowerCase();
+                          if (t === 'checkbox' || t === 'multi' || t === 'multiple') return true;
+                          if (t === 'radio' || t === 'single') return false;
+                        }
+                      } catch(_){ }
+                      return !!(EXAM_BP && EXAM_BP.multiplaSelecao);
+                    })();
+
+                    const payload = { questionId: Number(q.id) };
+                    if (isMulti) {
+                      const ids = Array.isArray(a && a.optionIds) ? a.optionIds.map(Number).filter(n => Number.isFinite(n) && n > 0) : [];
+                      if (ids.length) payload.optionIds = ids;
+                    } else {
+                      const id = (a && a.optionId != null && String(a.optionId).trim() !== '') ? Number(a.optionId) : null;
+                      if (Number.isFinite(id) && id > 0) payload.optionId = id;
+                    }
+
+                    const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const url = baseUrl.replace(/\/$/, '') + '/api/exams/check-answer';
+
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const jwtTok = (localStorage.getItem('jwt')||'').trim();
+                    const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim() || 'Bearer';
+
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (token) headers['X-Session-Token'] = token;
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                    const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload), credentials: 'include' });
+                    if (!resp.ok) {
+                      const data = await resp.json().catch(()=>({}));
+                      throw new Error(data && data.error ? data.error : ('Falha ao conferir resposta (' + resp.status + ')'));
+                    }
+                    const data = await resp.json();
+
+                    const ac = document.getElementById('answersContainer');
+                    if (!ac) return;
+                    clearFeedback(ac);
+
+                    const correctIds = Array.isArray(data && data.correctOptionIds) ? data.correctOptionIds.map(String) : [];
+                    const explanations = (data && data.explanations && typeof data.explanations === 'object') ? data.explanations : {};
+
+                    // mark correct option(s) and show explanations
+                    const wraps = Array.from(ac.querySelectorAll('.option'));
+                    wraps.forEach(wrap => {
+                      const input = wrap.querySelector('input');
+                      const oid = input && input.dataset ? String(input.dataset.optionId || '') : '';
+                      if (!oid) return;
+
+                      // explanation label under each option (if present)
+                      const exp = explanations[oid];
+                      if (exp) addExplanationToWrap(wrap, exp);
+
+                      if (correctIds.includes(oid)) {
+                        wrap.classList.add('ans-correct','reveal-correct');
+                        // visually mark the correct option as checked (does not change stored ANSWERS)
+                        try { if (input) input.checked = true; } catch(_){ }
+                      }
+                    });
+
+                    if (data && data.isCorrect === true) {
+                      try { showToast('Acertou!', 1400); } catch(_){ }
+                      return;
+                    }
+
+                    // If user had marked wrong, disregard (clear stored answer)
+                    try {
+                      ANSWERS[qKey] = { disregarded: true };
+                      saveAnswersForCurrentSession();
+                    } catch(_){ }
+
+                    // Also clear user selection in UI (wrong selections)
+                    try {
+                      const inputs = Array.from(ac.querySelectorAll('input'));
+                      inputs.forEach(inp => {
+                        const oid = inp && inp.dataset ? String(inp.dataset.optionId || '') : '';
+                        if (!correctIds.includes(oid)) inp.checked = false;
+                      });
+                    } catch(_){ }
+
+                    // allow continue even if nothing selected (unless pause/checkpoint gate)
+                    try {
+                      const contBtn = $('continueBtn');
+                      if (contBtn) {
+                        const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                        const isCheckpoint = cps.includes(currentIdx);
+                        const isExtraGate = (currentIdx === 59 || currentIdx === 119);
+                        const allowOverride = isContinueOverrideEnabled();
+                        const inPause = isPauseActive();
+                        const gate = (isCheckpoint || isExtraGate) && !allowOverride;
+                        contBtn.disabled = inPause || gate;
+                      }
+                    } catch(_){ }
+
+                    try { showToast('Resposta desconsiderada.', 1600); } catch(_){ }
+                  } catch (e) {
+                    try { logger.warn('[exam] checkAnswer failed', e); } catch(_){ }
+                    try { showToast(String(e && e.message ? e.message : 'Erro ao conferir resposta.'), 2000, true); } catch(_){ }
+                  }
+                }
+
+                btn.addEventListener('click', handleClick);
+              })();
               const form = document.querySelector('#answersForm'); if (form) form.addEventListener('submit', (e)=> e.preventDefault());
 
               // Toggle de destaque (vermelho) da questão atual, persistido em localStorage por sessão

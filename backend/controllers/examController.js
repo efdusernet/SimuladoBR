@@ -1174,6 +1174,86 @@ exports.pauseStatus = async (req, res, next) => {
   }
 };
 
+// POST /api/exams/check-answer
+// Body: { questionId, optionId?, optionIds? }
+// Returns: { questionId, correctOptionIds: number[], isCorrect: boolean, explanations: { [optionId]: string|null } }
+// Note: This endpoint reveals correct answers by design (requested by UI).
+exports.checkAnswer = async (req, res, next) => {
+  try {
+    const questionId = Number(req.body && req.body.questionId);
+    if (!Number.isFinite(questionId) || questionId <= 0) return next(badRequest('invalid questionId', 'INVALID_QUESTION_ID'));
+
+    const selectedSingle = req.body && req.body.optionId != null ? Number(req.body.optionId) : null;
+    const selectedMulti = Array.isArray(req.body && req.body.optionIds)
+      ? req.body.optionIds.map(Number).filter(n => Number.isFinite(n) && n > 0)
+      : null;
+
+    // Load options for the question, include correctness flag and latest explanation per option
+    const sql = `
+      SELECT ro.id AS id,
+             ro.idquestao AS idquestao,
+             ro.iscorreta AS correta,
+             eg.descricao AS explicacao
+        FROM respostaopcao ro
+        LEFT JOIN LATERAL (
+          SELECT e1.descricao
+            FROM explicacaoguia e1
+           WHERE e1.idrespostaopcao = ro.id
+             AND (e1.excluido = FALSE OR e1.excluido IS NULL)
+           ORDER BY e1.id DESC
+           LIMIT 1
+        ) eg ON TRUE
+       WHERE ro.idquestao = :qid
+         AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+       ORDER BY ro.id ASC
+    `;
+
+    const rows = await sequelize.query(sql, {
+      replacements: { qid: questionId },
+      type: sequelize.QueryTypes.SELECT,
+    });
+
+    if (!rows || !rows.length) return next(notFound('question/options not found', 'QUESTION_OPTIONS_NOT_FOUND'));
+
+    const correctOptionIds = rows
+      .filter(r => (r.correta === true || r.correta === 't' || r.correta === 1 || r.correta === '1'))
+      .map(r => Number(r.id))
+      .filter(n => Number.isFinite(n) && n > 0);
+
+    const explanations = {};
+    rows.forEach(r => {
+      const id = Number(r.id);
+      if (!Number.isFinite(id) || id <= 0) return;
+      explanations[String(id)] = (r.explicacao == null) ? null : String(r.explicacao);
+    });
+
+    // Determine correctness
+    let isCorrect = false;
+    if (selectedMulti && selectedMulti.length) {
+      const selSet = new Set(selectedMulti.map(String));
+      const corrSet = new Set(correctOptionIds.map(String));
+      if (selSet.size === corrSet.size) {
+        isCorrect = true;
+        for (const v of selSet) {
+          if (!corrSet.has(v)) { isCorrect = false; break; }
+        }
+      }
+    } else if (selectedSingle != null && Number.isFinite(selectedSingle) && selectedSingle > 0) {
+      isCorrect = correctOptionIds.map(String).includes(String(selectedSingle));
+    }
+
+    return res.json({
+      questionId,
+      correctOptionIds,
+      isCorrect,
+      explanations,
+    });
+  } catch (err) {
+    logger.error('Erro checkAnswer:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_CHECK_ANSWER'));
+  }
+};
+
 // POST /api/exams/resume
 // Body: { sessionId?: string, attemptId?: number }
 // Rebuilds in-memory session state after server restart, using DB as source of truth

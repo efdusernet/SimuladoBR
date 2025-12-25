@@ -1674,15 +1674,25 @@ exports.getAttemptResult = async (req, res, next) => {
     const aqIdByQ = new Map(aqRows.map(r => [Number(r.QuestionId), Number(r.Id)]));
     const total = questionIds.length;
 
-    // Fetch options with correctness flags
+    // Fetch options with correctness flags + per-option explanation (explicacaoguia.descricao)
     let rawOptions = [];
     if (questionIds.length) {
       try {
         rawOptions = await sequelize.query(
-          `SELECT id, idquestao, descricao, iscorreta
-             FROM respostaopcao
-            WHERE (excluido = false OR excluido IS NULL) AND idquestao IN (:ids)
-            ORDER BY idquestao, id`,
+          `SELECT ro.id, ro.idquestao, ro.descricao, ro.iscorreta,
+                  eg.descricao AS explicacao
+             FROM respostaopcao ro
+             LEFT JOIN LATERAL (
+               SELECT e1.descricao
+                 FROM explicacaoguia e1
+                WHERE e1.idrespostaopcao = ro.id
+                  AND (e1.excluido = false OR e1.excluido IS NULL)
+                ORDER BY e1.dataalteracao DESC NULLS LAST, e1.datacadastro DESC NULLS LAST, e1.id DESC
+                LIMIT 1
+             ) eg ON TRUE
+            WHERE (ro.excluido = false OR ro.excluido IS NULL)
+              AND ro.idquestao IN (:ids)
+            ORDER BY ro.idquestao, ro.id`,
           { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
         );
       } catch(_) { rawOptions = []; }
@@ -1692,7 +1702,15 @@ exports.getAttemptResult = async (req, res, next) => {
       const qid = Number(o.idquestao || o.IdQuestao);
       if (!Number.isFinite(qid)) return;
       const arr = optsByQ.get(qid) || [];
-      arr.push({ id: Number(o.id || o.Id), texto: o.descricao || o.Descricao || '', descricao: o.descricao || o.Descricao || '', isCorrect: !!(o.iscorreta || o.IsCorreta), correta: !!(o.iscorreta || o.IsCorreta) });
+      const explicacao = (o.explicacao != null && String(o.explicacao).trim() !== '') ? String(o.explicacao) : null;
+      arr.push({
+        id: Number(o.id || o.Id),
+        texto: o.descricao || o.Descricao || '',
+        descricao: o.descricao || o.Descricao || '',
+        explicacao,
+        isCorrect: !!(o.iscorreta || o.IsCorreta),
+        correta: !!(o.iscorreta || o.IsCorreta)
+      });
       optsByQ.set(qid, arr);
     });
 

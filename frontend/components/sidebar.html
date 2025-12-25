@@ -2788,6 +2788,14 @@
               if (modal) {
                 modal.style.display = 'flex';
                 modal.setAttribute('aria-hidden', 'false');
+              } else {
+                // Estamos fora do index.html (ex.: InsightsIA.html). Persistir estado e ir para o index,
+                // onde o card-progresso-geral e o modal existem.
+                try {
+                  sessionStorage.setItem('currentSection', 'simulados');
+                  sessionStorage.setItem('currentSubsection', 'historico');
+                } catch(_){ }
+                (window.top || window).location.assign('/index.html');
               }
             }
           }

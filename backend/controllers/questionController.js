@@ -98,13 +98,13 @@ exports.createQuestion = async (req, res, next) => {
 		const insertQ = `INSERT INTO public.questao (
 			iddominio, idstatus, descricao, datacadastro, dataalteracao,
 			criadousuario, alteradousuario, excluido, seed, nivel,
-			idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame
+			idprincipio, dica, multiplaescolha, codigocategoria, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame
 		) VALUES (
 			:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 			:createdByUserId, :createdByUserId, false, :seed, 1,
-			:idprincipio, :dica, :multipla, :codigocategoria, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame
+			:idprincipio, :dica, :multipla, :codigocategoria, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame
 		) RETURNING id`;
-		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, seed, codareaconhecimento, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
+		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, seed, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, createdByUserId }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
 			// Safer: fetch with SELECT currval... but RETURNING should give us id in r[0][0].id depending on dialect
 			const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
@@ -214,7 +214,7 @@ exports.getQuestionById = async (req, res, next) => {
 		const id = Number(req.params.id);
 		if (!Number.isFinite(id)) return next(badRequest('invalid id', 'INVALID_ID'));
 
-	const qsql = `SELECT q.id, q.descricao, q.tiposlug, q.iddominio, q.codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
+	const qsql = `SELECT q.id, q.descricao, q.tiposlug, q.iddominio, NULL AS codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
 						 q.seed,
 												 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
 												 q.versao_exame,
@@ -347,7 +347,6 @@ exports.updateQuestion = async (req, res, next) => {
 				multiplaescolha = :multipla,
 				seed = :seed,
 				iddominio = :iddominio,
-				codareaconhecimento = :codareaconhecimento,
 				codgrupoprocesso = :codgrupoprocesso,
 				iddominiogeral = :iddominiogeral,
 				idprincipio = :idprincipio,
@@ -361,7 +360,7 @@ exports.updateQuestion = async (req, res, next) => {
 				alteradousuario = :updatedByUserId,
 				dataalteracao = CURRENT_TIMESTAMP
 			WHERE id = :id`;
-			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+			await sequelize.query(upQ, { replacements: { id, descricao, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
 			// Navegação: atualizar/inserir opções sem checagem dinâmica de colunas
 			try {
@@ -644,7 +643,6 @@ exports.bulkCreateQuestions = async (req, res, next) => {
 					}
 					if (multipla == null) multipla = false;
 				const iddominio = (q.iddominio != null ? Number(q.iddominio) : 1);
-				const codareaconhecimento = (q.codareaconhecimento != null ? Number(q.codareaconhecimento) : null);
 				const codgrupoprocesso = (q.codgrupoprocesso != null ? Number(q.codgrupoprocesso) : null);
 				const iddominiogeral = (q.iddominiogeral != null ? Number(q.iddominiogeral) : null);
 				const id_task = (q.id_task != null ? Number(q.id_task) : null);
@@ -656,13 +654,13 @@ exports.bulkCreateQuestions = async (req, res, next) => {
 				const insertQ = `INSERT INTO public.questao (
 					iddominio, idstatus, descricao, datacadastro, dataalteracao,
 					criadousuario, alteradousuario, excluido, seed, nivel,
-					idprincipio, dica, multiplaescolha, codigocategoria, codareaconhecimento, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, id_task
+					idprincipio, dica, multiplaescolha, codigocategoria, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, id_task
 				) VALUES (
 					:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 					1, 1, false, false, 1,
-					NULL, :dica, :multipla, NULL, :codareaconhecimento, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :id_task
+					NULL, :dica, :multipla, NULL, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :id_task
 				) RETURNING id`;
-				const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codareaconhecimento, codgrupoprocesso, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: examTypeId, iddominiogeral, id_task }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codgrupoprocesso, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: examTypeId, iddominiogeral, id_task }, type: sequelize.QueryTypes.INSERT, transaction: t });
 					const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
 					const qid = insertedRow && insertedRow.id ? Number(insertedRow.id) : null;
 					if (!qid) throw new Error('Could not retrieve question id');

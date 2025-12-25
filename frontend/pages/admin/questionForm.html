@@ -892,7 +892,8 @@
         createdByUserId: sessionUserId
       };
       const token = localStorage.getItem('sessionToken') || '';
-      const url = (BACKEND_BASE || '') + '/api/questions';
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const url = base + '/api/questions';
       $('status').textContent = 'Salvando...';
       const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
       if (!resp.ok){ const t = await resp.text(); $('status').textContent = 'Erro ao salvar: ' + t; return; }
@@ -1206,7 +1207,8 @@
         updatedByUserId: sessionUserIdUpdate
       };
       const token = localStorage.getItem('sessionToken') || '';
-      const url = (BACKEND_BASE || '') + `/api/questions/${id}`;
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const url = base + `/api/questions/${id}`;
       navSetStatus('Salvando...');
       const resp = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
       const txt = await resp.text();
@@ -1260,7 +1262,8 @@
         const examTypeId = ($('examTypeNav').value || '').trim();
         const currentId = navState.currentId;
         if (!descricao || !examTypeId) { return null; }
-        const dupUrl = (BACKEND_BASE||'') + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
+        const base = (BACKEND_BASE || '').replace(/\/$/, '');
+        const dupUrl = base + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
         const tokenDup = localStorage.getItem('sessionToken') || '';
         const resp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
         if (!resp.ok) { return null; }
@@ -1292,7 +1295,8 @@
         const descricao = ($('descricao').value || '').trim();
         const examTypeId = ($('examType').value || '').trim();
         if (!descricao || !examTypeId) { return null; }
-        const dupUrl = (BACKEND_BASE||'') + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
+        const base = (BACKEND_BASE || '').replace(/\/$/, '');
+        const dupUrl = base + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
         const tokenDup = localStorage.getItem('sessionToken') || '';
         const dupResp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
         if (!dupResp.ok) return null;

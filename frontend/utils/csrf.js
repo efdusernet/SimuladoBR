@@ -126,7 +126,9 @@ window.fetch = async function(url, options = {}) {
   // Determine request target
   const urlObj = typeof url === 'string' ? new URL(url, window.location.origin) : url;
   const reqOrigin = urlObj.origin;
-  const reqPath = urlObj.pathname || '';
+  const reqPathRaw = urlObj.pathname || '';
+  // Normalize leading slashes so URLs like "//api/..." are still treated as API calls.
+  const reqPath = reqPathRaw.replace(/^\/+/, '/');
   const isSameOrigin = reqOrigin === window.location.origin;
   const isAPI = reqPath.startsWith('/api/');
 
@@ -147,7 +149,8 @@ window.fetch = async function(url, options = {}) {
   // Inject CSRF for:
   // - Same-origin /api requests
   // - Trusted backend origin requests whose path starts with /api
-  if ((isSameOrigin && isAPI) || (isTrustedBackend && reqPath.startsWith('/api'))) {
+  const shouldInjectCsrf = (isSameOrigin && isAPI) || (isTrustedBackend && reqPath.startsWith('/api'));
+  if (shouldInjectCsrf) {
     try {
       options = await window.csrfManager.addTokenToFetch(url, options);
       // Ensure cookies are sent for backend validation
@@ -157,7 +160,46 @@ window.fetch = async function(url, options = {}) {
     }
   }
 
-  return originalFetch.call(this, url, options);
+  const resp = await originalFetch.call(this, url, options);
+
+  // Auto-recover from in-memory tokenStore resets or token expiry:
+  // If the backend returns 403 with a CSRF_* code, refresh token and retry once.
+  try {
+    const method = String(options.method || 'GET').toUpperCase();
+    const isSafe = ['GET', 'HEAD', 'OPTIONS'].includes(method);
+    const alreadyRetried = options && options.__csrfRetried === true;
+
+    if (shouldInjectCsrf && !isSafe && !alreadyRetried && resp && resp.status === 403) {
+      let csrfCode = null;
+      try {
+        const data = await resp.clone().json();
+        csrfCode = data && data.code ? String(data.code) : null;
+      } catch (_) {
+        // ignore non-JSON 403 bodies
+      }
+
+      if (csrfCode && csrfCode.startsWith('CSRF_')) {
+        logger.warn('[CSRF Wrapper] 403 with CSRF code; refreshing token and retrying once:', csrfCode);
+        const newToken = await window.csrfManager.refresh();
+
+        const headers = new Headers(options.headers || {});
+        if (newToken) headers.set('X-CSRF-Token', newToken);
+
+        const retryOptions = {
+          ...options,
+          headers,
+          credentials: options.credentials || 'include',
+          __csrfRetried: true
+        };
+        return originalFetch.call(this, url, retryOptions);
+      }
+    }
+  } catch (e) {
+    // If refresh/retry fails, return the original response.
+    try { logger.warn('[CSRF Wrapper] CSRF auto-retry failed:', e); } catch (_) {}
+  }
+
+  return resp;
 };
 
 // Initialize on page load

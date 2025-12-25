@@ -19,6 +19,8 @@ router.post('/:sessionId/pause/skip', validate(examSchemas.pauseSession, 'params
 router.get('/:sessionId/pause/status', examController.pauseStatus);
 // Submit answers for grading
 router.post('/submit', validate(examSchemas.submitAnswers), examController.submitAnswers);
+// Check answer and return correct option(s) + per-option explanations
+router.post('/check-answer', validate(examSchemas.checkAnswer), examController.checkAnswer);
 // Rebuild a session in memory from DB after a restart
 router.post('/resume', validate(examSchemas.resumeSession), examController.resumeSession);
 // Stats: last finished attempt summary for gauge

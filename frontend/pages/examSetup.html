@@ -26,6 +26,20 @@
       padding: 16px;
     }
 
+    /*
+      When this page is loaded inside index.html (desktop layout), some global rules can
+      force white text (e.g. selectors using `* { color: #fff !important; }`), making
+      content inside the white container unreadable. Keep this page readable by
+      enforcing intended colors inside the setup container.
+    */
+    .container, .container * { color: #222 !important; }
+    header p { color: #666 !important; }
+    .tab { color: #555 !important; }
+    .tab.active { color: #007bff !important; }
+    .check-btn.active { color: #fff !important; }
+    #startExamBtn { color: #fff !important; }
+    #errorMsg { color: #a23a2a !important; }
+
     header h1 {
       font-size: 1.12rem;
       margin-bottom: 6px;

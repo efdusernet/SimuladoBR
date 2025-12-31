@@ -243,5 +243,112 @@
         }
       ]
     }
+    ,
+    {
+      "name": "AI — Web Context (Admin)",
+      "item": [
+        {
+          "name": "Web Search (Bing/SerpAPI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/web/search?q={{aiWebQuery}}&k={{aiWebK}}",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "web", "search"],
+              "query": [
+                { "key": "q", "value": "{{aiWebQuery}}" },
+                { "key": "k", "value": "{{aiWebK}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/400/401/403', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('success true', ()=> pm.expect(json && json.success).to.eql(true));",
+                  "  const firstUrl = json && json.results && json.results[0] && json.results[0].url ? json.results[0].url : '';",
+                  "  if (firstUrl) pm.environment.set('aiWebFetchUrl', firstUrl);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Web Fetch (safe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"{{aiWebFetchUrl}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/web/fetch",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "web", "fetch"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/500/401/403', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('has page.text', ()=> pm.expect(json && json.page && typeof json.page.text).to.eql('string'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Question Audit (with web context)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": {\n    \"descricao\": \"{{auditDescricao}}\",\n    \"examType\": \"{{auditExamType}}\",\n    \"alternativas\": [\"{{auditAltA}}\", \"{{auditAltB}}\", \"{{auditAltC}}\", \"{{auditAltD}}\"],\n    \"correta\": \"{{auditCorreta}}\"\n  },\n  \"web\": {\n    \"enabled\": true,\n    \"query\": \"{{auditWebQuery}}\",\n    \"maxSources\": {{auditMaxSources}}\n  }\n}"
+            },
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/question-audit",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "question-audit"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/500/400/401/403', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,500]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('success true', ()=> pm.expect(json && json.success).to.eql(true));",
+                  "  pm.test('audit.verdict exists', ()=> pm.expect(json && json.audit && json.audit.verdict).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
   ]
 }

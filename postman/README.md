@@ -4,6 +4,13 @@ Arquivos:
 - `SimuladosBR.postman_collection.json` - Coleção com requests: send-test-email, register, login, verify, fluxos de Exames e grupo Admin — Roles.
 - `SimuladosBR.postman_environment.json` - Environment com variáveis pré-populadas (BACKEND_BASE, testEmail, userEmail, userSenha, etc.).
 
+Novidade (IA com web context):
+- Pasta **"AI — Web Context (Admin)"** com requests para:
+   - `GET /api/ai/web/search`
+   - `POST /api/ai/web/fetch`
+   - `POST /api/ai/question-audit`
+- Requer: usuário admin no `sessionToken` e backend com `AI_WEB_ENABLED=true` + provedor de busca configurado.
+
 Como usar:
 1. Abra o Postman.
 2. Importe `SimuladosBR.postman_collection.json` (File -> Import -> Upload Files).
@@ -39,3 +46,10 @@ Admin — Roles:
 - Use o script CLI para conceder admin a um usuário (por id/e‑mail/nome de usuário):
    - `cd backend`
    - `npm run role:grant-admin -- --email "email@exemplo.com"`
+
+IA — Web Context (Admin):
+- Configure no backend:
+   - `AI_WEB_ENABLED=true`
+   - `AI_WEB_ALLOWLIST=example.com,*.wikipedia.org` (recomendado)
+   - `BING_SEARCH_KEY=...` **ou** `SERPAPI_KEY=...`
+- Use `Web Search` para preencher automaticamente `aiWebFetchUrl` com o primeiro link.

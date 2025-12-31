@@ -42,6 +42,14 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 |--------|----------|------|--------|----------|-----------|
 | GET | `/api/ai/insights` | X-Session-Token | Query: `days` (1-180, default 30) | `{ kpis, timeseries, ai, indicators?, indicatorsSummary?, meta }` | Dashboard de insights para `frontend/pages/InsightsIA.html`. Inclui regras server-side: comentário contextual de KPIs, alertas por baixa conclusão e priorização por prazo quando `data_exame` está <75 dias. |
 
+### IA + Web Context (Admin)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/ai/web/search` | Admin | Query: `q` (obrigatório), `k` (1-10, default 5) | `{ success, provider, query, results[] }` | Busca na web via provedor configurado (Bing/SerpAPI). |
+| POST | `/api/ai/web/fetch` | Admin | Body: `{ url }` | `{ success, page }` | Faz fetch seguro de URL (com allowlist/SSRF guard) e retorna texto extraído. |
+| POST | `/api/ai/question-audit` | Admin | Body: `{ question, web? }` | `{ success, audit, sources, meta }` | Audita coerência/correção de questão usando contexto retornado pelos endpoints web e gera JSON via Ollama. |
+
 ---
 
 ## Exames (`/api/exams`)

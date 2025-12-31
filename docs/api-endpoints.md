@@ -28,6 +28,15 @@ Retorna um “dashboard” de insights: KPIs agregados do período + série diá
     - Se o exame estiver em **menos de 75 dias** e `kpis.completionRate < 0.30`, adiciona `ai.risks` com **risco de prazo**.
     - Inclui em `ai.actions7d` uma ação do tipo: **"Aumentar taxa de conclusão para X% (próximos 7 dias)"**.
 
+## Endpoints IA com contexto da Web (Admin)
+
+Esses endpoints são **somente admin** e permitem:
+- buscar na internet (Bing/SerpAPI),
+- fazer fetch seguro de páginas (anti-SSRF),
+- e passar o conteúdo como contexto para o Ollama (ex.: auditoria de questão).
+
+Documentação completa (config, segurança, exemplos): ver `docs/ai-web-context.md`.
+
 ## GET /api/users/me
 Retorna dados básicos do usuário autenticado.
 
@@ -360,7 +369,7 @@ Estatísticas de acertos/erros por grupo de processos no último exame completo 
         "percentAcertos": 80.00,
         "percentErros": 20.00
       },
-      ...
+      "..."
     ]
   }
   ```

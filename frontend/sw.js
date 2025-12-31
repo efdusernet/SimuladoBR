@@ -8,7 +8,7 @@ const logger = (self && self.logger) ? self.logger : {
   error: (...args) => { try { console.error(...args); } catch(_){} }
 };
 
-const VERSION = '2.0.11';
+const VERSION = '2.0.12';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -112,6 +112,12 @@ self.addEventListener('fetch', event => {
 
   // Bypass cache for frequently edited UI components to avoid stale code
   if (url.pathname === '/components/sidebar.html' || url.pathname.endsWith('/frontend/components/sidebar.html')) {
+    event.respondWith(fetch(new Request(request, { cache: 'no-store' })).catch(() => networkFirstWithCache(request, CACHES.DYNAMIC)));
+    return;
+  }
+
+  // Bypass cache for admin question form to avoid stale validation/save logic
+  if (url.pathname === '/pages/admin/questionForm.html') {
     event.respondWith(fetch(new Request(request, { cache: 'no-store' })).catch(() => networkFirstWithCache(request, CACHES.DYNAMIC)));
     return;
   }

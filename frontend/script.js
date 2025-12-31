@@ -526,8 +526,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!modal) return;
         // default to register mode when opening modal
         if (!modal.getAttribute('data-mode')) modal.setAttribute('data-mode', 'register');
-        modal.style.display = 'flex';
-        modal.setAttribute('aria-hidden', 'false');
+        // Ensure the modal is interactive even if it was previously closed with `inert`
+        try { modal.removeAttribute('inert'); } catch(_){ }
+        try { modal.setAttribute('aria-hidden', 'false'); } catch(_){ }
+        // Prefer centralized a11y open handler (restores focusability)
+        try {
+            if (typeof ModalA11y !== 'undefined' && ModalA11y && typeof ModalA11y.open === 'function') {
+                ModalA11y.open(modal);
+            } else {
+                modal.style.display = 'flex';
+            }
+        } catch(_){
+            modal.style.display = 'flex';
+        }
         // ensure UI matches mode
         setModalMode(modal.getAttribute('data-mode') || 'register');
     }

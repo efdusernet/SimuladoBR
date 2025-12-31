@@ -6,6 +6,9 @@ const { security } = require('../utils/logger');
 // Resolves user from X-Session-Token (id, NomeUsuario, Email or JWT) and checks for 'admin' role
 module.exports = async function requireAdmin(req, res, next){
   try {
+    const accept = String((req.headers && req.headers.accept) || '');
+    const wantsHtml = req.method === 'GET' && (accept.includes('text/html') || accept.includes('*/*'));
+
     // Accept token from cookie (preferred), header, body, query, or Authorization: Bearer
     let token = (req.cookies.sessionToken || req.get('X-Session-Token') || (req.body && req.body.sessionToken) || (req.query && (req.query.sessionToken || req.query.session || req.query.token)) || '').toString().trim();
     let authHeader = (req.headers && req.headers.authorization) ? req.headers.authorization.trim() : '';
@@ -15,7 +18,10 @@ module.exports = async function requireAdmin(req, res, next){
     token = (token || '').trim();
     bearerToken = (bearerToken || '').trim();
     if (!token && bearerToken) token = bearerToken;
-    if (!token) return res.status(401).json({ error: 'Session token required' });
+    if (!token) {
+      if (wantsHtml) return res.redirect('/login');
+      return res.status(401).json({ error: 'Session token required' });
+    }
 
     let user = null;
     // Try JWT first
@@ -40,7 +46,10 @@ module.exports = async function requireAdmin(req, res, next){
       const where = Op ? { [Op.or]: [{ NomeUsuario: token }, { Email: token }] } : { NomeUsuario: token };
       user = await db.User.findOne({ where });
     }
-    if (!user) return res.status(401).json({ error: 'User not found' });
+    if (!user) {
+      if (wantsHtml) return res.redirect('/login');
+      return res.status(401).json({ error: 'User not found' });
+    }
 
     // Check admin role membership
     try {
@@ -50,6 +59,7 @@ module.exports = async function requireAdmin(req, res, next){
       );
       if (!rows || !rows.length) {
         security.authorizationFailure(req, 'admin_resource', 'access');
+        if (wantsHtml) return res.redirect('/login');
         return res.status(403).json({ error: 'Admin role required' });
       }
     } catch (err) {
@@ -59,10 +69,12 @@ module.exports = async function requireAdmin(req, res, next){
       if (missingTable) {
         logger.warn('requireAdmin: RBAC tables missing; denying with 403');
         security.authorizationFailure(req, 'admin_resource', 'rbac_tables_missing');
+        if (wantsHtml) return res.redirect('/login');
         return res.status(403).json({ error: 'Admin role required' });
       }
       logger.warn('requireAdmin: role check failed; denying with 403. Error:', msg);
       security.authorizationFailure(req, 'admin_resource', 'role_check_error');
+      if (wantsHtml) return res.redirect('/login');
       return res.status(403).json({ error: 'Admin role required' });
     }
 
@@ -70,6 +82,11 @@ module.exports = async function requireAdmin(req, res, next){
     next();
   } catch (e) {
     logger.error('requireAdmin error:', e);
+    if (req.method === 'GET') {
+      const accept = String((req.headers && req.headers.accept) || '');
+      const wantsHtml = accept.includes('text/html') || accept.includes('*/*');
+      if (wantsHtml) return res.redirect('/login');
+    }
     return res.status(500).json({ error: 'Internal error' });
   }
 }

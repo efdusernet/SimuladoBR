@@ -53,3 +53,13 @@ IA — Web Context (Admin):
    - `AI_WEB_ALLOWLIST=example.com,*.wikipedia.org` (recomendado)
    - `BING_SEARCH_KEY=...` **ou** `SERPAPI_KEY=...`
 - Use `Web Search` para preencher automaticamente `aiWebFetchUrl` com o primeiro link.
+
+IA — Classificação de Questões (Admin):
+- Novas requests (admin):
+   - `GET /api/ai/masterdata/question-classification` (carrega dicionários do DB)
+   - `POST /api/ai/question-classify` (classifica e sugere IDs somente do dicionário)
+- Variáveis de environment usadas no body do classify:
+   - Questão: `classifyDescricao`, `classifyAltA`, `classifyAltB`, `classifyAltC`, `classifyAltD`, `classifyCorreta`
+   - Seleção atual (para divergências): `classifyCurrentDominioGeral`, `classifyCurrentDominio`, `classifyCurrentPrincipio`, `classifyCurrentCategoria`, `classifyCurrentGrupoProcesso`, `classifyCurrentTask`
+   - Limite de dica: `classifyDicaMaxChars` (default 180)
+- Dica: rode primeiro o masterdata para consultar IDs válidos no banco.

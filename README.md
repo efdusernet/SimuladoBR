@@ -201,6 +201,7 @@ Coleção e instruções em: `postman/README.md`
 - Logging: docs/logging-guide.md
 - Endpoints da API: docs/api-endpoints.md
 - IA com contexto da Web (admin): docs/ai-web-context.md
+- IA — Classificação de Questões (admin): docs/ai-question-classification.md
 - Erros Conhecidos: docs/known-errors.md
 
 ### Dicas de desenvolvimento local

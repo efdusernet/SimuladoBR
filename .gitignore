@@ -33,3 +33,6 @@ coverage/
 
 # Local helper files
 frontend/commitmsg.txt
+
+# Local/untracked SQL drafts
+backend/sql/041_alter_explicacaoguia_add_descricao.sql

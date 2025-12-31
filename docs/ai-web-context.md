@@ -10,6 +10,11 @@ Foram adicionados 3 endpoints sob `/api/ai`:
 - `POST /api/ai/web/fetch` — fetch seguro + extração de texto
 - `POST /api/ai/question-audit` — usa search + fetch para montar contexto e chama o Ollama retornando JSON
 
+Também foram adicionados endpoints para **classificação de questão com masterdata dinâmica (DB)**:
+
+- `GET /api/ai/masterdata/question-classification` — dicionários (DB) para orientar a IA
+- `POST /api/ai/question-classify` — sugere valores **somente** dentre os IDs do dicionário e indica divergências com o que já está selecionado
+
 **Autorização:** todos são **Admin** (middleware `requireAdmin`).
 
 ## Modelo (Ollama)
@@ -178,6 +183,90 @@ Response (exemplo):
 }
 ```
 
+### 4) GET `/api/ai/masterdata/question-classification`
+
+Retorna os dicionários dinâmicos (vindos do banco) que a IA deve usar para sugerir valores.
+
+- Auth: Admin
+
+Response (exemplo):
+
+```json
+{
+  "success": true,
+  "meta": { "scope": "question-classification", "fetchedAt": "2025-12-31T00:00:00.000Z" },
+  "masterdata": {
+    "iddominiogeral": [{"id": 1, "descricao": "Pessoas"}],
+    "iddominio": [{"id": 1, "descricao": "Partes Interessadas"}],
+    "idprincipio": [{"id": 1, "descricao": "Administração"}],
+    "codigocategoria": [{"id": 1, "descricao": "Ágil"}],
+    "codgrupoprocesso": [{"id": 1, "descricao": "Iniciação"}],
+    "id_task": [{"id": 1, "descricao": "..."}]
+  }
+}
+```
+
+### 5) POST `/api/ai/question-classify`
+
+Classifica a questão e sugere valores para **apenas** estes campos:
+
+- `iddominio`
+- `idprincipio`
+- `codigocategoria`
+- `codgrupoprocesso`
+- `iddominiogeral`
+- `id_task`
+- `dica` (texto curto)
+
+O backend valida a resposta: se a IA sugerir um ID fora do dicionário retornado pelo endpoint de masterdata, o `suggestedId` é descartado e reportado em `validationIssues`.
+
+- Auth: Admin
+- Body (exemplo):
+
+```jsonc
+{
+  "question": {
+    "descricao": "Enunciado...",
+    "alternativas": ["A ...", "B ...", "C ...", "D ..."],
+    "correta": "A"
+  },
+  "current": {
+    "iddominiogeral": 2,
+    "iddominio": 4,
+    "idprincipio": 7,
+    "codigocategoria": 3,
+    "codgrupoprocesso": 2,
+    "id_task": 20
+  },
+  "dicaMaxChars": 180
+}
+```
+
+Response (exemplo):
+
+```json
+{
+  "success": true,
+  "meta": {
+    "model": "llama3.1:8b",
+    "dicaMaxChars": 180,
+    "dicaTruncated": false,
+    "validationIssuesCount": 0,
+    "disagreementsCount": 2
+  },
+  "result": {
+    "context": { "summary": "...", "tags": ["..."] },
+    "fields": {
+      "iddominio": { "suggestedId": 4, "currentId": 4, "differsFromCurrent": false, "confidence": "high", "reason": "..." },
+      "idprincipio": { "suggestedId": 10, "currentId": 7, "differsFromCurrent": true, "confidence": "medium", "reason": "..." }
+    },
+    "dica": { "text": "...", "reason": "..." }
+  },
+  "validationIssues": [],
+  "disagreements": [{ "field": "idprincipio", "currentId": 7, "suggestedId": 10 }]
+}
+```
+
 ## Exemplos (curl)
 
 > Ajuste `X-Session-Token` para um usuário admin.
@@ -202,6 +291,21 @@ curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
 curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
   -d '{"question":{"descricao":"...","examType":"pmp","alternativas":["A","B","C","D"],"correta":"A"},"web":{"enabled":true,"maxSources":4}}' \
   http://localhost:3000/api/ai/question-audit
+```
+
+- Masterdata (question classification):
+
+```bash
+curl -H "X-Session-Token: <token>" \
+  http://localhost:3000/api/ai/masterdata/question-classification
+```
+
+- Classify:
+
+```bash
+curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
+  -d '{"question":{"descricao":"...","alternativas":["A","B","C","D"],"correta":"A"},"current":{"iddominiogeral":2,"iddominio":4,"idprincipio":7,"codigocategoria":3,"codgrupoprocesso":2,"id_task":20},"dicaMaxChars":180}' \
+  http://localhost:3000/api/ai/question-classify
 ```
 
 ## Implementação (referências)

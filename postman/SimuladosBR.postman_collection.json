@@ -348,6 +348,72 @@
             }
           ]
         }
+        ,
+        {
+          "name": "Masterdata — Question Classification",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/masterdata/question-classification",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "masterdata", "question-classification"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('success true', ()=> pm.expect(json && json.success).to.eql(true));",
+                  "  pm.test('masterdata exists', ()=> pm.expect(json && json.masterdata).to.be.an('object'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+        ,
+        {
+          "name": "Question Classify (Masterdata)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": {\n    \"descricao\": \"{{classifyDescricao}}\",\n    \"alternativas\": [\"{{classifyAltA}}\", \"{{classifyAltB}}\", \"{{classifyAltC}}\", \"{{classifyAltD}}\"],\n    \"correta\": \"{{classifyCorreta}}\"\n  },\n  \"current\": {\n    \"iddominiogeral\": {{classifyCurrentDominioGeral}},\n    \"iddominio\": {{classifyCurrentDominio}},\n    \"idprincipio\": {{classifyCurrentPrincipio}},\n    \"codigocategoria\": {{classifyCurrentCategoria}},\n    \"codgrupoprocesso\": {{classifyCurrentGrupoProcesso}},\n    \"id_task\": {{classifyCurrentTask}}\n  },\n  \"dicaMaxChars\": {{classifyDicaMaxChars}}\n}"
+            },
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/question-classify",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "question-classify"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/400/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,500]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('success true', ()=> pm.expect(json && json.success).to.eql(true));",
+                  "  pm.test('result.fields exists', ()=> pm.expect(json && json.result && json.result.fields).to.be.an('object'));",
+                  "  pm.test('disagreements array', ()=> pm.expect(json && json.disagreements).to.be.an('array'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
       ]
     }
   ]

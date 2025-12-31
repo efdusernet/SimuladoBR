@@ -208,8 +208,21 @@
     </div>
 
     <div class="actions">
+      <button class="btn secondary" id="analyzeAI" type="button">Analisar com IA</button>
       <button class="btn" id="save">Salvar</button>
       <a class="btn secondary" href="/">Voltar</a>
+    </div>
+
+    <div id="aiStatus" class="row" style="margin-top:10px; font-size:.9rem; color:#555;"></div>
+    <div id="aiResult" class="row" style="margin-top:10px; display:none; border:1px solid #ddd; border-radius:10px; padding:12px; background:#fff;">
+      <div style="font-weight:700; margin-bottom:8px;">Sugestões da IA</div>
+      <div id="aiSummary" style="margin-bottom:10px; color:#222;"></div>
+      <div id="aiFields"></div>
+      <div style="margin-top:12px;">
+        <div style="font-weight:700; margin-bottom:6px;">Dica sugerida</div>
+        <div id="aiDica" style="white-space:pre-wrap;"></div>
+      </div>
+      <div id="aiMeta" style="margin-top:10px; font-size:.85rem; color:#666;"></div>
     </div>
 
     <div id="status" class="row"></div>
@@ -515,6 +528,223 @@
       }
       return out;
     }
+
+    function getSelectLabel(selectId, value){
+      try {
+        const sel = $(selectId);
+        if (!sel) return null;
+        const v = String(value == null ? '' : value);
+        if (!v) return null;
+        const opt = Array.from(sel.options || []).find(o => String(o.value) === v);
+        const txt = opt ? (opt.textContent || '').trim() : '';
+        return txt || null;
+      } catch(_){
+        return null;
+      }
+    }
+
+    function formatConfidence(c){
+      const s = String(c || '').toLowerCase();
+      if (s === 'high') return 'Alta';
+      if (s === 'medium') return 'Média';
+      if (s === 'low') return 'Baixa';
+      return c || '—';
+    }
+
+    function fieldLabel(fieldKey){
+      const map = {
+        iddominiogeral: 'Domínio Geral',
+        iddominio: 'Domínio',
+        idprincipio: 'Princípio',
+        codigocategoria: 'Categoria',
+        codgrupoprocesso: 'Grupo de processo',
+        id_task: 'Task',
+      };
+      return map[fieldKey] || fieldKey;
+    }
+
+    function renderAiResult(payload){
+      const box = $('aiResult');
+      const sum = $('aiSummary');
+      const fieldsEl = $('aiFields');
+      const dicaEl = $('aiDica');
+      const metaEl = $('aiMeta');
+
+      if (!box || !sum || !fieldsEl || !dicaEl || !metaEl) return;
+
+      const result = payload && payload.result ? payload.result : null;
+      const disagreements = (payload && payload.disagreements) ? payload.disagreements : [];
+      const validationIssues = (payload && payload.validationIssues) ? payload.validationIssues : [];
+      const meta = payload && payload.meta ? payload.meta : {};
+
+      const ctx = result && result.context ? result.context : null;
+      const ctxSummary = ctx && ctx.summary ? String(ctx.summary) : '';
+      const tags = ctx && Array.isArray(ctx.tags) ? ctx.tags : [];
+
+      sum.innerHTML = '';
+      if (ctxSummary) {
+        const p = document.createElement('div');
+        p.style.whiteSpace = 'pre-wrap';
+        p.textContent = ctxSummary;
+        sum.appendChild(p);
+      }
+      if (tags && tags.length) {
+        const t = document.createElement('div');
+        t.style.marginTop = '6px';
+        t.style.fontSize = '.85rem';
+        t.style.color = '#666';
+        t.textContent = 'Tags: ' + tags.slice(0, 10).join(', ');
+        sum.appendChild(t);
+      }
+
+      const f = result && result.fields ? result.fields : {};
+      fieldsEl.innerHTML = '';
+
+      const table = document.createElement('table');
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Campo</th>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Atual</th>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Sugestão</th>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Confiança</th>'
+        + '</tr>';
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      const keys = ['iddominiogeral', 'iddominio', 'idprincipio', 'codigocategoria', 'codgrupoprocesso', 'id_task'];
+      keys.forEach(k => {
+        const item = f[k] || {};
+        const currentId = item.currentId;
+        const suggestedId = item.suggestedId;
+        const differs = !!item.differsFromCurrent;
+        const reason = item.reason ? String(item.reason) : '';
+
+        const currentLabel = getSelectLabel(
+          k === 'codgrupoprocesso' ? 'grupo' : (k === 'id_task' ? 'idtask' : k),
+          currentId
+        ) || (currentId != null ? String(currentId) : '—');
+
+        const suggestedLabel = getSelectLabel(
+          k === 'codgrupoprocesso' ? 'grupo' : (k === 'id_task' ? 'idtask' : k),
+          suggestedId
+        ) || (suggestedId != null ? String(suggestedId) : '—');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = ''
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee; font-weight:600;">${fieldLabel(k)}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${currentLabel}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${suggestedLabel}${differs ? ' <span style="font-weight:700;">(diverge)</span>' : ''}${reason ? `<div style="margin-top:4px; font-size:.85rem; color:#666;">${reason}</div>` : ''}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${formatConfidence(item.confidence)}</td>`;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      fieldsEl.appendChild(table);
+
+      const dica = result && result.dica ? result.dica : null;
+      dicaEl.textContent = (dica && dica.text) ? String(dica.text) : '—';
+
+      const bits = [];
+      if (meta && meta.model) bits.push(`Modelo: ${meta.model}`);
+      if (typeof meta.disagreementsCount === 'number') bits.push(`Divergências: ${meta.disagreementsCount}`);
+      if (typeof meta.validationIssuesCount === 'number') bits.push(`Validações: ${meta.validationIssuesCount}`);
+      if (validationIssues && validationIssues.length) bits.push('Aviso: a IA sugeriu algum ID inválido e foi descartado.');
+      metaEl.textContent = bits.join(' · ');
+
+      box.style.display = 'block';
+    }
+
+    async function analyzeWithAI(){
+      const btn = $('analyzeAI');
+      const status = $('aiStatus');
+      const box = $('aiResult');
+      if (box) box.style.display = 'none';
+      if (status) status.textContent = '';
+
+      try {
+        const descricao = $('descricao').value.trim();
+        if (!descricao){ alert('Informe o enunciado'); return; }
+
+        const options = readOptions();
+        const alternativas = options.map(o => String(o.descricao || '').trim()).filter(Boolean);
+
+        let correta = null;
+        try {
+          const idx = options.findIndex(o => !!o.correta);
+          if (idx >= 0) correta = String.fromCharCode('A'.charCodeAt(0) + idx);
+        } catch(_){ }
+
+        const token = localStorage.getItem('sessionToken') || '';
+        if (!token){ alert('Sessão sem token. Faça login novamente.'); return; }
+
+        const current = {
+          iddominiogeral: ($('iddominiogeral').value || '').trim() || null,
+          iddominio: ($('iddominio').value || '').trim() || null,
+          idprincipio: ($('idprincipio').value || '').trim() || null,
+          codigocategoria: ($('codigocategoria').value || '').trim() || null,
+          codgrupoprocesso: ($('grupo').value || '').trim() || null,
+          id_task: ($('idtask').value || '').trim() || null,
+        };
+
+        const base = (BACKEND_BASE || '').replace(/\/$/, '');
+        const url = base + '/api/ai/question-classify';
+
+        if (btn) {
+          btn.disabled = true;
+          btn.dataset._oldText = btn.textContent;
+          btn.textContent = 'Analisando...';
+        }
+        if (status) status.textContent = 'Enviando para IA...';
+
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Session-Token': token,
+          },
+          body: JSON.stringify({
+            question: { descricao, alternativas, correta },
+            current,
+            dicaMaxChars: 180,
+          })
+        });
+
+        if (!resp.ok){
+          let txt = '';
+          try {
+            const payload = await resp.clone().json();
+            txt = payload && (payload.message || payload.error || payload.code)
+              ? `${payload.code || resp.status}: ${payload.message || payload.error || 'Erro'}`
+              : '';
+          } catch(_){
+            try { txt = await resp.text(); } catch(_e) { txt = ''; }
+          }
+          throw new Error(txt || `Falha na análise (${resp.status})`);
+        }
+
+        const data = await resp.json();
+        if (status) status.textContent = 'Análise concluída.';
+        renderAiResult(data);
+      } catch(e) {
+        logger.error(e);
+        if ($('aiStatus')) $('aiStatus').textContent = 'Erro: ' + (e && e.message ? e.message : 'Falha na análise');
+      } finally {
+        const btn = $('analyzeAI');
+        if (btn) {
+          btn.disabled = false;
+          const old = btn.dataset._oldText;
+          if (old) btn.textContent = old;
+          delete btn.dataset._oldText;
+        }
+      }
+    }
+
+    try {
+      const aiBtn = $('analyzeAI');
+      if (aiBtn) aiBtn.addEventListener('click', analyzeWithAI);
+    } catch(_){ }
 
     // NAV: option helpers
     function makeOptRowNav(text = '', correta = false, explicacao = ''){

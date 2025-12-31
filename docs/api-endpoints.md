@@ -37,6 +37,13 @@ Esses endpoints são **somente admin** e permitem:
 
 Documentação completa (config, segurança, exemplos): ver `docs/ai-web-context.md`.
 
+### Classificação de questão por IA (Admin)
+
+Além do modo “web context”, há um endpoint focado em **classificar a questão** e **sugerir os campos de masterdata** (sem inventar valores). Ele carrega os dicionários diretamente do banco para manter o prompt dinâmico:
+
+- `GET /api/ai/masterdata/question-classification` — dicionários (domínios, princípios, categorias, grupos, tasks)
+- `POST /api/ai/question-classify` — sugere valores apenas dentro do dicionário e indica divergências com os selects atuais
+
 ## GET /api/users/me
 Retorna dados básicos do usuário autenticado.
 

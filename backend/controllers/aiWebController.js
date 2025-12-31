@@ -190,6 +190,7 @@ function normalizeCurrentSelections(current) {
 
 async function classifyQuestion(req, res, next) {
   try {
+    const cfg = getWebConfig();
     const body = req.body || {};
     const question = body.question || {};
     const current = normalizeCurrentSelections(body.current || body.currentSelections || body.selected || {});
@@ -201,6 +202,37 @@ async function classifyQuestion(req, res, next) {
     if (!descricao) return next(badRequest('question.descricao é obrigatório', 'QUESTION_DESCRICAO_REQUIRED'));
 
     const dicaMaxChars = clampInt(body.dicaMaxChars, 180, { min: 60, max: 400 });
+
+    const web = (body && body.web && typeof body.web === 'object') ? body.web : null;
+    const useWeb = web ? (web.enabled === true) : false;
+    const webQuery = useWeb ? (safeString(web.query, 400) || truncateText(descricao, 220)) : null;
+    const maxSources = useWeb ? clampInt(web.maxSources, 3, { min: 1, max: 4 }) : 0;
+
+    if (useWeb && !cfg.enabled) {
+      return next(badRequest('AI web desabilitado (AI_WEB_ENABLED=false)', 'WEB_DISABLED'));
+    }
+
+    let sources = [];
+    if (useWeb) {
+      const search = await webSearch(webQuery, { cfg, count: Math.min(maxSources, 6) });
+      const urls = (search.results || []).map(r => r.url).filter(Boolean).slice(0, maxSources);
+
+      const pages = [];
+      for (const u of urls) {
+        try {
+          const page = await webFetchText(u, { cfg });
+          pages.push({
+            url: page.url,
+            title: page.title || null,
+            contentType: page.contentType || null,
+            excerpt: truncateText(page.text || '', 1800),
+          });
+        } catch (e) {
+          // best-effort: ignore a single source failure
+        }
+      }
+      sources = pages;
+    }
 
     const masterdata = await getQuestionClassificationMasterdata();
     const allowed = {
@@ -217,6 +249,7 @@ async function classifyQuestion(req, res, next) {
       content: [
         'Você é um especialista em classificação de questões de prova (PMP/PMBOK).',
         'Responda em PT-BR.',
+        'Você pode usar as "sources" como contexto adicional (quando fornecidas).',
         'NUNCA invente IDs. Você só pode escolher IDs presentes no dicionário (masterdata) fornecido.',
         'Se não houver evidência suficiente no enunciado, retorne suggestedId=null e confidence="low" com reason curta.',
         `Para "dica", gere uma pista curta (máx ${dicaMaxChars} caracteres) sem revelar a alternativa correta diretamente.`,
@@ -233,6 +266,7 @@ async function classifyQuestion(req, res, next) {
           alternativas,
           correta: correta || null,
         },
+        sources,
         current,
         masterdata,
         outputSchema: {
@@ -324,6 +358,9 @@ async function classifyQuestion(req, res, next) {
         model: llm.model || null,
         dicaMaxChars,
         dicaTruncated,
+        usedWeb: Boolean(sources && sources.length),
+        sourcesCount: sources.length,
+        query: useWeb ? webQuery : null,
         validationIssuesCount: validationIssues.length,
         disagreementsCount: disagreements.length,
       },

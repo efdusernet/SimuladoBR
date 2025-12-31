@@ -44,6 +44,8 @@ Além do modo “web context”, há um endpoint focado em **classificar a quest
 - `GET /api/ai/masterdata/question-classification` — dicionários (domínios, princípios, categorias, grupos, tasks)
 - `POST /api/ai/question-classify` — sugere valores apenas dentro do dicionário e indica divergências com os selects atuais
 
+Observação: os dicionários retornados por `/api/ai/masterdata/question-classification` consideram apenas registros ativos (`status=true`).
+
 ## GET /api/users/me
 Retorna dados básicos do usuário autenticado.
 

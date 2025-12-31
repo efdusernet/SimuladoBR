@@ -191,6 +191,8 @@ Retorna os dicionários dinâmicos (vindos do banco) que a IA deve usar para sug
 
 - Auth: Admin
 
+Observação: o masterdata retornado considera apenas registros **ativos** (`status=true`).
+
 Response (exemplo):
 
 ```json
@@ -240,7 +242,8 @@ O backend valida a resposta: se a IA sugerir um ID fora do dicionário retornado
     "codgrupoprocesso": 2,
     "id_task": 20
   },
-  "dicaMaxChars": 180
+  "dicaMaxChars": 180,
+  "web": { "enabled": false, "maxSources": 3 }
 }
 ```
 

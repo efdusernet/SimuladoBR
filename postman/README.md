@@ -58,6 +58,7 @@ IA — Classificação de Questões (Admin):
 - Novas requests (admin):
    - `GET /api/ai/masterdata/question-classification` (carrega dicionários do DB)
    - `POST /api/ai/question-classify` (classifica e sugere IDs somente do dicionário)
+- Observação: o masterdata considera apenas itens ativos (`status=true`).
 - Variáveis de environment usadas no body do classify:
    - Questão: `classifyDescricao`, `classifyAltA`, `classifyAltB`, `classifyAltC`, `classifyAltD`, `classifyCorreta`
    - Seleção atual (para divergências): `classifyCurrentDominioGeral`, `classifyCurrentDominio`, `classifyCurrentPrincipio`, `classifyCurrentCategoria`, `classifyCurrentGrupoProcesso`, `classifyCurrentTask`

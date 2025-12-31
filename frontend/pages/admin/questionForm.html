@@ -967,7 +967,12 @@
 
     // Navegação state and logic
     const navState = { loading: false, currentId: null, allIds: [], lastFetch: 0 };
+    const navOriginal = { id: null, descricaoKey: '', examTypeId: null };
     function navSetStatus(msg){ const el = $('statusNav'); if (el) el.textContent = msg || ''; }
+
+    function normalizeDescricaoKey(s){
+      return String(s || '').trim().toLowerCase();
+    }
 
     async function navGetFirstId(){
       try {
@@ -982,9 +987,10 @@
         }
         const data = await resp.json();
         logger.info('[navGetFirstId] data:', data);
-        const firstId = (data.items && data.items.length) ? data.items[0] : null;
+        const rawFirst = (data.items && data.items.length) ? data.items[0] : null;
+        const firstId = Number(rawFirst);
         logger.info('[navGetFirstId] firstId:', firstId);
-        return firstId;
+        return Number.isFinite(firstId) ? firstId : null;
       } catch(e){ 
         logger.error('[navGetFirstId] exception:', e);
         return null; 
@@ -992,11 +998,12 @@
     }
 
     async function navLoadById(id){
-      if (!id) return;
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) return;
       navSetStatus('Carregando questão...');
       try {
         const token = localStorage.getItem('sessionToken') || '';
-        const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/${id}`;
+        const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/${idNum}`;
         const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
         if (!resp.ok){ const t = await resp.text(); navSetStatus('Erro: ' + t); return; }
         const q = await resp.json();
@@ -1043,9 +1050,16 @@
         if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta, o.explicacao || ''))); }
         ensureAtLeastTwoNav();
 
-        navState.currentId = id;
-        $('navGotoId').value = String(id);
-        navSetStatus(`Questão ID ${id}`);
+        navState.currentId = idNum;
+        $('navGotoId').value = String(idNum);
+        navSetStatus(`Questão ID ${idNum}`);
+
+        // Snapshot original key fields so we only block duplicates when user changes them
+        try {
+          navOriginal.id = idNum;
+          navOriginal.descricaoKey = normalizeDescricaoKey(q.descricao || '');
+          navOriginal.examTypeId = (q.examType && q.examType.id != null) ? Number(q.examType.id) : null;
+        } catch(_){ }
       } catch(e){ navSetStatus('Falha ao carregar questão'); }
     }
 
@@ -1069,8 +1083,9 @@
           if (!resp.ok) break;
           const data = await resp.json();
           if (!Array.isArray(data.items) || data.items.length === 0) break;
-          
-          allIds.push(...data.items);
+
+          const batchIds = data.items.map(Number).filter(Number.isFinite);
+          allIds.push(...batchIds);
           
           // Check if there are more pages
           hasMore = (page * 100 < data.total);
@@ -1090,22 +1105,24 @@
     async function navFindAdjacentId(currentId, direction){
       // direction: 'prev' or 'next'
       try {
+        const currentNum = Number(currentId);
+        if (!Number.isFinite(currentNum)) return null;
         const allIds = await navLoadAllIds();
         if (allIds.length === 0) return null;
         
         // Find index of current ID
-        const currentIndex = allIds.indexOf(currentId);
+        const currentIndex = allIds.indexOf(currentNum);
         if (currentIndex === -1) {
           // Current ID not in list - try to find closest
           if (direction === 'prev') {
             // Find largest ID smaller than currentId
             for (let i = allIds.length - 1; i >= 0; i--) {
-              if (allIds[i] < currentId) return allIds[i];
+              if (allIds[i] < currentNum) return allIds[i];
             }
           } else {
             // Find smallest ID larger than currentId
             for (let i = 0; i < allIds.length; i++) {
-              if (allIds[i] > currentId) return allIds[i];
+              if (allIds[i] > currentNum) return allIds[i];
             }
           }
           return null;
@@ -1158,8 +1175,8 @@
     });
 
     $('saveNav').addEventListener('click', async ()=>{
-      const id = navState.currentId;
-      if (!id) { navSetStatus('Nenhuma questão carregada'); return; }
+      const id = Number(navState.currentId);
+      if (!Number.isFinite(id) || id <= 0) { navSetStatus('Nenhuma questão carregada'); return; }
       const descricao = $('descricaoNav').value.trim();
       const tiposlug = $('tipoNav').value;
       const examTypeId = ($('examTypeNav').value || '').trim();
@@ -1180,9 +1197,26 @@
       if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
       if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
 
-      // Checagem duplicata para atualização: se outra questão com mesmo enunciado
-      const dupIdNav = await checkDuplicateNav(true);
-      if (dupIdNav && dupIdNav !== id){ navSetStatus('Duplicada: já existe ID ' + dupIdNav); return; }
+      // Clear any stale status from previous duplicate checks
+      try { navSetStatus(''); } catch(_){ }
+
+      // Checagem duplicata na atualização:
+      // Só bloqueia se o usuário ALTERAR enunciado e/ou tipo de exame para colidir com outra questão.
+      // Se já existem duplicatas históricas no banco, ainda deve permitir editar outros campos.
+      const currentKey = normalizeDescricaoKey(descricao);
+      const currentExamTypeNum = examTypeId ? Number(examTypeId) : null;
+      const originalKey = normalizeDescricaoKey(navOriginal.descricaoKey);
+      const originalExamTypeNum = (navOriginal.examTypeId != null) ? Number(navOriginal.examTypeId) : null;
+      const keyChanged = (currentKey !== originalKey) || (Number.isFinite(currentExamTypeNum) && Number.isFinite(originalExamTypeNum) && currentExamTypeNum !== originalExamTypeNum);
+
+      if (keyChanged) {
+        const dupIdNav = await checkDuplicateNav(true);
+        const dupNum = (dupIdNav == null) ? null : Number(dupIdNav);
+        if (dupNum != null && Number.isFinite(dupNum) && dupNum !== id){
+          navSetStatus('Duplicada: já existe ID ' + dupIdNav);
+          return;
+        }
+      }
 
       const sessionUserIdUpdate = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
       if (!sessionUserIdUpdate){ alert('Sessão sem userId. Faça login novamente.'); return; }
@@ -1256,11 +1290,42 @@
     ensureAtLeastTwoNav();
 
     // Função duplicata para Navegação (ignora o próprio ID)
+    function renderDupNavAction(targetEl, dupId){
+      if (!targetEl) return;
+      const dupNum = Number(dupId);
+      // Reset
+      try { targetEl.replaceChildren(); } catch(_){ targetEl.textContent = ''; }
+      if (!Number.isFinite(dupNum)) return;
+
+      const label = document.createElement('span');
+      label.textContent = 'QUESTÃO JÁ CADASTRADA (ID ' + dupNum + ') ';
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn secondary';
+      btn.textContent = 'Ir para ID ' + dupNum;
+      btn.style.padding = '4px 8px';
+      btn.style.fontSize = '.75rem';
+      btn.style.marginLeft = '8px';
+      btn.addEventListener('click', async (e)=>{
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+        try {
+          await navLoadById(dupNum);
+          // Clear warning state after navigation
+          try { const el = $('dupStatusNav'); if (el) el.textContent = ''; } catch(_){ }
+          try { $('descricaoNav').classList.remove('dup-warning'); } catch(_){ }
+        } catch(_){ }
+      });
+
+      targetEl.appendChild(label);
+      targetEl.appendChild(btn);
+    }
+
     async function checkDuplicateNav(show){
       try {
         const descricao = ($('descricaoNav').value || '').trim();
         const examTypeId = ($('examTypeNav').value || '').trim();
-        const currentId = navState.currentId;
+        const currentIdNum = Number(navState.currentId);
         if (!descricao || !examTypeId) { return null; }
         const base = (BACKEND_BASE || '').replace(/\/$/, '');
         const dupUrl = base + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
@@ -1269,17 +1334,20 @@
         if (!resp.ok) { return null; }
         const dj = await resp.json().catch(()=>({}));
         if (dj && dj.exists && dj.id){
-          if (dj.id !== currentId){
+          const foundIdNum = Number(dj.id);
+          if (Number.isFinite(foundIdNum) && (!Number.isFinite(currentIdNum) || foundIdNum !== currentIdNum)){
             if (show){ 
               const el = $('dupStatusNav'); 
-              if (el) el.textContent = 'QUESTÃO JÁ CADASTRADA (ID ' + dj.id + ')';
-              try { $('descricaoNav').value = ''; } catch(_){ }
+              if (el) renderDupNavAction(el, foundIdNum);
               try { $('descricaoNav').classList.add('dup-warning'); } catch(_){ }
             }
-            return dj.id;
+            return foundIdNum;
           }
         } else {
-          const el = $('dupStatusNav'); if (el) el.textContent = '';
+          const el = $('dupStatusNav');
+          if (el) {
+            try { el.replaceChildren(); } catch(_){ el.textContent = ''; }
+          }
           try { $('descricaoNav').classList.remove('dup-warning'); } catch(_){ }
         }
         return null;

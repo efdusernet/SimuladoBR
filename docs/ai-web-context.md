@@ -15,6 +15,8 @@ Também foram adicionados endpoints para **classificação de questão com maste
 - `GET /api/ai/masterdata/question-classification` — dicionários (DB) para orientar a IA
 - `POST /api/ai/question-classify` — sugere valores **somente** dentre os IDs do dicionário e indica divergências com o que já está selecionado
 
+Documentação detalhada da classificação (inclui UI “Analisar com IA”): ver `docs/ai-question-classification.md`.
+
 **Autorização:** todos são **Admin** (middleware `requireAdmin`).
 
 ## Modelo (Ollama)
@@ -313,3 +315,5 @@ curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
 - Rotas: `backend/routes/ai.js`
 - Controller: `backend/controllers/aiWebController.js`
 - Serviço: `backend/services/webContext.js`
+- Masterdata: `backend/controllers/aiMasterdataController.js` e `backend/services/masterdataService.js`
+- UI (admin): `frontend/pages/admin/questionForm.html`

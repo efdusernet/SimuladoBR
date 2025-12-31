@@ -60,6 +60,8 @@ Para evitar prompt “hard-coded” e permitir evolução das tabelas sem interv
 
 **Origem no banco:** o backend lê tabelas via `backend/services/masterdataService.js` (inclui `dominiogeral`, `dominio`, `principios`, `categoriaquestao`, `grupoprocesso`/`gruprocesso` e `Tasks`).
 
+Observação: por padrão, o masterdata retornado considera apenas registros com `status=true` (ativos).
+
 ## Classificação e sugestão (IA)
 
 ### POST `/api/ai/question-classify`
@@ -82,12 +84,19 @@ Para evitar prompt “hard-coded” e permitir evolução das tabelas sem interv
     "codgrupoprocesso": 2,
     "id_task": 20
   },
-  "dicaMaxChars": 180
+  "dicaMaxChars": 180,
+  "web": {
+    "enabled": false,
+    "query": "(opcional) query custom",
+    "maxSources": 3
+  }
 }
 ```
 
 - `current`: são os IDs atualmente selecionados nos selects. Isso é usado para calcular divergências.
 - `dicaMaxChars`: limite de tamanho da dica (default 180; clamp 60–400).
+- `web` (opcional): quando `enabled=true`, o backend tenta buscar fontes na internet (via endpoints/serviço de web context) e inclui trechos no prompt.
+  - Requer `AI_WEB_ENABLED=true` e allowlist/provedor configurados (ver `docs/ai-web-context.md`).
 
 ### Resposta
 

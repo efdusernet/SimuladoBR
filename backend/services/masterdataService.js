@@ -25,9 +25,15 @@ async function listSimpleTable(table) {
     throw err;
   }
 
-  let where = '';
-  if (names.has('excluido')) where = 'WHERE (excluido = false OR excluido IS NULL)';
-  else if (names.has('Excluido')) where = 'WHERE ("Excluido" = false OR "Excluido" IS NULL)';
+  const conditions = [];
+  if (names.has('excluido')) conditions.push('(excluido = false OR excluido IS NULL)');
+  else if (names.has('Excluido')) conditions.push('("Excluido" = false OR "Excluido" IS NULL)');
+
+  // All masterdata tables used by AI have a boolean "status" flag (true=active).
+  if (names.has('status')) conditions.push('status = true');
+  else if (names.has('Status')) conditions.push('"Status" = true');
+
+  const where = conditions.length ? ('WHERE ' + conditions.join(' AND ')) : '';
 
   const sql = `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${table} ${where}`;
   const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
@@ -53,8 +59,8 @@ async function listTasks() {
     `SELECT t.id,
             (COALESCE(dg.descricao,'') ||' - Task ' || t.numero || ' | - ' || t.descricao) AS descricao
        FROM public."Tasks" t
-       LEFT JOIN public.dominiogeral dg ON dg.id = t.id_dominio
-      WHERE t.ativo = TRUE
+       LEFT JOIN public.dominiogeral dg ON dg.id = t.id_dominio AND dg.status = TRUE
+      WHERE t.status = TRUE
       ORDER BY t.id_dominio`,
     { type: sequelize.QueryTypes.SELECT }
   );

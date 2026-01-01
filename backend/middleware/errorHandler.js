@@ -17,7 +17,15 @@ function errorHandler(err, req, res, next) {
   const message = err.message || 'Erro interno do servidor';
 
   if (isOperational) {
-    logger.warn('Operational error', { code, statusCode, message, requestId: req.id, url: req.originalUrl, method: req.method });
+    logger.warn('Operational error', {
+      code,
+      statusCode,
+      message,
+      details: err.details,
+      requestId: req.id,
+      url: req.originalUrl,
+      method: req.method
+    });
   } else {
     logger.error('UNEXPECTED ERROR', { error: message, stack: err.stack, requestId: req.id, url: req.originalUrl, method: req.method });
   }
@@ -32,6 +40,12 @@ function errorHandler(err, req, res, next) {
 
   if (process.env.NODE_ENV === 'development' && err.stack) {
     body.stack = err.stack;
+  }
+
+  // In development, expose operational error details to speed up debugging.
+  // (Production keeps responses minimal.)
+  if (process.env.NODE_ENV === 'development' && err && err.details !== undefined) {
+    body.details = err.details;
   }
 
   res.status(statusCode).json(body);

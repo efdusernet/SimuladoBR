@@ -362,7 +362,10 @@
     // Used Ollama badge
     const badge = document.getElementById('ollamaBadge');
     if (badge && data && data.meta) {
-      badge.textContent = data.meta.usedOllama ? `Gerado por IA (Ollama${data.meta.model ? ' · ' + data.meta.model : ''})` : 'Gerado por regras (fallback)';
+      const used = (data.meta.usedLlm != null) ? Boolean(data.meta.usedLlm) : Boolean(data.meta.usedOllama);
+      const provider = (data.meta.llmProvider ? String(data.meta.llmProvider) : (data.meta.usedOllama ? 'ollama' : '')).toLowerCase();
+      const label = provider === 'gemini' ? 'Gemini' : 'Ollama';
+      badge.textContent = used ? `Gerado por IA (${label}${data.meta.model ? ' · ' + data.meta.model : ''})` : 'Gerado por regras (fallback)';
     }
   }
 

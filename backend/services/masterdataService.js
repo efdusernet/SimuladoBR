@@ -18,6 +18,10 @@ async function listSimpleTable(table) {
   if (names.has('descricao')) descCol = 'descricao';
   else if (names.has('Descricao')) descCol = '"Descricao"';
 
+  let expCol = null;
+  if (names.has('explicacao')) expCol = 'explicacao';
+  else if (names.has('Explicacao')) expCol = '"Explicacao"';
+
   if (!idCol || !descCol) {
     const err = new Error(`TABLE_MISSING_COLUMNS:${table}`);
     err.code = 'TABLE_MISSING_COLUMNS';
@@ -35,7 +39,11 @@ async function listSimpleTable(table) {
 
   const where = conditions.length ? ('WHERE ' + conditions.join(' AND ')) : '';
 
-  const sql = `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${table} ${where}`;
+  const select = expCol
+    ? `SELECT ${idCol} AS id, ${descCol} AS descricao, ${expCol} AS explicacao FROM ${table} ${where}`
+    : `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${table} ${where}`;
+
+  const sql = select;
   const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
   return rows || [];
 }
@@ -55,15 +63,45 @@ async function listGruposProcesso() {
 }
 
 async function listTasks() {
-  const rows = await sequelize.query(
-    `SELECT t.id,
-            (COALESCE(dg.descricao,'') ||' - Task ' || t.numero || ' | - ' || t.descricao) AS descricao
-       FROM public."Tasks" t
-       LEFT JOIN public.dominiogeral dg ON dg.id = t.id_dominio AND dg.status = TRUE
-      WHERE t.status = TRUE
-      ORDER BY t.id_dominio`,
+  // NOTE: "Tasks" is a legacy table that may use "ativo" instead of "status".
+  const cols = await sequelize.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Tasks'`,
     { type: sequelize.QueryTypes.SELECT }
   );
+  const names = new Set((cols || []).map(c => c.column_name));
+
+  const hasExp = names.has('explicacao') || names.has('Explicacao');
+  const expSelect = names.has('explicacao') ? 't.explicacao' : (names.has('Explicacao') ? 't."Explicacao"' : null);
+
+  const activeCondition = names.has('status')
+    ? 't.status = TRUE'
+    : (names.has('ativo') ? 't.ativo = TRUE' : null);
+
+  if (!activeCondition) {
+    const err = new Error('TABLE_MISSING_COLUMNS:Tasks');
+    err.code = 'TABLE_MISSING_COLUMNS';
+    err.meta = { table: 'Tasks', columns: Array.from(names) };
+    throw err;
+  }
+
+  const dgCols = await sequelize.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'dominiogeral'`,
+    { type: sequelize.QueryTypes.SELECT }
+  );
+  const dgNames = new Set((dgCols || []).map(c => c.column_name));
+  const dgActiveJoin = dgNames.has('status') ? ' AND dg.status = TRUE' : '';
+
+  const rows = await sequelize.query(
+    `SELECT t.id AS id,
+            (COALESCE(dg.descricao,'') || ' - Task ' || t.numero || ' | - ' || t.descricao) AS descricao
+            ${hasExp ? `, ${expSelect} AS explicacao` : ''}
+       FROM public."Tasks" t
+       LEFT JOIN public.dominiogeral dg ON dg.id = t.id_dominio${dgActiveJoin}
+      WHERE ${activeCondition}
+      ORDER BY t.id_dominio, t.id`,
+    { type: sequelize.QueryTypes.SELECT }
+  );
+
   return rows || [];
 }
 

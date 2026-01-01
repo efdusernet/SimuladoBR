@@ -1,7 +1,7 @@
 const db = require('../models');
 const { badRequest, internalError } = require('../middleware/errors');
 const buildUserStatsService = require('../services/UserStatsService');
-const { generateJsonInsights } = require('../services/ollamaClient');
+const { generateJsonInsights } = require('../services/llmClient');
 const indicatorController = require('./indicatorController');
 
 function pickTopBottom(items, { valueKey, labelKey, topN = 5, bottomN = 5 }) {
@@ -358,21 +358,23 @@ async function getInsightsDashboard(req, res, next) {
       IND12: pickTopBottom(indicators.IND12?.dominios, { valueKey: 'percent', labelKey: 'descricao', topN: 5, bottomN: 5 }),
     };
 
-    const ollama = await generateJsonInsights({ context, kpis, timeseries: timeseriesForAi, indicators: indicatorsSummary });
-    const baseAi = ollama.insights || buildFallbackInsights({ kpis, trendDelta });
+    const llm = await generateJsonInsights({ context, kpis, timeseries: timeseriesForAi, indicators: indicatorsSummary });
+    const baseAi = llm.insights || buildFallbackInsights({ kpis, trendDelta });
     const ai = enrichAiWithRules(baseAi, { kpis, examInfo });
 
     return res.json({
       success: true,
       meta: {
         generatedAt: new Date().toISOString(),
-        usedOllama: ollama.usedOllama,
-        model: ollama.model || null,
+        usedOllama: Boolean(llm.usedOllama),
+        usedLlm: Boolean(llm.usedLlm),
+        llmProvider: llm.llmProvider || null,
+        model: llm.model || null,
         ...(process.env.NODE_ENV === 'development' ? {
-          ollamaInsightsTimeoutMs: ollama.insightsTimeoutMs ?? null,
-          ollamaTimeoutEnv: (ollama.debugTimeouts && ollama.debugTimeouts.env) ? ollama.debugTimeouts.env : null,
-          ollamaTimeoutComputed: (ollama.debugTimeouts && ollama.debugTimeouts.computed) ? ollama.debugTimeouts.computed : null,
-          ollamaError: ollama.usedOllama ? null : (ollama.error || null),
+          llmInsightsTimeoutMs: llm.insightsTimeoutMs ?? null,
+          llmTimeoutEnv: (llm.debugTimeouts && llm.debugTimeouts.env) ? llm.debugTimeouts.env : null,
+          llmTimeoutComputed: (llm.debugTimeouts && llm.debugTimeouts.computed) ? llm.debugTimeouts.computed : null,
+          llmError: llm.usedLlm ? null : (llm.error || null),
           ind10MaxExams,
           indicatorTimings,
         } : {}),

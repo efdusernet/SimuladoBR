@@ -331,6 +331,7 @@
           <span class="hint" style="margin:0;">Usar web context</span>
         </label>
         <button class="btn" id="saveNav" type="button">Salvar</button>
+        <div id="statusNav" style="align-self:center; font-size:.9rem; color:#555;" aria-live="polite"></div>
       </div>
 
       <div id="aiStatus" class="row" style="margin-top:10px; font-size:.9rem; color:#555;"></div>
@@ -345,7 +346,6 @@
         <div id="aiMeta" style="margin-top:10px; font-size:.85rem; color:#666;"></div>
       </div>
 
-      <div id="statusNav" class="row"></div>
     </section>
   </div>
 
@@ -554,6 +554,15 @@
       if (s === 'low') return 'Baixa';
       return c || '—';
     }
+    function escapeHtml(s){
+      const str = String(s == null ? '' : s);
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
 
     function fieldLabel(fieldKey){
       const map = {
@@ -613,6 +622,7 @@
         + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Campo</th>'
         + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Atual</th>'
         + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Sugestão</th>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Justificativa</th>'
         + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Confiança</th>'
         + '</tr>';
       table.appendChild(thead);
@@ -638,18 +648,17 @@
 
         const tr = document.createElement('tr');
         tr.innerHTML = ''
-          + `<td style="padding:8px 6px; border-bottom:1px solid #eee; font-weight:600;">${fieldLabel(k)}</td>`
-          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${currentLabel}</td>`
-          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${suggestedLabel}${differs ? ' <span style="font-weight:700;">(diverge)</span>' : ''}${reason ? `<div style="margin-top:4px; font-size:.85rem; color:#666;">${reason}</div>` : ''}</td>`
-          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${formatConfidence(item.confidence)}</td>`;
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee; font-weight:600;">${escapeHtml(fieldLabel(k))}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${escapeHtml(currentLabel)}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${escapeHtml(suggestedLabel)}${differs ? ' <span style="font-weight:700;">(diverge)</span>' : ''}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee; font-size:.9rem; color:#555; white-space:pre-wrap;">${reason ? escapeHtml(reason) : '—'}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${escapeHtml(formatConfidence(item.confidence))}</td>`;
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
       fieldsEl.appendChild(table);
 
       const dica = result && result.dica ? result.dica : null;
-      dicaEl.textContent = (dica && dica.text) ? String(dica.text) : '—';
-
       const bits = [];
       if (meta && meta.model) bits.push(`Modelo: ${meta.model}`);
       if (meta && meta.usedWeb) bits.push(`Web: sim (${Number(meta.sourcesCount || 0)} fontes)`);
@@ -673,7 +682,16 @@
         if (!descricao){ alert('Informe o enunciado'); return; }
 
         const options = readOptionsNav();
-        const alternativas = options.map(o => String(o.descricao || '').trim()).filter(Boolean);
+        const alternativas = options
+          .map((o, idx) => {
+            const letter = String.fromCharCode('A'.charCodeAt(0) + idx);
+            const text = String(o && o.descricao != null ? o.descricao : '').trim();
+            const exp = String(o && o.explicacao != null ? o.explicacao : '').trim();
+            if (!text) return '';
+            if (exp) return `${letter}) ${text}\nExplicação (opcional no cadastro): ${exp}`;
+            return `${letter}) ${text}`;
+          })
+          .filter(Boolean);
 
         let correta = null;
         try {
@@ -725,9 +743,18 @@
           let txt = '';
           try {
             const payload = await resp.clone().json();
-            txt = payload && (payload.message || payload.error || payload.code)
+            const baseMsg = payload && (payload.message || payload.error || payload.code)
               ? `${payload.code || resp.status}: ${payload.message || payload.error || 'Erro'}`
               : '';
+
+            // In development, backend returns "details" for operational errors.
+            // Show a short snippet to help debug invalid JSON responses.
+            const raw = payload && payload.details && payload.details.raw ? String(payload.details.raw) : '';
+            const rawLen = payload && payload.details && payload.details.rawLen != null ? Number(payload.details.rawLen) : null;
+            const extra = raw
+              ? `\n\nLLM raw (${rawLen != null ? rawLen : raw.length} chars, início):\n${raw.slice(0, 800)}`
+              : '';
+            txt = (baseMsg || '') + extra;
           } catch(_){
             try { txt = await resp.text(); } catch(_e) { txt = ''; }
           }
@@ -1208,7 +1235,20 @@
     // Navegação state and logic
     const navState = { loading: false, currentId: null, allIds: [], lastFetch: 0 };
     const navOriginal = { id: null, descricaoKey: '', examTypeId: null };
-    function navSetStatus(msg){ const el = $('statusNav'); if (el) el.textContent = msg || ''; }
+    let navStatusTimer = null;
+    function navSetStatus(msg){
+      const el = $('statusNav');
+      if (!el) return;
+      const text = String(msg || '');
+      el.textContent = text;
+      if (navStatusTimer) { try { clearTimeout(navStatusTimer); } catch(_) {} navStatusTimer = null; }
+      // Only auto-hide ephemeral success message near the Save button.
+      if (text.toLowerCase().includes('salvo com sucesso')) {
+        navStatusTimer = setTimeout(() => {
+          try { el.textContent = ''; } catch(_) {}
+        }, 3000);
+      }
+    }
 
     function normalizeDescricaoKey(s){
       return String(s || '').trim().toLowerCase();

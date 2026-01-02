@@ -19,6 +19,15 @@ if (dotenvResult && dotenvResult.parsed) {
 		if (key && key.startsWith('OLLAMA_')) {
 			process.env[key] = String(value);
 		}
+		// dotenv does not override existing env vars by default; on Windows it's common
+		// to have a variable defined but empty, which would incorrectly disable features.
+		// For chat proxy, prefer backend/.env value when the current env value is blank.
+		if (key === 'CHAT_SERVICE_BASE_URL' || key === 'CHAT_SERVICE_URL') {
+			const current = process.env[key];
+			if (current == null || String(current).trim() === '') {
+				process.env[key] = String(value);
+			}
+		}
 	}
 }
 

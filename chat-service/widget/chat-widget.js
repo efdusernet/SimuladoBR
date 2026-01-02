@@ -32,6 +32,62 @@
     }
   }
 
+  // Identify the customer in the admin host.
+  // SimuladosBR stores the real user name in storage; prefer the explicit session key "nome".
+  function getHostUserName() {
+    try {
+      var s = '';
+      try { s = (sessionStorage && sessionStorage.getItem) ? (sessionStorage.getItem('nome') || '') : ''; } catch (_) { s = ''; }
+      if (!s) {
+        try { s = (localStorage && localStorage.getItem) ? (localStorage.getItem('nome') || '') : ''; } catch (_) { s = ''; }
+      }
+      if (!s) {
+        try { s = (localStorage && localStorage.getItem) ? (localStorage.getItem('nomeUsuario') || '') : ''; } catch (_) { s = ''; }
+      }
+      if (!s) {
+        try { s = (sessionStorage && sessionStorage.getItem) ? (sessionStorage.getItem('userName') || '') : ''; } catch (_) { s = ''; }
+      }
+      s = String(s || '').trim();
+      // Keep it bounded (server also validates).
+      if (s.length > 120) s = s.slice(0, 120);
+      return s;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function getCustomerNameSyncKey(conversationId) {
+    return 'chat_customerName_synced_' + String(conversationId || '').trim();
+  }
+
+  async function syncCustomerNameIfNeeded(ids, customerName) {
+    try {
+      if (!ids || !ids.conversationId || !ids.visitorId) return;
+      var name = String(customerName || '').trim();
+      if (!name) return;
+
+      var key = getCustomerNameSyncKey(ids.conversationId);
+      var last = '';
+      try { last = String(localStorage.getItem(key) || '').trim(); } catch (e) { last = ''; }
+      if (last === name) return;
+
+      var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations/' + encodeURIComponent(ids.conversationId) + '/customer-name'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Chat-Visitor-Id': ids.visitorId,
+        },
+        body: JSON.stringify({ visitorId: ids.visitorId, customerName: name }),
+      });
+
+      if (res && res.ok) {
+        try { localStorage.setItem(key, name); } catch (e) {}
+      }
+    } catch (e) {
+      // best-effort; ignore
+    }
+  }
+
   function shouldAttachHostSessionToken() {
     // Only attach when the widget is configured to use the SimuladosBR reverse proxy.
     // This prevents leaking the host app session token to a third-party chat-service.
@@ -427,12 +483,18 @@
   async function ensureConversation() {
     var visitorId = getStored(visitorIdKey);
     var conversationId = getStored(conversationIdKey);
-    if (visitorId && conversationId) return { visitorId, conversationId };
+    if (visitorId && conversationId) {
+      var existing = { visitorId: visitorId, conversationId: conversationId };
+      try { await syncCustomerNameIfNeeded(existing, getHostUserName()); } catch (e) {}
+      return existing;
+    }
+
+    var customerName = getHostUserName();
 
     var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Chat-Visitor-Id': visitorId || '' },
-      body: JSON.stringify({ visitorId: visitorId || undefined }),
+      body: JSON.stringify({ visitorId: visitorId || undefined, customerName: customerName || undefined }),
     });
     var json = await res.json();
     if (!res.ok || !json || !json.ok) throw new Error((json && json.error) || 'Falha ao criar conversa');
@@ -441,6 +503,8 @@
     conversationId = json.conversationId;
     setStored(visitorIdKey, visitorId);
     setStored(conversationIdKey, conversationId);
+
+    try { await syncCustomerNameIfNeeded({ visitorId: visitorId, conversationId: conversationId }, customerName); } catch (e) {}
 
     return { visitorId, conversationId };
   }
@@ -579,13 +643,14 @@
   async function sendMessage(text) {
     var ids = await ensureConversation();
     setChatOpenState();
+    var customerName = getHostUserName();
     var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations/' + encodeURIComponent(ids.conversationId) + '/messages'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Chat-Visitor-Id': ids.visitorId,
       },
-      body: JSON.stringify({ role: 'user', text: text }),
+      body: JSON.stringify({ role: 'user', text: text, customerName: customerName || undefined }),
     });
     var json = await res.json();
     if (!res.ok || !json || !json.ok) {

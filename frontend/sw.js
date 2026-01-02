@@ -8,7 +8,7 @@ const logger = (self && self.logger) ? self.logger : {
   error: (...args) => { try { console.error(...args); } catch(_){} }
 };
 
-const VERSION = '2.0.12';
+const VERSION = '2.0.16';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -109,6 +109,85 @@ self.addEventListener('fetch', event => {
 
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
+
+  // IMPORTANT: do not cache chat-service API routes.
+  // The widget relies on fresh network responses for messages; caching GET /chat/v1/**
+  // can cause "host -> widget" messages to appear stuck while "widget -> host" (POST) works.
+  if (url.pathname.startsWith('/chat/v1/')) {
+    event.respondWith(fetch(new Request(request, { cache: 'no-store' })));
+    return;
+  }
+
+  function cacheKeyWithoutSearch(u) {
+    try {
+      // Normalize cache keys so cache-busting query params (e.g. ?v=...) don't create stale variants.
+      return new Request(u.origin + u.pathname, { method: 'GET' });
+    } catch (_) {
+      return request;
+    }
+  }
+
+  // Update widget code aggressively (avoid having to clear SW cache during development).
+  // Still provides offline fallback from the SW cache.
+  if (url.pathname === '/chat/widget/chat-widget.js' || url.pathname.endsWith('/chat/widget/chat-widget.js')) {
+    event.respondWith((async () => {
+      try {
+        const resp = await fetch(new Request(request, { cache: 'no-store' }));
+        if (resp && resp.ok) {
+          try {
+            const cache = await caches.open(CACHES.DYNAMIC);
+            await cache.put(request, resp.clone());
+          } catch (_) {}
+        }
+        return resp;
+      } catch (_) {
+        try {
+          const cache = await caches.open(CACHES.DYNAMIC);
+          const cached = await cache.match(request);
+          if (cached) return cached;
+        } catch (_) {}
+        return new Response('', { status: 504, statusText: 'Gateway Timeout' });
+      }
+    })());
+    return;
+  }
+
+  // Update admin panel JS aggressively as well (served under /chat/admin and commonly cache-busted).
+  if (url.pathname === '/chat/admin/panel.js' || url.pathname.endsWith('/chat/admin/panel.js')) {
+    event.respondWith((async () => {
+      const key = cacheKeyWithoutSearch(url);
+      try {
+        const resp = await fetch(new Request(request, { cache: 'no-store' }));
+        if (resp && resp.ok) {
+          try {
+            const cache = await caches.open(CACHES.DYNAMIC);
+            await cache.put(key, resp.clone());
+          } catch (_) {}
+        }
+        return resp;
+      } catch (_) {
+        try {
+          const cache = await caches.open(CACHES.DYNAMIC);
+          const cached = await cache.match(key);
+          if (cached) return cached;
+        } catch (_) {}
+        return new Response('', { status: 504, statusText: 'Gateway Timeout' });
+      }
+    })());
+    return;
+  }
+
+  // Allow caching chat widget static assets (JS/CSS) served from the reverse proxy.
+  if (url.pathname.startsWith('/chat/widget/')) {
+    event.respondWith(cacheFirst(request, CACHES.DYNAMIC));
+    return;
+  }
+
+  // For the remaining /chat/* (admin UI HTML/JS, host page, etc.), prefer network to avoid stale UI.
+  if (url.pathname.startsWith('/chat/')) {
+    event.respondWith(fetch(new Request(request, { cache: 'no-store' })).catch(() => networkFirstWithCache(request, CACHES.DYNAMIC)));
+    return;
+  }
 
   // Bypass cache for frequently edited UI components to avoid stale code
   if (url.pathname === '/components/sidebar.html' || url.pathname.endsWith('/frontend/components/sidebar.html')) {

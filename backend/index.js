@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const http = require('http');
+const httpProxy = require('http-proxy');
 const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
@@ -29,6 +31,25 @@ const { AppError, errorHandler } = require('./middleware/errorHandler');
 require('./config/security');
 
 const app = express();
+
+function getChatServiceBaseUrl() {
+	const raw = process.env.CHAT_SERVICE_BASE_URL || process.env.CHAT_SERVICE_URL || '';
+	return String(raw || '').trim().replace(/\/$/, '');
+}
+
+const chatWsProxy = httpProxy.createProxyServer({
+	ws: true,
+	changeOrigin: true,
+	secure: false,
+});
+
+chatWsProxy.on('error', (err, req, socket) => {
+	try {
+		const msg = (err && err.message) ? String(err.message) : 'proxy error';
+		logger.warn('chat ws proxy error', { message: msg });
+	} catch {}
+	try { socket.destroy(); } catch {}
+});
 
 // API versioning
 const API_BASE = '/api';
@@ -165,6 +186,8 @@ app.use((req, res, next) => {
 	try {
 		if (req.method !== 'GET') return next();
 		if (req.path.startsWith('/api/')) return next();
+		// Allow chat-service proxy routes (widget/assets/API) without redirecting to /login
+		if (req.path.startsWith('/chat/')) return next();
 		// Allow login and static asset files without auth
 		const allowPaths = new Set(['/login', '/login.html', '/manifest.json']);
 		const isAsset = /\.(css|js|png|jpg|jpeg|gif|svg|ico|json|webmanifest|map)$/i.test(req.path);
@@ -178,6 +201,9 @@ app.use((req, res, next) => {
 	} catch (e) { return next(); }
 });
 app.use(express.static(FRONTEND_DIR));
+
+// Chat-service reverse proxy (widget + API). Must be before SPA fallback.
+app.use('/chat', require('./routes/chatProxy'));
 
 // Rota raiz: sirva a home (index.html); o script.js redireciona usuários logados para /pages/examSetup.html
 app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
@@ -247,6 +273,7 @@ app.use(`${API_BASE}/ai`, require('./routes/ai'));
 // NOTE: avoid using app.get('*') which can trigger path-to-regexp errors in some setups.
 app.use((req, res, next) => {
 		if (req.path.startsWith('/api/')) return next();
+		if (req.path.startsWith('/chat/')) return next();
 	// Only serve index.html for GET navigation requests
 	if (req.method !== 'GET') return next();
 			// Use o index.html da pasta frontend (não copiamos HTMLs para dist)
@@ -266,7 +293,87 @@ app.use(errorLogger);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+
+const server = http.createServer(app);
+
+// WebSocket proxy for chat-service admin panel realtime.
+// Browser connects to ws(s)://<host>/chat/v1/admin/ws, and we forward to chat-service /v1/admin/ws.
+server.on('upgrade', async (req, socket, head) => {
+	try {
+		const url = String(req.url || '');
+		if (!url.startsWith('/chat/v1/admin/ws')) return;
+
+		const target = getChatServiceBaseUrl();
+		if (!target) {
+			try { socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n'); } catch {}
+			try { socket.destroy(); } catch {}
+			return;
+		}
+
+		// Attach helpers expected by requireAdmin.
+		req.get = (name) => {
+			const key = String(name || '').toLowerCase();
+			return (req.headers && req.headers[key]) ? String(req.headers[key]) : undefined;
+		};
+		// Parse cookies (requireAdmin reads req.cookies.sessionToken).
+		await new Promise((resolve) => cookieParser()(req, {}, resolve));
+		// Parse query params (requireAdmin accepts sessionToken from query as fallback).
+		try {
+			const u = new URL(url, 'http://localhost');
+			req.query = Object.fromEntries(u.searchParams.entries());
+		} catch {
+			req.query = {};
+		}
+
+		// Enforce admin role (same behavior as HTTP /chat/v1/admin/*).
+		const requireAdminWs = require('./middleware/requireAdmin');
+		let allowed = false;
+		await new Promise((resolve) => {
+			const res = {
+				redirect() {
+					allowed = false;
+					resolve();
+				},
+				status(code) {
+					this.statusCode = code;
+					return this;
+				},
+				json() {
+					allowed = false;
+					resolve();
+				},
+			};
+			requireAdminWs(req, res, () => {
+				allowed = true;
+				resolve();
+			});
+		});
+		if (!allowed) {
+			try { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); } catch {}
+			try { socket.destroy(); } catch {}
+			return;
+		}
+
+		// Rewrite path: /chat/v1/admin/ws -> /v1/admin/ws (upstream).
+		req.url = url.replace(/^\/chat/, '');
+		// Do not leak SimuladosBR auth token to upstream.
+		try {
+			const u2 = new URL(req.url, 'http://localhost');
+			u2.searchParams.delete('sessionToken');
+			req.url = u2.pathname + u2.search;
+		} catch {}
+		// Avoid upstream origin enforcement when called via same-origin reverse proxy.
+		try { delete req.headers.origin; } catch {}
+		try { delete req.headers.referer; } catch {}
+		try { delete req.headers.cookie; } catch {}
+		try { delete req.headers['x-session-token']; } catch {}
+		chatWsProxy.ws(req, socket, head, { target });
+	} catch {
+		try { socket.destroy(); } catch {}
+	}
+});
+
+server.listen(PORT, () => {
 	logger.info(`Server started successfully`, {
 		port: PORT,
 		environment: process.env.NODE_ENV || 'development',
@@ -277,7 +384,7 @@ app.listen(PORT, () => {
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
 	logger.info('SIGTERM signal received: closing HTTP server');
-	app.close(() => {
+	server.close(() => {
 		logger.info('HTTP server closed');
 		sequelize.close().then(() => {
 			logger.info('Database connection closed');

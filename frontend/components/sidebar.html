@@ -352,6 +352,9 @@
         <button class="sidebar-accordion-item" data-admin-action="fixture">
           Administração
         </button>
+        <button class="sidebar-accordion-item" data-admin-action="chat-host">
+          Chat (Admin)
+        </button>
         <button class="sidebar-accordion-item" data-admin-action="cadastrar-questao">
           Cadastrar questão
         </button>
@@ -2828,6 +2831,15 @@
     const sessionForHeader = nomeUsuario || token;
     
     const actionMap = {
+      'chat-host': () => {
+        const url = `/chat/admin?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+        try {
+          const w = (window.top || window).open(url, '_blank', 'noopener');
+          if (!w) (window.top || window).location.assign(url);
+        } catch (_) {
+          (window.top || window).location.assign(url);
+        }
+      },
       'cadastrar-questao': () => {
         (window.top || window).location.assign(`/pages/admin/questionForm.html?sessionToken=${encodeURIComponent(token)}`);
       },

@@ -33,6 +33,38 @@ Este documento lista problemas recorrentes e suas causas/soluções confirmadas 
 - Correção: Backend enriquece `imagem_url` após seleção para todas as IDs; cliente mescla e persiste.
 - Verificação: Network → Resposta inclui imagens; logs mostram contagem de questões com imagem.
 
+## 4. Conta Bloqueada
+- Sintomas: No login, aparece a mensagem: `Conta bloqueada por muitas tentativas. Aguarde 4:48 para tentar novamente.` (o tempo varia).
+- Causa raiz:
+  - O backend aplica um **bloqueio temporário por usuário** após repetidas falhas de senha.
+  - Regra atual: ao errar a senha, incrementa `Usuario.AccessFailedCount`; ao chegar em **5 falhas**, zera o contador e grava `Usuario.FimBloqueio = agora + 5 minutos`.
+  - Enquanto `FimBloqueio` estiver no futuro, o endpoint de login retorna `ACCOUNT_LOCKED` (HTTP 423) com `lockoutSecondsLeft`.
+- Observação importante:
+  - Isso é diferente do rate limit por IP do endpoint `/api/auth/login` (HTTP 429, janela de 15 min). É possível “cair” em ambos, dependendo do caso.
+- Como verificar:
+  - Verificar no banco se `Usuario.FimBloqueio` está preenchido e maior que `NOW()` para o e-mail em questão.
+  - No Network do browser, a resposta do POST `/api/auth/login` pode trazer `code: ACCOUNT_LOCKED` e os campos `lockoutUntil` / `lockoutSecondsLeft`.
+
+### Workaround (desbloquear corrigindo na tabela)
+Use somente em desenvolvimento/testes locais.
+
+**Opção A — via SQL (Postgres):**
+```sql
+UPDATE "Usuario"
+SET "AccessFailedCount" = 0,
+    "FimBloqueio" = NULL,
+    "DataAlteracao" = NOW()
+WHERE "Email" = 'seuemail@dominio.com';
+```
+
+**Opção B — via script (recomendado):**
+```bash
+node backend/scripts/unlock_user.js seuemail@dominio.com
+```
+
+- Depois, tente logar novamente com as credenciais corretas.
+- Se o bloqueio voltar, é um indicativo de senha errada (ou usuário sem `SenhaHash`).
+
 ## Referências de arquivos
 - Frontend: `frontend/utils/csrf.js`, `frontend/script_exam.js`, `frontend/pages/examFull.html`.
-- Backend: `backend/middleware/csrfProtection.js`, `backend/controllers/examController.js`.
+- Backend: `backend/middleware/csrfProtection.js`, `backend/controllers/examController.js`, `backend/routes/auth.js`, `backend/scripts/unlock_user.js`.

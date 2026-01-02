@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>Chat Service — Painel Atendente</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
+    header { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.14); margin-left: 56px; background: #0f4c5c; color: #fff; }
+    header .small { color: rgba(255,255,255,0.85); }
+    header button { color: #111; }
+    header .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    header strong { margin-right: 8px; }
+    input[type="text"] { padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; width: 360px; max-width: 55vw; }
+    button { padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; background: #f8f8f8; cursor: pointer; }
+    main { display: grid; grid-template-columns: 360px 1fr; margin-left: 56px; }
+    aside { border-right: 1px solid #e5e5e5; display: flex; min-height: 200px; }
+    .iconbar {
+      width: 56px;
+      background: #0f4c5c; /* azul petróleo */
+      color: #fff;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 6px;
+      box-sizing: border-box;
+      z-index: 10;
+    }
+    .iconbar .group { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+    .navbtn {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 10px 0;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .navbtn:hover { background: rgba(255,255,255,0.12); }
+    .navbtn:focus { outline: 2px solid rgba(255,255,255,0.65); outline-offset: 2px; }
+    .navbtn svg { width: 22px; height: 22px; display: block; }
+    .navlink {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 10px 0;
+      border-radius: 10px;
+      color: inherit;
+      text-decoration: none;
+    }
+    .navlink:hover { background: rgba(255,255,255,0.12); }
+    #conversations { overflow: auto; flex: 1; }
+    .conv { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+    .conv:hover { background: #fafafa; }
+    .conv.active { background: #f3f3f3; }
+    .conv.assigned-me { background: rgba(34, 197, 94, 0.14); }
+    .conv.assigned-me:hover { background: rgba(34, 197, 94, 0.18); }
+    .conv.assigned-me.active { background: rgba(34, 197, 94, 0.22); }
+    .conv.pending-assign { border-left: 4px solid #ef4444; padding-left: 8px; }
+    .meta { font-size: 12px; color: #555; margin-top: 4px; }
+    section { display: flex; flex-direction: column; }
+    #messages { flex: 1; padding: 12px 16px; overflow: auto; white-space: pre-wrap; }
+    .line { margin-bottom: 10px; }
+    .who { font-weight: 600; }
+    form { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #e5e5e5; }
+    #text { flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; }
+    #status { padding: 0 16px 12px; color: #b00020; font-size: 12px; }
+    .small { font-size: 12px; color: #555; }
+    .label { font-size: 12px; color: #333; font-weight: 600; margin-bottom: 4px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .btn-primary { background: #f0f0f0; }
+
+    /* Modals */
+    .hidden { display: none !important; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 50;
+    }
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(720px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      z-index: 60;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #eee;
+    }
+    .modal-title { font-weight: 700; }
+    .modal-body { padding: 12px 14px 14px; }
+    .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .modal-close { background: #f8f8f8; border: 1px solid #ccc; border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+    .token-box code { display: block; padding: 8px 10px; border-radius: 8px; user-select: all; }
+    .row-inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  </style>
+</head>
+<body>
+  <style>
+    :root{
+      --brand: #0f4c5c; /* azul petróleo */
+      --brand-700: #0b3b47;
+      --bg: #0b1020;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #ef4444;
+      --radius: 16px;
+      --shadow: 0 20px 40px rgba(0,0,0,.35);
+    }
+    .login-wrap{
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+      box-sizing: border-box;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(15,76,92,.38), transparent),
+        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+        linear-gradient(180deg, var(--bg) 0%, #0f172a 100%);
+    }
+    .login-card{
+      width: 100%;
+      max-width: 520px;
+      background: linear-gradient(180deg, #0f172a 0%, var(--card) 100%);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      display: grid;
+      gap: 12px;
+      position: relative;
+    }
+    .login-card h1{
+      margin: 0 0 2px;
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: .2px;
+      color: var(--text);
+    }
+    .login-card .small{ color: var(--muted); line-height: 1.4; font-size: .95rem; }
+    .login-card .label{ color: var(--muted); font-weight: 700; }
+    .login-card input{
+      width: 100%;
+      height: 44px;
+      background: #0b1221;
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 0 14px;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+      box-sizing: border-box;
+    }
+    .login-card input::placeholder{ color: #7b8499; }
+    .login-card input:focus{ border-color: rgba(15,76,92,.75); box-shadow: 0 0 0 3px rgba(15,76,92,.18); }
+    .login-actions{ display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 6px; }
+    .login-actions button{
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      font-weight: 700;
+      letter-spacing: .2px;
+      cursor: pointer;
+      transition: transform .08s ease, filter .15s ease;
+    }
+    .login-actions button.btn-primary{
+      background: linear-gradient(180deg, var(--brand) 0%, var(--brand-700) 100%);
+      color: white;
+      box-shadow: 0 10px 22px rgba(15,76,92,.35);
+      border-color: rgba(255,255,255,.06);
+    }
+    .login-actions button.btn-primary:hover{ filter: brightness(1.05); }
+    .login-actions button.btn-primary:active{ transform: translateY(1px); }
+    #loginError{ color: var(--danger); font-size: .95rem; margin: 2px 0 0; }
+    .login-card::before{
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      background: radial-gradient(800px 200px at 0% 0%, rgba(15,76,92,.14), transparent);
+      pointer-events: none;
+    }
+  </style>
+
+  <div id="loginView" class="login-wrap">
+    <div class="login-card">
+      <h1>Painel — Login</h1>
+      <div id="loginHint" class="small">Cole seu token para entrar. O painel vai validar seu <b>role</b> automaticamente.</div>
+
+      <div class="row" style="margin-top:10px;">
+        <div class="field" style="flex:1;">
+          <div class="label">API Base</div>
+          <input id="apiBase" type="text" placeholder="Ex.: http://localhost:3000/chat" />
+          <div class="small">No SimuladosBR, deixe em branco (usa <code>/chat</code> automaticamente) ou informe <code>http://localhost:3000/chat</code>. Não use <code>:4010</code> aqui.</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div class="field" style="flex:1;">
+          <div class="label">Token</div>
+          <input id="token" type="text" placeholder="Cole o token aqui (com ou sem 'Bearer')" />
+          <div class="small">O painel envia <code>Authorization: Bearer &lt;token&gt;</code>.</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div class="field" style="flex:1;">
+          <div class="label">Seu nome (opcional)</div>
+          <input id="name" type="text" placeholder="Ex.: Maria" />
+          <div class="small">Usado apenas se você estiver entrando com <code>ADMIN_TOKEN</code> único.</div>
+        </div>
+      </div>
+
+      <div class="login-actions">
+        <button id="login" type="button" class="btn-primary">Entrar</button>
+      </div>
+      <p id="loginError" style="display:none;"></p>
+      <div class="small" style="margin-top:10px;">
+        <div>Este painel funciona para <b>root</b>, <b>admin</b> e <b>agente</b>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="appView" class="hidden">
+    <nav class="iconbar" aria-label="Navegação">
+      <div class="group">
+        <button id="navSupport" class="navbtn" type="button" title="Atendimento" aria-label="Atendimento">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+          </svg>
+        </button>
+        <button id="navUsers" class="navbtn" type="button" title="Usuários" aria-label="Usuários">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </button>
+        <button id="navInvites" class="navbtn" type="button" title="Convites" aria-label="Convites">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16v16H4z" />
+            <path d="M22 6l-10 7L2 6" />
+          </svg>
+        </button>
+        <button id="navTopics" class="navbtn" type="button" title="Assuntos" aria-label="Assuntos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 6h13" />
+            <path d="M8 12h13" />
+            <path d="M8 18h13" />
+            <path d="M3 6h.01" />
+            <path d="M3 12h.01" />
+            <path d="M3 18h.01" />
+          </svg>
+        </button>
+        <button id="navTokens" class="navbtn" type="button" title="Auditoria" aria-label="Auditoria">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1l3 5 5 1-3.5 4.5.5 6-5-2.5-5 2.5.5-6L4 7l5-1z" />
+          </svg>
+        </button>
+      </div>
+      <div class="group">
+        <a class="navlink" href="/widget-host" title="Abrir Host" aria-label="Abrir Host">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 3h7v7" />
+            <path d="M10 14L21 3" />
+            <path d="M21 14v7h-7" />
+            <path d="M3 10V3h7" />
+          </svg>
+        </a>
+        <a class="navlink" href="/health" target="_blank" rel="noopener noreferrer" title="Health" aria-label="Health">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        </a>
+      </div>
+    </nav>
+
+    <header>
+      <div class="row">
+        <strong>Painel</strong>
+        <span id="hint" class="small"></span>
+        <span id="realtimeStatus" class="small" style="margin-left:8px;"></span>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+          <button id="logout" type="button">Sair</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+    <aside>
+      <div id="conversations"></div>
+    </aside>
+
+    <section>
+      <div id="convBar" style="padding: 10px 16px; border-bottom: 1px solid #e5e5e5; display:none; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+        <div id="convInfo" class="small"></div>
+        <div style="display:flex; gap:8px;">
+          <button id="renameConv" type="button">Renomear</button>
+          <div id="renameInline" class="row-inline hidden" style="align-items:center;">
+            <input id="renameInput" type="text" placeholder="Nome do usuário" style="width:220px; max-width:40vw;" />
+            <button id="renameSave" type="button">Salvar</button>
+            <button id="renameCancel" type="button">Cancelar</button>
+          </div>
+          <button id="claimConv" type="button">Assumir</button>
+          <button id="releaseConv" type="button">Liberar</button>
+          <button id="closeConv" type="button">Encerrar</button>
+        </div>
+      </div>
+
+      <div id="messages"></div>
+      <div id="status"></div>
+      <form id="reply">
+        <input id="text" type="text" placeholder="Responder…" autocomplete="off" />
+        <button type="submit">Enviar</button>
+      </form>
+    </section>
+    </main>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden" aria-hidden="true"></div>
+
+  <div id="usersModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="usersModalTitle">
+    <div class="modal-head">
+      <div class="modal-title" id="usersModalTitle">Criar usuário</div>
+      <button id="usersModalClose" class="modal-close" type="button">Fechar</button>
+    </div>
+    <div class="modal-body">
+      <div class="small">Crie um <b>Agente</b> ou um <b>Admin</b>. Informe um <b>email válido</b>. Você deve enviar <b>somente o token</b> para a pessoa (se não usar convites por SMTP).</div>
+
+      <div class="row-inline" style="margin-top:10px;">
+        <input id="modalUserEmail" type="email" placeholder="email@empresa.com" style="padding:8px 10px; border:1px solid #ccc; border-radius:8px; width:280px;" />
+        <input id="modalUserName" type="text" placeholder="Nome (opcional)" style="padding:8px 10px; border:1px solid #ccc; border-radius:8px; width:220px;" />
+        <select id="modalUserRole" style="padding:8px 10px; border:1px solid #ccc; border-radius:8px;">
+          <option value="attendant">Agente</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button id="modalCreateUser" type="button">Criar usuário</button>
+      </div>
+
+      <div class="small" style="margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+        <input id="modalUserSendEmail" type="checkbox" />
+        <label for="modalUserSendEmail">Enviar token e convite por e-mail</label>
+      </div>
+
+      <div id="usersModalMsg" class="small" style="margin-top:10px;"></div>
+      <div id="usersModalToken" class="token-box" style="margin-top:10px;"></div>
+
+      <div id="attendantsSection" style="margin-top:14px; padding-top:12px; border-top: 1px solid rgba(0,0,0,0.08);">
+        <div style="font-weight:600; margin-bottom:8px;">Usuários</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px;">
+          <button id="refreshAttendants" type="button">Atualizar lista</button>
+        </div>
+        <div id="newToken" style="margin-top:8px; font-size:12px; color:#555;"></div>
+        <div id="attendants" style="margin-top:8px; font-size:12px;"></div>
+
+        <div style="margin-top:12px; font-weight:600;">Auditoria — Tokens armazenados</div>
+        <div class="small">Visível apenas para admin/root. Tokens ficam criptografados no banco e só o servidor consegue descriptografar.</div>
+        <div style="display:flex; gap:8px; margin-top:6px; align-items:center; flex-wrap:wrap;">
+          <button id="refreshTokens" type="button">Atualizar tokens</button>
+        </div>
+        <div id="tokensAudit" style="margin-top:8px; font-size:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="invitesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="invitesModalTitle">
+    <div class="modal-head">
+      <div class="modal-title" id="invitesModalTitle">Enviar convites</div>
+      <button id="invitesModalClose" class="modal-close" type="button">Fechar</button>
+    </div>
+    <div class="modal-body">
+      <div class="small">Envia emails usando o SMTP configurado na API. Se falhar, você ainda verá o token como fallback.</div>
+      <div id="modalInviteRows" style="margin-top:10px;"></div>
+      <div class="modal-actions">
+        <button id="modalInviteAdd" type="button">Adicionar outro</button>
+        <button id="modalInviteSend" type="button">Enviar convites</button>
+      </div>
+      <div id="modalInviteMsg" class="small" style="margin-top:10px;"></div>
+      <div id="modalInviteResults" style="margin-top:10px; font-size:12px;"></div>
+    </div>
+  </div>
+
+  <div id="topicsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="topicsModalTitle">
+    <div class="modal-head">
+      <div class="modal-title" id="topicsModalTitle">Assuntos do widget</div>
+      <button id="topicsModalClose" class="modal-close" type="button">Fechar</button>
+    </div>
+    <div class="modal-body">
+      <div class="small">Gerencie os botões de “assuntos” que aparecem no widget antes da primeira mensagem. Somente <b>admin/root</b>.</div>
+
+      <div style="margin-top:10px; padding:10px; border:1px solid rgba(0,0,0,0.08); border-radius:12px;">
+        <div style="font-weight:600; margin-bottom:8px;">Novo assunto</div>
+        <div class="row-inline" style="align-items:flex-start;">
+          <input id="topicsNewTitle" type="text" placeholder="Título (ex.: Pagamento)" style="padding:8px 10px; border:1px solid #ccc; border-radius:8px; width:220px;" />
+          <label for="topicsNewSortOrder" class="small" style="display:flex; flex-direction:column; gap:4px;">
+            Ordem
+            <input id="topicsNewSortOrder" type="number" placeholder="Ordem" value="0" style="padding:8px 10px; border:1px solid #ccc; border-radius:8px; width:120px;" />
+          </label>
+          <label class="small" style="display:flex; gap:6px; align-items:center; padding-top:8px;">
+            <input id="topicsNewActive" type="checkbox" checked />
+            Ativo
+          </label>
+        </div>
+        <div style="margin-top:8px;">
+          <textarea id="topicsNewMessage" placeholder="Mensagem que será enviada ao clicar" rows="3" style="width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:8px; box-sizing:border-box; resize:vertical;"></textarea>
+        </div>
+        <div style="margin-top:8px;">
+          <textarea id="topicsNewAutoReply" placeholder="Auto-resposta do suporte (opcional)" rows="2" style="width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:8px; box-sizing:border-box; resize:vertical;"></textarea>
+          <div class="small" style="margin-top:4px;">Se preenchido, o widget mostra esta frase como <b>Suporte</b> após o clique.</div>
+        </div>
+        <div class="modal-actions">
+          <button id="topicsCreate" type="button">Criar</button>
+          <button id="topicsRefresh" type="button">Atualizar lista</button>
+        </div>
+        <div id="topicsModalMsg" class="small" style="margin-top:8px;"></div>
+      </div>
+
+      <div style="margin-top:12px; font-weight:600;">Assuntos cadastrados</div>
+      <div id="topicsList" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  </div>
+
+  <script src="./panel.js?v=20260102b"></script>
+</body>
+</html>

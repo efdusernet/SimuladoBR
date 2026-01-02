@@ -29,6 +29,9 @@
     <script src="/utils/logout.js"></script>
     <!-- CSRF Protection -->
     <script src="/utils/csrf.js"></script>
+
+    <!-- Support chat widget (premium-only + desktop-only) -->
+    <script src="/utils/chatWidgetGate.js"></script>
     
     <!-- Layout Styles (loaded conditionally by layoutManager) -->
     <link rel="stylesheet" href="/layouts/mobile-layout.css">
@@ -469,6 +472,7 @@
         <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
         <a id="lnkAdminFeedbackResp" href="/pages/admin/feedbackResponses.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Responder feedbacks</a>
         <a id="lnkAdminNotifications" href="/pages/admin/notifications.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Notificações</a>
+        <a id="lnkAdminChatHost" href="/chat/admin" target="_blank" rel="noopener noreferrer" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Chat (Admin)</a>
         <button id="btnAdminFixture" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#0d9488;font-size:.85rem;border-radius:6px;cursor:pointer;">Gerar tentativa fixture</button>
         <button id="btnAdminReconcile" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#4f46e5;font-size:.85rem;border-radius:6px;cursor:pointer;">Reconciliar estatísticas</button>
         <button id="btnAdminPurge" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#b91c1c;font-size:.85rem;border-radius:6px;cursor:pointer;">Expurgar tentativas abandonadas</button>
@@ -626,8 +630,8 @@
         // Helper: append ?sessionToken= fallback if cookies not set
         function applyTokenFallback(){
             try {
-                const q = encodeURIComponent(token);
-                ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp','lnkAdminNotifications'].forEach(id => {
+                const q = encodeURIComponent(sessionForHeader || token);
+                ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp','lnkAdminNotifications','lnkAdminChatHost','lnkAdminChatHostModal'].forEach(id => {
                     const a = document.getElementById(id); if (!a) return;
                     const href = a.getAttribute('href') || '';
                     if (href.includes('sessionToken=')) return;
@@ -1469,7 +1473,10 @@
         <div style="background:var(--panel);border-radius:12px;max-width:500px;width:90%;margin:0 auto;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.4);color:var(--text)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
                 <h2 style="margin:0;font-size:1.4rem;color:var(--text)">Administração</h2>
-                <button id="adminModalClose" style="background:none;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center" aria-label="Fechar">×</button>
+                <div style="display:flex;align-items:center;gap:10px">
+                    <a id="lnkAdminChatHostModal" href="/chat/admin" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);text-decoration:none;font-size:.85rem;font-weight:600;cursor:pointer;">Chat (Admin)</a>
+                    <button id="adminModalClose" style="background:none;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center" aria-label="Fechar">×</button>
+                </div>
             </div>
             
             <!-- Accordion: Reconciliação de Estatísticas -->

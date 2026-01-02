@@ -1,7 +1,7 @@
 const db = require('../models');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/security');
-const { security } = require('../utils/logger');
+const { logger, security } = require('../utils/logger');
 
 // Resolves user from X-Session-Token (id, NomeUsuario, Email or JWT) and checks for 'admin' role
 module.exports = async function requireAdmin(req, res, next){

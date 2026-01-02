@@ -460,6 +460,59 @@ exports.updateQuestion = async (req, res, next) => {
 	}
 };
 
+exports.deleteQuestion = async (req, res, next) => {
+	try {
+		const id = Number(req.params.id);
+		if (!Number.isFinite(id) || id <= 0) return next(badRequest('invalid id', 'INVALID_ID'));
+		const userId = req.user && (req.user.Id || req.user.id) ? Number(req.user.Id || req.user.id) : null;
+		if (!Number.isFinite(userId) || userId <= 0) return next(unauthorized('unauthorized', 'UNAUTHORIZED'));
+
+		let result = { ok: true, id, hardDeleted: true, deleted: { explicacaoguia: 0, respostaopcao: 0, questao: 0 } };
+		await sequelize.transaction(async (t) => {
+			// Lock row to avoid concurrent edits
+			const row = await sequelize.query(
+				'SELECT id, excluido FROM public.questao WHERE id = :id FOR UPDATE',
+				{ replacements: { id }, type: sequelize.QueryTypes.SELECT, transaction: t }
+			);
+			if (!row || !row[0] || row[0].id == null) {
+				throw notFound('not found', 'QUESTION_NOT_FOUND');
+			}
+
+			// Hard-delete in FK-safe order: explicacaoguia -> respostaopcao -> questao
+			const delEg = await sequelize.query(
+				'DELETE FROM public.explicacaoguia WHERE idquestao = :id',
+				{ replacements: { id }, transaction: t }
+			);
+			result.deleted.explicacaoguia = Array.isArray(delEg) ? (delEg[1] && typeof delEg[1].rowCount === 'number' ? delEg[1].rowCount : (typeof delEg[1] === 'number' ? delEg[1] : 0)) : 0;
+
+			const delRo = await sequelize.query(
+				'DELETE FROM public.respostaopcao WHERE idquestao = :id',
+				{ replacements: { id }, transaction: t }
+			);
+			result.deleted.respostaopcao = Array.isArray(delRo) ? (delRo[1] && typeof delRo[1].rowCount === 'number' ? delRo[1].rowCount : (typeof delRo[1] === 'number' ? delRo[1] : 0)) : 0;
+
+			const delQ = await sequelize.query(
+				'DELETE FROM public.questao WHERE id = :id',
+				{ replacements: { id }, transaction: t }
+			);
+			result.deleted.questao = Array.isArray(delQ) ? (delQ[1] && typeof delQ[1].rowCount === 'number' ? delQ[1].rowCount : (typeof delQ[1] === 'number' ? delQ[1] : 0)) : 0;
+		});
+
+		return res.json(result);
+	} catch (err) {
+		// Allow our internal notFound(...) error object to pass through
+		if (err && err.status && err.code) return next(err);
+		// FK constraint violations or similar should surface as a conflict for the UI
+		const code = (err && err.original && err.original.code) || err.code || '';
+		const msg = (err && (err.message || err.toString())) || '';
+		if (code === '23503' || /violates foreign key constraint/i.test(msg)) {
+			return next(conflict('cannot delete due to related records', 'QUESTION_DELETE_CONFLICT', { id }));
+		}
+		logger.error('deleteQuestion error:', err);
+		return next(internalError('Internal error', 'DELETE_QUESTION_ERROR', err));
+	}
+};
+
 // Check if a question exists by exact descricao (case-insensitive, trimmed) and exam type (id or slug)
 exports.existsQuestion = async (req, res, next) => {
 	try {

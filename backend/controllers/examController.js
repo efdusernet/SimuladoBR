@@ -294,7 +294,7 @@ exports.selectQuestions = async (req, res, next) => {
       // - Else fall back to admin/default (exam_content_current_version)
       // - Else fall back to latest known version for that exam_type
       let ecoShares = [];
-      const examTypeIdForEco = Number(examTypeId) || null;
+      const examTypeIdForEco = (examCfg && examCfg._dbId) ? Number(examCfg._dbId) : null;
       const userIdForEco = Number((user && (user.Id || user.id)) || 0) || null;
       let examContentVersionIdForEco = null;
 

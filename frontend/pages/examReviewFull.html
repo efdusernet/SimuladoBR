@@ -195,6 +195,21 @@
       }
 
       // Feedback form logic
+      let cachedCsrfToken = null;
+      async function ensureCsrfToken() {
+        if (cachedCsrfToken) return cachedCsrfToken;
+        try {
+          const r = await fetch('/api/csrf-token', { credentials: 'include' });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => null);
+          const t = j && j.csrfToken ? String(j.csrfToken) : '';
+          cachedCsrfToken = t ? t : null;
+          return cachedCsrfToken;
+        } catch (_) {
+          return null;
+        }
+      }
+
       async function loadCategorias(){
         const sel = document.getElementById('fbCategoria');
         if (!sel || sel.dataset.loaded) return;
@@ -242,11 +257,15 @@
             const headers = { 'Content-Type':'application/json' };
             if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
             if (sessionTok) headers['X-Session-Token'] = sessionTok;
+
+            const csrfTok = await ensureCsrfToken();
+            if (csrfTok) headers['X-CSRF-Token'] = csrfTok;
+
             const sessionUserId = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
             const body = { texto, idcategoria: Number(catId) };
             if (/^\d+$/.test(qId)) body.idquestao = Number(qId);
             if (sessionUserId != null) body.userId = sessionUserId;
-            const resp = await fetch('/api/feedback', { method:'POST', headers, body: JSON.stringify(body) });
+            const resp = await fetch('/api/feedback', { method:'POST', headers, credentials: 'include', body: JSON.stringify(body) });
             if (resp.ok){
               if (statusEl) statusEl.textContent = 'Feedback enviado. Obrigado!';
               fbForm.reset();

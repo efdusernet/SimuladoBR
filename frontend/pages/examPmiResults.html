@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Certification Exam Report</title>
+  <!-- Support chat widget (served via backend /chat proxy) -->
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --bg:#ffffff;
+      --ink:#0f172a;
+      --muted:#475569;
+      --border:#d9e0e7;
+      --panel:#ffffff;
+      --ni:#dc2626; /* Needs Improvement */
+      --bt:#f59e0b; /* Below Target */
+      --t:#2563eb;  /* Target */
+      --at:#16a34a; /* Above Target */
+      --focus:#ffffff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;color:var(--ink);background:var(--bg)}
+    h1,h2,h3,p{margin:0}
+    .wrapper{max-width:980px;margin:28px auto;padding:32px 40px;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+    .heading-main{font-size:26px;letter-spacing:.5px;font-weight:700;text-align:center;margin:0}
+    .heading-row{position:relative;display:flex;justify-content:center;align-items:center;margin-bottom:4px;padding-left:90px;}
+    .heading-row .logo{position:absolute;left:0;top:50%;transform:translateY(-50%);height:54px;width:auto;object-fit:contain;display:block}
+    .candidate-info{display:flex;flex-wrap:nowrap;align-items:center;gap:10px;padding:6px 14px;border:1px solid var(--border);border-radius:10px;background:#f8fafc;margin-bottom:20px;font-size:12px;white-space:nowrap}
+    .candidate-info span{display:inline-block}
+    .ci-seg{font-weight:600;color:var(--ink)}
+    .ci-sep{color:var(--muted);font-weight:400;padding:0 2px}
+    .overall-block{border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:32px;background:#fdfefe}
+    .overall-title{font-size:15px;font-weight:700;margin-bottom:12px}
+    .overall-result{font-size:24px;font-weight:800;margin-bottom:18px}
+    .rating-scale{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:13px}
+    .rating-seg{display:flex;align-items:center;justify-content:center;padding:14px 10px;position:relative;font-weight:600}
+    .rating-scale-desc{display:grid;grid-template-columns:repeat(4,1fr);margin-top:6px;font-size:11px;color:var(--muted);text-align:center}
+    .rating-scale-desc span{display:block;padding:0 10px}
+    .rating-seg.needs{background:#fef2f2}
+    .rating-seg.below{background:#fffbeb;outline:3px solid var(--focus)}
+    .rating-seg.target{background:#eff6ff}
+    .rating-seg.above{background:#ecfdf5}
+    .rating-seg.active{outline:3px solid var(--focus);z-index:2}
+    .explanation{border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:34px;background:#ffffff}
+    .explanation h2{font-size:16px;font-weight:700;margin:0 0 16px}
+    .explanation p{margin:0 0 12px;font-size:13px;color:var(--muted);line-height:1.5}
+    .domains{border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:34px;background:#ffffff}
+    .domains h2{font-size:16px;font-weight:700;margin:0 0 18px}
+    .domain-grid{display:flex;flex-wrap:wrap;width:100%;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:13px}
+    .domain-grid .cell{flex:0 0 33.333%;padding:12px 14px;border-right:1px solid var(--border);border-top:1px solid var(--border);background:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:600;text-align:center;box-sizing:border-box}
+    .domain-grid .cell.head{white-space:normal;word-break:break-word;background:#f1f5f9 !important;font-weight:700}
+    .domain-grid .cell:nth-child(3n){border-right:none}
+    .domain-grid .cell:nth-child(-n+3){border-top:none}
+    .domain-result{font-weight:600}
+    .badge{padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;border:1px solid var(--border);display:inline-flex;align-items:center;gap:6px}
+    .badge.needs{background:#fef2f2;color:#7f1d1d;border-color:#fecaca}
+    .badge.below{background:#fffbeb;color:#78350f;border-color:#fde68a}
+    .badge.target{background:#eff6ff;color:#1e3a8a;border-color:#bfdbfe}
+    .badge.above{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}
+    .next{border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:12px;background:#ffffff}
+    .next h2{font-size:16px;font-weight:700;margin:0 0 14px}
+    .next p{margin:0 0 10px;font-size:13px;color:var(--muted);line-height:1.5}
+    .foot-note{font-size:11px;color:var(--muted);margin-top:24px;text-align:center}
+    .end-action{margin:36px 0 8px;text-align:center}
+    .end-action button{background:#2563eb;color:#fff;font-weight:600;border:none;padding:12px 30px;border-radius:8px;font-size:14px;cursor:pointer;letter-spacing:.4px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+    .end-action button:hover{background:#1d4ed8}
+    .end-action button:active{background:#1e40af}
+    @media print{
+      @page{size:A4;margin:14mm}
+      body{background:#fff}
+      .wrapper{border:none;box-shadow:none;padding:0;margin:0;max-width:none}
+      .explanation,.domains,.overall-block,.candidate-info,.next{break-inside:avoid}
+      .rating-seg.active{outline:2px solid #000}
+    }
+    @media (max-width:760px){
+      .wrapper{padding:28px 20px}
+      .domain-grid{grid-template-columns:1.6fr 1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper" id="reportRoot">
+    <div class="heading-row">
+      <img src="../assets/pmi.png" alt="PMI Logo" class="logo" />
+      <h1 class="heading-main">Certification<br>Exam Report</h1>
+    </div>
+
+    <div class="candidate-info" id="candidateInfo">
+      <span class="ci-seg" id="candNameSeg"><span id="candName" style="padding-right:20px;">—</span></span>
+      <span class="ci-sep">|</span>
+      <span class="ci-seg" id="certName" style="padding:0 15px;">Project Management Professional (PMP) ®</span>
+      <span class="ci-sep">|</span>
+      <span class="ci-seg" id="pmiIdSeg" style="padding-right:30px;">PMI ID: <span id="pmiId">12345</span></span>
+      <span class="ci-sep">|</span>
+      <span class="ci-seg" id="examDateSeg"><span id="examDate" style="padding:0 20px;">—</span></span>
+      <span class="ci-sep">|</span>
+      <span class="ci-seg" id="tcIdSeg">TC ID: <span id="tcId">—</span></span>
+    </div>
+
+    <div class="overall-block" id="overallBlock">
+      <div class="overall-title">YOUR OVERALL SCORE PERFORMANCE:</div>
+      <div class="rating-scale" id="ratingScale">
+        <div class="rating-seg needs" data-key="needs"></div>
+        <div class="rating-seg below" data-key="below"></div>
+        <div class="rating-seg target" data-key="target"></div>
+        <div class="rating-seg above" data-key="above"></div>
+      </div>
+      <div class="rating-scale-desc">
+        <span>Needs Improvement</span>
+        <span>Below Target</span>
+        <span>Target</span>
+        <span>Above Target</span>
+      </div>
+    </div>
+
+    <div class="explanation" id="explanation">
+      <h2>What does this diagram mean?</h2>
+      <p>This diagram uses four different Performance Ratings to show your overall performance on the exam. Each rating reflects how many questions you answered correctly.</p>
+      <p><strong>Above Target:</strong> Your performance exceeds the minimum requirements for this exam.</p>
+      <p><strong>Target:</strong> Your performance meets the minimum requirements for this exam.</p>
+      <p><strong>Below Target:</strong> Your performance is slightly below target and fails to meet the minimum requirements for this exam. Additional preparation is recommended before reexamination.</p>
+      <p><strong>Needs Improvement:</strong> Your performance is far below the target and fails to meet the minimum requirements for this exam. Additional preparation is strongly recommended before reexamination.</p>
+      <p><em>The categories presented on this report were created to help you see where you may need additional preparation. They should not be used or interpreted for other purposes, such as job replacement decisions.</em></p>
+      <h2 style="margin-top:22px">How is your score determined?</h2>
+      <p>PMI uses subject matter experts – project professionals from around the world and many different disciplines – to determine how many questions you must answer correctly to pass the exam. Each scored question on the exam is worth one point; and your final score is calculated by totaling the points you have earned. The number of questions answered correctly places you within one of the performance rating categories you see on this report.</p>
+    </div>
+
+    <div class="domains" id="domainsSection">
+      <h2>Your Performance by Domain</h2>
+      <div class="domain-grid" id="domainGrid">
+        <div class="cell head">People</div>
+        <div class="cell head">Process</div>
+        <div class="cell head">Business Environment</div>
+        <div class="cell"><div id="Result1" class="domain-result">—</div></div>
+        <div class="cell"><div id="Result2" class="domain-result">—</div></div>
+        <div class="cell"><div id="Result3" class="domain-result">—</div></div>
+      </div>
+    </div>
+
+    <div class="next" id="nextSection">
+      <h2>What can I do next?</h2>
+      <p id="nextText">Celebrate your accomplishment and reward yourself for all your hard work!</p>
+    </div>
+
+    <div class="end-action">
+      <button id="btnEnd" type="button">Encerrar</button>
+    </div>
+    <div>Este relatório é fictício e usado somente para melhorar a experiência do estudante, simulando o ambinte que deverá ser experimentado pelo candidato.</div>
+  </div>
+
+  <script>
+    (function(){
+      const $ = (s) => document.querySelector(s);
+      const params = new URLSearchParams(location.search);
+      const dataParam = params.get('data');
+      let payload = null; try { payload = dataParam ? JSON.parse(decodeURIComponent(dataParam)) : null; } catch(_) {}
+
+      const get = (key, def='—') => {
+        return params.get(key) || (payload && payload[key]) || def;
+      };
+      // Resolve candidate name from multiple possible sources.
+      const rawName = get('name');
+      function decodeJwt(t){
+        if(!t||typeof t!=='string'||t.split('.').length<3) return null;
+        try { const payload = t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'); const json = JSON.parse(atob(payload)); return json; } catch(_) { return null; }
+      }
+      function resolveUserName(){
+        if(rawName && rawName !== '—') return rawName;
+        // Ordem de preferência para recuperar nome do usuário; 'nome' é a variável correta de sessão.
+        const lsKeys = ['nome','userName','username','name','usuarioNome'];
+        for(const k of lsKeys){ try { const v = localStorage.getItem(k); if(v && v.trim()) return v.trim(); } catch(_){} }
+        const tokenKeys = ['access_token','token','auth_token'];
+        for(const tk of tokenKeys){ try { const tv = localStorage.getItem(tk); const dec = decodeJwt(tv); if(dec){ const cand = dec.name||dec.given_name||dec.preferred_username; if(cand && cand.trim()) return cand.trim(); } } catch(_){} }
+        return '—';
+      }
+      const name = resolveUserName();
+      const pmiId = get('pmiId','12345');
+      // Emission date (today), not exam date param; format: Nov 22, 2025
+      const emissionDate = new Date();
+      const dateRaw = get('date'); // still used if needed elsewhere
+      const tcId = get('tcId');
+      const overall = get('overall').trim();
+      // Percent parameters (overall and domains)
+      const overallPctRaw = get('overallPct','');
+      const peoplePctRaw = get('peoplePct','');
+      const processPctRaw = get('processPct','');
+      const businessPctRaw = get('businessPct','');
+
+      function parsePercent(v){
+        if(!v) return null;
+        const cleaned = v.toString().replace(/%/g,'').trim();
+        if(!cleaned) return null;
+        const n = parseFloat(cleaned.replace(/,/g,''));
+        if(Number.isNaN(n) || n < 0 || n > 100) return null;
+        return n;
+      }
+      const overallPct = parsePercent(overallPctRaw);
+      const peoplePct = parsePercent(peoplePctRaw);
+      const processPct = parsePercent(processPctRaw);
+      const businessPct = parsePercent(businessPctRaw);
+
+      function labelFromPct(p){
+        if(p == null) return '—';
+        // 0-25 → Needs; 50-74 → Below; 75-85 → Target; 86-100 → Above
+        if(p <= 25) return 'Needs Improvement';
+        if(p >= 50 && p <= 74) return 'Below Target';
+        if(p >= 75 && p <= 85) return 'Target';
+        if(p >= 86) return 'Above Target';
+        // Fallback range (e.g., 26-49): treat as Needs Improvement
+        return 'Needs Improvement';
+      }
+      function keyFromPct(p){
+        if(p == null) return null;
+        if(p <= 25) return 'needs';
+        if(p >= 50 && p <= 74) return 'below';
+        if(p >= 75 && p <= 85) return 'target';
+        if(p >= 86) return 'above';
+        // Fallback range (e.g., 26-49)
+        return 'needs';
+      }
+
+      // Fill candidate name and other dynamic segments
+      $('#candName').textContent = name;
+      $('#pmiId').textContent = pmiId;
+      $('#tcId').textContent = tcId;
+      // Always display emission date in short month format (e.g., Nov 22, 2025)
+      $('#examDate').textContent = emissionDate.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'});
+
+      const normalize = (v) => {
+        const s = (v||'').toLowerCase();
+        if (s.includes('needs')) return 'needs';
+        if (s.includes('below')) return 'below';
+        if (s.includes('above')) return 'above';
+        if (s.includes('target')) return 'target';
+        return 'target';
+      };
+
+      // Apenas aplica cor se houver overallPct válido; sem fallback para texto geral
+      const activeKey = overallPct != null ? keyFromPct(overallPct) : null;
+      const colorMap = { needs:'#FF6347', below:'#FF8C00', target:'#40E0D0', above:'#20B2AA' };
+      document.querySelectorAll('.rating-seg').forEach(seg => {
+        const k = seg.dataset.key;
+        if (activeKey && k === activeKey){
+          seg.classList.add('active');
+          seg.style.background = colorMap[k] || '';
+        } else {
+          seg.classList.remove('active');
+          seg.style.background = '';
+        }
+      });
+
+      // Set nextText based on threshold band when overallPct is available
+      if (activeKey) {
+        const nextEl = document.getElementById('nextText');
+        if (nextEl) {
+          const mapText = {
+            needs: "Your results show you must still focus on key areas of the fundamentals of the Project Management. Try to focus on each area of fundamentals and strength your knowloedge towards them before sitting for a new try",
+            below: "Your results show have gaps to be addressed on some areas. Take a look on your report and try to focus on those specific areas. Try to focus on each area of the report and strength your knowloedge towards them before sitting for a new try.",
+            target: "Your results show have a good understanding of the core principals of the project management and it's fundamentals. Take a look on your report and try improve your skills for those area where you have not done good and celebrate your certification status!.",
+            above: "Celebrate your accomplishment and reward yourself for all your hard work!"
+          };
+          nextEl.textContent = mapText[activeKey] || nextEl.textContent;
+        }
+      }
+
+      // Preencher resultados nas três células (segunda linha) usando percentuais
+      $('#Result1').textContent = labelFromPct(peoplePct);
+      $('#Result2').textContent = labelFromPct(processPct);
+      $('#Result3').textContent = labelFromPct(businessPct);
+
+      // Optional overwrite of next text (takes precedence over band-based text)
+      const nextOverride = get('next');
+      if (nextOverride && nextOverride !== '—') $('#nextText').textContent = nextOverride;
+
+      // Botão Encerrar: tenta fechar a aba (se permitido) e sempre navega para index
+      const endBtn = $('#btnEnd');
+      if(endBtn){
+        endBtn.addEventListener('click', () => {
+          try { window.close(); } catch(_) {}
+          window.location.href = '../index.html';
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

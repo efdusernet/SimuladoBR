@@ -1,0 +1,13 @@
+{
+  "name": "simuladosbr-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ./build.mjs",
+    "clean": "node -e \"import('fs').then(fs=>{fs.rmSync('assets/build',{recursive:true,force:true});fs.rmSync('dist',{recursive:true,force:true});});\""
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0"
+  }
+}

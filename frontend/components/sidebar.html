@@ -1,0 +1,3054 @@
+<style>
+/* Sidebar Styles */
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  background: #1e293b;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+/* User Header */
+.sidebar-header {
+  padding: 1.5rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+}
+
+.sidebar-avatar {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: #4f46e5;
+  flex-shrink: 0;
+}
+
+.sidebar-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-user-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-email {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Navigation */
+.sidebar-nav {
+  flex: 1;
+  padding: 1rem 0;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-nav-item:hover {
+  background: #334155;
+  color: white;
+}
+
+.sidebar-nav-item.active {
+  background: #334155;
+  color: white;
+  border-left-color: #4f46e5;
+}
+
+.sidebar-nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.sidebar-nav-label {
+  flex: 1;
+}
+
+/* Accordion para Simulados */
+.sidebar-accordion {
+  border: none;
+  background: transparent;
+}
+
+.sidebar-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #cbd5e1;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-accordion-header:hover {
+  background: #334155;
+  color: white;
+}
+
+.sidebar-accordion-chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s;
+  flex-shrink: 0;
+}
+
+.sidebar-accordion.expanded .sidebar-accordion-chevron {
+  transform: rotate(90deg);
+}
+
+.sidebar-accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  background: #0f172a;
+}
+
+.sidebar-accordion.expanded .sidebar-accordion-content {
+  max-height: 500px;
+}
+
+.sidebar-accordion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem 0.65rem 3rem;
+  color: #94a3b8;
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+  font-size: 0.875rem;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-accordion-item:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.sidebar-accordion-item.active {
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+/* Indicadores Submenu (desktop) */
+/* Indicadores Submenu styles (inside accordion content) */
+@media (min-width: 1024px) {
+  #sidebarIndicadoresAccordion .sidebar-accordion-content {
+    background: #0f172a;
+  }
+}
+
+/* Footer */
+.sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Scrollbar */
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+</style>
+
+<aside class="sidebar">
+  <!-- User Header -->
+  <div class="sidebar-header">
+    <div class="sidebar-avatar" id="sidebarAvatar">U</div>
+    <div class="sidebar-user-info">
+      <p class="sidebar-user-name" id="sidebarUserName">Carregando...</p>
+      <p class="sidebar-user-email" id="sidebarUserEmail">usuario@email.com</p>
+      <p class="sidebar-user-email" id="sidebarUserEcoVersion" style="margin-top:-2px">ECO: —</p>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="sidebar-nav">
+    <!-- Home -->
+    <button class="sidebar-nav-item active" data-section="home" id="sidebarHome">
+      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      <span class="sidebar-nav-label">Home</span>
+    </button>
+
+    <!-- Simulados (Accordion) -->
+    <div class="sidebar-accordion" id="sidebarSimuladosAccordion">
+      <button class="sidebar-accordion-header">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <span class="sidebar-nav-label">Simulados</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <button class="sidebar-accordion-item" data-section="simulados" data-simulado="pmp">
+          PMP Completo (180 questões)
+        </button>
+        <button class="sidebar-accordion-item" data-section="simulados" data-simulado="custom">
+          Simulado Customizado
+        </button>
+        <button class="sidebar-accordion-item" data-section="simulados" data-simulado="historico">
+          Histórico de Exames
+        </button>
+      </div>
+    </div>
+
+    <!-- Indicadores (Accordion) -->
+    <div class="sidebar-accordion" id="sidebarIndicadoresAccordion">
+      <button class="sidebar-accordion-header" id="sidebarIndicadores">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <span class="sidebar-nav-label">Indicadores</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <a class="sidebar-accordion-item" href="/index.html">Visão Geral</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=grupos">Grupo de Processos</a>
+        <!-- "Tópico" desativado (Área de conhecimento) -->
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=abordagem">Abordagem</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=detalhes">Detalhes</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dashboard">Estatísticas</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dominios">Domínios</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=prob">Probabilidade de Sucesso</a>
+        <a class="sidebar-accordion-item" id="sidebarInsightsAiLink" href="/pages/InsightsIA.html">Insights da IA</a>
+      </div>
+    </div>
+
+    <!-- Progresso Geral -->
+    <button class="sidebar-nav-item" data-section="progresso-geral" id="sidebarProgressoGeral">
+      <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+      </svg>
+      <span class="sidebar-nav-label">Progresso Geral</span>
+    </button>
+
+    <!-- Configurações (Accordion) -->
+    <div class="sidebar-accordion" id="sidebarConfiguracoesAccordion">
+      <button class="sidebar-accordion-header">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span class="sidebar-nav-label">Configurações</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <button class="sidebar-accordion-item" data-section="configuracoes" data-config="perfil">
+          Perfil
+        </button>
+        <button class="sidebar-accordion-item" data-section="configuracoes" data-config="data-exame">
+          Data exame
+        </button>
+      </div>
+    </div>
+
+    <!-- Admin (Accordion - só visível para admins) -->
+    <div class="sidebar-accordion" id="sidebarAdminAccordion" style="display: none;">
+      <button class="sidebar-accordion-header">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+        </svg>
+        <span class="sidebar-nav-label">Admin</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <button class="sidebar-accordion-item" data-admin-action="fixture">
+          Administração
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="chat-host">
+          Chat (Admin)
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="cadastrar-questao">
+          Cadastrar questão
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="cadastrar-bulk">
+          Cadastrar questão bulk
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="feedback">
+          Responder feedbacks
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="notificacoes">
+          Notificações
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="reconcile">
+          Reconciliar estatísticas
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="purge">
+          Expurgar tentativas abandonadas
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="mark-abandoned">
+          Marcar abandonadas (inatividade)
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Footer -->
+  <div class="sidebar-footer">
+    <button class="sidebar-logout-btn" id="sidebarLogoutBtn">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+      </svg>
+      Sair
+    </button>
+  </div>
+</aside>
+
+<script>
+(function() {
+  'use strict';
+
+  // Load user data
+  async function loadUserData() {
+    try {
+      const token = localStorage.getItem('sessionToken');
+      if (!token) return;
+
+      const response = await fetch('/api/users/me', {
+        headers: { 'X-Session-Token': token }
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        const nameEl = document.getElementById('sidebarUserName');
+        const emailEl = document.getElementById('sidebarUserEmail');
+        const avatarEl = document.getElementById('sidebarAvatar');
+
+        if (nameEl && user.Nome) {
+          nameEl.textContent = user.Nome;
+        }
+        if (emailEl && user.Email) {
+          emailEl.textContent = user.Email;
+        }
+        if (avatarEl && user.Nome) {
+          avatarEl.textContent = user.Nome.charAt(0).toUpperCase();
+        }
+      }
+
+      await loadEcoVersion();
+    } catch (error) {
+      logger.error('Erro ao carregar dados do usuário:', error);
+    }
+  }
+
+  async function loadEcoVersion() {
+    const ecoEl = document.getElementById('sidebarUserEcoVersion');
+    if (!ecoEl) return;
+    try {
+      const token = localStorage.getItem('sessionToken');
+      if (!token) { ecoEl.textContent = 'ECO: —'; return; }
+
+      const resp = await fetch('/api/users/me/eco-version?examTypeSlug=pmp', {
+        headers: { 'X-Session-Token': token },
+        cache: 'no-store',
+        credentials: 'include'
+      });
+      if (!resp.ok) { ecoEl.textContent = 'ECO: —'; return; }
+      const data = await resp.json().catch(() => null);
+      const code = data && data.effective && data.effective.version && data.effective.version.code;
+      ecoEl.textContent = 'ECO: ' + (code ? String(code) : '—');
+    } catch (_e) {
+      ecoEl.textContent = 'ECO: —';
+    }
+  }
+
+  async function applyFeatureFlags() {
+    try {
+      const link = document.getElementById('sidebarInsightsAiLink');
+      if (!link) return;
+
+      const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '').trim();
+      const url = (base ? base.replace(/\/$/, '') : '') + '/api/meta/config';
+
+      const cfg = await fetch(url, { cache: 'no-store', credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+
+      if (cfg && cfg.ollamaEnabled === false) {
+        link.style.display = 'none';
+      } else if (cfg && cfg.ollamaEnabled === true) {
+        link.style.display = '';
+      }
+    } catch (_e) {
+      // If config can't be loaded, keep default visibility.
+    }
+  }
+
+  function ddmmyyyyToIso(value) {
+    if (value == null) return '';
+    const raw = String(value).trim();
+    if (!raw) return '';
+
+    // Allow values that include time (take first 10 chars)
+    const s10 = raw.length >= 10 ? raw.slice(0, 10) : raw;
+
+    // dd/mm/yyyy
+    let m = s10.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) {
+      const dd = m[1], mm = m[2], yyyy = m[3];
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // yyyy-mm-dd (in case the DB was manually filled or legacy)
+    m = s10.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      return s10;
+    }
+
+    // dd-mm-yyyy
+    m = s10.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (m) {
+      const dd = m[1], mm = m[2], yyyy = m[3];
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return '';
+  }
+
+  function isoToDdmmyyyy(value) {
+    if (!value || typeof value !== 'string') return '';
+    const m = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return '';
+    const yyyy = m[1], mm = m[2], dd = m[3];
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  function getTodayIsoLocal() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function ensureExamDateModal() {
+    let modal = document.getElementById('examDateModal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'examDateModal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.style.display = 'none';
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.background = 'rgba(0,0,0,0.45)';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '9999';
+    modal.style.padding = '16px';
+
+    modal.innerHTML = `
+      <div id="examDateModalCard" style="width:min(420px, 92vw); background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="font-weight:700; font-size:1rem; color:#0f172a;">Data do exame</div>
+          <button id="examDateCloseBtn" type="button" aria-label="Fechar" style="border:1px solid #e2e8f0; background:#ffffff; border-radius:10px; padding:6px 10px; cursor:pointer; color:#0f172a;">×</button>
+        </div>
+
+        <div style="margin-top:12px; font-size:0.82rem; color:#334155;">Selecione a data prevista do seu exame real.</div>
+
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+          <label for="examDateInput" style="font-size:0.78rem; color:#0f172a; font-weight:600;">Data</label>
+          <input id="examDateInput" type="date" style="border:1px solid #e2e8f0; border-radius:10px; padding:10px; font-size:0.9rem; color:#0f172a;" />
+          <div id="examDateError" style="display:none; font-size:0.78rem; color:#b91c1c;"></div>
+        </div>
+
+        <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px;">
+          <button id="examDateCancelBtn" type="button" style="border:1px solid #e2e8f0; background:#ffffff; border-radius:10px; padding:10px 12px; cursor:pointer; color:#0f172a;">Cancelar</button>
+          <button id="examDateSaveBtn" type="button" style="border:1px solid #0f172a; background:#0f172a; border-radius:10px; padding:10px 12px; cursor:pointer; color:#ffffff; font-weight:700;">Salvar</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const card = modal.querySelector('#examDateModalCard');
+    const close = () => {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      const err = modal.querySelector('#examDateError');
+      if (err) { err.style.display = 'none'; err.textContent = ''; }
+    };
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) close();
+    });
+    if (card) {
+      card.addEventListener('click', (e) => {
+        try { e.stopPropagation(); } catch(_){ }
+      });
+    }
+
+    const closeBtn = modal.querySelector('#examDateCloseBtn');
+    const cancelBtn = modal.querySelector('#examDateCancelBtn');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    if (cancelBtn) cancelBtn.addEventListener('click', close);
+
+    document.addEventListener('keydown', (e) => {
+      try {
+        if (e.key === 'Escape' && modal.style.display !== 'none') close();
+      } catch(_){ }
+    });
+
+    const saveBtn = modal.querySelector('#examDateSaveBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const token = localStorage.getItem('sessionToken') || '';
+        const input = modal.querySelector('#examDateInput');
+        const err = modal.querySelector('#examDateError');
+        if (!token) {
+          if (err) { err.textContent = 'Sessão não encontrada. Faça login novamente.'; err.style.display = 'block'; }
+          return;
+        }
+        const iso = input ? String(input.value || '').trim() : '';
+        if (!iso) {
+          if (err) { err.textContent = 'Selecione uma data.'; err.style.display = 'block'; }
+          return;
+        }
+
+        // Bloquear datas no passado
+        try {
+          const todayIso = getTodayIsoLocal();
+          if (iso < todayIso) {
+            if (err) { err.textContent = 'Selecione uma data de hoje ou futura.'; err.style.display = 'block'; }
+            return;
+          }
+        } catch (_e) { /* ignore */ }
+
+        const ddmmyyyy = isoToDdmmyyyy(iso);
+        if (!ddmmyyyy) {
+          if (err) { err.textContent = 'Data inválida.'; err.style.display = 'block'; }
+          return;
+        }
+
+        try {
+          if (err) { err.style.display = 'none'; err.textContent = ''; }
+          saveBtn.disabled = true;
+          saveBtn.style.opacity = '0.8';
+
+          const resp = await fetch('/api/users/me/exam-date', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Session-Token': token
+            },
+            credentials: 'include',
+            body: JSON.stringify({ data_exame: ddmmyyyy })
+          });
+
+          const text = await resp.text();
+          let data = null;
+          try { data = text ? JSON.parse(text) : null; } catch(_) { data = null; }
+
+          if (!resp.ok) {
+            const msg = (data && (data.message || data.error)) ? (data.message || data.error) : (text || `Erro ${resp.status}`);
+            if (err) { err.textContent = String(msg); err.style.display = 'block'; }
+            return;
+          }
+
+          try {
+            if (typeof window.showTemporaryNotification === 'function') {
+              window.showTemporaryNotification('Data do exame atualizada.');
+            }
+          } catch(_){ }
+
+          close();
+        } catch (e) {
+          if (err) { err.textContent = 'Erro ao salvar. Tente novamente.'; err.style.display = 'block'; }
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.style.opacity = '1';
+        }
+      });
+    }
+
+    return modal;
+  }
+
+  async function openExamDateModal() {
+    const modal = ensureExamDateModal();
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+
+    const input = modal.querySelector('#examDateInput');
+    const err = modal.querySelector('#examDateError');
+    const saveBtn = modal.querySelector('#examDateSaveBtn');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    if (input) {
+      input.disabled = true;
+      input.value = '';
+      // Impede seleção de datas no passado
+      try { input.min = getTodayIsoLocal(); } catch(_){ }
+    }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.8'; }
+
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      if (!token) {
+        if (err) { err.textContent = 'Sessão não encontrada. Faça login novamente.'; err.style.display = 'block'; }
+        return;
+      }
+
+      const resp = await fetch('/api/users/me', {
+        headers: { 'X-Session-Token': token },
+        cache: 'no-store',
+        credentials: 'include'
+      });
+
+      if (!resp.ok) {
+        if (err) { err.textContent = 'Não foi possível carregar a data atual.'; err.style.display = 'block'; }
+        return;
+      }
+
+      const user = await resp.json().catch(() => null);
+      const current = user && (user.DataExame || user.data_exame) ? String(user.DataExame || user.data_exame) : '';
+      const iso = ddmmyyyyToIso(current);
+      if (input) {
+        input.value = iso || '';
+      }
+    } catch (e) {
+      if (err) { err.textContent = 'Erro ao carregar. Tente novamente.'; err.style.display = 'block'; }
+    } finally {
+      if (input) input.disabled = false;
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+    }
+  }
+
+  // Navigation handlers
+  function setupNavigation() {
+    // Home
+    const homeBtn = document.getElementById('sidebarHome');
+    if (homeBtn) {
+      homeBtn.addEventListener('click', () => {
+        // Clear navigation state when going to home
+        try {
+          sessionStorage.removeItem('currentSection');
+          sessionStorage.removeItem('currentSubsection');
+        } catch(e) {}
+        (window.top || window).location.assign('/index.html');
+      });
+    }
+    
+    // Indicadores accordion toggle (abre submenus ao clicar)
+    const indicadoresAccordionHeader = document.querySelector('#sidebarIndicadoresAccordion .sidebar-accordion-header');
+    const indicadoresAccordion = document.getElementById('sidebarIndicadoresAccordion');
+    if (indicadoresAccordionHeader && indicadoresAccordion) {
+      // Restaurar estado salvo
+      try {
+        const saved = sessionStorage.getItem('sidebarIndicadoresExpanded');
+        if (saved === 'true') {
+          indicadoresAccordion.classList.add('expanded');
+        }
+      } catch(_){}
+
+      indicadoresAccordionHeader.addEventListener('click', (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){}
+        indicadoresAccordion.classList.toggle('expanded');
+        // Persistir estado
+        try {
+          const isExpanded = indicadoresAccordion.classList.contains('expanded');
+          sessionStorage.setItem('sidebarIndicadoresExpanded', String(isExpanded));
+        } catch(_){}
+      });
+    }
+
+    // Indicadores submenu items: abre conteúdo na index.html (desktop) ou redireciona (mobile)
+    const indicadoresItems = document.querySelectorAll('#sidebarIndicadoresAccordion .sidebar-accordion-content .sidebar-accordion-item');
+    indicadoresItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){}
+        const href = item.getAttribute('href') || '';
+
+        // "Visão Geral" é o dashboard do index.html (não é uma aba da página Indicadores.html)
+        if (/^\/(?:index\.html)?$/i.test(href) || /^\/index\.html$/i.test(href)) {
+          try {
+            sessionStorage.setItem('currentSection', 'indicadores');
+            sessionStorage.setItem('currentSubsection', 'geral');
+          } catch(_){ }
+          (window.top || window).location.assign('/index.html');
+          return;
+        }
+
+        // Permitir navegação para páginas fora do fluxo de abas de Indicadores
+        // (ex.: Dashboard dedicado de IA)
+        if (/\/pages\/InsightsIA\.html(?:\?.*)?$/i.test(href)) {
+          try {
+            sessionStorage.removeItem('currentSection');
+            sessionStorage.removeItem('currentSubsection');
+          } catch(_){ }
+          (window.top || window).location.assign(href);
+          return;
+        }
+
+        const m = href.match(/tab=([a-zA-Z0-9_-]+)/);
+        const tab = m ? m[1] : 'geral';
+        navigateToSection('indicadores', tab);
+      });
+    });
+
+    // Progresso Geral
+    const progressoGeralBtn = document.getElementById('sidebarProgressoGeral');
+    if (progressoGeralBtn) {
+      progressoGeralBtn.addEventListener('click', () => {
+        navigateToSection('progresso-geral');
+      });
+    }
+
+    // Accordion toggles
+    const simuladosAccordionHeader = document.querySelector('#sidebarSimuladosAccordion .sidebar-accordion-header');
+    const simuladosAccordion = document.getElementById('sidebarSimuladosAccordion');
+    if (simuladosAccordionHeader && simuladosAccordion) {
+      simuladosAccordionHeader.addEventListener('click', () => {
+        simuladosAccordion.classList.toggle('expanded');
+      });
+    }
+
+    const configAccordionHeader = document.querySelector('#sidebarConfiguracoesAccordion .sidebar-accordion-header');
+    const configAccordion = document.getElementById('sidebarConfiguracoesAccordion');
+    if (configAccordionHeader && configAccordion) {
+      configAccordionHeader.addEventListener('click', () => {
+        configAccordion.classList.toggle('expanded');
+      });
+    }
+
+    const adminAccordionHeader = document.querySelector('#sidebarAdminAccordion .sidebar-accordion-header');
+    const adminAccordion = document.getElementById('sidebarAdminAccordion');
+    if (adminAccordionHeader && adminAccordion) {
+      adminAccordionHeader.addEventListener('click', () => {
+        adminAccordion.classList.toggle('expanded');
+      });
+    }
+
+    // Simulados accordion items
+    const simuladoItems = document.querySelectorAll('#sidebarSimuladosAccordion .sidebar-accordion-item');
+    simuladoItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const simulado = item.dataset.simulado;
+        navigateToSection('simulados', simulado);
+      });
+    });
+
+    // Configurações accordion items
+    const configItems = document.querySelectorAll('#sidebarConfiguracoesAccordion .sidebar-accordion-item');
+    configItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const config = item.dataset.config;
+        logger.info('[Sidebar] Config item clicked:', config);
+        if (config === 'data-exame') {
+          document.querySelectorAll('.sidebar-nav-item, .sidebar-accordion-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          openExamDateModal();
+          return;
+        }
+        navigateToSection('configuracoes', config);
+      });
+    });
+
+    // Admin accordion items
+    const adminItems = document.querySelectorAll('#sidebarAdminAccordion .sidebar-accordion-item');
+    adminItems.forEach(item => {
+      item.addEventListener('click', () => {
+        handleAdminAction(item.dataset.adminAction);
+      });
+    });
+
+    // Logout
+    const logoutBtn = document.getElementById('sidebarLogoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', handleLogout);
+    }
+  }
+
+  // Load settings.html content into profile section
+  async function loadSettingsIntoProfile() {
+    logger.info('[Sidebar] loadSettingsIntoProfile called');
+    
+    // Save navigation state
+    try {
+      sessionStorage.setItem('currentSection', 'configuracoes');
+      sessionStorage.removeItem('currentSubsection');
+    } catch(e) {}
+    
+    try {
+      logger.info('[Sidebar] Fetching /pages/settings.html');
+      const response = await fetch('/pages/settings.html');
+      logger.info('[Sidebar] Fetch response:', response.status, response.ok);
+      if (!response.ok) throw new Error('Failed to load settings');
+      
+      const html = await response.text();
+      logger.info('[Sidebar] HTML received, length:', html.length);
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Extrair estilos do head
+      const styles = doc.querySelectorAll('style');
+      logger.info('[Sidebar] Styles found:', styles.length);
+      styles.forEach(style => {
+        // Adicionar estilos ao head do documento principal se ainda não existir
+        if (!document.querySelector(`style[data-settings-style]`)) {
+          const newStyle = document.createElement('style');
+          newStyle.setAttribute('data-settings-style', 'true');
+          newStyle.innerHTML = style.innerHTML;
+          document.head.appendChild(newStyle);
+        }
+      });
+      
+      // Extrair apenas o conteúdo do body (sem header/nav)
+      const content = doc.body.innerHTML;
+      logger.info('[Sidebar] Content extracted, length:', content.length);
+      
+      // Injetar no profile section
+      const profileSection = document.getElementById('profile');
+      logger.info('[Sidebar] Profile section found:', !!profileSection);
+      if (profileSection) {
+        profileSection.innerHTML = content;
+        logger.info('[Sidebar] Content injected');
+        
+        // Executar scripts inline da página settings
+        const scripts = doc.querySelectorAll('script');
+        logger.info('[Sidebar] Scripts found:', scripts.length);
+        scripts.forEach(script => {
+          if (script.innerHTML) {
+            try {
+              eval(script.innerHTML);
+            } catch (e) {
+              logger.error('Error executing settings script:', e);
+            }
+          }
+        });
+        
+        // Ativar a seção profile no index.html
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        profileSection.classList.add('active');
+        logger.info('[Sidebar] Profile section activated');
+      }
+    } catch (error) {
+      logger.error('[Sidebar] Error loading settings:', error);
+      // Fallback: redirecionar para a página
+      (window.top || window).location.assign('/pages/settings.html');
+    }
+  }
+
+  // Load examSetup.html content into exam-setup section
+  async function loadExamSetupIntoSection() {
+    logger.info('[Sidebar] loadExamSetupIntoSection called');
+    
+    // Save navigation state
+    try {
+      sessionStorage.setItem('currentSection', 'simulados');
+      sessionStorage.setItem('currentSubsection', 'custom');
+    } catch(e) {}
+    
+    try {
+      logger.info('[Sidebar] Fetching /pages/examSetup.html');
+      const response = await fetch('/pages/examSetup.html');
+      logger.info('[Sidebar] Fetch response:', response.status, response.ok);
+      if (!response.ok) throw new Error('Failed to load exam setup');
+      
+      const html = await response.text();
+      logger.info('[Sidebar] HTML received, length:', html.length);
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Extrair estilos do head
+      const styles = doc.querySelectorAll('style');
+      logger.info('[Sidebar] Styles found:', styles.length);
+      styles.forEach(style => {
+        // Adicionar estilos ao head do documento principal se ainda não existir
+        if (!document.querySelector(`style[data-exam-setup-style]`)) {
+          const newStyle = document.createElement('style');
+          newStyle.setAttribute('data-exam-setup-style', 'true');
+          newStyle.innerHTML = style.innerHTML;
+          document.head.appendChild(newStyle);
+        }
+      });
+      
+      // Extrair apenas o conteúdo do body
+      const content = doc.body.innerHTML;
+      logger.info('[Sidebar] Content extracted, length:', content.length);
+      
+      // Injetar no exam-setup section
+      const examSetupSection = document.getElementById('exam-setup');
+      logger.info('[Sidebar] Exam-setup section found:', !!examSetupSection);
+      if (examSetupSection) {
+        examSetupSection.innerHTML = content;
+        logger.info('[Sidebar] Content injected');
+        
+        // Executar scripts inline da página examSetup
+        const scripts = doc.querySelectorAll('script');
+        logger.info('[Sidebar] Scripts found:', scripts.length);
+        scripts.forEach(script => {
+          if (script.innerHTML) {
+            try {
+              eval(script.innerHTML);
+            } catch (e) {
+              logger.error('Error executing exam setup script:', e);
+            }
+          }
+        });
+        
+        // Ativar a seção exam-setup no index.html
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        examSetupSection.classList.add('active');
+        logger.info('[Sidebar] Exam-setup section activated');
+      }
+    } catch (error) {
+      logger.error('[Sidebar] Error loading exam setup:', error);
+      // Fallback: redirecionar para a página
+      (window.top || window).location.assign('/pages/examSetup.html');
+    }
+  }
+
+  // Expose globally for use by script.js
+  window.loadExamSetupIntoSection = loadExamSetupIntoSection;
+
+  // Load progressoGeral.html content into progresso-geral section
+  async function loadProgressoGeralIntoSection() {
+    logger.info('[Sidebar] loadProgressoGeralIntoSection called');
+    
+    // Save navigation state
+    try {
+      sessionStorage.setItem('currentSection', 'progresso-geral');
+      sessionStorage.removeItem('currentSubsection');
+    } catch(e) {}
+    
+    try {
+      logger.info('[Sidebar] Fetching /pages/progressoGeral.html');
+      const response = await fetch('/pages/progressoGeral.html');
+      logger.info('[Sidebar] Fetch response:', response.status, response.ok);
+      if (!response.ok) throw new Error('Failed to load progresso geral');
+      
+      const html = await response.text();
+      logger.info('[Sidebar] HTML received, length:', html.length);
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Extrair estilos do head
+      const styles = doc.querySelectorAll('style');
+      logger.info('[Sidebar] Styles found:', styles.length);
+      styles.forEach(style => {
+        // Adicionar estilos ao head do documento principal se ainda não existir
+        if (!document.querySelector(`style[data-progresso-geral-style]`)) {
+          const newStyle = document.createElement('style');
+          newStyle.setAttribute('data-progresso-geral-style', 'true');
+          newStyle.innerHTML = style.innerHTML;
+          document.head.appendChild(newStyle);
+        }
+      });
+      
+      // Extrair apenas o conteúdo do body
+      const content = doc.body.innerHTML;
+      logger.info('[Sidebar] Content extracted, length:', content.length);
+      
+      // Injetar no progresso-geral section
+      const progressoSection = document.getElementById('progresso-geral');
+      logger.info('[Sidebar] Progresso-geral section found:', !!progressoSection);
+      if (progressoSection) {
+        progressoSection.innerHTML = content;
+        logger.info('[Sidebar] Content injected');
+        
+        // Executar scripts inline da página progressoGeral
+        const scripts = doc.querySelectorAll('script');
+        logger.info('[Sidebar] Scripts found:', scripts.length);
+        scripts.forEach(script => {
+          if (script.innerHTML) {
+            try {
+              eval(script.innerHTML);
+            } catch (e) {
+              logger.error('Error executing progresso geral script:', e);
+            }
+          }
+        });
+        
+        // Ativar a seção progresso-geral no index.html
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        progressoSection.classList.add('active');
+        logger.info('[Sidebar] Progresso-geral section activated');
+      }
+    } catch (error) {
+      logger.error('[Sidebar] Error loading progresso geral:', error);
+      // Fallback: redirecionar para a página
+      (window.top || window).location.assign('/pages/progressoGeral.html');
+    }
+  }
+
+  // Expose globally
+  window.loadProgressoGeralIntoSection = loadProgressoGeralIntoSection;
+
+  // Load Indicadores into index.html section (desktop mode)
+  async function loadIndicadoresIntoSection(tab) {
+    try {
+      const indicadoresSection = document.getElementById('indicadores');
+      if (!indicadoresSection) {
+        // This is not index.html (standalone page)
+        const key = String(tab || 'geral').toLowerCase();
+
+        // "Visão Geral" deve abrir no dashboard (index.html), não em Indicadores.html
+        if (key === 'geral') {
+          try {
+            sessionStorage.setItem('currentSection', 'indicadores');
+            sessionStorage.setItem('currentSubsection', 'geral');
+          } catch(_){ }
+          (window.top || window).location.assign('/index.html');
+          return;
+        }
+
+        // Outras abas continuam indo para a página dedicada de Indicadores
+        const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
+        (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+        return;
+      }
+      const key = String(tab || 'geral').toLowerCase();
+      // Activate indicadores section
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      indicadoresSection.classList.add('active');
+
+      // Ensure styles
+      if (!document.getElementById('indicadores-inline-styles')) {
+        const style = document.createElement('style');
+        style.id = 'indicadores-inline-styles';
+        style.textContent = `
+          #indicadores .ov-wrapper{max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+          #indicadores .ov-grid{display:grid; grid-template-columns:minmax(140px,auto) repeat(10,minmax(70px,1fr)); border:1px solid #e2e8f0; font-size:13px;}
+          #indicadores .cell{padding:8px 4px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
+          #indicadores .rowlabel{text-align:left; padding-left:6px; font-size:12px;}
+          #indicadores .head,#indicadores .subhead,#indicadores .colhead{font-weight:600; font-size:11px;}
+          body.show-markers #indicadores .ov-grid .cell::after{content:attr(data-cell); position:absolute; top:2px; right:4px; font-size:9px; font-weight:500; color:#94a3b8; letter-spacing:.5px; pointer-events:none; user-select:none;}
+        `;
+        document.head.appendChild(style);
+      }
+
+      // Render per tab
+      if (key === 'geral') {
+        await renderOverview(indicadoresSection);
+      } else if (key === 'grupo-processos' || key === 'grupos' || key === 'processos') {
+        await renderProcessGroups(indicadoresSection);
+      } else if (key === 'topico' || key === 'tópico') {
+        // Desativado: Área de conhecimento (Tópico)
+        indicadoresSection.innerHTML = '<div class="panel"><h3>Indisponível</h3><p>Esta aba foi desativada.</p></div>';
+      } else if (key === 'abordagem') {
+        await renderAbordagem(indicadoresSection);
+      } else if (key === 'detalhes') {
+        await renderDetalhes(indicadoresSection);
+      } else if (key === 'dashboard' || key === 'estatisticas') {
+        await renderEstatisticas(indicadoresSection);
+      } else if (key === 'dominios') {
+        await renderDominios(indicadoresSection);
+      } else if (key === 'prob' || key === 'probabilidade' || key === 'probabilidade-de-sucesso') {
+        await renderProbabilidade(indicadoresSection);
+      } else {
+        indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
+      }
+
+      // Persist current subsection (tab)
+      try { sessionStorage.setItem('currentSection', 'indicadores'); sessionStorage.setItem('currentSubsection', tab || 'geral'); } catch(_) {}
+    } catch (error) {
+      logger.error('[Sidebar] Error loading Indicadores:', error);
+    }
+  }
+
+  async function renderOverview(container){
+    try {
+      container.innerHTML = '';
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) {
+          hdr = document.createElement('div');
+          hdr.id = 'sectionHeaderStrip';
+          mainEl.insertBefore(hdr, mainEl.firstChild);
+        }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Visão Geral');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Visão Geral';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+      const sec = document.createElement('div');
+      sec.id = 'sec-geral';
+      const wrap = document.createElement('div');
+      wrap.className = 'ov-wrapper';
+      // Stats strip (IND4/5/6) should appear BEFORE the table
+      const statsStrip = document.createElement('div');
+      statsStrip.style.marginTop = '10px';
+      statsStrip.style.display = 'grid';
+      statsStrip.style.gridTemplateColumns = 'repeat(4, minmax(140px,1fr))';
+      statsStrip.style.gap = '6px';
+      function stripCard(label, value){
+        const c = document.createElement('div');
+        c.style.background = '#111827';
+        c.style.border = '1px solid #1f2937';
+        c.style.borderRadius = '6px';
+        c.style.padding = '10px';
+        c.innerHTML = `<div style="font-size:11px;color:#94a3b8">${label}</div><div style="font-size:16px;font-weight:600;color:#e2e8f0">${value}</div>`;
+        return c;
+      }
+      // Insert stats strip into wrapper first
+      wrap.appendChild(statsStrip);
+      // Then create the grid table
+      const grid = document.createElement('div');
+      grid.className = 'ov-grid';
+      wrap.appendChild(grid);
+      sec.appendChild(wrap);
+      container.appendChild(sec);
+
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+      // Build grid structure matching original Visão Geral
+      function addCell(cls, cellId, text, attrs){
+        const d = document.createElement('div');
+        d.className = cls ? `cell ${cls}` : 'cell';
+        d.setAttribute('data-cell', cellId);
+        if (attrs){ Object.keys(attrs).forEach(k=>{ d.setAttribute(k, attrs[k]); }); }
+        if (text != null) d.textContent = text;
+        grid.appendChild(d);
+      }
+
+      // Row 1: Headers 30d / 60d
+      addCell('rowlabel','OV-R1C1','');
+      addCell('head','OV-R1C2-6','30d',{ style:'grid-column: span 5;' });
+      addCell('head','OV-R1C7-11','60d',{ style:'grid-column: span 5;' });
+
+      // Row 2: Você / Outros labels
+      addCell('rowlabel','OV-R2C1','');
+      addCell('subhead','OV-R2C2-4','Você',{ style:'grid-column: span 3;' });
+      addCell('subhead','OV-R2C5-6','Outros',{ style:'grid-column: span 2;' });
+      addCell('subhead','OV-R2C7-9','Você',{ style:'grid-column: span 3;' });
+      addCell('subhead','OV-R2C10-11','Outros',{ style:'grid-column: span 2;' });
+
+      // Row 3: Column headers
+      addCell('rowlabel','OV-R3C1','');
+      ['Tot','Apr%','Rep%','Apr%','Rep%','Tot','Apr%','Rep%','Apr%','Rep%']
+        .forEach((txt, i) => addCell('colhead', `OV-R3C${i+2}`, txt));
+
+      // Row 4: Exames realizados
+      addCell('rowlabel','OV-R4C1','Exames realizados');
+      addCell('', 'OV-R4C2', '—', { 'data-key':'last15.you.total' });
+      addCell('', 'OV-R4C3', '—', { 'data-format':'percent', 'data-key':'last15.you.aprovado' });
+      addCell('', 'OV-R4C4', '—', { 'data-format':'percent', 'data-key':'last15.you.reprovado' });
+      addCell('', 'OV-R4C5', '—', { 'data-format':'percent', 'data-key':'last15.others.aprovado' });
+      addCell('', 'OV-R4C6', '—', { 'data-format':'percent', 'data-key':'last15.others.reprovado' });
+      addCell('', 'OV-R4C7', '—', { 'data-key':'last30.you.total' });
+      addCell('', 'OV-R4C8', '—', { 'data-format':'percent', 'data-key':'last30.you.aprovado' });
+      addCell('', 'OV-R4C9', '—', { 'data-format':'percent', 'data-key':'last30.you.reprovado' });
+      addCell('', 'OV-R4C10', '—', { 'data-format':'percent', 'data-key':'last30.others.aprovado' });
+      addCell('', 'OV-R4C11', '—', { 'data-format':'percent', 'data-key':'last30.others.reprovado' });
+
+      // Row 5: Quiz realizados
+      addCell('rowlabel','OV-R5C1','Quiz\u00A0realizados');
+      addCell('', 'OV-R5C2', '—', { 'data-key':'last15.you.total' });
+      addCell('', 'OV-R5C3', '—', { 'data-format':'percent', 'data-key':'last15.you.aprovado' });
+      addCell('', 'OV-R5C4', '—', { 'data-format':'percent', 'data-key':'last15.you.reprovado' });
+      addCell('', 'OV-R5C5', '—', { 'data-format':'percent', 'data-key':'last15.others.aprovado' });
+      addCell('', 'OV-R5C6', '—', { 'data-format':'percent', 'data-key':'last15.others.reprovado' });
+      addCell('', 'OV-R5C7', '—', { 'data-key':'last30.you.total' });
+      addCell('', 'OV-R5C8', '—', { 'data-format':'percent', 'data-key':'last30.you.aprovado' });
+      addCell('', 'OV-R5C9', '—', { 'data-format':'percent', 'data-key':'last30.you.reprovado' });
+      addCell('', 'OV-R5C10', '—', { 'data-format':'percent', 'data-key':'last30.others.aprovado' });
+      addCell('', 'OV-R5C11', '—', { 'data-format':'percent', 'data-key':'last30.others.reprovado' });
+
+      // Populate from APIs
+      const getByPath = (obj, path) => path.split('.').reduce((o,k) => (o && typeof o === 'object') ? o[k] : undefined, obj);
+      try {
+        const resOv30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=full', { headers, credentials: 'include' });
+        const resOv60 = await fetch('/api/indicators/overview-detailed?days=60&exam_mode=full', { headers, credentials: 'include' });
+        const resQz30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=quiz', { headers, credentials: 'include' });
+        const resQz60 = await fetch('/api/indicators/overview-detailed?days=60&exam_mode=quiz', { headers, credentials: 'include' });
+        const d30 = resOv30.ok ? await resOv30.json() : { cells:{} };
+        const d60 = resOv60.ok ? await resOv60.json() : { cells:{} };
+        const q30 = resQz30.ok ? await resQz30.json() : { cells:{} };
+        const q60 = resQz60.ok ? await resQz60.json() : { cells:{} };
+
+        const mapSet = (srcObj, mapping) => {
+          Object.keys(mapping).forEach(src => {
+            const tgt = mapping[src];
+            const el = grid.querySelector(`[data-cell="${tgt}"]`);
+            if (!el) return;
+            const v = (srcObj.cells||{})[src];
+            let text = v == null ? '—' : String(v);
+            if (el.getAttribute('data-format') === 'percent' && v != null) text = `${v}%`;
+            el.textContent = text;
+          });
+        };
+
+        // 30d full -> columns 2..6
+        mapSet(d30, { 'OV-R4C2':'OV-R4C2','OV-R4C3':'OV-R4C3','OV-R4C4':'OV-R4C4','OV-R4C5':'OV-R4C5','OV-R4C6':'OV-R4C6' });
+        // 60d full -> columns 7..11
+        mapSet(d60, { 'OV-R4C2':'OV-R4C7','OV-R4C3':'OV-R4C8','OV-R4C4':'OV-R4C9','OV-R4C5':'OV-R4C10','OV-R4C6':'OV-R4C11' });
+        // 30d quiz -> row 5, columns 2..6
+        mapSet(q30, { 'OV-R4C2':'OV-R5C2','OV-R4C3':'OV-R5C3','OV-R4C4':'OV-R5C4','OV-R4C5':'OV-R5C5','OV-R4C6':'OV-R5C6' });
+        // 60d quiz -> row 5, columns 7..11
+        mapSet(q60, { 'OV-R4C2':'OV-R5C7','OV-R4C3':'OV-R5C8','OV-R4C4':'OV-R5C9','OV-R4C5':'OV-R5C10','OV-R4C6':'OV-R5C11' });
+      } catch(e){ logger.warn('[Sidebar] Overview detailed population failed:', e); }
+
+      // Fill static labels for row 1/2/3
+      const labels = {
+        'OV-R2C2-4':'Você','OV-R2C5-6':'Outros','OV-R2C7-9':'Você','OV-R2C10-11':'Outros',
+        'OV-R3C2':'Tot','OV-R3C3':'Apr%','OV-R3C4':'Rep%','OV-R3C5':'Apr%','OV-R3C6':'Rep%',
+        'OV-R3C7':'Tot','OV-R3C8':'Apr%','OV-R3C9':'Rep%','OV-R3C10':'Apr%','OV-R3C11':'Rep%'
+      };
+      Object.entries(labels).forEach(([cellId, txt])=>{
+        const el = grid.querySelector(`[data-cell="${cellId}"]`);
+        if (el) el.textContent = txt;
+      });
+
+      // Histórico de Simulados (compatível com Indicadores.html: tabela + pager)
+      const histTitle = document.createElement('div');
+      histTitle.textContent = 'Histórico de Simulados';
+      histTitle.style.margin = '14px 0 6px';
+      histTitle.style.fontSize = '0.75rem';
+      histTitle.style.fontWeight = '600';
+      histTitle.style.color = '#fff';
+      wrap.appendChild(histTitle);
+
+      const histBox = document.createElement('div');
+      histBox.style.overflowX = 'auto';
+      histBox.style.border = '1px solid #e2e8f0';
+      histBox.style.borderRadius = '8px';
+      histBox.style.background = '#fff';
+      const table = document.createElement('table');
+      table.id = 'attemptsHistoryTable';
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+      table.style.fontSize = '0.62rem';
+      const thead = document.createElement('thead');
+      thead.style.background = '#f8fafc';
+      thead.style.color = '#111827';
+      thead.innerHTML = `
+        <tr style="text-align:left;">
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Data</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Título</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Tipo</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Acertos</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Score</th>
+          <th style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">Status</th>
+        </tr>`;
+      const tbody = document.createElement('tbody');
+      tbody.id = 'attemptsHistoryBody';
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#64748b;">Carregando...</td></tr>';
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      histBox.appendChild(table);
+      wrap.appendChild(histBox);
+
+      const pager = document.createElement('div');
+      pager.id = 'attemptsPager';
+      pager.style.margin = '6px 2px 4px';
+      pager.style.display = 'flex';
+      pager.style.gap = '6px';
+      pager.style.flexWrap = 'wrap';
+      pager.style.alignItems = 'center';
+      pager.style.fontSize = '0.6rem';
+      pager.innerHTML = `
+        <button type="button" id="attemptsPrev" style="padding:4px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; font-weight:600;">◀</button>
+        <div id="attemptsPageInfo" style="font-weight:600; color:#334155;">Página 1</div>
+        <button type="button" id="attemptsNext" style="padding:4px 8px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; font-weight:600;">▶</button>
+        <label for="attemptsFilter" style="display:inline-flex; align-items:center; gap:4px; margin-left:8px; font-weight:600; color:#334155;">Filtro:
+          <select id="attemptsFilter" style="padding:4px 6px; border:1px solid #cbd5e1; background:#fff; border-radius:5px; font-size:0.6rem; font-weight:600; color:#0f172a;">
+            <option value="all">Todos</option>
+            <option value="completo" selected>Completos</option>
+            <option value="incompleto">Incompletos</option>
+          </select>
+        </label>
+        <button type="button" id="attemptsExportCsv" style="margin-left:auto; padding:4px 10px; border:1px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:6px; cursor:pointer; font-weight:600;">Exportar CSV</button>`;
+      wrap.appendChild(pager);
+
+      // Logic mirrored from Indicadores.html
+      let _attemptsItems = [];
+      let _attemptsCurrentPage = 1;
+      const _attemptsPageSize = 15;
+      let _attemptsFilter = 'completo';
+
+      function renderAttemptsPage(page){
+        const tbodyEl = tbody; // already captured
+        const pageInfo = document.getElementById('attemptsPageInfo');
+        const totalInfo = document.getElementById('attemptsTotalInfo');
+        const btnPrev = document.getElementById('attemptsPrev');
+        const btnNext = document.getElementById('attemptsNext');
+        if (!tbodyEl) return;
+        const filtered = _attemptsItems.filter(it => {
+          if (_attemptsFilter === 'completo') return it.status === 'Completo';
+          if (_attemptsFilter === 'incompleto') return it.status !== 'Completo';
+          return true;
+        });
+        const total = filtered.length;
+        if (!total){
+          tbodyEl.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#64748b;">Nenhuma tentativa registrada</td></tr>';
+          if(pageInfo) pageInfo.textContent='Página 0';
+          // Atualiza o título com contagem (0)
+          if (histTitle) histTitle.textContent = 'Histórico de Simulados — 0 tentativas';
+          if(btnPrev) btnPrev.disabled=true; if(btnNext) btnNext.disabled=true;
+          return;
+        }
+        const maxPage = Math.ceil(total / _attemptsPageSize);
+        if (page < 1) page = 1; if (page > maxPage) page = maxPage;
+        _attemptsCurrentPage = page;
+        const start = (page - 1) * _attemptsPageSize;
+        const end = start + _attemptsPageSize;
+        const slice = filtered.slice(start, end);
+        tbodyEl.innerHTML = '';
+        slice.forEach(it => {
+          const tr = document.createElement('tr');
+          let scoreColor = '#334155';
+          if (it.score && it.score !== '---') {
+            const num = parseFloat(String(it.score).replace('%','').trim());
+            if (!isNaN(num)) {
+              scoreColor = num >= 75 ? '#065f46' : '#b91c1c';
+            }
+          }
+          let scoreDisplay = it.score;
+          if (it.score && it.score !== '---') {
+            const num = parseFloat(String(it.score).replace('%','').trim());
+            if (!isNaN(num)) {
+              if (num >= 99) {
+                scoreDisplay = `${it.score} <span title="Excepcional" aria-label="Excepcional" style="display:inline-block; margin-left:4px; color:#f59e0b; font-size:0.7rem; letter-spacing:1px;">★★★★★</span>`;
+              } else if (num >= 91 && num <= 98) {
+                scoreDisplay = `${it.score} <span title="Muito Alto" aria-label="Muito Alto" style="display:inline-block; margin-left:4px; color:#f59e0b; font-size:0.7rem; letter-spacing:1px;">★★★★</span>`;
+              } else if (num >= 81 && num <= 90) {
+                scoreDisplay = `${it.score} <span title="Alto" aria-label="Alto" style="display:inline-block; margin-left:4px; color:#d97706; font-size:0.7rem; letter-spacing:1px;">★★★</span>`;
+              } else if (num >= 75 && num <= 80) {
+                scoreDisplay = `${it.score} <span title="Aprovado" aria-label="Aprovado" style="display:inline-block; margin-left:4px; color:#065f46; font-size:0.65rem;">✔</span>`;
+              }
+            }
+          }
+          const tipoDisplay = it.tipo === 'Completo' ? 'Simulado Completo' : it.tipo;
+          const statusDisplay = it.status === 'Completo' ? 'Finalizado' : it.status;
+          tr.innerHTML = `
+            <td style=\"padding:6px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap; color:#111827;\">${(it.date||'').slice(0,10)}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; color:#111827;">${it.titulo || ''}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; color:#111827;">${tipoDisplay || ''}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; color:#111827;">${it.acertos}/${it.total}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${scoreColor};">${scoreDisplay || '---'}</td>
+            <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:${it.status==='Completo' ? '#16a34a' : '#dc2626'};">${statusDisplay || ''}</td>`;
+          tbodyEl.appendChild(tr);
+        });
+        if (pageInfo) pageInfo.textContent = `Página ${page} / ${maxPage}`;
+        // Atualiza o título com contagem (respeita filtro atual)
+        if (histTitle) {
+          const suffix = total === 1 ? 'tentativa' : 'tentativas';
+          histTitle.textContent = `Histórico de Simulados — ${total} ${suffix}`;
+        }
+        if (btnPrev) btnPrev.disabled = page <= 1;
+        if (btnNext) btnNext.disabled = page >= maxPage;
+      }
+
+      async function loadAttemptsHistoryExtended(){
+        const tbodyEl = tbody;
+        if (!tbodyEl) return;
+        try {
+          const res = await fetch('/api/indicators/attempts-history-extended', { headers, credentials: 'include' });
+          if (!res.ok){ tbodyEl.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b91c1c;">Falha ao carregar histórico</td></tr>'; return; }
+          const data = await res.json();
+          _attemptsItems = Array.isArray(data.items) ? data.items : [];
+          // Ensure filter select reflects current filter
+          const selFilter = document.getElementById('attemptsFilter');
+          if (selFilter) selFilter.value = _attemptsFilter;
+          renderAttemptsPage(1);
+        } catch(e){
+          tbodyEl.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b91c1c;">Erro inesperado</td></tr>';
+        }
+      }
+
+      (function initAttemptsPager(){
+        const btnPrev = document.getElementById('attemptsPrev');
+        const btnNext = document.getElementById('attemptsNext');
+        const btnCsv = document.getElementById('attemptsExportCsv');
+        const selFilter = document.getElementById('attemptsFilter');
+        try {
+          const saved = localStorage.getItem('attemptsHistoryFilter');
+          if (saved && ['all','completo','incompleto'].includes(saved)) {
+            _attemptsFilter = saved;
+            if (selFilter) selFilter.value = saved;
+          }
+        } catch(_){ }
+        if (btnPrev) btnPrev.addEventListener('click', ()=> renderAttemptsPage(_attemptsCurrentPage - 1));
+        if (btnNext) btnNext.addEventListener('click', ()=> renderAttemptsPage(_attemptsCurrentPage + 1));
+        if (btnCsv) btnCsv.addEventListener('click', exportAttemptsCsv);
+        if (selFilter) selFilter.addEventListener('change', ()=>{ _attemptsFilter = selFilter.value; try { localStorage.setItem('attemptsHistoryFilter', _attemptsFilter); } catch(_){ } renderAttemptsPage(1); });
+      })();
+
+      loadAttemptsHistoryExtended();
+
+      function exportAttemptsCsv(){
+        if (!_attemptsItems || !_attemptsItems.length){ alert('Nenhuma tentativa para exportar.'); return; }
+        const filtered = _attemptsItems.filter(it => {
+          if (_attemptsFilter === 'completo') return it.status === 'Completo';
+          if (_attemptsFilter === 'incompleto') return it.status !== 'Completo';
+          return true;
+        });
+        if (!filtered.length){ alert('Nenhum registro para exportar neste filtro.'); return; }
+        const header = ['Data','Titulo','Tipo','Acertos','Total','Score','Status'];
+        const lines = [header.join(',')];
+        filtered.forEach(it => {
+          const cells = [
+            (it.date||'').slice(0,10),
+            sanitizeCsv(it.titulo),
+            sanitizeCsv(it.tipo),
+            String(it.acertos),
+            String(it.total),
+            String(it.score),
+            sanitizeCsv(it.status)
+          ];
+          lines.push(cells.join(','));
+        });
+        const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const stamp = new Date().toISOString().slice(0,10);
+        a.download = `historico_simulados_${stamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 200);
+      }
+      function sanitizeCsv(value){
+        if (value == null) return '';
+        let v = String(value);
+        if (v.includes('"')) v = v.replace(/"/g,'""');
+        if (/[",\n]/.test(v)) v = '"' + v + '"';
+        return v;
+      }
+
+      try {
+        // Resolve examTypeId (numeric) required by /answered-count and /total-hours
+        async function resolveExamTypeId(){
+          // 0) Query param examTypeId (num)
+          try {
+            const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+            const n = Number(qpId);
+            if (Number.isFinite(n) && n > 0) return Math.floor(n);
+          } catch(_){ }
+
+          // 1) Stored numeric id
+          try {
+            const storedId = Number(localStorage.getItem('examTypeId'));
+            if (Number.isFinite(storedId) && storedId > 0) return Math.floor(storedId);
+          } catch(_){ }
+
+          // 2) Determine slug (pmp/cpm/...) from qp or localStorage
+          let slug = 'pmp';
+          try {
+            const qp = new URLSearchParams(window.location.search).get('examType');
+            if (qp) slug = String(qp).toLowerCase();
+          } catch(_){ }
+          try {
+            const ls = localStorage.getItem('examType');
+            if (ls) slug = String(ls).toLowerCase();
+          } catch(_){ }
+
+          // 3) Try sessionStorage cache
+          try {
+            const raw = sessionStorage.getItem('examTypesCache');
+            if (raw) {
+              const arr = JSON.parse(raw);
+              const found = Array.isArray(arr) ? arr.find(t => (t.slug || t.Slug || '').toLowerCase() === slug) : null;
+              const id = found && (found.id != null || found.Id != null) ? Number(found.id != null ? found.id : found.Id) : null;
+              if (Number.isFinite(id) && id > 0) return Math.floor(id);
+            }
+          } catch(_){ }
+
+          // 4) Try localStorage cache
+          try {
+            const rawLocal = localStorage.getItem('examTypesCache');
+            if (rawLocal) {
+              const arr = JSON.parse(rawLocal);
+              const found = Array.isArray(arr) ? arr.find(t => (t.slug || t.Slug || '').toLowerCase() === slug) : null;
+              const id = found && (found.id != null || found.Id != null) ? Number(found.id != null ? found.id : found.Id) : null;
+              if (Number.isFinite(id) && id > 0) return Math.floor(id);
+            }
+          } catch(_){ }
+
+          // 5) Fetch from API
+          try {
+            const list = await fetch('/api/exams/types', { headers, credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(()=>null);
+            if (Array.isArray(list)) {
+              try { sessionStorage.setItem('examTypesCache', JSON.stringify(list)); } catch(_){ }
+              const found = list.find(t => (t.slug || t.Slug || '').toLowerCase() === slug);
+              const id = found && (found.id != null || found.Id != null) ? Number(found.id != null ? found.id : found.Id) : null;
+              if (Number.isFinite(id) && id > 0) {
+                try { localStorage.setItem('examTypeId', String(Math.floor(id))); } catch(_){ }
+                return Math.floor(id);
+              }
+            }
+          } catch(_){ }
+
+          // 6) Minimal fallback map (keeps PMP working if everything else fails)
+          const fallbackMap = { pmp: 1 };
+          if (fallbackMap[slug]) return fallbackMap[slug];
+          return null;
+        }
+
+        const examTypeId = await resolveExamTypeId();
+
+        const url4 = examTypeId ? `/api/indicators/questions-count?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/questions-count';
+        const r4 = await fetch(url4, { headers, credentials: 'include' }).catch(()=>null);
+        const totalQuestions = r4 && r4.ok ? ((await r4.json()).total ?? 0) : 0;
+
+        let hist = '—', act = '—';
+        if (examTypeId) {
+          const url5 = `/api/indicators/answered-count?exam_type=${encodeURIComponent(examTypeId)}`;
+          const r5 = await fetch(url5, { headers, credentials: 'include' }).catch(()=>null);
+          if (r5 && r5.ok){ const d5 = await r5.json(); hist = d5.historicalDistinct ?? 0; act = d5.activeDistinct ?? 0; }
+        } else {
+          logger.warn('[Sidebar] renderOverview: examTypeId não resolvido; pulando IND5 (answered-count).');
+        }
+
+        let hoursText = '—';
+        if (examTypeId) {
+          const url6 = `/api/indicators/total-hours?exam_type=${encodeURIComponent(examTypeId)}`;
+          const r6 = await fetch(url6, { headers, credentials: 'include' }).catch(()=>null);
+          if (r6 && r6.ok){ const d6 = await r6.json(); const s = Number(d6.segundos ?? 0); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60; hoursText = `${h}h ${m}min ${ss}s`; }
+        } else {
+          logger.warn('[Sidebar] renderOverview: examTypeId não resolvido; pulando IND6 (total-hours).');
+        }
+
+        statsStrip.appendChild(stripCard('Total de Questões (IND4)', totalQuestions));
+        statsStrip.appendChild(stripCard('Respondidas históricas distintas (IND5)', hist));
+        statsStrip.appendChild(stripCard('Respondidas distintas atuais (IND5)', act));
+        statsStrip.appendChild(stripCard('Horas totais de estudo (IND6)', hoursText));
+      } catch(_){ }
+    } catch(e){
+      logger.error('[Sidebar] renderOverview error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar a Visão Geral.</div></div></div>';
+    }
+  }
+
+  async function renderProcessGroups(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-grupo-processos';
+      // Removed body color override to avoid affecting global text color
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Grupo de Processos');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Grupo de Processos';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      // Container that mirrors Indicadores.html structure
+      const wrap = document.createElement('div');
+      wrap.className = 'ov-wrapper';
+      const containerEl = document.createElement('div');
+      containerEl.id = 'processGroupsContainer';
+      containerEl.style.display = 'flex';
+      containerEl.style.flexDirection = 'column';
+      containerEl.style.gap = '16px';
+      wrap.appendChild(containerEl);
+      sec.appendChild(wrap);
+      container.appendChild(sec);
+
+      // Ensure sb-hbar component is registered once
+      if (!window.customElements.get('sb-hbar')) {
+        class SbHbar extends HTMLElement {
+          constructor(){ super(); }
+          connectedCallback(){
+            try {
+              const root = this.attachShadow({ mode: 'open' });
+              const dataAttr = this.getAttribute('data');
+              const height = this.getAttribute('height') || '14';
+              const showPercent = this.hasAttribute('show-percent');
+              const data = JSON.parse(dataAttr || '[]');
+              const style = document.createElement('style');
+              style.textContent = `:host{ display:block; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
+              .wrap{ display:flex; flex-direction:column; gap:6px; }
+              .row{ display:flex; align-items:center; gap:8px; min-height:18px; }
+              .label{ flex:0 0 auto; color:#374151; font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+              .track{ position:relative; flex:1 1 auto; height:${height}px; background: var(--sb-hbar-track, #e5e7eb); border-radius: 999px; overflow:hidden; }
+              .bar{ position:absolute; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #4f46e5); border-radius:999px; transition: width .45s ease; }
+              .bar.striped{ background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 8px, transparent 8px 16px); }
+              .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
+              @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
+              .val{ flex: 0 0 auto; color:#111827; font-size:12px; min-width:36px; text-align:right; }
+              .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }`;
+              root.appendChild(style);
+              const wrap = document.createElement('div');
+              wrap.className = 'wrap';
+              const row = document.createElement('div');
+              row.className = 'row';
+              const label = document.createElement('div');
+              label.className = 'label';
+              const track = document.createElement('div');
+              track.className = 'track';
+              const val = document.createElement('div');
+              val.className = 'val';
+              // Render segments sequentially across the track
+              let left = 0;
+              const segs = (data[0] && Array.isArray(data[0].segments)) ? data[0].segments : [];
+              segs.forEach(seg => {
+                const v = Math.max(0, Math.min(100, Number(seg.value||0)));
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.setAttribute('role','progressbar');
+                bar.setAttribute('aria-valuemin','0');
+                bar.setAttribute('aria-valuemax','100');
+                bar.setAttribute('aria-valuenow', String(v));
+                bar.setAttribute('aria-label', seg.label || '');
+                bar.style.left = left + '%';
+                bar.style.width = v + '%';
+                bar.style.setProperty('--sb-hbar-color', seg.color || '#4f46e5');
+                const tip = document.createElement('div');
+                tip.className = 'tooltip';
+                tip.textContent = `${v}%`;
+                bar.appendChild(tip);
+                track.appendChild(bar);
+                left += v;
+              });
+              // Optional percent label
+              val.textContent = showPercent && segs.length ? `${segs[0].value}%` : '';
+              row.appendChild(label);
+              row.appendChild(track);
+              row.appendChild(val);
+              wrap.appendChild(row);
+              root.appendChild(wrap);
+            } catch(e) {
+              // Fallback: render simple bar
+              const d = document.createElement('div');
+              d.textContent = 'sb-hbar inválido';
+              this.appendChild(d);
+            }
+          }
+        }
+        customElements.define('sb-hbar', SbHbar);
+      }
+
+      // Helper to add one process group row (label, count, hbar)
+      function addProcessGroupRow(name, answered, total, acertosPct, errosPct){
+        const rowWrap = document.createElement('div');
+        rowWrap.style.display = 'flex';
+        rowWrap.style.alignItems = 'center';
+        rowWrap.style.gap = '12px';
+        rowWrap.style.flexWrap = 'wrap';
+        const label = document.createElement('div');
+        label.style.fontWeight = '600';
+        label.style.minWidth = '180px';
+        label.style.fontSize = '0.9rem';
+        label.textContent = name;
+        const count = document.createElement('div');
+        count.style.fontSize = '0.85rem';
+        count.style.color = '#475569';
+        count.style.minWidth = '64px';
+        count.style.textAlign = 'center';
+        count.textContent = `${answered}/${total}`;
+        const barBox = document.createElement('div');
+        barBox.style.flex = '1 1 0%';
+        barBox.style.minWidth = '300px';
+        const hbar = document.createElement('sb-hbar');
+        const data = [{ label:'', max:100, segments:[
+          { label:'Acertos', value:Number(acertosPct)||0, color:'#2b8a3e' },
+          { label:'Erros', value:Number(errosPct)||0, color:'#dc3545' }
+        ]}];
+        hbar.setAttribute('data', JSON.stringify(data));
+        hbar.setAttribute('height', '14');
+        hbar.setAttribute('show-percent', '');
+        barBox.appendChild(hbar);
+        rowWrap.appendChild(label);
+        rowWrap.appendChild(count);
+        rowWrap.appendChild(barBox);
+        containerEl.appendChild(rowWrap);
+      }
+      // Build auth headers (JWT + X-Session-Token)
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+
+      // Derive current exam type id when available
+      async function getCurrentExamTypeIdLocal(){
+        try {
+          const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+          const n = Number(qpId);
+          if (Number.isFinite(n) && n > 0) return Math.floor(n);
+        } catch(_){ }
+        try {
+          const storedId = Number(localStorage.getItem('examTypeId'));
+          if (Number.isFinite(storedId) && storedId > 0) return Math.floor(storedId);
+        } catch(_){ }
+        return null;
+      }
+
+      // Fetch real process group stats and render rows
+      try {
+        const examTypeId = await getCurrentExamTypeIdLocal();
+        const url = examTypeId ? `/api/indicators/process-group-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/process-group-stats';
+        const res = await fetch(url, { headers, credentials: 'include' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
+          (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
+          return;
+        }
+        if (!res.ok) {
+          containerEl.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por grupo de processos.</div>';
+          return;
+        }
+        const data = await res.json();
+        const grupos = Array.isArray(data.grupos) ? data.grupos : [];
+        if (!grupos.length){
+          containerEl.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum grupo de processos encontrado.</div>';
+          return;
+        }
+        grupos.forEach(g => {
+          const nome = (g && (g.descricao || g.grupo)) ? (g.descricao || String(g.grupo)) : 'Grupo';
+          const acertos = Number(g.acertos || 0);
+          const erros = Number(g.erros || 0);
+          const total = acertos + erros;
+          const pctAcertos = total>0 ? Math.round((acertos*100)/total) : (g.percentAcertos!=null? Math.round(g.percentAcertos) : 0);
+          const pctErros = total>0 ? Math.round((erros*100)/total) : (g.percentErros!=null? Math.round(g.percentErros) : 0);
+          addProcessGroupRow(nome, acertos, total, pctAcertos, pctErros);
+        });
+      } catch(fetchErr){
+        containerEl.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de grupos de processos.</div>';
+      }
+    } catch(e){
+      logger.error('[Sidebar] renderProcessGroups error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Grupo de Processos.</div></div></div>';
+    }
+  }
+
+  // Área de conhecimento / Tópico desativado
+  // Endpoints relacionados (desativados): GET /api/indicators/area-knowledge-stats
+
+  async function renderAbordagem(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-abordagem';
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Abordagem');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Abordagem';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'ov-wrapper';
+      const containerEl = document.createElement('div');
+      containerEl.id = 'approachContainer';
+      containerEl.style.display = 'flex';
+      containerEl.style.flexDirection = 'column';
+      containerEl.style.gap = '16px';
+      wrap.appendChild(containerEl);
+      sec.appendChild(wrap);
+      container.appendChild(sec);
+
+      // Ensure sb-hbar is registered (shared)
+      if (!window.customElements.get('sb-hbar')) {
+        class SbHbar extends HTMLElement {
+          constructor(){ super(); }
+          connectedCallback(){
+            try {
+              const root = this.attachShadow({ mode: 'open' });
+              const dataAttr = this.getAttribute('data');
+              const height = this.getAttribute('height') || '14';
+              const showPercent = this.hasAttribute('show-percent');
+              const data = JSON.parse(dataAttr || '[]');
+              const style = document.createElement('style');
+              style.textContent = `:host{ display:block; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
+              .wrap{ display:flex; flex-direction:column; gap:6px; }
+              .row{ display:flex; align-items:center; gap:8px; min-height:18px; }
+              .label{ flex:0 0 auto; color:#374151; font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+              .track{ position:relative; flex:1 1 auto; height:${height}px; background: var(--sb-hbar-track, #e5e7eb); border-radius: 999px; overflow:hidden; }
+              .bar{ position:absolute; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #4f46e5); border-radius:999px; transition: width .45s ease; }
+              .bar.striped{ background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 8px, transparent 8px 16px); }
+              .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
+              @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
+              .val{ flex: 0 0 auto; color:#111827; font-size:12px; min-width:36px; text-align:right; }
+              .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }`;
+              root.appendChild(style);
+              const wrap = document.createElement('div');
+              wrap.className = 'wrap';
+              const row = document.createElement('div');
+              row.className = 'row';
+              const label = document.createElement('div');
+              label.className = 'label';
+              const track = document.createElement('div');
+              track.className = 'track';
+              const val = document.createElement('div');
+              val.className = 'val';
+              let left = 0;
+              const segs = (data[0] && Array.isArray(data[0].segments)) ? data[0].segments : [];
+              segs.forEach(seg => {
+                const v = Math.max(0, Math.min(100, Number(seg.value||0)));
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.setAttribute('role','progressbar');
+                bar.setAttribute('aria-valuemin','0');
+                bar.setAttribute('aria-valuemax','100');
+                bar.setAttribute('aria-valuenow', String(v));
+                bar.setAttribute('aria-label', seg.label || '');
+                bar.style.left = left + '%';
+                bar.style.width = v + '%';
+                bar.style.setProperty('--sb-hbar-color', seg.color || '#4f46e5');
+                const tip = document.createElement('div');
+                tip.className = 'tooltip';
+                tip.textContent = `${v}%`;
+                bar.appendChild(tip);
+                track.appendChild(bar);
+                left += v;
+              });
+              val.textContent = showPercent && segs.length ? `${segs[0].value}%` : '';
+              row.appendChild(label);
+              row.appendChild(track);
+              row.appendChild(val);
+              wrap.appendChild(row);
+              root.appendChild(wrap);
+            } catch(e) {
+              const d = document.createElement('div');
+              d.textContent = 'sb-hbar inválido';
+              this.appendChild(d);
+            }
+          }
+        }
+        customElements.define('sb-hbar', SbHbar);
+      }
+
+      function addApproachRow(id, descricao, acertos, erros, pctAcertos, pctErros){
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '12px';
+        row.style.flexWrap = 'wrap';
+        const label = document.createElement('div');
+        label.style.fontWeight = '600';
+        label.style.minWidth = '180px';
+        label.style.fontSize = '0.9rem';
+        label.textContent = `${id} - ${descricao}`;
+        const counts = document.createElement('div');
+        counts.style.fontSize = '0.85rem';
+        counts.style.color = '#475569';
+        counts.style.minWidth = '64px';
+        counts.style.textAlign = 'center';
+        counts.textContent = `${acertos}/${erros}`;
+        const chartWrapper = document.createElement('div');
+        chartWrapper.style.flex = '1';
+        chartWrapper.style.minWidth = '300px';
+        const chart = document.createElement('sb-hbar');
+        const item = {
+          label: '',
+          max: 100,
+          segments: [
+            { label: 'Acertos', value: Number(pctAcertos)||0, color: '#2b8a3e' },
+            { label: 'Erros', value: Number(pctErros)||0, color: '#dc3545' }
+          ]
+        };
+        chart.setAttribute('data', JSON.stringify([item]));
+        chart.setAttribute('height', '14');
+        chart.setAttribute('show-percent', '');
+        chartWrapper.appendChild(chart);
+        row.appendChild(label);
+        row.appendChild(counts);
+        row.appendChild(chartWrapper);
+        containerEl.appendChild(row);
+      }
+
+      // Headers
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+
+      async function getExamTypeId(){
+        try {
+          const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+          const n = Number(qpId);
+          if (Number.isFinite(n) && n > 0) return Math.floor(n);
+        } catch(_){ }
+        try {
+          const storedId = Number(localStorage.getItem('examTypeId'));
+          if (Number.isFinite(storedId) && storedId > 0) return Math.floor(storedId);
+        } catch(_){ }
+        return null;
+      }
+
+      // Fetch and render
+      try {
+        const examTypeId = await getExamTypeId();
+        const url = examTypeId ? `/api/indicators/approach-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/approach-stats';
+        const res = await fetch(url, { headers, credentials: 'include' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
+          (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
+          return;
+        }
+        if (!res.ok) {
+          containerEl.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por abordagem.</div>';
+          return;
+        }
+        const data = await res.json();
+        let items = Array.isArray(data.abordagens) ? data.abordagens.slice() : [];
+        if (!items.length) {
+          containerEl.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhuma abordagem encontrada.</div>';
+          return;
+        }
+        items.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+        items.forEach(a => {
+          const id = a.id;
+          const desc = a.descricao || `Abordagem ${id}`;
+          const acertos = Number(a.acertos || 0);
+          const erros = Number(a.erros || 0);
+          const total = acertos + erros;
+          const pctAcertos = a.percentAcertos != null ? Math.round(a.percentAcertos) : (total>0 ? Math.round((acertos*100)/total) : 0);
+          const pctErros = a.percentErros != null ? Math.round(a.percentErros) : (total>0 ? Math.round((erros*100)/total) : 0);
+          addApproachRow(id, desc, acertos, erros, pctAcertos, pctErros);
+        });
+      } catch(err) {
+        containerEl.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de abordagens.</div>';
+      }
+    } catch(e){
+      logger.error('[Sidebar] renderAbordagem error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Abordagem.</div></div></div>';
+    }
+  }
+
+  async function renderDetalhes(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-detalhes';
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Detalhes');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Detalhes';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'ov-wrapper';
+      const grid = document.createElement('div');
+      grid.className = 'det-grid';
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = 'repeat(4,minmax(140px,1fr))';
+      grid.style.border = '1px solid #e2e8f0';
+      grid.style.fontSize = '13px';
+      function addCell(cls, cellId, text){
+        const d = document.createElement('div');
+        d.className = cls ? `cell ${cls}` : 'cell';
+        d.setAttribute('data-cell', cellId);
+        d.style.padding = '8px 4px';
+        d.style.boxShadow = 'inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0';
+        d.style.textAlign = 'center';
+        d.textContent = text;
+        grid.appendChild(d);
+      }
+      addCell('head','DET-R1C1','Última tentativa'); grid.lastElementChild.style.gridColumn = 'span 4';
+      addCell('colhead','DET-R2C1','Domínio');
+      addCell('colhead','DET-R2C2','Corretas %');
+      addCell('colhead','DET-R2C3','# Corretas');
+      addCell('colhead','DET-R2C4','Performance');
+      wrap.appendChild(grid);
+      sec.appendChild(wrap);
+      container.appendChild(sec);
+
+      // Headers
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+
+      async function getExamTypeId(){
+        try {
+          const qpId = new URLSearchParams(window.location.search).get('examTypeId');
+          const n = Number(qpId);
+          if (Number.isFinite(n) && n > 0) return Math.floor(n);
+        } catch(_){ }
+        try {
+          const storedId = Number(localStorage.getItem('examTypeId'));
+          if (Number.isFinite(storedId) && storedId > 0) return Math.floor(storedId);
+        } catch(_){ }
+        return null;
+      }
+
+      // Fetch and render rows
+      try {
+        const examTypeId = await getExamTypeId();
+        const url = examTypeId
+          ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/details-last?exam_mode=full';
+        const res = await fetch(url, { headers, credentials: 'include' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
+          (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const itens = Array.isArray(data.itens) ? data.itens.slice() : [];
+        itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+        let r = 3;
+        for (const it of itens) {
+          const nome = it.descricao || `Grupo ${it.id}`;
+          const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+          const cor = String(Number(it.corretas || 0));
+          const rank = it.ranking == null ? '—' : String(it.ranking);
+          addCell('', `DET-R${r}C1`, nome);
+          addCell('', `DET-R${r}C2`, pct);
+          addCell('', `DET-R${r}C3`, cor);
+          addCell('', `DET-R${r}C4`, rank);
+          r += 1;
+        }
+      } catch(err){ /* ignore */ }
+    } catch(e){
+      logger.error('[Sidebar] renderDetalhes error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Detalhes.</div></div></div>';
+    }
+  }
+
+  async function renderEstatisticas(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-dashboard';
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Estatísticas');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Estatísticas';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      // Intro static panel
+      const intro = document.createElement('div');
+      intro.id = 'indicadoresIntro';
+      intro.style.margin = '0 0 14px';
+      intro.style.background = '#fff';
+      intro.style.border = '1px solid #e2e8f0';
+      intro.style.borderRadius = '10px';
+      intro.style.padding = '10px 12px';
+      intro.style.fontSize = '0.66rem';
+      intro.style.lineHeight = '1.35';
+      intro.style.color = '#334155';
+      intro.style.boxShadow = '0 2px 4px rgba(0,0,0,0.04)';
+      intro.innerHTML = `
+        <strong style="display:block; font-size:0.7rem; margin-bottom:4px;">Como interpretar estes indicadores</strong>
+        <span style="display:block; margin-bottom:4px;">Exames e quizzes em <em>Visão Geral</em> abrangem tentativas completas ("Exames realizados") e tentativas rápidas/parciais ("Quiz realizados") nos últimos períodos (30d e 60d). Colunas Apr% e Rep%: aprovação / reprovação.</span>
+        <span style="display:block; margin-bottom:4px;">As abas <em>Grupo Processos</em>, <em>Tópico</em> e <em>Abordagem</em> mostram distribuição de acertos/erros. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
+        <span style="display:block; margin-bottom:4px;">Esta aba <em>Estatísticas</em> usa agregação diária persistente (mesmo após expurgos). Fórmulas: Abandono = abandonadas / iniciadas; Conclusão = finalizadas / iniciadas; Expurgo = expurgadas / abandonadas. Score médio é ponderado pelo número de questões respondidas no dia.</span>
+        <span style="display:block; margin-bottom:4px;">Abandono pode ser classificado como <em>Timeout</em> (inatividade excede limite), <em>Baixo progresso</em> (poucas questões após tempo mínimo) ou abandono manual. Expurgo remove tentativas abandonadas antigas preservando métricas.</span>
+        <span style="display:block;">Limites de tempo e janelas são definidos pela política interna e já aplicados nos cálculos exibidos.</span>`;
+      sec.appendChild(intro);
+
+      // Controls
+      const controls = document.createElement('div');
+      controls.style.marginBottom = '12px';
+      controls.style.display = 'flex';
+      controls.style.flexWrap = 'wrap';
+      controls.style.gap = '8px';
+      controls.style.alignItems = 'center';
+      controls.innerHTML = `
+        <label style="font-size:0.75rem; font-weight:600; color:#334155;">Dias:
+          <select id="dashDays" style="margin-left:4px; padding:4px 6px; font-size:0.75rem; border:1px solid #cbd5e1; border-radius:4px;">
+            <option value="15">15</option>
+            <option value="30" selected>30</option>
+            <option value="60">60</option>
+          </select>
+        </label>
+        <button id="dashReload" type="button" style="padding:6px 10px; font-size:0.7rem; font-weight:600; background:#3b82f6; color:#fff; border:none; border-radius:6px; cursor:pointer;">Recarregar</button>
+        <span id="dashLoading" style="display:none; font-size:0.7rem; color:#475569;">Carregando...</span>
+        <span id="dashError" style="display:none; font-size:0.7rem; color:#b91c1c;">Falha ao carregar</span>`;
+      sec.appendChild(controls);
+
+      // Summary grid
+      const summary = document.createElement('div');
+      summary.id = 'dashSummary';
+      summary.className = 'dash-grid';
+      summary.style.display = 'grid';
+      summary.style.gridTemplateColumns = 'repeat(auto-fit,minmax(150px,1fr))';
+      summary.style.gap = '8px';
+      summary.style.marginBottom = '16px';
+      sec.appendChild(summary);
+
+      // Rates chart panel
+      const panelRates = document.createElement('div');
+      panelRates.className = 'chart-panel';
+      panelRates.style.background = '#fff';
+      panelRates.style.border = '1px solid #e2e8f0';
+      panelRates.style.borderRadius = '10px';
+      panelRates.style.padding = '12px';
+      panelRates.style.marginBottom = '16px';
+      panelRates.innerHTML = `
+        <h3 style="margin:0 0 8px; font-size:0.85rem; font-weight:600;">Taxas diárias</h3>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:6px; font-size:0.65rem; font-weight:600; color:#475569;">
+          <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#0b5ed7; border-radius:3px;"></span> Abandono%</span>
+          <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#16a34a; border-radius:3px;"></span> Conclusão%</span>
+          <span style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; background:#dc2626; border-radius:3px;"></span> Expurgo%</span>
+        </div>
+        <div id="dashRatesChart"></div>`;
+      sec.appendChild(panelRates);
+
+      // Score chart panel
+      const panelScore = document.createElement('div');
+      panelScore.className = 'chart-panel';
+      panelScore.style.background = '#fff';
+      panelScore.style.border = '1px solid #e2e8f0';
+      panelScore.style.borderRadius = '10px';
+      panelScore.style.padding = '12px';
+      panelScore.innerHTML = `
+        <h3 style="margin:0 0 8px; font-size:0.85rem; font-weight:600;">Média de pontuação diária (%)</h3>
+        <div id="dashScoreChart"></div>
+        <div style="font-size:0.65rem; color:#64748b; margin-top:8px;">Taxas: abandono = abandonadas / iniciadas; conclusão = finalizadas / iniciadas; expurgo = expurgadas / abandonadas.</div>`;
+      sec.appendChild(panelScore);
+
+      container.appendChild(sec);
+
+      // Helpers and ported functions
+      function dashSetLoading(on){ const el = document.getElementById('dashLoading'); if (el) el.style.display = on ? 'inline' : 'none'; }
+      function dashSetError(on){ const el = document.getElementById('dashError'); if (el) el.style.display = on ? 'inline' : 'none'; }
+
+      function renderDashboardSummary(s){
+        const wrap = document.getElementById('dashSummary');
+        if (!wrap) return;
+        if (!s){ wrap.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b; padding:8px; background:#f1f5f9; border-radius:6px;">Sem dados</div>'; return; }
+        function pct(x){ return x==null? '—' : (x*100).toFixed(1)+'%'; }
+        function score(x){ return x==null? '—' : Number(x).toFixed(1)+'%'; }
+        function time(sec){ if(!sec || sec<=0) return '—'; const m=Math.floor(sec/60); const s=Math.round(sec%60); return m>0 ? `${m}m ${s}s` : `${s}s`; }
+        const items = [
+          { k:'Iniciadas', v:s.started },
+          { k:'Finalizadas', v:s.finished },
+          { k:'Abandonadas', v:s.abandoned },
+          { k:'Timeout', v:s.timeout },
+          { k:'Baixo prog.', v:s.lowProgress },
+          { k:'Expurgadas', v:s.purged },
+          { k:'Abandono%', v:pct(s.abandonRate) },
+          { k:'Conclusão%', v:pct(s.completionRate) },
+          { k:'Expurgo%', v:pct(s.purgeRate) },
+          { k:'Média score', v:score(s.avgScorePercent) },
+          { k:'Tempo/questão', v:time(s.avgTimePerQuestion) }
+        ];
+        wrap.innerHTML = items.map(m => `<div class="dash-metric" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
+          <div style="font-size:0.6rem; font-weight:600; letter-spacing:.5px; color:#475569;">${m.k.toUpperCase()}</div>
+          <div style="font-size:1.05rem; font-weight:600; color:#0f172a;">${m.v}</div>
+        </div>`).join('');
+      }
+
+      function renderRatesChart(rows){
+        const target = document.getElementById('dashRatesChart'); if (!target) return;
+        if (!rows.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem dados diários</div>'; return; }
+        const labels = rows.map(r=> (r.date||'').slice(5));
+        const abandon = rows.map(r=> (r.abandonRate||0)*100);
+        const completion = rows.map(r=> (r.completionRate||0)*100);
+        const purge = rows.map(r=> (r.purgeRate||0)*100);
+        const maxVal = Math.max(10, ...abandon, ...completion, ...purge);
+        const W = target.clientWidth || 800; const H = 260; const pad = 28; const innerW = W - pad*2; const innerH = H - pad*2;
+        function x(i){ return pad + (i/(labels.length-1))*innerW; }
+        function y(v){ return pad + innerH - (v/maxVal)*innerH; }
+        function path(arr){ return arr.map((v,i)=> (i?'L':'M')+x(i)+','+y(v)).join(' '); }
+        const ticks = [0, maxVal/2, maxVal];
+        const tickEls = ticks.map(t=> `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t.toFixed(0)}%</text>`).join('');
+        const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
+        target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
+          <path d="${path(abandon)}" fill="none" stroke="#0b5ed7" stroke-width="2" />
+          <path d="${path(completion)}" fill="none" stroke="#16a34a" stroke-width="2" />
+          <path d="${path(purge)}" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3" />
+          ${tickEls}${xLabs}
+        </svg>`;
+      }
+
+      function renderScoreChartDash(rows){
+        const target = document.getElementById('dashScoreChart'); if (!target) return;
+        if (!rows.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem dados</div>'; return; }
+        const labels = rows.map(r=> (r.date||'').slice(5));
+        const scores = rows.map(r=> r.avgScorePercent==null? null : r.avgScorePercent);
+        const vals = scores.filter(v=> v!=null);
+        if (!vals.length){ target.innerHTML = '<div style="padding:16px; font-size:0.7rem; color:#64748b;">Sem médias disponíveis</div>'; return; }
+        const maxVal = Math.max(100, ...vals);
+        const W = target.clientWidth || 800; const H = 260; const pad = 28; const innerW = W - pad*2; const innerH = H - pad*2;
+        function x(i){ return pad + (i/(labels.length-1))*innerW; }
+        function y(v){ return pad + innerH - (v/maxVal)*innerH; }
+        const pathScores = vals.map((v,i)=> (i?'L':'M')+x(i)+','+y(v)).join(' ');
+        const ticks = [0, maxVal/2, maxVal];
+        const tickEls = ticks.map(t=> `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t.toFixed(0)}%</text>`).join('');
+        const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
+        target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
+          <path d="${pathScores}" fill="none" stroke="#6366f1" stroke-width="2" />
+          ${tickEls}${xLabs}
+        </svg>`;
+      }
+
+      async function loadDashboard(){
+        const secEl = document.getElementById('sec-dashboard'); if (!secEl) return;
+        const daysSel = document.getElementById('dashDays');
+        const days = daysSel ? Number(daysSel.value) : 30;
+        dashSetLoading(true); dashSetError(false);
+        try {
+          let sessionToken = '';
+          try {
+            sessionToken = (localStorage.getItem('sessionToken')
+              || localStorage.getItem('nomeUsuario')
+              || localStorage.getItem('nome')
+              || '').trim();
+          } catch(_){ sessionToken=''; }
+          if (!sessionToken) {
+            dashSetLoading(false);
+            const wrap = document.getElementById('dashSummary');
+            if (wrap) wrap.innerHTML = '<div style="grid-column:1/-1; padding:12px; font-size:0.7rem; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">Sessão não identificada. Faça login para ver estatísticas agregadas.</div>';
+            return;
+          }
+          const headers = { 'Accept':'application/json', 'X-Session-Token': sessionToken };
+          const [summaryResp,dailyResp,avgTimeResp] = await Promise.all([
+            fetch(`/api/users/me/stats/summary?days=${days}`, { headers }),
+            fetch(`/api/users/me/stats/daily?days=${days}`, { headers }),
+            fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, { headers })
+          ]);
+          if (!summaryResp.ok || !dailyResp.ok){ throw new Error('Resp inválida'); }
+          const summaryData = await summaryResp.json();
+          const dailyWrap = await dailyResp.json();
+          const avgTimeData = avgTimeResp.ok ? await avgTimeResp.json() : {};
+          const rows = dailyWrap && Array.isArray(dailyWrap.data) ? dailyWrap.data : [];
+          summaryData.avgTimePerQuestion = avgTimeData.avgSeconds || 0;
+          renderDashboardSummary(summaryData);
+          renderRatesChart(rows);
+          renderScoreChartDash(rows);
+        } catch(err){ dashSetError(true); }
+        dashSetLoading(false);
+      }
+
+      // Controls wiring
+      (function initDashboardControls(){
+        const btn = document.getElementById('dashReload');
+        const sel = document.getElementById('dashDays');
+        if (btn) btn.addEventListener('click', ()=> loadDashboard());
+        if (sel) sel.addEventListener('change', ()=> loadDashboard());
+      })();
+
+      // Initial load
+      loadDashboard();
+    } catch(e){
+      logger.error('[Sidebar] renderEstatisticas error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Estatísticas.</div></div></div>';
+    }
+  }
+
+  async function renderDominios(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-dominios';
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Domínios');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Domínios';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      // Card container
+      const card = document.createElement('div');
+      card.style.maxWidth = '364px'; card.style.margin = '10px auto 20px'; card.style.background = '#fff';
+      card.style.padding = '14px 22px 18px 30px'; card.style.borderRadius = '10px';
+      card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'; card.style.border = '1px solid #e2e8f0';
+
+      const h2 = document.createElement('h2');
+      h2.textContent = 'Domínios de Conhecimento';
+      h2.style.textAlign = 'center'; h2.style.fontSize = '0.92rem'; h2.style.margin = '0 0 12px'; h2.style.color = '#0f172a';
+      card.appendChild(h2);
+
+      const selWrap = document.createElement('div'); selWrap.style.textAlign = 'center'; selWrap.style.marginBottom = '10px';
+      selWrap.innerHTML = `
+        <label for="domSelModo" style="font-size:0.65rem;color:#334155;font-weight:600;margin-right:5px;">Visualizar:</label>
+        <select id="domSelModo" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;background:#ffffff;font-size:0.65rem;color:#0f172a;">
+          <option value="best">Meu melhor resultado</option>
+          <option value="last" selected>Meu último exame</option>
+        </select>`;
+      card.appendChild(selWrap);
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('id','domRadar'); svg.setAttribute('viewBox','0 0 400 400');
+      svg.setAttribute('style','width:100%;height:auto;max-width:280px;margin:0 auto;display:block;transform:scale(0.90);transform-origin:200px 200px;overflow:visible;');
+      function addCircle(r){ const c = document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('cx','200'); c.setAttribute('cy','200'); c.setAttribute('r', String(r)); c.setAttribute('fill','none'); c.setAttribute('stroke','#e2e8f0'); c.setAttribute('stroke-width','1'); svg.appendChild(c); }
+      [150,120,90,60,30].forEach(addCircle);
+      function addLine(x2,y2){ const l = document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1','200'); l.setAttribute('y1','200'); l.setAttribute('x2',String(x2)); l.setAttribute('y2',String(y2)); l.setAttribute('stroke','#cbd5e1'); l.setAttribute('stroke-width','1'); svg.appendChild(l); }
+      addLine(200,50); addLine(329.9,275); addLine(70.1,275);
+      const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon'); poly.setAttribute('id','domPoly'); poly.setAttribute('points','200,50 329.9,275 70.1,275'); poly.setAttribute('fill','rgba(59,130,246,0.20)'); poly.setAttribute('stroke','#3b82f6'); poly.setAttribute('stroke-width','2'); svg.appendChild(poly);
+      function addPoint(id,cx,cy){ const p = document.createElementNS('http://www.w3.org/2000/svg','circle'); p.setAttribute('id',id); p.setAttribute('cx',String(cx)); p.setAttribute('cy',String(cy)); p.setAttribute('r','5'); p.setAttribute('fill','#3b82f6'); svg.appendChild(p); }
+      addPoint('domP1',200,50); addPoint('domP2',329.9,275); addPoint('domP3',70.1,275);
+      function addText(x,y,text,attrs){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',String(x)); t.setAttribute('y',String(y)); t.textContent = text; if(attrs){ Object.entries(attrs).forEach(([k,v])=> t.setAttribute(k,String(v))); } svg.appendChild(t); }
+      addText(200,35,'Pessoas',{ 'text-anchor':'middle','font-size':'13','font-weight':'600','fill':'#0f172a' });
+      addText(345,290,'Processos',{ 'text-anchor':'start','font-size':'13','font-weight':'600','fill':'#0f172a' });
+      addText(70,290,'Ambiente de',{ 'text-anchor':'end','font-size':'13','font-weight':'600','fill':'#0f172a' });
+      addText(70,305,'Negócios',{ 'text-anchor':'end','font-size':'13','font-weight':'600','fill':'#0f172a' });
+      addText(200,20,'0%',{ id:'domV1','text-anchor':'middle','font-size':'11','fill':'#3b82f6','font-weight':'600' });
+      addText(345,305,'0%',{ id:'domV2','text-anchor':'start','font-size':'11','fill':'#3b82f6','font-weight':'600' });
+      addText(70,320,'0%',{ id:'domV3','text-anchor':'end','font-size':'11','fill':'#3b82f6','font-weight':'600' });
+      card.appendChild(svg);
+
+      // Analysis block
+      const analysis = document.createElement('div');
+      analysis.id = 'domAnalysis';
+      analysis.style.marginTop = '12px'; analysis.style.background = '#ffffff'; analysis.style.border = '1px solid #e2e8f0'; analysis.style.borderRadius = '6px'; analysis.style.padding = '10px 12px'; analysis.style.fontSize = '0.62rem'; analysis.style.color = '#334155'; analysis.style.lineHeight = '1.2';
+      analysis.innerHTML = `<strong style="display:block; font-size:0.65rem; margin-bottom:5px; color:#0f172a;">Análise automática</strong><div class="dom-analysis-body" style="display:flex; flex-direction:column; gap:3px;"><span style="color:#64748b;">Carregando análise…</span></div>`;
+      card.appendChild(analysis);
+
+      const legend = document.createElement('div'); legend.style.marginTop = '12px'; legend.style.padding = '8px'; legend.style.background = '#f1f5f9'; legend.style.borderRadius = '6px'; legend.style.fontSize = '0.60rem'; legend.style.color = '#475569'; legend.innerHTML = `<strong style="display:block;margin-bottom:3px;font-size:0.62rem;">Legenda</strong><span style="display:block;">Os valores refletem a % de questões corretas por domínio no exame selecionado (melhor ou último).</span><span id="domInfoExam" style="display:block;margin-top:5px;color:#64748b;">Exame: —</span>`;
+      card.appendChild(legend);
+
+      container.appendChild(card);
+
+      // Logic ported from Indicadores.html
+      function domGetPoint(angleDeg, percent){ const maxR = 150; const r = (percent/100)*maxR; const rad = (angleDeg - 90) * Math.PI/180; return { x:200 + r*Math.cos(rad), y:200 + r*Math.sin(rad) }; }
+      function domRenderPolygon(values){ const p1 = domGetPoint(0, values.pessoas); const p2 = domGetPoint(120, values.processos); const p3 = domGetPoint(240, values.ambienteNegocios); const polyEl = document.getElementById('domPoly'); if (polyEl) polyEl.setAttribute('points', `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`); const el1 = document.getElementById('domP1'); if (el1){ el1.setAttribute('cx', p1.x); el1.setAttribute('cy', p1.y); } const el2 = document.getElementById('domP2'); if (el2){ el2.setAttribute('cx', p2.x); el2.setAttribute('cy', p2.y); } const el3 = document.getElementById('domP3'); if (el3){ el3.setAttribute('cx', p3.x); el3.setAttribute('cy', p3.y); } const v1 = document.getElementById('domV1'); if (v1) v1.textContent = `${values.pessoas.toFixed(1)}%`; const v2 = document.getElementById('domV2'); if (v2) v2.textContent = `${values.processos.toFixed(1)}%`; const v3 = document.getElementById('domV3'); if (v3) v3.textContent = `${values.ambienteNegocios.toFixed(1)}%`; }
+      function domNormalize(domains){ const out = { pessoas:0, processos:0, ambienteNegocios:0 }; domains.forEach(d => { const nm = String(d.name||'').toLowerCase(); const pct = Number(d.percentage||0); if (nm.includes('pessoa')) out.pessoas = pct; else if (nm.includes('processo')) out.processos = pct; else if (nm.includes('ambiente') || nm.includes('negó') || nm.includes('negócio')) out.ambienteNegocios = pct; }); return out; }
+      function domGenerateInsights(domains){ const norm = domNormalize(domains); const vals = [norm.pessoas, norm.processos, norm.ambienteNegocios]; const namesMap = { pessoas:'Pessoas', processos:'Processos', ambienteNegocios:'Ambiente de Negócios' }; const classifications = {}; function classify(p){ if (p < 60) return 'Crítico'; if (p < 75) return 'Atenção'; if (p < 85) return 'Regular'; if (p < 95) return 'Bom'; return 'Excelente'; } Object.entries(norm).forEach(([k,v])=> classifications[k] = classify(v)); const max = Math.max(...vals); const min = Math.min(...vals); const amplitude = max - min; const allBelow75 = vals.every(v => v < 75); const allAbove85 = vals.every(v => v >= 85); const anyCritical = vals.some(v => v < 60); const weakerKeys = Object.entries(norm).filter(([k,v]) => v < 75); const strongerKeys = Object.entries(norm).filter(([k,v]) => v >= 75); const insights = []; if (domains.length === 0){ insights.push('Nenhum exame disponível para análise de domínios.'); } else if (allBelow75){ insights.push('⚠️ Desempenho geral abaixo de 75% nos três domínios. Foque em revisão ampla dos conceitos fundamentais.'); } else { if (anyCritical){ Object.entries(norm).filter(([k,v])=> v < 60).forEach(([k,v])=>{ insights.push(`🎯 Prioridade: ${namesMap[k]} está em nível crítico (${v.toFixed(1)}%). Reforce estudo direcionado neste domínio.`); }); } if (!anyCritical && weakerKeys.length === 1 && strongerKeys.length === 2){ const [k,v] = weakerKeys[0]; const strongerAvg = strongerKeys.reduce((a,b)=> a + b[1], 0) / strongerKeys.length; insights.push(`📊 Foco sugerido: ${namesMap[k]} (${v.toFixed(1)}%) está abaixo dos demais (${strongerAvg.toFixed(1)}% média). Ajustar este domínio trará ganho rápido de equilíbrio.`); } if (amplitude >= 25){ const weakest = Object.entries(norm).reduce((a,b)=> a[1] <= b[1] ? a : b); const strongest = Object.entries(norm).reduce((a,b)=> a[1] >= b[1] ? a : b); insights.push(`⚖️ Desequilíbrio: diferença de ${amplitude.toFixed(1)} p.p. entre ${namesMap[strongest[0]]} (${strongest[1].toFixed(1)}%) e ${namesMap[weakest[0]]} (${weakest[1].toFixed(1)}%). Busque nivelar para aumentar consistência.`); } if (allAbove85){ insights.push('✅ Excelente equilíbrio: todos os domínios acima de 85%. Mantenha ritmo e considere aprofundar questões mais complexas.'); } Object.entries(norm).filter(([k,v])=> v >= 70 && v < 75).forEach(([k,v])=>{ insights.push(`🔜 Quase lá: ${namesMap[k]} em ${v.toFixed(1)}%. Pequenas revisões podem ultrapassar 75%.`); }); } if (!insights.length){ insights.push('Sem pontos críticos identificados. Continue acompanhando para detectar tendências.'); } const containerAnalysis = document.getElementById('domAnalysis'); if (containerAnalysis){ const body = containerAnalysis.querySelector('.dom-analysis-body'); if (body){ body.innerHTML = ''; insights.slice(0,5).forEach(msg => { const line = document.createElement('div'); line.textContent = msg; body.appendChild(line); }); const summary = document.createElement('div'); summary.style.marginTop = '6px'; summary.style.color = '#64748b'; summary.textContent = `Classificação: Pessoas ${classifications.pessoas}, Processos ${classifications.processos}, Ambiente de Negócios ${classifications.ambienteNegocios}.`; body.appendChild(summary); } }
+      }
+
+      async function loadDominios(){
+        const sel = document.getElementById('domSelModo'); if (!sel) return;
+        const examMode = sel.value;
+        let sessionToken = '';
+        try { sessionToken = (localStorage.getItem('sessionToken')||'').trim(); } catch(_){ }
+        if (!sessionToken){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+        try {
+          let jwtTok = ''; let jwtType = 'Bearer';
+          try { jwtTok = (localStorage.getItem('jwtToken')||'').trim(); jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer'; } catch(_){ }
+          const headers = {};
+          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+          if (sessionToken) headers['X-Session-Token'] = sessionToken;
+          const resp = await fetch(`/api/indicators/IND10?examMode=${encodeURIComponent(examMode)}`, { headers });
+          if (!resp.ok){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+          const data = await resp.json();
+          const domains = Array.isArray(data.domains) ? data.domains : [];
+          const normVals = domNormalize(domains);
+          domRenderPolygon(normVals);
+          domGenerateInsights(domains);
+          const info = document.getElementById('domInfoExam');
+          if (info) info.textContent = `Exame: ${data.examAttemptId ? (data.examAttemptId + (data.examDate ? ' - ' + (data.examDate||'').slice(0,10) : '')) : 'nenhum'} (${examMode})`;
+        } catch(_){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); }
+      }
+
+      // Initial load and controls
+      loadDominios();
+      const sel = document.getElementById('domSelModo'); if (sel) sel.addEventListener('change', ()=> loadDominios());
+    } catch(e){
+      logger.error('[Sidebar] renderDominios error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Domínios.</div></div></div>';
+    }
+  }
+
+  async function renderProbabilidade(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-prob';
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Probabilidade de Sucesso');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Probabilidade de Sucesso';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      const style = document.createElement('style');
+      style.textContent = `#sec-prob #probCards { display:grid; width:100%; grid-template-columns: repeat(3, minmax(320px, 1fr)); gap:12px; align-items:stretch; color:#b91c1c; }
+        @media (max-width: 1200px) { #sec-prob #probCards { grid-template-columns: repeat(3, minmax(280px, 1fr)); } }
+        @media (max-width: 1024px) { #sec-prob #probCards { grid-template-columns: repeat(2, minmax(280px, 1fr)); } }
+        @media (max-width: 640px) { #sec-prob #probCards { grid-template-columns: 1fr; } }`;
+      sec.appendChild(style);
+
+      const probCards = document.createElement('div');
+      probCards.id = 'probCards';
+      sec.appendChild(probCards);
+      container.appendChild(sec);
+
+      // Ensure sb-hbar component exists (frontend registers one; fallback minimal implementation)
+      if (!window.customElements.get('sb-hbar')) {
+        class SbHbar extends HTMLElement { connectedCallback(){ const v=Number(this.getAttribute('value')||0); const max=Number(this.getAttribute('max')||100); const pct=Math.max(0,Math.min(100,(max? (v*100/max):0))); const root=this.attachShadow({mode:'open'}); const wrap=document.createElement('div'); wrap.style.cssText='height:16px;background:#e5e7eb;border-radius:999px;position:relative;'; const bar=document.createElement('div'); bar.style.cssText=`height:100%;width:${pct}%;background:${this.getAttribute('color')||'#4f46e5'};border-radius:999px;transition:width .3s`; const tip=document.createElement('span'); tip.textContent=`${pct.toFixed(0)}%`; tip.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);font:600 11px/1 system-ui;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)'; bar.appendChild(tip); wrap.appendChild(bar); root.appendChild(wrap); } }
+        customElements.define('sb-hbar', SbHbar);
+      }
+
+      async function getCurrentExamTypeIdLocal(){
+        try { const qpId = new URLSearchParams(window.location.search).get('examTypeId'); const n = Number(qpId); if (Number.isFinite(n) && n>0) return Math.floor(n); } catch(_){ }
+        try { const storedId = Number(localStorage.getItem('examTypeId')); if (Number.isFinite(storedId) && storedId>0) return Math.floor(storedId); } catch(_){ }
+        return null;
+      }
+      const headers = (() => { const h={ 'Accept':'application/json' }; try { const jwtTok=(localStorage.getItem('jwtToken')||'').trim(); const jwtType=(localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer'; const sessionToken=(localStorage.getItem('sessionToken')||'').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; if (sessionToken) h['X-Session-Token'] = sessionToken; } catch(_){ } return h; })();
+
+      probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b;">Carregando...</div>';
+      try {
+        const examTypeId = await getCurrentExamTypeIdLocal();
+        const url = `/api/indicators/IND12` + (examTypeId ? `?exam_type=${encodeURIComponent(String(examTypeId))}` : '');
+        const resp = await fetch(url, { headers, cache: 'no-store' });
+        if (!resp.ok) { probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Falha ao carregar indicador</div>'; return; }
+        const data = await resp.json();
+        if (!data || !Array.isArray(data.dominios)) { probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Indicador indisponível</div>'; return; }
+        const order = ['Pessoas','Processos','Ambiente de Negócios'];
+        const map = {}; data.dominios.forEach(d => { map[String(d.descricao||'').trim()] = d; });
+        const dominiosSorted = order.map(name => map[name]).filter(Boolean);
+        probCards.innerHTML = '';
+        await (window.customElements?.whenDefined ? window.customElements.whenDefined('sb-hbar') : Promise.resolve());
+        dominiosSorted.forEach(d => {
+          const card = document.createElement('div');
+          card.style.background = '#fff'; card.style.border = '1px solid #e2e8f0'; card.style.borderRadius = '10px'; card.style.padding = '12px'; card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+          const title = document.createElement('div'); title.textContent = d.descricao || 'Domínio'; title.style.fontWeight='700'; title.style.fontSize='0.85rem'; title.style.marginBottom='6px'; card.appendChild(title);
+          const info = document.createElement('div'); info.textContent = `Total: ${d.total} • Acertos: ${d.acertos}`; info.style.fontSize='0.7rem'; info.style.color='#475569'; info.style.marginBottom='6px'; card.appendChild(info);
+          const bar = document.createElement('sb-hbar'); bar.setAttribute('value', String(d.percent || 0)); bar.setAttribute('max','100'); bar.setAttribute('label','Aproveitamento'); bar.setAttribute('show-percent',''); if ((d.percent||0) >= 75) bar.setAttribute('color','#2b8a3e'); card.appendChild(bar);
+          probCards.appendChild(card);
+        });
+
+        const totals = data.dominios.reduce((acc, d) => { acc.total += (d.total||0); acc.acertos += (d.acertos||0); return acc; }, { total:0, acertos:0 });
+        const PASS_THRESHOLD = 75;
+        const overall = totals.total > 0 ? Number(((totals.acertos / totals.total) * 100).toFixed(2)) : null;
+        const probability = overall != null ? Math.max(0, Math.min(100, Number(((overall / PASS_THRESHOLD) * 100).toFixed(0)))) : 5;
+        const block = document.createElement('div'); block.style.gridColumn='1 / -1'; block.style.marginTop='8px'; block.style.background='#fff'; block.style.border='1px solid #e2e8f0'; block.style.borderRadius='10px'; block.style.padding='14px'; block.style.boxShadow='0 2px 6px rgba(0,0,0,0.06)';
+        const title2 = document.createElement('div'); title2.textContent='Probabilidade de aprovação (consolidado)'; title2.style.fontWeight='700'; title2.style.fontSize='0.9rem'; title2.style.marginBottom='8px'; block.appendChild(title2);
+        const subtitle = document.createElement('div'); subtitle.textContent = overall != null ? `Média geral: ${overall}% • Linha de corte: 75%` : 'Média geral: —'; subtitle.style.fontSize='0.75rem'; subtitle.style.color='#475569'; subtitle.style.marginBottom='8px'; block.appendChild(subtitle);
+        const bar2 = document.createElement('sb-hbar'); bar2.setAttribute('value', String(probability)); bar2.setAttribute('max','100'); bar2.setAttribute('label','Probabilidade de aprovação'); bar2.setAttribute('show-percent',''); if ((probability||0) >= 75) bar2.setAttribute('color','#2b8a3e'); block.appendChild(bar2);
+        const formula = document.createElement('div'); formula.style.marginTop='10px'; formula.style.fontSize='0.72rem'; formula.style.color='#334155'; formula.innerHTML = `Fórmula: <br>
+          <span style="display:block; margin-top:4px;">média geral = (Σ acertos) / (Σ total) × 100</span>
+          <span style="display:block;">probabilidade = limitar((média geral / 75) × 100, 0, 100)</span>`; block.appendChild(formula);
+        probCards.appendChild(block);
+
+        const expl = document.createElement('div'); expl.style.gridColumn='1 / -1'; expl.style.marginTop='10px'; expl.style.background='#ffffff'; expl.style.border='1px solid #e2e8f0'; expl.style.borderRadius='10px'; expl.style.padding='12px'; expl.style.boxShadow='0 2px 6px rgba(0,0,0,0.06)';
+        expl.innerHTML = `
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:6px; color:#0f172a;">Como funciona este Indicador?</div>
+          <div style="font-size:0.72rem; color:#334155; line-height:1.35; display:flex; flex-direction:column; gap:6px;">
+            <span>• Escopo: considera <strong>todas as tentativas finalizadas</strong> de exame completo do usuário.</span>
+            <span>• Por domínio somamos: <strong>total</strong> de questões e <strong>acertos</strong>.</span>
+            <span>• Regra de acerto: seleção idêntica ao conjunto de opções corretas.</span>
+            <span>• Percentual por domínio: <code>percent = (acertos / total) × 100</code>.</span>
+            <span>• Consolidação geral: média geral e probabilidade versus linha de corte (75%).</span>
+          </div>`;
+        probCards.appendChild(expl);
+      } catch(e){ probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Erro ao carregar dados</div>'; }
+    } catch(e){ logger.error('[Sidebar] renderProbabilidade error:', e); container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Probabilidade de Sucesso.</div></div></div>'; }
+  }
+
+  window.loadIndicadoresIntoSection = loadIndicadoresIntoSection;
+
+  // Navigate to section (integrates with existing index.html navigation)
+  function navigateToSection(section, subsection) {
+    // Save current navigation state
+    try {
+      sessionStorage.setItem('currentSection', section);
+      if (subsection) {
+        sessionStorage.setItem('currentSubsection', subsection);
+      } else {
+        sessionStorage.removeItem('currentSubsection');
+      }
+    } catch(e) {}
+    
+    // Remove active class from all items
+    document.querySelectorAll('.sidebar-nav-item, .sidebar-accordion-item').forEach(item => {
+      item.classList.remove('active');
+    });
+
+    // Add active class to clicked item
+    let selector;
+    if (subsection) {
+      // Prefer specific selector per section
+      if (section === 'simulados') {
+        selector = `[data-simulado="${subsection}"]`;
+      } else if (section === 'indicadores') {
+        selector = `#sidebarIndicadoresAccordion a[href*="tab=${subsection}"]`;
+      } else if (section === 'configuracoes') {
+        selector = `#sidebarConfiguracoesAccordion .sidebar-accordion-item`;
+      } else {
+        selector = '';
+      }
+    } else {
+      // Convert kebab-case to camelCase for ID (progresso-geral -> ProgressoGeral)
+      const camelCase = section
+        .split('-')
+        .map((word, index) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join('');
+      selector = `#sidebar${camelCase}`;
+    }
+    const activeItem = document.querySelector(selector);
+    if (activeItem) {
+      activeItem.classList.add('active');
+    }
+
+    // Mapeamento de seções da sidebar para seções do index.html
+    const sectionMap = {
+      'indicadores': (tab) => {
+        logger.info('[Sidebar] Indicadores clicked, tab:', tab);
+        const layout = document.body.getAttribute('data-layout');
+        const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
+        const canEmbedHere = !!document.getElementById('indicadores');
+        if (layout === 'desktop' && canEmbedHere) {
+          loadIndicadoresIntoSection(tab || 'geral');
+          return;
+        }
+        (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+      },
+      'progresso-geral': () => {
+        logger.info('[Sidebar] Progresso-geral clicked');
+        const layout = document.body.getAttribute('data-layout');
+        logger.info('[Sidebar] Current layout:', layout);
+        
+        // No modo desktop, carregar dentro do index.html
+        if (layout === 'desktop' && document.getElementById('progresso-geral')) {
+          logger.info('[Sidebar] Desktop mode - loading progresso geral into section');
+          loadProgressoGeralIntoSection();
+        } else {
+          // No mobile, redirecionar normalmente
+          logger.info('[Sidebar] Mobile mode - redirecting to progressoGeral.html');
+          (window.top || window).location.assign('/pages/progressoGeral.html');
+        }
+      },
+      'configuracoes': (sub) => {
+        logger.info('[Sidebar] Configuracoes clicked, subsection:', sub);
+        const layout = document.body.getAttribute('data-layout');
+        logger.info('[Sidebar] Current layout:', layout);
+        
+        // No modo desktop, não precisa verificar senha (usuário já está autenticado)
+        if (layout === 'desktop' && document.getElementById('profile')) {
+          logger.info('[Sidebar] Desktop mode - loading settings directly');
+          loadSettingsIntoProfile();
+        } else {
+          // No mobile, verificar senha antes de redirecionar
+          if (window.verifyPasswordForSettings) {
+            logger.info('[Sidebar] Mobile mode - verifying password');
+            window.verifyPasswordForSettings()
+              .then(() => {
+                logger.info('[Sidebar] Password verified - redirecting');
+                (window.top || window).location.assign('/pages/settings.html');
+              })
+              .catch((err) => {
+                logger.info('[Sidebar] Password verification failed or cancelled:', err);
+              });
+          } else {
+            logger.info('[Sidebar] verifyPasswordForSettings not available - redirecting directly');
+            (window.top || window).location.assign('/pages/settings.html');
+          }
+        }
+      },
+      'simulados': (sub) => {
+        logger.info('[Sidebar] Simulados clicked, subsection:', sub);
+        const layout = document.body.getAttribute('data-layout');
+        logger.info('[Sidebar] Current layout:', layout);
+        
+        // Mapear simulados para cards específicos
+        const cardMap = {
+          'pmp': () => {
+            const card = document.getElementById('card-exam-mock');
+            if (card) card.click();
+          },
+          'custom': () => {
+            // Marcar que estamos indo para o examSetup para evitar loop ao voltar
+            try {
+              sessionStorage.setItem('wentToExamSetup', 'true');
+            } catch(e) {}
+            
+            // No modo desktop, carregar dentro do index.html
+            if (layout === 'desktop') {
+              logger.info('[Sidebar] Desktop mode - loading exam setup into section');
+              loadExamSetupIntoSection();
+            } else {
+              // No mobile, redirecionar normalmente
+              logger.info('[Sidebar] Mobile mode - redirecting to examSetup.html');
+              (window.top || window).location.assign('/pages/examSetup.html');
+            }
+          },
+          'historico': () => {
+            // Abrir modal de histórico
+            const card = document.getElementById('card-progresso-geral');
+            if (card) {
+              card.click();
+            } else {
+              // Fallback: abrir modal diretamente
+              const modal = document.getElementById('examResultsModal');
+              if (modal) {
+                modal.style.display = 'flex';
+                modal.setAttribute('aria-hidden', 'false');
+              } else {
+                // Estamos fora do index.html (ex.: InsightsIA.html). Persistir estado e ir para o index,
+                // onde o card-progresso-geral e o modal existem.
+                try {
+                  sessionStorage.setItem('currentSection', 'simulados');
+                  sessionStorage.setItem('currentSubsection', 'historico');
+                } catch(_){ }
+                (window.top || window).location.assign('/index.html');
+              }
+            }
+          }
+        };
+        const action = cardMap[sub];
+        if (typeof action === 'function') {
+          action();
+        }
+      }
+    };
+
+    // Executar navegação
+    const action = sectionMap[section];
+    if (typeof action === 'function') {
+      action(subsection);
+    } else if (action) {
+      // Navegar para seção do index.html
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      const targetSection = document.getElementById(action);
+      if (targetSection) {
+        targetSection.classList.add('active');
+      }
+    }
+  }
+
+  // Admin action handler
+  function handleAdminAction(action) {
+    const token = localStorage.getItem('sessionToken') || '';
+    const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
+    const sessionForHeader = nomeUsuario || token;
+    
+    const actionMap = {
+      'chat-host': () => {
+        const url = `/chat/admin?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+        try {
+          const w = (window.top || window).open(url, '_blank', 'noopener');
+          if (!w) (window.top || window).location.assign(url);
+        } catch (_) {
+          (window.top || window).location.assign(url);
+        }
+      },
+      'cadastrar-questao': () => {
+        (window.top || window).location.assign(`/pages/admin/questionForm.html?sessionToken=${encodeURIComponent(token)}`);
+      },
+      'cadastrar-bulk': () => {
+        (window.top || window).location.assign(`/pages/admin/questionBulk.html?sessionToken=${encodeURIComponent(token)}`);
+      },
+      'feedback': () => {
+        (window.top || window).location.assign(`/pages/admin/feedbackResponses.html?sessionToken=${encodeURIComponent(token)}`);
+      },
+      'notificacoes': () => {
+        (window.top || window).location.assign(`/pages/admin/notifications.html?sessionToken=${encodeURIComponent(token)}`);
+      },
+      'fixture': () => {
+        // Open admin modal and scroll to fixture section
+        const adminModal = document.getElementById('adminModal');
+        if (adminModal) {
+          if (typeof window.openAdminModal === 'function') {
+            window.openAdminModal();
+          } else {
+            try { adminModal.removeAttribute('inert'); } catch(_){ }
+            adminModal.classList.add('active');
+            adminModal.setAttribute('aria-hidden', 'false');
+            adminModal.style.display = 'flex';
+            adminModal.style.pointerEvents = 'auto';
+          }
+          // Hide bottom nav if exists
+          const nav = document.querySelector('.bottom-nav');
+          if (nav) nav.style.display = 'none';
+          // Focus and scroll to fixture form
+          setTimeout(() => {
+            const userField = document.getElementById('fxUserId');
+            if (userField) {
+              userField.focus();
+              userField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+        }
+      },
+      'reconcile': () => {
+        // Open admin modal and scroll to reconcile section
+        const adminModal = document.getElementById('adminModal');
+        if (adminModal) {
+          if (typeof window.openAdminModal === 'function') {
+            window.openAdminModal();
+          } else {
+            try { adminModal.removeAttribute('inert'); } catch(_){ }
+            adminModal.classList.add('active');
+            adminModal.setAttribute('aria-hidden', 'false');
+            adminModal.style.display = 'flex';
+            adminModal.style.pointerEvents = 'auto';
+          }
+          // Hide bottom nav if exists
+          const nav = document.querySelector('.bottom-nav');
+          if (nav) nav.style.display = 'none';
+          // Scroll to reconcile section (first panel)
+          setTimeout(() => {
+            const heading = adminModal.querySelector('h3');
+            if (heading) heading.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
+      },
+      'purge': () => {
+        if (confirm('Expurgar tentativas abandonadas? Esta ação é irreversível.')) {
+          callAdminPost('/api/admin/exams/purge-abandoned', 'Tentativas expurgadas');
+        }
+      },
+      'mark-abandoned': () => {
+        if (confirm('Marcar tentativas abandonadas por inatividade?')) {
+          callAdminPost('/api/admin/exams/mark-abandoned', 'Tentativas marcadas como abandonadas');
+        }
+      }
+    };
+    
+    const handler = actionMap[action];
+    if (handler) handler();
+  }
+
+  async function callAdminPost(path, successMsg) {
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
+      const sessionForHeader = nomeUsuario || token;
+      const jwtTok = localStorage.getItem('jwtToken') || '';
+      const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
+      
+      const headers = { 'Content-Type': 'application/json' };
+      if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+      
+      const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(sessionForHeader);
+      const resp = await fetch(url, { method: 'POST', headers });
+      const data = await resp.json().catch(() => ({}));
+      
+      if (resp.ok) {
+        alert(successMsg);
+      } else {
+        alert('Erro: ' + (data.message || data.error || 'Falha na operação'));
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e.message);
+    }
+  }
+
+  async function callAdminPostWithBody(path, body, successMsg) {
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
+      const sessionForHeader = nomeUsuario || token;
+      const jwtTok = localStorage.getItem('jwtToken') || '';
+      const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
+      
+      const headers = { 'Content-Type': 'application/json' };
+      if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+      
+      const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(sessionForHeader);
+      const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      const data = await resp.json().catch(() => ({}));
+      
+      if (resp.ok) {
+        alert(successMsg);
+      } else {
+        alert('Erro: ' + (data.message || data.error || 'Falha na operação'));
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e.message);
+    }
+  }
+
+  // Check if user is admin
+  async function checkAdminAccess() {
+    try {
+      const token = localStorage.getItem('sessionToken');
+      const nomeUsuario = localStorage.getItem('nomeUsuario');
+      const sessionForHeader = nomeUsuario || token;
+      
+      if (!token) return;
+      
+      const jwtTok = localStorage.getItem('jwtToken') || '';
+      const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
+      const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+      
+      const headers = {};
+      if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+      
+      const response = await fetch(probeUrl, { headers, method: 'GET' });
+      
+      if (response.ok) {
+        // User is admin, show the admin menu
+        const adminAccordion = document.getElementById('sidebarAdminAccordion');
+        if (adminAccordion) {
+          adminAccordion.style.display = 'block';
+        }
+      }
+    } catch (e) {
+      // Not admin or error, keep menu hidden
+    }
+  }
+
+  // Logout handler
+  function handleLogout() {
+    if (window.performLogout) {
+      window.performLogout({ confirm: true, showNotification: false, redirectUrl: '/login' });
+    } else {
+      // Fallback if logout utility not loaded
+      if (confirm('Deseja realmente sair?')) {
+        try { localStorage.clear(); } catch(e) {}
+        try { sessionStorage.clear(); } catch(e) {}
+        try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(e) {}
+        setTimeout(() => { 
+          const url = '/login?_ts=' + Date.now();
+          try { (window.top || window).location.replace(url); } catch(_) { (window.top || window).location.assign(url); }
+        }, 100);
+      }
+    }
+  }
+
+  // Restore navigation state on page load
+  function restoreNavigationState() {
+    const layout = document.body.getAttribute('data-layout');
+    if (layout !== 'desktop') return; // Only restore in desktop mode
+    
+    try {
+      const savedSection = sessionStorage.getItem('currentSection');
+      const savedSubsection = sessionStorage.getItem('currentSubsection');
+      
+      // Restaurar normalmente para seções exceto home; Indicadores será tratado abaixo
+      if (savedSection && savedSection !== 'home' && savedSection !== 'indicadores') {
+        logger.info('[Sidebar] Restoring navigation state:', savedSection, savedSubsection);
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
+          navigateToSection(savedSection, savedSubsection);
+        }, 100);
+      } else if (savedSection === 'indicadores') {
+        logger.info('[Sidebar] Restoring indicadores in desktop mode:', savedSubsection);
+        // Load indicadores tab directly into index.html
+        setTimeout(() => { try { loadIndicadoresIntoSection(savedSubsection || 'geral'); } catch(e){ logger.error('Restore indicadores failed:', e); } }, 100);
+      }
+    } catch(e) {
+      logger.error('[Sidebar] Error restoring navigation state:', e);
+    }
+  }
+
+  // Initialize
+  loadUserData();
+  applyFeatureFlags();
+  setupNavigation();
+  checkAdminAccess();
+  restoreNavigationState();
+})();
+</script>

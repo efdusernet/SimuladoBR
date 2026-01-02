@@ -71,6 +71,11 @@ module.exports = (sequelize, DataTypes) => {
 			allowNull: true,
 			field: 'DataAlteracao'
 		},
+		DataExame: {
+			type: DataTypes.TEXT,
+			allowNull: true,
+			field: 'data_exame'
+		},
 		Excluido: {
 			type: DataTypes.BOOLEAN,
 			allowNull: true,

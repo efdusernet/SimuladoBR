@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Grid Ultra Compacto</title>
+
+  <!-- Support chat widget (served via backend /chat proxy) -->
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+      padding: 0.8rem; /* menos espaço nas bordas */
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      color: #1e293b;
+      font-weight: 600;
+    }
+
+    /* Toolbar (pesquisa + filtros) */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 0 auto 0.8rem auto;
+      max-width: 1400px;
+    }
+    .segmented {
+      display: inline-flex;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .segmented .seg-btn {
+      border: 0;
+      background: transparent;
+      color: #334155;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .segmented .seg-btn:hover { background: #e2e8f0; }
+    .segmented .seg-btn.active { background: #ffffff; color: #111827; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+    /* GRID MAIS COMPACTO */
+    .grid {
+      display: grid;
+      gap: 0.4rem; /* ← REDUZIDO */
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+    @media (min-width: 481px) and (max-width: 768px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 769px) and (max-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 1025px) { .grid { grid-template-columns: repeat(5, 1fr); } }
+
+    /* CARD MAIS COMPACTO */
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 0.12rem; /* ← REDUZIDO */
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem; /* ← REDUZIDO */
+      min-height: 32px; /* ← REDUZIDO */
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .card:hover, .card:active {
+      background: #eef2ff;
+      box-shadow: 0 4px 8px rgba(99, 102, 241, 0.18);
+    }
+
+    /* P + número (compacto) */
+    .prefixo-numero {
+      background: #c7d2fe;
+      color: #1e40af;
+      padding: 0.25rem 0.4rem;
+      border-radius: 5px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-align: center;
+      flex: none;
+      min-width: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .prefixo-numero .label {
+      font-weight: 600;
+      color: #4338ca;
+      font-size: 0.78rem;
+    }
+
+    .prefixo-numero .numero {
+      font-weight: 700;
+      font-size: 0.86rem;
+    }
+
+    /* STATUS com ícone */
+    .status {
+      background: #dcfce7;
+      color: #166534;
+      padding: 0.25rem 0.45rem;
+      border-radius: 5px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-align: center;
+      flex: 1;
+      min-width: 72px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .status svg {
+      width: 14px;
+      height: 14px;
+      fill: #166534;
+    }
+
+    /* Destaque */
+    .prefixo-numero.selecionado {
+      background: #4f46e5;
+      color: white;
+    }
+    .prefixo-numero.selecionado .label,
+    .prefixo-numero.selecionado .numero {
+      color: white;
+    }
+
+    /* Tags de status adicionais */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 5px;
+      padding: 0.22rem 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .tag-flag {
+      background: #FEF3C7; /* amber-100 */
+      color: #92400E;     /* amber-800 */
+      border: 1px solid #F59E0B; /* amber-500 */
+    }
+    .tag-answered {
+      background: #DCFCE7; /* green-100 */
+      color: #166534;      /* green-800 */
+      border: 1px solid #22C55E; /* green-500 */
+    }
+    .tag svg { width: 14px; height: 14px; }
+    .tag-highlight {
+      background: #F3E8FF; /* purple-100 */
+      color: #6B21A8;      /* purple-800 */
+      border: 1px solid #A855F7; /* purple-500 */
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Exibindo <span id="titulo"></span> questões</h1>
+
+  <div class="toolbar" role="region" aria-label="Filtros">
+    <div class="segmented" role="tablist" aria-label="Filtros">
+      <button type="button" class="seg-btn active" data-filter="todas" role="tab" aria-selected="true">Todas</button>
+      <button type="button" class="seg-btn" data-filter="marcadas" role="tab" aria-selected="false">Marcadas</button>
+      <button type="button" class="seg-btn" data-filter="nao-respondidas" role="tab" aria-selected="false">Não responsidas</button>
+      <button type="button" class="seg-btn" data-filter="respondidas" role="tab" aria-selected="false">Respondidas</button>
+      <button type="button" class="seg-btn" data-filter="destacadas" role="tab" aria-selected="false">Destacadas</button>
+    </div>
+  </div>
+
+  <div id="grid" class="grid">
+    <!-- Cards gerados via JS -->
+  </div>
+
+  <script>
+    // Preenche o título com a quantidade escolhida (examQuestionCount)
+    function setTituloQuantidade() {
+      try {
+        const raw = localStorage.getItem('examQuestionCount');
+        const n = raw ? Number(raw) : null;
+        const el = document.getElementById('titulo');
+        if (el) el.textContent = (n && !Number.isNaN(n)) ? String(n) : '';
+      } catch (e) {
+        const el = document.getElementById('titulo');
+        if (el) el.textContent = '';
+      }
+    }
+
+    const checkIcon = `
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+      </svg>
+    `;
+
+  let currentFilter = 'todas';
+
+    function gerarCards() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+
+      // Quantidade de cards baseada em examQuestionCount
+      let total = 0;
+      try {
+        const raw = localStorage.getItem('examQuestionCount');
+        const n = raw ? Number(raw) : 0;
+        total = (!Number.isNaN(n) && n > 0) ? Math.floor(n) : 0;
+      } catch (e) { total = 0; }
+
+      // Descobrir sessão atual e carregar respostas/perguntas
+      let sid = null;
+      try { sid = localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId') || null; } catch (e) { sid = null; }
+      let answers = {};
+      try {
+        if (sid) {
+          const raw = localStorage.getItem(`answers_${sid}`);
+          answers = raw ? JSON.parse(raw) : {};
+        }
+      } catch (e) { answers = {}; }
+      // Questões marcadas via botão "Marcar questão"
+      let markedSet = new Set();
+      try {
+        if (sid) {
+          const rawM = localStorage.getItem(`questoesMarcadas_${sid}`);
+          const arr = rawM ? JSON.parse(rawM) : [];
+          if (Array.isArray(arr)) {
+            markedSet = new Set(arr.filter(x => x && typeof x.currentIdx === 'number').map(x => x.currentIdx));
+          }
+        }
+      } catch (e) { markedSet = new Set(); }
+      let questions = [];
+      let highlights = {};
+      try {
+        if (sid) {
+          const rawQ = localStorage.getItem(`questions_${sid}`);
+          questions = rawQ ? JSON.parse(rawQ) : [];
+          const rawH = localStorage.getItem(`highlights_${sid}`);
+          highlights = rawH ? JSON.parse(rawH) : {};
+        }
+      } catch (e) { questions = []; highlights = {}; }
+
+      for (let i = 1; i <= total; i++) {
+        // Determinar status desta posição
+        let isMarked = false; // respondida
+        let isFlagged = false; // marcada (flag)
+        let isHighlighted = false; // destacada
+        try {
+          const qObj = Array.isArray(questions) ? questions[i - 1] : null;
+          const hasId = qObj && qObj.id !== undefined && qObj.id !== null;
+          const key = hasId ? `q_${qObj.id}` : `idx_${i - 1}`; // idx é 0-based
+          const a = answers && answers[key];
+          isMarked = !!(a && a.optionId);
+          isFlagged = markedSet.has(i - 1);
+          isHighlighted = !!(highlights && highlights[key] === true);
+        } catch (e) { isMarked = false; }
+
+        // Filtro por tipo
+        const f = currentFilter;
+        if (f === 'marcadas' && !isFlagged) continue;
+        if (f === 'respondidas' && !isMarked) continue;
+        if (f === 'nao-respondidas' && isMarked) continue;
+        if (f === 'destacadas' && !isHighlighted) continue;
+
+        const card = document.createElement('div');
+        card.className = 'card';
+
+  // Mantém a cor original do .status; apenas o card ficará #FA8072 quando não marcado
+  const statusBgAttr = '';
+  const tagged = [];
+  if (isFlagged) tagged.push(`<span class="tag tag-flag" title="Marcada">🔖 Marcada</span>`);
+  if (isMarked) tagged.push(`<span class="tag tag-answered" title="Respondida">${checkIcon} Respondida</span>`);
+  if (isHighlighted) tagged.push(`<span class="tag tag-highlight" title="Destacada">★ Destacada</span>`);
+  const statusInner = tagged.join('\n');
+
+        card.innerHTML = `
+          <div class="prefixo-numero" id="q${i}">
+            <span class="label">P:</span>
+            <span class="numero">${i}</span>
+          </div>
+          <div class="status"${statusBgAttr}>
+            ${statusInner}
+          </div>
+        `;
+
+        // Se não estiver respondida, alterar o fundo do card para #FA8072
+        if (!isMarked) {
+          try { card.style.background = '#FA8072'; } catch (e) {}
+        }
+
+        const bloco = card.querySelector(`#q${i}`);
+        bloco.addEventListener('click', () => {
+          bloco.classList.toggle('selecionado');
+        });
+
+        grid.appendChild(card);
+      }
+    }
+
+    function attachToolbar() {
+      const buttons = document.querySelectorAll('.segmented .seg-btn');
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          buttons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+          btn.classList.add('active');
+          btn.setAttribute('aria-selected','true');
+          currentFilter = String(btn.getAttribute('data-filter') || 'todas');
+          gerarCards();
+        });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        setTituloQuantidade();
+        attachToolbar();
+        gerarCards();
+      });
+    } else {
+      setTituloQuantidade();
+      attachToolbar();
+      gerarCards();
+    }
+  </script>
+
+</body>
+</html>

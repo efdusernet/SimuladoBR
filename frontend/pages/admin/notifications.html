@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Notificações (Admin)</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
+    .wrap{ max-width:900px; margin:20px auto; padding:16px; background:#111827; border:1px solid #1f2937; border-radius:10px; }
+    label{ display:block; font-size:.85rem; color:#94a3b8; margin:8px 0 4px; }
+    input, select, textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    .row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .btn{ padding:8px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
+    .btn-primary{ background:#4f46e5; color:#fff; }
+    .btn-muted{ background:#334155; color:#e5e7eb; }
+    table{ width:100%; border-collapse:collapse; margin-top:16px; }
+    th,td{ padding:8px; border-bottom:1px solid #1f2937; font-size:.9rem; text-align:left; }
+    th{ color:#a5b4fc; }
+    .status{ font-size:.85rem; color:#93c5fd; min-height:18px; }
+    :root{ --bg: #0f172a; }
+  </style>
+  <script src="/utils/logout.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <h1 style="margin:0 0 10px;">Notificações</h1>
+    <p style="color:#94a3b8">Crie e dispare notificações para todos os usuários ou individualmente.</p>
+
+    <!-- Botões Admin e Notificações movidos para canto superior esquerdo (posição fixa) -->
+    <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="position:fixed;top:12px;left:12px;z-index:2400;display:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:#1e293b;color:#e5e7eb;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.45);font-size:.75rem;font-weight:600;">Admin ▾</button>
+    <button id="notifBellBtn" type="button" aria-label="Notificações" title="Notificações" style="position:fixed;top:12px;left:92px;z-index:2400;display:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:#1e293b;color:#e5e7eb;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.45);font-size:.75rem;font-weight:600;">🔔 <span id="notifBadge" style="background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;margin-left:6px;font-size:.60rem;display:none">0</span></button>
+    <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2401;min-width:220px;background:#1e293b;border:1px solid #334155;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.55);padding:6px;">
+      <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#e5e7eb;text-decoration:none;font-size:.72rem;">Cadastrar questão</a>
+      <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#e5e7eb;text-decoration:none;font-size:.72rem;">Cadastrar questão bulk</a>
+      <a id="lnkAdminFeedbackResp" href="/pages/admin/feedbackResponses.html" style="display:block;padding:6px 8px;border-radius:6px;color:#e5e7eb;text-decoration:none;font-size:.72rem;">Responder feedbacks</a>
+      <a id="lnkAdminNotifications" href="/pages/admin/notifications.html" style="display:block;padding:6px 8px;border-radius:6px;color:#e5e7eb;text-decoration:none;font-size:.72rem;background:#334155;">Notificações</a>
+      <button id="btnAdminFixture" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#0d9488;color:#fff;font-size:.72rem;border-radius:6px;cursor:pointer;margin-top:4px;">Gerar tentativa fixture</button>
+      <button id="btnAdminReconcile" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#4f46e5;color:#fff;font-size:.72rem;border-radius:6px;cursor:pointer;margin-top:4px;">Reconciliar estatísticas</button>
+      <button id="btnAdminPurge" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#b91c1c;color:#fff;font-size:.72rem;border-radius:6px;cursor:pointer;margin-top:4px;">Expurgar tentativas abandonadas</button>
+      <button id="btnAdminMarkAbandoned" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#dc2626;color:#fff;font-size:.72rem;border-radius:6px;cursor:pointer;margin-top:4px;">Marcar abandonadas (inatividade)</button>
+      <button id="btnAdminLogout" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f1f5f9;color:#334155;font-size:.72rem;border-radius:6px;cursor:pointer;margin-top:6px;">Sair</button>
+    </nav>
+    <div id="notifPanel" aria-hidden="true" style="display:none;position:fixed;top:52px;left:92px;z-index:2401;min-width:260px;background:#1e293b;border:1px solid #334155;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.55);padding:8px;max-height:320px;overflow:auto"></div>
+
+    <div id="status" class="status"></div>
+
+    <form id="notifForm" style="display:grid; gap:12px; margin-bottom:16px;">
+      <div class="row">
+        <div>
+          <label for="categoria">Categoria</label>
+          <select id="categoria">
+            <option value="Promocoes">Promoções</option>
+            <option value="Avisos">Avisos</option>
+            <option value="Alertas">Alertas</option>
+          </select>
+        </div>
+        <div>
+          <label for="alcance">Alcance</label>
+          <select id="alcance">
+            <option value="all">Todos</option>
+            <option value="user">Usuário específico</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="titulo">Título</label>
+          <input id="titulo" type="text" maxlength="200" placeholder="Título da notificação" />
+        </div>
+        <div>
+          <label for="userSelect">Usuário (se específico)</label>
+          <select id="userSelect" size="8" disabled>
+            <option value="">Selecione um usuário...</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="mensagem">Mensagem</label>
+        <textarea id="mensagem" rows="4" placeholder="Conteúdo da notificação"></textarea>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="btnSalvar" type="button" class="btn btn-muted">Salvar rascunho</button>
+        <button id="btnDisparar" type="button" class="btn btn-primary">Disparar</button>
+      </div>
+    </form>
+
+    <table aria-label="Notificações recentes">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Categoria</th>
+          <th>Título</th>
+          <th>Alvo</th>
+          <th>Status</th>
+          <th>Enviadas/Lidas</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div id="bottomNavMount"></div>
+  <div id="toast" aria-live="polite" style="display:none;position:fixed;right:16px;bottom:16px;z-index:2500;background:#16a34a;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 8px 18px rgba(0,0,0,0.45);font-size:.85rem;">
+    Mensagem enviada com sucesso
+  </div>
+
+  <script>
+    (function(){
+      function showToast(text){
+        const el = document.getElementById('toast');
+        if (!el) return;
+        el.textContent = text || 'Mensagem enviada com sucesso';
+        el.style.display = 'block';
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(()=>{ el.style.display='none'; }, 2500);
+      }
+      // Constrói cabeçalhos de autorização replicando a lógica do index.html (usa nomeUsuario como fallback)
+      function headers(){
+        const h = {};
+        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+        const lsSession = (localStorage.getItem('sessionToken')||'').trim();
+        const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
+        // Fallback: tentar extrair sessionToken/JWT da query string (caso abrimos a página via link compartilhado)
+        const urlParams = new URLSearchParams(window.location.search);
+        const qpSession = (urlParams.get('sessionToken')||'').trim();
+        // Se query param parece um JWT, preferir para Authorization
+        const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/;
+        if (!jwtTok && jwtRegex.test(qpSession)) {
+          h['Authorization'] = jwtType + ' ' + qpSession;
+        } else if (jwtTok) {
+          h['Authorization'] = jwtType + ' ' + jwtTok;
+        }
+        // Identidade para X-Session-Token: nomeUsuario > session localStorage > query param
+        const identity = nomeUsuario || lsSession || (jwtRegex.test(qpSession)? '' : qpSession);
+        if (identity) h['X-Session-Token'] = identity;
+        h['Content-Type'] = 'application/json';
+        return h;
+      }
+      async function loadList(){
+        const rows = document.getElementById('rows');
+        const status = document.getElementById('status');
+        status.textContent = 'Carregando...';
+        try{
+          const r = await fetch('/api/admin/notifications', { headers: headers() });
+          if (!r.ok){
+            let msg='Falha ao carregar';
+            try { const d=await r.json(); if (d && d.message) msg += ' ('+d.message+')'; } catch(_){}
+            status.textContent = msg;
+            return;
+          }
+          const list = await r.json();
+          rows.innerHTML = '';
+          if (!Array.isArray(list) || !list.length){ rows.innerHTML = '<tr><td colspan="6">Nenhuma notificação.</td></tr>'; status.textContent=''; return; }
+          const frag = document.createDocumentFragment();
+          for (const it of list){
+            const tr = document.createElement('tr');
+            const alvo = it.targetType === 'user' ? (it.targetUser && it.targetUser.display ? it.targetUser.display : ('user #' + (it.targetUserId||''))) : 'Todos';
+            tr.innerHTML = `<td>${it.id}</td><td>${it.categoria}</td><td>${it.titulo}</td><td>${alvo}</td><td>${it.status}</td><td data-stats="${it.id}">—</td>`;
+            frag.appendChild(tr);
+            // Fetch stats
+            try {
+              const rs = await fetch('/api/admin/notifications/' + it.id, { headers: headers() });
+              if (rs.ok){ const d = await rs.json(); const td = rows.querySelector(`td[data-stats="${it.id}"]`); if (td){ td.textContent = `${d.stats.total} / ${d.stats.read}`; } }
+              else {
+                const td = rows.querySelector(`td[data-stats="${it.id}"]`);
+                if (td) td.textContent='erro';
+              }
+            } catch(_){ const td = rows.querySelector(`td[data-stats="${it.id}"]`); if (td) td.textContent='erro'; }
+          }
+          rows.appendChild(frag);
+          status.textContent = '';
+        } catch(e){ status.textContent = 'Erro ao carregar ('+(e && e.message? e.message : 'desconhecido')+')'; }
+      }
+      async function salvar(){
+        const categoria = document.getElementById('categoria').value;
+        const alcance = document.getElementById('alcance').value;
+        const titulo = document.getElementById('titulo').value.trim();
+        const mensagem = document.getElementById('mensagem').value.trim();
+        const sel = document.getElementById('userSelect');
+        const selectedId = Number((sel.value||'').trim());
+        if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); return; }
+        if (alcance === 'user' && (!Number.isInteger(selectedId) || selectedId <= 0)){ alert('Selecione um usuário válido.'); return; }
+        try {
+          if (alcance === 'user'){
+            const body = { categoria, titulo, mensagem, targetType: 'user', targetUserId: selectedId };
+            const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+            if (!r.ok){ const d = await r.json().catch(()=>({})); alert('Falha ao salvar: ' + (d.error||r.statusText)); return; }
+          } else {
+            const body = { categoria, titulo, mensagem, targetType: 'all' };
+            const r = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+            if (!r.ok){ const d = await r.json().catch(()=>({})); alert('Falha: ' + (d.error||r.statusText)); return; }
+            alert('Rascunho salvo');
+          }
+          loadList();
+        } catch(e){ alert('Erro: '+ e); }
+      }
+      async function disparar(){
+        const status = document.getElementById('status');
+        status.textContent='Disparando...';
+        try{
+          // Create draft then send last created matching title (simplify UX for MVP)
+          const categoria = document.getElementById('categoria').value;
+          const alcance = document.getElementById('alcance').value;
+          const titulo = document.getElementById('titulo').value.trim();
+          const mensagem = document.getElementById('mensagem').value.trim();
+          const sel = document.getElementById('userSelect');
+          const selectedId = Number((sel.value||'').trim());
+          if (!categoria || !titulo || !mensagem){ alert('Preencha categoria, título e mensagem.'); status.textContent=''; return; }
+          if (alcance === 'user' && (!Number.isInteger(selectedId) || selectedId <= 0)){ alert('Selecione um usuário válido.'); status.textContent=''; return; }
+          if (alcance === 'user'){
+            const body = { categoria, titulo, mensagem, targetType: 'user', targetUserId: selectedId };
+            const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+            const created = await r1.json().catch(()=>null);
+            if (!r1.ok || !created || !created.id){ status.textContent=''; return; }
+            const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
+            if (r2.ok) showToast('Mensagem enviada com sucesso');
+          } else {
+            const body = { categoria, titulo, mensagem, targetType: 'all' };
+            const r1 = await fetch('/api/admin/notifications', { method:'POST', headers: headers(), body: JSON.stringify(body) });
+            const created = await r1.json();
+            if (!r1.ok){ alert('Falha ao salvar: ' + (created.error||r1.statusText)); status.textContent=''; return; }
+            const r2 = await fetch(`/api/admin/notifications/${created.id}/send`, { method:'POST', headers: headers() });
+            const sent = await r2.json();
+            if (!r2.ok){ alert('Falha ao disparar: ' + (sent.error||r2.statusText)); status.textContent=''; return; }
+            showToast('Mensagem enviada com sucesso');
+          }
+          status.textContent='';
+          loadList();
+        } catch(e){ alert('Erro: ' + e); status.textContent=''; }
+      }
+      document.getElementById('btnSalvar').addEventListener('click', salvar);
+      document.getElementById('btnDisparar').addEventListener('click', disparar);
+      // Carrega usuários para o select quando alcance = user
+      (function initUsersSelect(){
+        const sel = document.getElementById('userSelect');
+        const alcanceEl = document.getElementById('alcance');
+        async function loadUsers(){
+          try {
+            const r = await fetch('/api/admin/users?limit=500', { headers: headers() });
+            if (!r.ok) return;
+            const list = await r.json();
+            sel.innerHTML = '<option value="">Selecione um usuário...</option>';
+            if (Array.isArray(list)){
+              list.forEach(u => {
+                const id = u.Id || u.id;
+                const nome = (u.Nome || '').trim() || (u.NomeUsuario || '').trim() || ('ID ' + id);
+                const opt = document.createElement('option');
+                opt.value = String(id);
+                opt.textContent = `${nome} - ${id}`;
+                sel.appendChild(opt);
+              });
+            }
+          } catch(_){ /* ignore */ }
+        }
+        function toggle(){
+          const isUser = alcanceEl.value === 'user';
+          sel.disabled = !isUser;
+          if (isUser && sel.options.length <= 1) loadUsers();
+        }
+        alcanceEl.addEventListener('change', toggle);
+        toggle();
+      })();
+      loadList();
+    })();
+  </script>
+  <script>
+  // Inicializa menu admin (detecção via endpoint e montagem simples)
+  (function initAdminMenu(){
+    const btn = document.getElementById('adminMenuBtn');
+    const panel = document.getElementById('adminMenuPanel');
+    if (!btn || !panel) return;
+    const token = (localStorage.getItem('sessionToken')||'').trim();
+    const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
+    const identity = nomeUsuario || token;
+    if (!identity) return;
+    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+    const headers = {}; if (identity) headers['X-Session-Token'] = identity; if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+    fetch('/api/admin/exams/probe?sessionToken='+encodeURIComponent(identity), { headers }).then(r => {
+      if (!r.ok) return; // não admin
+      btn.style.display='inline-flex';
+      function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+      function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+      btn.addEventListener('click', e => { e.stopPropagation(); if (panel.style.display==='block') close(); else open(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) close(); });
+      // Função auxiliar para POST admin
+      async function adminPost(path){
+        const jwtTok2 = (localStorage.getItem('jwtToken')||'').trim();
+        const jwtType2 = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+        const nomeUsuario2 = (localStorage.getItem('nomeUsuario')||'').trim();
+        const token2 = (localStorage.getItem('sessionToken')||'').trim();
+        const identity2 = nomeUsuario2 || token2;
+        const h = { 'Content-Type':'application/json' };
+        if (identity2) h['X-Session-Token'] = identity2;
+        if (jwtTok2) h['Authorization'] = `${jwtType2} ${jwtTok2}`;
+        const url = path + (path.includes('?')?'&':'?') + 'sessionToken=' + encodeURIComponent(identity2);
+        const resp = await fetch(url,{method:'POST',headers:h});
+        const data = await resp.json().catch(()=>({}));
+        return { ok: resp.ok, status: resp.status, data };
+      }
+      // Botões avançados
+      const purgeBtn = document.getElementById('btnAdminPurge');
+      const markBtn = document.getElementById('btnAdminMarkAbandoned');
+      const reconcileBtn = document.getElementById('btnAdminReconcile');
+      const fixtureBtn = document.getElementById('btnAdminFixture');
+      const logoutBtn = document.getElementById('btnAdminLogout');
+      if (purgeBtn){
+        purgeBtn.addEventListener('click', async ()=>{
+          if (!confirm('Confirma expurgo de tentativas abandonadas?')) return;
+          purgeBtn.disabled=true; purgeBtn.textContent='Expurgando...';
+          try { const r = await adminPost('/api/admin/exams/purge-abandoned'); alert(r.ok?`Expurgo: ${r.data.purged} purgadas (inspecionadas ${r.data.inspected}).`:`Falhou (${r.status}).`); }
+          catch(e){ alert('Erro: '+e); }
+          purgeBtn.disabled=false; purgeBtn.textContent='Expurgar tentativas abandonadas';
+        });
+      }
+      if (markBtn){
+        markBtn.addEventListener('click', async ()=>{
+          if (!confirm('Executar marcação de tentativas abandonadas por inatividade?')) return;
+          markBtn.disabled=true; markBtn.textContent='Marcando...';
+          try { const r = await adminPost('/api/admin/exams/mark-abandoned'); alert(r.ok?`Marcadas: timeout=${r.data.markedTimeout}, lowProgress=${r.data.markedLowProgress} (processadas ${r.data.processed}).`:`Falhou (${r.status}).`); }
+          catch(e){ alert('Erro: '+e); }
+          markBtn.disabled=false; markBtn.textContent='Marcar abandonadas (inatividade)';
+        });
+      }
+      if (reconcileBtn){
+        reconcileBtn.addEventListener('click', ()=>{
+          alert('A reconciliação completa está disponível na página principal (index).');
+        });
+      }
+      if (fixtureBtn){
+        fixtureBtn.addEventListener('click', ()=>{
+          alert('Gerar fixture: use ferramenta completa em index.html (Admin Modal).');
+        });
+      }
+      if (logoutBtn){ logoutBtn.addEventListener('click', () => { if (window.performLogout) { window.performLogout({ confirm: false, showNotification: false }); } else { try{ localStorage.clear(); sessionStorage.clear(); document.cookie='sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; }catch(_){} window.location.href='/login.html'; } }); }
+    }).catch(()=>{});
+  })();
+  // Sino de notificações reutilizando endpoint de unread-count e lista
+  (function initBell(){
+    const btn = document.getElementById('notifBellBtn');
+    const badge = document.getElementById('notifBadge');
+    const panel = document.getElementById('notifPanel');
+    if (!btn || !badge || !panel) return;
+    const token = (localStorage.getItem('sessionToken')||'').trim();
+    if (!token) return;
+    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+    const headers = { 'X-Session-Token': token }; if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+    async function refreshCount(){ try{ const r = await fetch('/api/notifications/unread-count', { headers }); if(!r.ok) return; const d = await r.json(); const c = Number(d.count)||0; if(c>0){ badge.textContent=String(c); badge.style.display='inline-block'; } else { badge.style.display='none'; } btn.style.display='inline-flex'; }catch(_){}}
+    async function loadList(){ try{ const r = await fetch('/api/notifications?limit=20', { headers }); if(!r.ok) return; const list = await r.json(); panel.innerHTML=''; if(!Array.isArray(list)||!list.length){ panel.innerHTML='<div style="color:#64748b;font-size:.75rem">Sem notificações</div>'; return; } for(const it of list){ const row=document.createElement('div'); row.style.cssText='border-bottom:1px solid #334155;padding:6px 4px'; const cat=it.categoria||''; const t=it.titulo||''; const msg=it.mensagem||''; const read=!!it.readAt; row.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:.75rem;color:#e2e8f0">${t}</strong><span style="font-size:.6rem;color:#94a3b8">${cat}</span></div><div style="font-size:.70rem;color:#cbd5e1;margin-top:4px">${msg}</div><div style="margin-top:6px;"><button data-id="${it.id}" class="mark-read" style="background:${read?'#334155':'#4f46e5'};color:${read?'#e2e8f0':'#fff'};border:none;border-radius:6px;padding:4px 6px;font-size:.65rem;cursor:pointer">${read?'Lida':'Marcar como lida'}</button></div>`; panel.appendChild(row); }
+      panel.querySelectorAll('button.mark-read').forEach(btnEl=>{ btnEl.addEventListener('click', async (e)=>{ const id=e.currentTarget.getAttribute('data-id'); try{ const rr=await fetch(`/api/notifications/${id}/read`,{method:'POST',headers}); if(rr.ok){ refreshCount(); e.currentTarget.textContent='Lida'; e.currentTarget.style.background='#334155'; e.currentTarget.style.color='#e2e8f0'; } }catch(_){ } }); }); }catch(_){ panel.innerHTML='<div style="color:#dc2626;font-size:.7rem">Falha</div>'; }}
+    function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+    function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+    btn.addEventListener('click', e => { e.stopPropagation(); if(panel.style.display==='block'){ close(); } else { loadList(); open(); } });
+    document.addEventListener('click', e => { if(!panel.contains(e.target) && e.target !== btn) close(); });
+    refreshCount(); setInterval(refreshCount, 90000);
+  })();
+  </script>
+  <script>
+  // Carrega componente de navegação inferior reutilizável
+  (function loadBottomNav(){
+    async function mount(){
+      try {
+        const resp = await fetch('/components/bottomNav.html', { cache: 'no-store' });
+        if(!resp.ok) return;
+        const html = await resp.text();
+        const mountEl = document.getElementById('bottomNavMount');
+        if(mountEl){
+          mountEl.innerHTML = html;
+          try {
+            const scripts = Array.from(mountEl.querySelectorAll('script'));
+            scripts.forEach(old => {
+              const s = document.createElement('script');
+              if(old.src) s.src = old.src; else s.textContent = old.textContent || '';
+              old.parentNode.removeChild(old);
+              mountEl.appendChild(s);
+            });
+          } catch(_){ }
+        }
+      } catch(_){}
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+  })();
+  </script>
+</body>
+</html>

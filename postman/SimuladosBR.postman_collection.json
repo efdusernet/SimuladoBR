@@ -92,6 +92,329 @@
         "url": { "raw": "{{BACKEND_BASE}}/api/auth/verify", "host": ["{{BACKEND_BASE}}"], "path": ["api","auth","verify"] }
       },
       "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200', function () { pm.response.to.have.status(200); });" ] } } ]
+    },
+    {
+      "name": "Exams",
+      "item": [
+        {
+          "name": "List Types (DB)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{BACKEND_BASE}}/api/exams/types", "host": ["{{BACKEND_BASE}}"], "path": ["api","exams","types"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const data = pm.response.json(); if (Array.isArray(data) && data.length) pm.environment.set('examType', data[0].id || 'pmp');"
+          ] } } ]
+        },
+        {
+          "name": "Select (count=1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Content-Type","value":"application/json"},
+              {"key":"X-Session-Token","value":"{{sessionToken}}"},
+              {"key":"X-Exam-Type","value":"{{examType}}"}
+            ],
+            "body": {"mode":"raw","raw":"{\n  \"count\": 1,\n  \"examType\": \"{{examType}}\"\n}"},
+            "url": { "raw": "{{BACKEND_BASE}}/api/exams/select", "host": ["{{BACKEND_BASE}}"], "path": ["api","exams","select"] }
+          },
+          "event": [ { "listen":"test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const r = pm.response.json(); if (r && r.sessionId) pm.environment.set('lastSessionId', r.sessionId);",
+            "if (r && Array.isArray(r.questions) && r.questions.length) { const q = r.questions[0]; pm.environment.set('lastQuestionId', q.id); if (q.options && q.options.length) pm.environment.set('lastOptionId', q.options[0].id); }"
+          ] } } ]
+        },
+        {
+          "name": "Start On Demand (count=3)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Content-Type","value":"application/json"},
+              {"key":"X-Session-Token","value":"{{sessionToken}}"},
+              {"key":"X-Exam-Type","value":"{{examType}}"}
+            ],
+            "body": {"mode":"raw","raw":"{\n  \"count\": 3,\n  \"examType\": \"{{examType}}\"\n}"},
+            "url": { "raw": "{{BACKEND_BASE}}/api/exams/start-on-demand", "host": ["{{BACKEND_BASE}}"], "path": ["api","exams","start-on-demand"] }
+          },
+          "event": [ { "listen":"test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const r = pm.response.json(); if (r && r.sessionId) pm.environment.set('lastOnDemandSessionId', r.sessionId); if (r && r.attemptId) pm.environment.set('lastAttemptId', r.attemptId);"
+          ] } } ]
+        },
+        {
+          "name": "Get Question (index 0)",
+          "request": {
+            "method": "GET",
+            "header": [ {"key":"X-Session-Token","value":"{{sessionToken}}"} ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/exams/{{lastOnDemandSessionId}}/question/0", "host": ["{{BACKEND_BASE}}"], "path": ["api","exams","{{lastOnDemandSessionId}}","question","0"] }
+          },
+          "event": [ { "listen":"test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const r = pm.response.json(); if (r && r.question) { pm.environment.set('lastQuestionId', r.question.id); if (r.question.options && r.question.options.length) pm.environment.set('lastOptionId', r.question.options[0].id); }"
+          ] } } ]
+        },
+        {
+          "name": "Submit (from select)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Content-Type","value":"application/json"},
+              {"key":"X-Session-Token","value":"{{sessionToken}}"}
+            ],
+            "body": {"mode":"raw","raw":"{\n  \"sessionId\": \"{{lastSessionId}}\",\n  \"answers\": [ { \"questionId\": {{lastQuestionId}}, \"optionId\": {{lastOptionId}} } ]\n}"},
+            "url": { "raw": "{{BACKEND_BASE}}/api/exams/submit", "host": ["{{BACKEND_BASE}}"], "path": ["api","exams","submit"] }
+          },
+          "event": [ { "listen":"test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));"
+          ] } } ]
+        },
+        {
+          "name": "Submit (from on-demand)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Content-Type","value":"application/json"},
+              {"key":"X-Session-Token","value":"{{sessionToken}}"}
+            ],
+            "body": {"mode":"raw","raw":"{\n  \"sessionId\": \"{{lastOnDemandSessionId}}\",\n  \"answers\": [ { \"questionId\": {{lastQuestionId}}, \"optionId\": {{lastOptionId}} } ]\n}"},
+            "url": { "raw": "{{BACKEND_BASE}}/api/exams/submit", "host": ["{{BACKEND_BASE}}"], "path": ["api","exams","submit"] }
+          },
+          "event": [ { "listen":"test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));"
+          ] } } ]
+        }
+      ]
+    }
+    ,
+    {
+      "name": "Admin — Roles",
+      "item": [
+        {
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/roles", "host": ["{{BACKEND_BASE}}"], "path": ["api","roles"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const data = pm.response.json(); if (Array.isArray(data) && data.length) { pm.environment.set('lastRoleSlug', data[0].slug); pm.environment.set('lastRoleId', data[0].id); }"
+          ] } } ]
+        },
+        {
+          "name": "Get user roles",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/roles/user/{{lastCreatedUserId}}", "host": ["{{BACKEND_BASE}}"], "path": ["api","roles","user","{{lastCreatedUserId}}"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const rows = pm.response.json(); pm.expect(rows).to.be.an('array');"
+          ] } } ]
+        },
+        {
+          "name": "Assign role (admin)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": {{lastCreatedUserId}},\n  \"roleSlug\": \"admin\"\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/roles/assign", "host": ["{{BACKEND_BASE}}"], "path": ["api","roles","assign"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const r = pm.response.json(); pm.expect(r).to.have.property('ok', true);"
+          ] } } ]
+        },
+        {
+          "name": "Remove role (admin)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": {{lastCreatedUserId}},\n  \"roleSlug\": \"admin\"\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/roles/remove", "host": ["{{BACKEND_BASE}}"], "path": ["api","roles","remove"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [
+            "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+            "const r = pm.response.json(); pm.expect(r).to.have.property('ok', true);"
+          ] } } ]
+        }
+      ]
+    }
+    ,
+    {
+      "name": "AI — Web Context (Admin)",
+      "item": [
+        {
+          "name": "Web Search (Bing/SerpAPI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/web/search?q={{aiWebQuery}}&k={{aiWebK}}",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "web", "search"],
+              "query": [
+                { "key": "q", "value": "{{aiWebQuery}}" },
+                { "key": "k", "value": "{{aiWebK}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/400/401/403', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('success true', ()=> pm.expect(json && json.success).to.eql(true));",
+                  "  const firstUrl = json && json.results && json.results[0] && json.results[0].url ? json.results[0].url : '';",
+                  "  if (firstUrl) pm.environment.set('aiWebFetchUrl', firstUrl);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Web Fetch (safe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"{{aiWebFetchUrl}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/web/fetch",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "web", "fetch"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/500/401/403', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('has page.text', ()=> pm.expect(json && json.page && typeof json.page.text).to.eql('string'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Question Audit (with web context)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": {\n    \"descricao\": \"{{auditDescricao}}\",\n    \"examType\": \"{{auditExamType}}\",\n    \"alternativas\": [\"{{auditAltA}}\", \"{{auditAltB}}\", \"{{auditAltC}}\", \"{{auditAltD}}\"],\n    \"correta\": \"{{auditCorreta}}\"\n  },\n  \"web\": {\n    \"enabled\": true,\n    \"query\": \"{{auditWebQuery}}\",\n    \"maxSources\": {{auditMaxSources}}\n  }\n}"
+            },
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/question-audit",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "question-audit"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/500/400/401/403', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,500]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('success true', ()=> pm.expect(json && json.success).to.eql(true));",
+                  "  pm.test('audit.verdict exists', ()=> pm.expect(json && json.audit && json.audit.verdict).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+        ,
+        {
+          "name": "Masterdata — Question Classification",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/masterdata/question-classification",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "masterdata", "question-classification"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('success true', ()=> pm.expect(json && json.success).to.eql(true));",
+                  "  pm.test('masterdata exists', ()=> pm.expect(json && json.masterdata).to.be.an('object'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+        ,
+        {
+          "name": "Question Classify (Masterdata)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": {\n    \"descricao\": \"{{classifyDescricao}}\",\n    \"alternativas\": [\"{{classifyAltA}}\", \"{{classifyAltB}}\", \"{{classifyAltC}}\", \"{{classifyAltD}}\"],\n    \"correta\": \"{{classifyCorreta}}\"\n  },\n  \"current\": {\n    \"iddominiogeral\": {{classifyCurrentDominioGeral}},\n    \"iddominio\": {{classifyCurrentDominio}},\n    \"idprincipio\": {{classifyCurrentPrincipio}},\n    \"codigocategoria\": {{classifyCurrentCategoria}},\n    \"codgrupoprocesso\": {{classifyCurrentGrupoProcesso}},\n    \"id_task\": {{classifyCurrentTask}}\n  },\n  \"dicaMaxChars\": {{classifyDicaMaxChars}}\n}"
+            },
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/ai/question-classify",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api", "ai", "question-classify"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/400/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,500]); });",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.test('success true', ()=> pm.expect(json && json.success).to.eql(true));",
+                  "  pm.test('result.fields exists', ()=> pm.expect(json && json.result && json.result.fields).to.be.an('object'));",
+                  "  pm.test('disagreements array', ()=> pm.expect(json && json.disagreements).to.be.an('array'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

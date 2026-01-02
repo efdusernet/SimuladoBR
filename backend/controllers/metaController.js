@@ -1,7 +1,9 @@
 const sequelize = require('../config/database');
 
+const { logger } = require('../utils/logger');
+const { internalError } = require('../middleware/errors');
 // Helper to run a robust select id, descricao from a table, adapting to column name casing
-async function listSimple(req, res, table) {
+async function listSimple(req, res, next, table) {
   try {
     // Discover available columns for the table to avoid referencing non-existing columns
     const cols = await sequelize.query(
@@ -16,8 +18,8 @@ async function listSimple(req, res, table) {
     let descCol = null;
     if (names.has('descricao')) descCol = 'descricao'; else if (names.has('Descricao')) descCol = '"Descricao"';
     if (!idCol || !descCol) {
-      console.warn(`[meta] ${table} missing expected id/descricao columns. columns=`, Array.from(names));
-      return res.status(500).json({ error: `table ${table} missing id/descricao` });
+      logger.warn(`[meta] ${table} missing expected id/descricao columns. columns=`, Array.from(names));
+      return next(internalError('Erro interno', 'TABLE_MISSING_COLUMNS', { table, columns: Array.from(names) }));
     }
 
     // Optional soft-delete filter if present (excluido or "Excluido")
@@ -29,21 +31,96 @@ async function listSimple(req, res, table) {
     const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
     return res.json(rows || []);
   } catch (e) {
-    console.error(`[meta] list ${table} error`, e);
-    return res.status(500).json({ error: 'internal error' });
+    logger.error(`[meta] list ${table} error`, e);
+    return next(internalError('Erro interno', 'META_LIST_ERROR', e));
   }
 }
 
-exports.listAreasConhecimento = (req, res) => listSimple(req, res, 'areaconhecimento');
-exports.listGruposProcesso = async (req, res) => {
+exports.listAreasConhecimento = (req, res, next) => listSimple(req, res, next, 'areaconhecimento');
+exports.listGruposProcesso = async (req, res, next) => {
   // prefer 'grupoprocesso'; some DBs might use 'gruprocesso' — try fallback
   try {
-    return await listSimple(req, res, 'grupoprocesso');
+    return await listSimple(req, res, next, 'grupoprocesso');
   } catch (e) {
-    try { return await listSimple(req, res, 'gruprocesso'); } catch (e2) {
-      console.error('[meta] both grupoprocesso/gruprocesso failed');
-      return res.status(500).json({ error: 'internal error' });
+    try { return await listSimple(req, res, next, 'gruprocesso'); } catch (e2) {
+      logger.error('[meta] both grupoprocesso/gruprocesso failed');
+      return next(internalError('Erro interno', 'GRUPO_PROCESSO_LIST_ERROR', e2));
     }
   }
 };
-exports.listDominios = (req, res) => listSimple(req, res, 'dominio');
+exports.listDominios = (req, res, next) => listSimple(req, res, next, 'dominio');
+exports.listDominiosGeral = (req, res, next) => listSimple(req, res, next, 'dominiogeral');
+exports.listPrincipios = (req, res, next) => listSimple(req, res, next, 'principios');
+exports.listCategorias = (req, res, next) => listSimple(req, res, next, 'categoriaquestao');
+// List difficulty levels from niveldificuldade table
+exports.listNiveisDificuldade = async (req, res, next) => {
+  try {
+    const rows = await sequelize.query(
+      `SELECT codigonivel AS id, descricao FROM niveldificuldade ORDER BY codigonivel`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.json(rows || []);
+  } catch (e) {
+    logger.error('[meta] listNiveisDificuldade error', e);
+    return next(internalError('Erro interno', 'LIST_NIVEIS_DIFICULDADE_ERROR', e));
+  }
+};
+
+// List tasks from task table (only active)
+exports.listTasks = async (req, res, next) => {
+  try {
+    // Join dominiogeral to compose label: dominiogeral.descricao - Tasks.numero - Tasks.descricao
+    // Return as id, descricao (formatted) to keep frontend compatibility
+    const rows = await sequelize.query(
+      `SELECT t.id,
+              (COALESCE(dg.descricao,'') ||' - Task ' || t.numero || ' | - ' || t.descricao) AS descricao
+         FROM public."Tasks" t
+         LEFT JOIN public.dominiogeral dg ON dg.id = t.id_dominio
+        WHERE t.ativo = TRUE
+        ORDER BY t.id_dominio`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    return res.json(rows || []);
+  } catch (e) {
+    logger.error('[meta] listTasks error', e);
+    return next(internalError('Erro interno', 'LIST_TASKS_ERROR', e));
+  }
+};
+
+// GET /api/meta/config -> expose server-side config relevant to frontend
+exports.getConfig = (_req, res, next) => {
+  try {
+    const fullExamQuestionCount = (() => {
+      const n = Number(process.env.FULL_EXAM_QUESTION_COUNT || 180);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 180;
+    })();
+    const freeExamQuestionLimit = (() => {
+      const n = Number(process.env.FREE_EXAM_QUESTION_LIMIT || 25);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 25;
+    })();
+    const examVersion = (process.env.EXAM_VER || '').trim();
+    const ollamaEnabled = String(process.env.OLLAMA_ENABLED || '').toLowerCase() === 'true';
+    return res.json({ fullExamQuestionCount, freeExamQuestionLimit, examVersion, ollamaEnabled });
+  } catch (e) {
+    return next(internalError('Erro interno', 'GET_CONFIG_ERROR', e));
+  }
+};
+
+// List distinct versao_exame values from questao for select options
+exports.listVersoesExame = async (_req, res, next) => {
+  try {
+    const rows = await sequelize.query(
+      `SELECT DISTINCT versao_exame AS descricao
+         FROM public.questao
+        WHERE versao_exame IS NOT NULL AND TRIM(versao_exame) <> ''
+        ORDER BY versao_exame`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    // Map to id/descricao shape using the string as both id and descricao
+    const items = (rows || []).map(r => ({ id: r.descricao, descricao: r.descricao }));
+    return res.json(items);
+  } catch (e) {
+    logger.error('[meta] listVersoesExame error', e);
+    return next(internalError('Erro interno', 'LIST_VERSOES_EXAME_ERROR', e));
+  }
+};

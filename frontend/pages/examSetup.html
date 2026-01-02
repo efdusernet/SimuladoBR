@@ -2,61 +2,107 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
+  <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
+  <script src="/utils/csrf.js"></script>
+  <!-- Support chat widget (served via backend /chat proxy) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Personalização de Simulado</title>
   <style>
     body {
       font-family: "Segoe UI", sans-serif;
+      font-size: 13px;
       background: #f7f9fc;
       margin: 0;
       padding: 0;
     }
 
     .container {
-      max-width: 800px;
-      margin: 40px auto;
+      max-width: 760px;
+      margin: 16px auto;
       background: #fff;
-      border-radius: 10px;
+      border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      padding: 30px;
+      padding: 16px;
     }
 
+    /*
+      When this page is loaded inside index.html (desktop layout), some global rules can
+      force white text (e.g. selectors using `* { color: #fff !important; }`), making
+      content inside the white container unreadable. Keep this page readable by
+      enforcing intended colors inside the setup container.
+    */
+    .container, .container * { color: #222 !important; }
+    header p { color: #666 !important; }
+    .tab { color: #555 !important; }
+    .tab.active { color: #007bff !important; }
+    .check-btn.active { color: #fff !important; }
+    #startExamBtn { color: #fff !important; }
+    #errorMsg { color: #a23a2a !important; }
+
     header h1 {
-      font-size: 1.6rem;
-      margin-bottom: 10px;
+      font-size: 1.12rem;
+      margin-bottom: 6px;
       color: #222;
     }
 
     header p {
       color: #666;
-      font-size: 0.9rem;
-      margin-bottom: 15px;
+      font-size: 0.8rem;
+      margin-bottom: 10px;
     }
 
     .input-group {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 6px;
+      margin-bottom: 10px;
     }
 
     .input-group input {
-      width: 80px;
-      padding: 6px 8px;
+      width: 64px;
+      padding: 4px 6px;
       border: 1px solid #ccc;
       border-radius: 5px;
-      font-size: 1rem;
+      font-size: 0.9rem;
+      min-height: 30px;
     }
+
+    /* Caixa "Somente questões inéditas" menor e discreta */
+    #onlynew-wrapper input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      min-width: 16px;
+      min-height: 16px;
+      margin-right: 4px;
+      transform: scale(0.85);
+      transform-origin: left center;
+      cursor: pointer;
+    }
+
+    @media (min-width: 640px){
+      #onlynew-wrapper input[type="checkbox"] { transform: scale(0.8); }
+    }
+
+    /* Ensure select follows compact sizing even if inline styles exist */
+    #examType {
+      font-size: 0.9rem !important;
+      padding: 4px 6px !important;
+      min-height: 32px;
+    }
+    /* Reduce inline-labeled min-width of the examType label */
+    label[for="examType"] { min-width: 140px !important; font-size: 0.9rem; }
 
     /* Tabs */
     .tabs {
       display: flex;
       border-bottom: 2px solid #e0e0e0;
-      margin-bottom: 15px;
+      margin-bottom: 8px;
     }
 
     .tab {
-      padding: 10px 20px;
+      padding: 6px 10px;
       cursor: pointer;
       border-bottom: 3px solid transparent;
       color: #555;
@@ -72,19 +118,20 @@
     /* Checklist */
     .checklist {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-      margin-bottom: 25px;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 6px;
+      margin-bottom: 12px;
     }
 
     .check-btn {
-      padding: 10px;
+      padding: 6px;
       border: 1px solid #ccc;
-      border-radius: 8px;
+      border-radius: 6px;
       background: #fff;
       text-align: left;
       cursor: pointer;
       transition: all 0.2s;
+      font-size: 0.95em;
     }
 
     .check-btn:hover {
@@ -100,22 +147,142 @@
     /* Resumo */
     .resumo {
       border-top: 1px solid #eee;
-      padding-top: 15px;
+      padding-top: 10px;
     }
 
     .resumo h3 {
-      margin-bottom: 8px;
-      font-size: 1.1rem;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
       color: #333;
     }
 
     .resumo p {
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       color: #555;
     }
+
+    /* Top-left menu button */
+    .menu-toggle {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1100;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #d6d9e0;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    body[data-layout='desktop'] .menu-toggle { display: none !important; }
+    body[data-layout='desktop'] .menu-panel { display: none !important; }
+    .menu-toggle:hover { background: #f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile {
+      display:inline-block;
+      width: 18px;
+      height: 2px;
+      background: #333;
+      border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    /* Simple dropdown panel */
+    .menu-panel {
+      position: fixed;
+      top: 44px;
+      left: 8px;
+      z-index: 1099;
+      background: #fff;
+      border: 1px solid #d6d9e0;
+      border-radius: 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px;
+      padding: 6px;
+      display: none;
+    }
+    .menu-panel.open { display: block; }
+    .menu-panel a {
+      display: block;
+      padding: 6px 8px;
+      color: #222;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .menu-panel a:hover { background: #f4f7fb; }
+
+    /* Primary actions compact but tappable */
+    #startExamBtn,
+    .modal .primary-btn,
+    .modal .secondary-btn,
+    .menu-panel a,
+    .check-btn {
+      min-height: 32px;
+    }
+
+    /* Ultra-compact mode on larger screens, and optional body.compact to force it anywhere */
+    @media (min-width: 640px){
+      body { font-size: 12px; }
+      .container { max-width: 720px; padding: 14px; margin: 12px auto; }
+      header h1 { font-size: 1.02rem; margin-bottom: 4px; }
+      header p { font-size: 0.78rem; margin-bottom: 8px; }
+      .input-group { gap: 6px; margin-bottom: 8px; }
+      .input-group input { width: 60px; min-height: 28px; padding: 3px 6px; font-size: 0.88rem; }
+      #examType { min-height: 30px; padding: 4px 6px !important; font-size: 0.88rem !important; }
+      .tabs { margin-bottom: 8px; }
+      .tab { padding: 4px 8px; }
+      .checklist { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px; margin-bottom: 10px; }
+      .check-btn { padding: 5px; font-size: 0.92em; border-radius: 5px; }
+      .resumo { padding-top: 8px; }
+      .resumo h3 { font-size: 0.92rem; }
+      .resumo p { font-size: 0.78rem; }
+      #startExamBtn { padding: 5px 8px; min-height: 28px; }
+      .menu-toggle { width: 28px; height: 28px; top: 6px; left: 6px; }
+      .ui-menu-icon-set-hamburger-mobile { width: 16px; }
+      .menu-panel { top: 40px; min-width: 160px; }
+      .menu-panel a { padding: 5px 8px; }
+      .modal .primary-btn, .modal .secondary-btn { min-height: 28px; padding: 5px 8px; }
+      .modal .modal-content { max-width: 520px; padding: 14px !important; }
+    }
+
+    body.compact .container { max-width: 720px; padding: 14px; margin: 12px auto; }
+    body.compact header h1 { font-size: 1.02rem; margin-bottom: 4px; }
+    body.compact header p { font-size: 0.78rem; margin-bottom: 8px; }
+    body.compact .input-group { gap: 6px; margin-bottom: 8px; }
+    body.compact .input-group input { width: 60px; min-height: 28px; padding: 3px 6px; font-size: 0.88rem; }
+    body.compact #examType { min-height: 30px; padding: 4px 6px !important; font-size: 0.88rem !important; }
+    body.compact .tabs { margin-bottom: 8px; }
+    body.compact .tab { padding: 4px 8px; }
+    body.compact .checklist { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px; margin-bottom: 10px; }
+    body.compact .check-btn { padding: 5px; font-size: 0.92em; border-radius: 5px; }
+    body.compact .resumo { padding-top: 8px; }
+    body.compact .resumo h3 { font-size: 0.92rem; }
+    body.compact .resumo p { font-size: 0.78rem; }
+    body.compact #startExamBtn { padding: 5px 8px; min-height: 28px; }
+    body.compact .menu-toggle { width: 28px; height: 28px; top: 6px; left: 6px; }
+    body.compact .ui-menu-icon-set-hamburger-mobile { width: 16px; }
+    body.compact .menu-panel { top: 40px; min-width: 160px; }
+    body.compact .menu-panel a { padding: 5px 8px; }
+    body.compact .modal .primary-btn, body.compact .modal .secondary-btn { min-height: 28px; padding: 5px 8px; }
+    body.compact .modal .modal-content { max-width: 520px; padding: 14px !important; }
   </style>
+  <script src="/utils/logout.js"></script>
   </head>
   <body>
+
+  <!-- Top-left menu button and dropdown -->
+  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+  </button>
+  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/pages/examSetup.html?examType=pmp" rel="noopener">Simulador PMP</a>
+    <a href="/pages/examSetup.html?examType=cpm" rel="noopener">Simulador CPM</a>
+    <a href="/pages/results.html" rel="noopener">Resultados</a>
+    <a href="#" class="page-logout">Sair</a>
+  </nav>
 
   <div class="container">
     <!-- HEADER -->
@@ -124,9 +291,19 @@
       <p id="limite-texto"></p>
 
       <div class="input-group">
+        <label for="examType" style="min-width:180px;">Tipo de exame:</label>
+        <select id="examType" style="flex:1;max-width:260px;padding:6px 8px;border:1px solid #ccc;border-radius:5px;font-size:1rem;"></select>
+      </div>
+
+      <div class="input-group">
         <label for="quantidade">Quantidade de questões:</label>
         <input type="number" id="quantidade" min="1" />
         <span id="limite-info"></span>
+      </div>
+      <div class="input-group" id="onlynew-wrapper">
+        <label for="onlyNew" style="min-width:180px;">Somente questões inéditas:</label>
+        <input type="checkbox" id="onlyNew" />
+        <span id="onlynew-info" style="font-size:0.72rem;color:#666;"></span>
       </div>
     </header>
 
@@ -134,10 +311,11 @@
     <div class="tabs">
       <div class="tab active" data-aba="dominios">Domínios</div>
       <div class="tab" data-aba="grupos">Grupo de Processos</div>
-      <div class="tab" data-aba="areas">Área de Conhecimento</div>
+      <!-- Área de Conhecimento desativada -->
+      <div class="tab" data-aba="abordagem">Abordagem</div>
     </div>
 
-  <!-- CHECKLIST -->
+  <!-- CHECKLIST (renderiza itens de todas as abas, incluindo Abordagem) -->
   <div id="checklist" class="checklist"></div>
 
     <!-- RESUMO -->
@@ -145,33 +323,40 @@
       <h3>Resumo da Personalização</h3>
       <p>Quantidade de questões: <span id="resumo-qtd">-</span></p>
       <p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
+      <p id="ineditasInfo" style="display:none;">Inéditas disponíveis: <span id="resumo-ineditas">-</span></p>
       <p id="errorMsg" style="display:none;margin-top:8px;color:#a23a2a;background:#fff4f2;border:1px solid #ffd2cc;padding:8px 10px;border-radius:8px;"></p>
       <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
-        <button id="startExamBtn" style="background:#007bff;color:#fff;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;">Iniciar simulado</button>
+  <button id="startExamBtn" style="background:#007bff;color:#fff;border:0;border-radius:6px;padding:6px 10px;min-height:32px;cursor:pointer;">Iniciar simulado</button>
         <span id="startError" style="color:crimson; display:none;"></span>
       </div>
     </div>
   </div>
 
-  <!-- Modal de confirmação para exame completo (180 questões) -->
-  <div id="fullExamConfirmModal" class="modal" aria-hidden="true" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
-    <div class="modal-content" style="background:#fff;border-radius:10px;max-width:620px;width:92%;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.2);">
-      <h2 style="margin-top:0;margin-bottom:10px;">Você será direcionado para o exame completo. Deseja prosseguir?</h2>
-      <h3 style="margin:10px 0 6px 0; font-size:1.05rem; color:#222;">Exame completo:</h3>
-      <ul style="margin:8px 0 0 18px; padding:0; color:#333;">
-        <li>Tempo total 230 minutos ou 3 horas e 49 minutos</li>
-        <li>Você terá direito a 2 pausas de 10 minutos.</li>
-        <li>A primeira pausa acontece ao concluir as questões de 1-60.</li>
-        <li>A segunda pausa acontece ao concluir as questões de 61-120.</li>
-        <li>Você não poderá voltar às questões anteriores assim que a pausa iniciar.</li>
-        <li>5 questões do exame serão desconsideradas para efeitos de pré-teste</li>
-      </ul>
-      <div class="modal-actions" style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;">
-        <button id="fullExamCancel" type="button" class="secondary-btn" style="background:#eef1f6;color:#334; border:1px solid #cfd6e4;border-radius:8px;padding:8px 12px;cursor:pointer;">Cancelar</button>
-        <button id="fullExamProceed" type="button" class="primary-btn" style="background:#007bff;color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;">Prosseguir</button>
-      </div>
-    </div>
-  </div>
+  <!-- Modal de confirmação para exame completo (180 questões) - carregado dinamicamente do componente -->
+  <script>
+    (function(){
+      // Attempt to load reusable component from ../components/fullExamConfirm.html and append to body
+      async function loadFullExamConfirm(){
+        try {
+          const resp = await fetch('../components/fullExamConfirm.html');
+          if (!resp.ok) return;
+          const html = await resp.text();
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = html;
+          const el = wrapper.firstElementChild;
+          if (el) document.body.appendChild(el);
+        } catch (e) {
+          logger.warn('Não foi possível carregar o componente fullExamConfirm:', e);
+        }
+      }
+      // load asynchronously but early
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadFullExamConfirm);
+      } else { loadFullExamConfirm(); }
+    })();
+  </script>
+
+  
 
   <script>
     // Resolve backend base if window.SIMULADOS_CONFIG is present (optional)
@@ -194,33 +379,168 @@
         const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
         const isGuest = token && token.endsWith('#');
         if ((!token && !hasIdentity) || (isGuest && !hasIdentity)) {
-          window.location.replace('http://localhost:3000');
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
         }
       } catch(e) { /* ignore */ }
     })();
 
-    const quantidadeInput = document.getElementById('quantidade');
+  // Lightweight menu toggle and logout for this page
+  (function initTopMenu(){
+    // Skip in desktop mode
+    if (document.body.getAttribute('data-layout') === 'desktop') return;
+    
+    const btn = document.getElementById('menuToggle');
+    const panel = document.getElementById('pageMenu');
+    if (!btn || !panel) return;
+    const close = ()=>{ panel.classList.remove('open'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); };
+    const open = ()=>{ panel.classList.add('open'); panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); };
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if (panel.classList.contains('open')) close(); else open();
+    });
+    document.addEventListener('click', (e)=>{
+      if (!panel.contains(e.target) && e.target !== btn) close();
+    });
+    const logout = panel.querySelector('.page-logout');
+    if (logout) logout.addEventListener('click', (e)=>{
+      e.preventDefault();
+      if (window.performLogout) {
+        window.performLogout({ confirm: false, showNotification: false });
+      } else {
+        try { localStorage.clear(); sessionStorage.clear(); document.cookie = 'sessionToken=; Max-Age=0; Path=/'; } catch(_){}
+        window.location.assign('/login');
+      }
+    });
+  })();
+
+  const examTypeSelect = document.getElementById('examType');
+  const quantidadeInput = document.getElementById('quantidade');
+  const onlyNewInput = document.getElementById('onlyNew');
     const resumoQtd = document.getElementById('resumo-qtd');
     const resumoFocos = document.getElementById('resumo-focos');
+    const resumoIneditas = document.getElementById('resumo-ineditas');
+    const ineditasInfo = document.getElementById('ineditasInfo');
     const checklistDiv = document.getElementById('checklist');
     const tabs = document.querySelectorAll('.tab');
     const startBtn = document.getElementById('startExamBtn');
     const startError = document.getElementById('startError');
 
-    // Determine limits from BloqueioAtivado in localStorage: 'true' => free user (limit 25), else premium (180)
+  // Defaults; will be adjusted per exam type when loaded
+  let currentExamType = (localStorage.getItem('examType') || 'pmp');
+  // Allow URL to override stored exam type (e.g., ?examType=pmp)
+  try {
+    const qp = new URLSearchParams(window.location.search).get('examType');
+    if (qp) currentExamType = qp;
+  } catch(_) {}
+  // Determine limits from server config (.env) and user plan
     const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
-    const limiteQuestoes = bloqueado ? 25 : 180;
+  let FULL_Q = 180;
+  let FREE_LIMIT = 25;
+  let limiteQuestoes = bloqueado ? FREE_LIMIT : FULL_Q;
+  (async function initLimits(){
+    try {
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const cfg = await fetch(base + '/api/meta/config').then(r => r.ok ? r.json() : null).catch(()=>null);
+      if (cfg) {
+        if (typeof cfg.fullExamQuestionCount === 'number') FULL_Q = cfg.fullExamQuestionCount;
+        if (typeof cfg.freeExamQuestionLimit === 'number') FREE_LIMIT = cfg.freeExamQuestionLimit;
+      }
+    } catch(_){}
+    // recompute with config
+    limiteQuestoes = bloqueado ? FREE_LIMIT : FULL_Q;
     document.getElementById('limite-texto').textContent = bloqueado
-      ? 'Usuário gratuito: limite de 25 questões.'
-      : 'Usuário pagante: limite de 180 questões.';
+      ? `Usuário gratuito: limite de ${FREE_LIMIT} questões.`
+      : `Usuário pagante: limite de ${limiteQuestoes} questões.`;
     document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
     quantidadeInput.setAttribute('max', String(limiteQuestoes));
+  })();
+  quantidadeInput.setAttribute('max', String(limiteQuestoes));
     quantidadeInput.setAttribute('min', '1');
+    // Inicializa campo Somente questões inéditas (Premium somente)
+    try {
+      if (bloqueado) {
+        onlyNewInput.checked = false;
+        onlyNewInput.disabled = true;
+        document.getElementById('onlynew-info').textContent = 'Recurso Premium';
+        ineditasInfo.style.display = 'none';
+      } else {
+        document.getElementById('onlynew-info').textContent = 'Usa apenas questões nunca respondidas.';
+        ineditasInfo.style.display = '';
+      }
+    } catch(e){}
 
     // State for meta lists and selections
+    // Área de Conhecimento desativada (aba + endpoints + filtros)
     let abaAtual = 'dominios';
-    let meta = { dominios: [], grupos: [], areas: [] };
-    let selecionados = { dominios: [], grupos: [], areas: [] }; // arrays of ids
+    let meta = { dominios: [], grupos: [], categorias: [] };
+    let selecionados = { dominios: [], grupos: [], categorias: [] }; // arrays of ids (categorias: single id stored as array)
+  // Placeholder para função de atualização de contagem (será definida mais abaixo)
+  // Isso evita ReferenceError em chamadas iniciais durante o carregamento.
+  let scheduleAtualizarDisponiveis = function(){};
+
+    // Debounce utilitário (escopo global do script)
+    function debounce(fn, delay){
+      let t = null;
+      return function(...args){ clearTimeout(t); t = setTimeout(() => fn.apply(this, args), delay); };
+    }
+
+    // Contagem sempre respeitando filtros (sem bypass por FULL_Q) e com retorno de SQL de depuração
+    async function countForCurrentFilters() {
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const url = base + '/api/exams/select';
+      const token = getSessionToken();
+      // Usar count=1 para não acionar bypassFilters de FULL_Q no checkAvailability
+      const payload = { count: 1, onlyCount: true, examType: currentExamType };
+      if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
+      if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
+      if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
+      if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
+      try {
+        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
+        const txt = await resp.text();
+        let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
+        if (data && typeof data.available === 'number') return data.available;
+        return null;
+      } catch (_) { return null; }
+    }
+
+    // Contagem de inéditas independentemente do checkbox (para exibir potencial)
+    async function countIneditasForCurrentFilters() {
+      if (bloqueado) return null;
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const url = base + '/api/exams/select';
+      const token = getSessionToken();
+      const payload = { count: 1, onlyCount: true, examType: currentExamType, onlyNew: true };
+      if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
+      if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
+      if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
+      try {
+        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
+        const txt = await resp.text();
+        let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
+        if (data && typeof data.available === 'number') return data.available;
+        return null;
+      } catch (_) { return null; }
+    }
+
+    // Debounced updater disponível globalmente para ser chamado ao clicar nos filtros
+    scheduleAtualizarDisponiveis = debounce(async () => {
+      const temFiltros = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
+      if (!temFiltros) { return; }
+      try { resumoQtd.textContent = '...'; } catch(_){ }
+      const disponiveis = await countForCurrentFilters();
+      if (typeof disponiveis === 'number') {
+        resumoQtd.textContent = String(disponiveis);
+      }
+      // Atualiza indicador de inéditas
+      try {
+        resumoIneditas.textContent = '...';
+        const ineditas = await countIneditasForCurrentFilters();
+        if (typeof ineditas === 'number') resumoIneditas.textContent = String(ineditas);
+        else resumoIneditas.textContent = '-';
+      } catch(e){ resumoIneditas.textContent='-'; }
+    }, 300);
 
     // Try to rehydrate saved filters
     try {
@@ -230,15 +550,21 @@
         if (parsed && typeof parsed === 'object') {
           if (Array.isArray(parsed.dominios)) selecionados.dominios = parsed.dominios.map(Number).filter(n=>!Number.isNaN(n));
           if (Array.isArray(parsed.grupos)) selecionados.grupos = parsed.grupos.map(Number).filter(n=>!Number.isNaN(n));
-          if (Array.isArray(parsed.areas)) selecionados.areas = parsed.areas.map(Number).filter(n=>!Number.isNaN(n));
-          if (parsed.activeTab && (parsed.activeTab === 'dominios' || parsed.activeTab === 'grupos' || parsed.activeTab === 'areas')) abaAtual = parsed.activeTab;
+          if (Array.isArray(parsed.categorias)) selecionados.categorias = parsed.categorias.map(Number).filter(n=>!Number.isNaN(n));
+          if (parsed.activeTab && (parsed.activeTab === 'dominios' || parsed.activeTab === 'grupos' || parsed.activeTab === 'abordagem')) abaAtual = parsed.activeTab;
+          // Área de Conhecimento desativada: se veio salva como aba ativa, cai para Domínios
+          if (parsed.activeTab === 'areas') abaAtual = 'dominios';
+          if ((parsed.onlyNew === true || parsed.onlyNew === 'true') && !bloqueado) {
+            try { onlyNewInput.checked = true; } catch(e){}
+          }
         }
       }
     } catch(e) {}
 
     function renderChecklist(items) {
       checklistDiv.innerHTML = '';
-      const sel = selecionados[abaAtual] || [];
+      const key = (abaAtual === 'abordagem') ? 'categorias' : abaAtual;
+      const sel = selecionados[key] || [];
       items.forEach(item => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -248,10 +574,17 @@
         if (sel.includes(Number(item.id))) btn.classList.add('active');
         btn.addEventListener('click', () => {
           const id = Number(btn.getAttribute('data-id'));
-          const arr = selecionados[abaAtual];
+          const arr = selecionados[key] || (selecionados[key] = []);
           const idx = arr.indexOf(id);
           if (idx >= 0) { arr.splice(idx, 1); btn.classList.remove('active'); }
           else { arr.push(id); btn.classList.add('active'); }
+          // Ao selecionar qualquer filtro, limpar o campo de quantidade
+          try {
+            const totalSel = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length);
+            if (totalSel > 0) {
+              quantidadeInput.value = '';
+            }
+          } catch(_){ }
           atualizarResumo();
           salvarSelecoes();
         });
@@ -259,8 +592,13 @@
       });
     }
 
-    function atualizarResumo() {
+    async function atualizarResumo() {
       resumoQtd.textContent = quantidadeInput.value || '-';
+        // Se não houver filtros selecionados, manter o comportamento anterior (mostrar quantidade digitada)
+        const filtrosSelecionados = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
+        if (!filtrosSelecionados) {
+          resumoQtd.textContent = quantidadeInput.value || '-';
+        }
       const nomes = [];
       const pushFrom = (list, ids) => {
         const map = new Map(list.map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
@@ -268,18 +606,37 @@
       };
       pushFrom(meta.dominios, selecionados.dominios);
       pushFrom(meta.grupos, selecionados.grupos);
-      pushFrom(meta.areas, selecionados.areas);
+      pushFrom(meta.categorias, selecionados.categorias);
       resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
+        // Atualiza a contagem disponível para os filtros (se houver)
+        scheduleAtualizarDisponiveis();
+      // Se premium e sem filtros, mostrar total de inéditas gerais (sem filtros)
+      if (!bloqueado && !(selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length)) {
+        try {
+          resumoIneditas.textContent = '...';
+          // consulta sem filtros
+          const base = (BACKEND_BASE || '').replace(/\/$/, '');
+          const url = base + '/api/exams/select';
+          const token = getSessionToken();
+          const payload = { count: 1, onlyCount: true, examType: currentExamType, onlyNew: true };
+          const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
+          const txt = await resp.text();
+          let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
+          if (data && typeof data.available === 'number') resumoIneditas.textContent = String(data.available);
+          else resumoIneditas.textContent = '-';
+        } catch(e){ resumoIneditas.textContent='-'; }
+      }
     }
 
     function salvarSelecoes() {
       try {
-        const payload = { dominios: selecionados.dominios, grupos: selecionados.grupos, areas: selecionados.areas, activeTab: abaAtual };
+        const payload = { dominios: selecionados.dominios, grupos: selecionados.grupos, categorias: selecionados.categorias, activeTab: abaAtual };
+        if (!bloqueado) payload.onlyNew = !!onlyNewInput.checked;
         localStorage.setItem('examFilters', JSON.stringify(payload));
       } catch(e) {}
     }
 
-    // Tab switching
+    // Tab switching (Abordagem usa mesma checklist multi-seleção)
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
@@ -287,8 +644,9 @@
         abaAtual = tab.dataset.aba;
         salvarSelecoes();
         if (abaAtual === 'dominios') renderChecklist(meta.dominios);
-        if (abaAtual === 'grupos') renderChecklist(meta.grupos);
-        if (abaAtual === 'areas') renderChecklist(meta.areas);
+        else if (abaAtual === 'grupos') renderChecklist(meta.grupos);
+        else if (abaAtual === 'abordagem') renderChecklist(meta.categorias);
+        atualizarResumo();
       });
     });
 
@@ -305,7 +663,7 @@
 
     function validateForm(){
       startError.style.display = 'none';
-      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length) > 0;
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
       const raw = quantidadeInput.value;
       const val = Number(raw);
       // Permitir iniciar com apenas filtros se houver focos selecionados
@@ -327,15 +685,31 @@
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
       const url = base + '/api/exams/select';
   const token = getSessionToken();
-      const payload = { count: Number(count) || 0, onlyCount: true };
-      if (selecionados.areas.length) payload.areas = selecionados.areas;
-      if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
-      if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
+      const cnum = Number(count) || 0;
+      const payload = { count: cnum, onlyCount: true, examType: currentExamType };
+      // Regra: se quantidade for FULL_Q, não aplicar filtros de Domínio/Grupo/Área
+      const bypassFilters = (cnum === FULL_Q);
+      if (!bypassFilters) {
+        if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
+        if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
+      }
+      if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
       try {
-        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
-        if (data && typeof data.available === 'number') return data.available;
+        if (data && typeof data.available === 'number') {
+          // Fallback: se count=FULL_Q e available=0, tentar novamente ignorando exam_type (base inteira)
+          if (bypassFilters && data.available === 0) {
+            try {
+              const resp2 = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify({ count: cnum, onlyCount: true, ignoreExamType: true }) });
+              const txt2 = await resp2.text();
+              let data2; try { data2 = txt2 ? JSON.parse(txt2) : null; } catch { data2 = null; }
+              if (data2 && typeof data2.available === 'number') return data2.available;
+            } catch(_) { /* ignore */ }
+          }
+          return data.available;
+        }
         return null;
       } catch (e) { return null; }
     }
@@ -343,13 +717,13 @@
     function resolveEffectiveCount(){
       const raw = quantidadeInput.value;
       const val = Number(raw);
-      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.areas.length) > 0;
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
       if (raw && !Number.isNaN(val) && val >= 1) {
         return Math.max(1, Math.min(limiteQuestoes, val));
       }
       if (hasFocos) {
-        // quando usuário não informou quantidade, usar padrão por perfil: 25 (bloqueado) ou 180 (premium)
-        return bloqueado ? 25 : 180;
+        // quando usuário não informou quantidade, usar padrão por perfil: FREE_LIMIT (bloqueado) ou FULL_Q (premium)
+        return bloqueado ? FREE_LIMIT : FULL_Q;
       }
       return null; // sem quantidade e sem focos -> inválido
     }
@@ -367,15 +741,51 @@
       return true;
     }
 
-    // Start button: validate, preflight, persist, and redirect (com confirmação para 180)
+    // Start button: validate, preflight, persist, and redirect (com confirmação para FULL_Q)
     startBtn.addEventListener('click', async () => {
       startError.style.display = 'none';
       const errorBox = document.getElementById('errorMsg');
       if (errorBox) errorBox.style.display = 'none';
       if (!validateForm()) return;
 
-      const effCount = resolveEffectiveCount();
-      if (!effCount) return; // safety
+      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
+      const userProvided = !!quantidadeInput.value;
+      let effCount = resolveEffectiveCount();
+
+      // Novo comportamento: se houver filtros e o usuário NÃO informou quantidade,
+      // iniciar com a quantidade disponível pelos filtros (respeitando limite do plano)
+      if (!userProvided && hasFocos) {
+        const disponiveis = await countForCurrentFilters();
+        if (typeof disponiveis !== 'number' || disponiveis < 1) {
+          if (errorBox) {
+            errorBox.innerHTML = `Nenhuma questão encontrada para os filtros selecionados.`;
+            errorBox.style.display = '';
+          }
+          return;
+        }
+        const finalCount = bloqueado ? Math.min(disponiveis, 25) : disponiveis;
+        // Confirmar se exatamente FULL_Q (exame completo)
+        if (finalCount === FULL_Q) {
+          showFullExamConfirm(() => {
+            try {
+              localStorage.setItem('examQuestionCount', String(FULL_Q));
+              localStorage.setItem('examCountFromDefault', 'true');
+            } catch(e) {}
+            salvarSelecoes();
+            try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
+            (window.top || window).location.assign('/pages/examFull.html');
+          });
+          return;
+        }
+        try {
+          localStorage.setItem('examQuestionCount', String(finalCount));
+          localStorage.setItem('examCountFromDefault', 'true');
+        } catch(e) {}
+        salvarSelecoes();
+        try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
+        (window.top || window).location.assign('/pages/exam.html');
+        return;
+      }
 
       // Preflight: ask backend how many are available for current filters
       const available = await checkAvailability(effCount);
@@ -388,27 +798,27 @@
             const suggested = available;
             quantidadeInput.value = String(suggested);
             updateResumo();
-            // Se ajustou para 180, exigir confirmação antes de redirecionar
-            if (suggested === 180) {
+            // Se ajustou para FULL_Q, exigir confirmação antes de redirecionar
+            if (suggested === FULL_Q) {
               showFullExamConfirm(() => {
                 try {
-                  localStorage.setItem('examQuestionCount', String(180));
+                  localStorage.setItem('examQuestionCount', String(FULL_Q));
                   localStorage.setItem('examCountFromDefault', quantidadeInput.value ? 'false' : 'true');
                 } catch(e) {}
                 salvarSelecoes();
                 try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-                window.location.href = './examFull.html';
+                (window.top || window).location.assign('/pages/examFull.html');
               });
               return;
             }
-            // Caso contrário (premium com ajuste < 180), prosseguir normalmente
+            // Caso contrário (premium com ajuste < FULL_Q), prosseguir normalmente
             try {
               localStorage.setItem('examQuestionCount', String(suggested));
               localStorage.setItem('examCountFromDefault', quantidadeInput.value ? 'false' : 'true');
             } catch(e) {}
             salvarSelecoes();
             try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-            window.location.href = './exam.html';
+            (window.top || window).location.assign('/pages/exam.html');
             return;
           } else {
             if (errorBox) {
@@ -436,18 +846,18 @@
       }
       // Persistência: se usuário não informou quantidade, salvar o count efetivo depois na exam.html
       // Entretanto, para a exam.html requisitar corretamente, salvamos agora o valor que será enviado —
-      // exceto quando effCount === 180, onde pediremos confirmação antes de redirecionar
-      const userProvided = !!quantidadeInput.value;
-      if (effCount === 180) {
+      // exceto quando effCount === FULL_Q, onde pediremos confirmação antes de redirecionar
+      // userProvided já calculado acima
+      if (effCount === FULL_Q) {
         // pedir confirmação antes de seguir para a página dedicada
         showFullExamConfirm(() => {
           try {
-            localStorage.setItem('examQuestionCount', String(180));
+            localStorage.setItem('examQuestionCount', String(FULL_Q));
             localStorage.setItem('examCountFromDefault', userProvided ? 'false' : 'true');
           } catch(e) {}
           salvarSelecoes();
           try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-          window.location.href = './examFull.html';
+          (window.top || window).location.assign('/pages/examFull.html');
         });
         return;
       }
@@ -457,7 +867,7 @@
       } catch(e) {}
       salvarSelecoes();
       try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-      window.location.href = './exam.html';
+      (window.top || window).location.assign('/pages/exam.html');
     });
 
     async function fetchJson(url){
@@ -469,40 +879,150 @@
     async function loadMeta(){
       try {
         const base = (BACKEND_BASE || '').replace(/\/$/, '');
-        const [doms, grps, ars] = await Promise.all([
+        const [doms, grps, cats] = await Promise.all([
           fetchJson(base + '/api/meta/dominios'),
           fetchJson(base + '/api/meta/grupos'),
-          fetchJson(base + '/api/meta/areas')
+          // Área de Conhecimento desativada
+          // fetchJson(base + '/api/meta/areas'),
+          fetchJson(base + '/api/meta/categorias')
         ]);
         meta.dominios = Array.isArray(doms) ? doms : [];
         meta.grupos = Array.isArray(grps) ? grps : [];
-        meta.areas = Array.isArray(ars) ? ars : [];
+        meta.categorias = Array.isArray(cats) ? cats : [];
       } catch (e) {
-        console.warn('Falha ao carregar metadados, usando listas vazias.', e);
+        logger.warn('Falha ao carregar metadados, usando listas vazias.', e);
         meta.dominios = meta.dominios || [];
         meta.grupos = meta.grupos || [];
-        meta.areas = meta.areas || [];
+        meta.categorias = meta.categorias || [];
       }
-      // restore quantity only if user saved previously; não definir valor automaticamente
       try {
         const saved = localStorage.getItem('examQuestionCount');
-        if (saved) {
-          quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));
-        }
+        if (saved) quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));
       } catch(e) {}
-      // activate tab per saved state
       tabs.forEach(t => t.classList.remove('active'));
       const tabEl = document.querySelector(`.tab[data-aba="${abaAtual}"]`) || document.querySelector('.tab[data-aba="dominios"]');
       if (tabEl) tabEl.classList.add('active');
-      // render current tab
       if (abaAtual === 'dominios') renderChecklist(meta.dominios);
-      if (abaAtual === 'grupos') renderChecklist(meta.grupos);
-      if (abaAtual === 'areas') renderChecklist(meta.areas);
+      else if (abaAtual === 'grupos') renderChecklist(meta.grupos);
+      else if (abaAtual === 'abordagem') renderChecklist(meta.categorias);
       atualizarResumo();
     }
 
-    // Kick off
-    loadMeta();
+    async function loadExamTypes(){
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      try {
+        const resp = await fetch(base + '/api/exams/types');
+        const types = await resp.json();
+        examTypeSelect.innerHTML = '';
+        (types || []).forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          // Exibir apenas o nome do exame (sem "X questões")
+          opt.textContent = `${t.nome || t.id}`;
+          examTypeSelect.appendChild(opt);
+        });
+        // restore selection
+        if (currentExamType) examTypeSelect.value = currentExamType;
+        // update constraints based on type
+        const sel = (types || []).find(x => x.id === currentExamType) || (types || [])[0];
+        if (sel) {
+          // Ajuste limite máximo proporcional ao tipo; manter cap de 25 para bloqueado
+          const maxByType = Number(sel.numeroQuestoes) || FULL_Q;
+          limiteQuestoes = bloqueado ? Math.min(FREE_LIMIT, maxByType) : maxByType;
+          document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
+          quantidadeInput.setAttribute('max', String(limiteQuestoes));
+          try { localStorage.setItem('examBlueprint', JSON.stringify(sel)); } catch(e){}
+        }
+      } catch (e) {
+        // fallback: ensure selection exists
+        const opt = document.createElement('option');
+        opt.value = currentExamType || 'pmp';
+        // Fallback simples: mostrar apenas o nome
+        opt.textContent = 'PMP';
+        examTypeSelect.appendChild(opt);
+      }
+    }
+
+    examTypeSelect.addEventListener('change', () => {
+      currentExamType = examTypeSelect.value || 'pmp';
+      try {
+        const n = Number(currentExamType);
+        if (Number.isFinite(n) && n > 0) {
+          localStorage.setItem('examTypeId', String(Math.floor(n)));
+          localStorage.setItem('examType', String(Math.floor(n)));
+        } else {
+          localStorage.setItem('examType', String(currentExamType).toUpperCase());
+          localStorage.removeItem('examTypeId');
+        }
+      } catch(e){}
+      // Reset quantity clamp on change
+      const maxByType = (()=>{ try { const bp = JSON.parse(localStorage.getItem('examBlueprint')||'null'); return (bp && bp.numeroQuestoes) || FULL_Q; } catch(e){ return FULL_Q; } })();
+      limiteQuestoes = bloqueado ? Math.min(FREE_LIMIT, maxByType) : maxByType;
+      document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
+      quantidadeInput.setAttribute('max', String(limiteQuestoes));
+      atualizarResumo();
+      // examType muda o escopo da contagem
+      scheduleAtualizarDisponiveis();
+    });
+
+    // Initialize currentExamType from query string or localStorage before loading options
+    (function initExamTypeSelection(){
+      try {
+        const qs = new URLSearchParams(window.location.search);
+        const qpId = qs.get('examTypeId');
+        const qpSlug = qs.get('examType');
+        const storedId = (localStorage.getItem('examTypeId')||'').trim();
+        const stored = (localStorage.getItem('examType')||'').trim();
+        // Priority: query examTypeId (numeric) → query examType (slug/id) → storedId → stored
+        let candidate = qpId || qpSlug || storedId || stored || '';
+        const n = Number(candidate);
+        if (Number.isFinite(n) && n > 0) {
+          currentExamType = String(Math.floor(n));
+        } else if (candidate) {
+          currentExamType = String(candidate).toLowerCase();
+        }
+      } catch(_){ }
+    })();
+    // Kick off: load types and restore selection to currentExamType
+    loadExamTypes().then(() => {
+      try {
+        if (examTypeSelect && examTypeSelect.options && examTypeSelect.options.length > 1) {
+          examTypeSelect.selectedIndex = 1; // select the second item (index 1)
+          examTypeSelect.dispatchEvent(new Event('change'));
+        }
+      } catch(_) { }
+    });
+    // Abordagem agora usa mesma lógica de checklist multi-seleção (nenhum listener adicional necessário)
+    loadMeta().then(() => {
+      // Faça uma contagem inicial se já houver filtros salvos
+      scheduleAtualizarDisponiveis();
+    });
+  </script>
+  <!-- Bottom navigation component mount -->
+  <div id="bottomNavMount"></div>
+  <script>
+    (function(){
+      function loadBottomNav(){
+        var mount = document.getElementById('bottomNavMount');
+        if(!mount) return;
+        fetch('../components/bottomNav.html')
+          .then(function(r){ return r.ok ? r.text() : null; })
+          .then(function(html){ if(html){
+              mount.innerHTML = html;
+              try {
+                var scripts = Array.from(mount.querySelectorAll('script'));
+                scripts.forEach(function(old){
+                  var s = document.createElement('script');
+                  if(old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                  old.parentNode.removeChild(old);
+                  mount.appendChild(s);
+                });
+              } catch(_){ }
+          } })
+          .catch(function(){ /* silent */ });
+      }
+      if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', loadBottomNav); } else { loadBottomNav(); }
+    })();
   </script>
   </body>
   </html>

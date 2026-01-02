@@ -1,43 +1,160 @@
 const db = require('../models');
+const { logger } = require('../utils/logger');
 const sequelize = require('../config/database');
+const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../config/security');
+const { badRequest, unauthorized, notFound, internalError } = require('../middleware/errors');
+const { AppError } = require('../middleware/errorHandler');
+// Daily user exam attempt stats service
+const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
-// lightweight session id generator (no external dependency)
-function genSessionId(){
-  return 's-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10);
+// Session Manager (Redis-backed with memory fallback)
+const sessionManager = require('../services/SessionManager');
+
+// Wrapper functions for backward compatibility
+function genSessionId() {
+  return sessionManager.generateSessionId();
+}
+async function putSession(sessionId, data, ttlMs = 6 * 60 * 60 * 1000) {
+  return await sessionManager.putSession(sessionId, data, ttlMs);
+}
+async function getSession(sessionId) {
+  return await sessionManager.getSession(sessionId);
+}
+async function updateSession(sessionId, patch) {
+  return await sessionManager.updateSession(sessionId, patch);
+}
+
+// DB-backed exam types cache (5 min TTL)
+let _examTypesCache = { data: null, expiresAt: 0 };
+async function loadExamTypesFromDb() {
+  try {
+    if (Date.now() < _examTypesCache.expiresAt && Array.isArray(_examTypesCache.data)) return _examTypesCache.data;
+    if (!db.ExamType) return null;
+    const rows = await db.ExamType.findAll({ where: { Ativo: true }, order: [['Nome', 'ASC']] });
+    const types = rows.map(r => ({
+      id: r.Slug,
+      nome: r.Nome,
+      numeroQuestoes: r.NumeroQuestoes,
+      duracaoMinutos: r.DuracaoMinutos,
+      opcoesPorQuestao: r.OpcoesPorQuestao,
+      multiplaSelecao: !!r.MultiplaSelecao,
+      pontuacaoMinima: r.PontuacaoMinimaPercent == null ? null : Number(r.PontuacaoMinimaPercent),
+      pausas: {
+        permitido: !!r.PausaPermitida,
+        checkpoints: Array.isArray(r.PausaCheckpoints) ? r.PausaCheckpoints : [],
+        duracaoMinutosPorPausa: r.PausaDuracaoMinutos || 0,
+      },
+      _dbId: r.Id,
+    }));
+    _examTypesCache = { data: types, expiresAt: Date.now() + 5 * 60 * 1000 };
+    return types;
+  } catch (_) { return null; }
+}
+async function getExamTypeBySlugOrDefault(slug) {
+  const registry = require('../services/exams/ExamRegistry');
+  const types = await loadExamTypesFromDb();
+  if (types && types.length) {
+    const s = String(slug || '').toLowerCase();
+    return types.find(t => String(t.id || '').toLowerCase() === s) || types[0];
+  }
+  const reg = registry.getTypeById(slug);
+  return reg ? { ...reg, _dbId: null } : null;
+}
+
+// Read FULL_EXAM_QUESTION_COUNT from env with a safe default
+function getFullExamQuestionCount() {
+  const v = Number(process.env.FULL_EXAM_QUESTION_COUNT);
+  return Number.isFinite(v) && v > 0 ? v : 180;
 }
 
 exports.listExams = async (req, res) => {
   try {
-    const Exam = require('../models/Exam');
-    const exams = await Exam.findAll();
-    return res.json(exams);
+    const types = await loadExamTypesFromDb();
+    if (types && types.length) return res.json(types);
+    const disableFallback = String(process.env.EXAM_TYPES_DISABLE_FALLBACK || '').toLowerCase() === 'true';
+    if (disableFallback) {
+      return res.status(404).json({ error: 'No exam types configured in DB' });
+    }
+    const registry = require('../services/exams/ExamRegistry');
+    return res.json(registry.getTypes());
   } catch (err) {
-    console.error('Erro listExams:', err);
+    logger.error('Erro listExams:', err);
     return res.status(500).json({ message: 'Erro interno' });
+  }
+};
+
+// GET /api/exams/types -> returns configured exam types (for UI)
+exports.listExamTypes = async (_req, res, next) => {
+  try {
+    const types = await loadExamTypesFromDb();
+    if (types && types.length) return res.json(types);
+    const disableFallback = String(process.env.EXAM_TYPES_DISABLE_FALLBACK || '').toLowerCase() === 'true';
+    if (disableFallback) {
+      return next(notFound('No exam types configured in DB', 'NO_EXAM_TYPES'));
+    }
+    const registry = require('../services/exams/ExamRegistry');
+    return res.json(registry.getTypes());
+  } catch (err) {
+    logger.error('Erro listExamTypes:', err);
+    return next(internalError('Erro interno', 'INTERNAL_ERROR_LIST_EXAM_TYPES'));
   }
 };
 
 // POST /api/exams/select
 // Body: { count: number, dominios?: [ids], areas?: [ids], grupos?: [ids] }
-exports.selectQuestions = async (req, res) => {
+// Used by: frontend/pages/examSetup.html (para contar/selecionar) e wrappers em exam.html/examFull.html
+exports.selectQuestions = async (req, res, next) => {
   try {
+  const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
+  // Resolve exam mode from header or infer by count (quiz/full). Header wins if valid.
+  let headerMode = (req.get('X-Exam-Mode') || '').trim().toLowerCase();
+  if (!(headerMode === 'quiz' || headerMode === 'full')) headerMode = null;
+  const examCfg = await getExamTypeBySlugOrDefault(examType);
   let count = Number((req.body && req.body.count) || 0) || 0;
-    if (!count || count <= 0) return res.status(400).json({ error: 'count required' });
+    if (!count || count <= 0) return next(badRequest('count required', 'COUNT_REQUIRED'));
+    // Infer mode when header not provided: full when count >= examCfg.numeroQuestoes (or env-configured), quiz when count < full threshold
+    let examMode = headerMode;
+    try {
+      if (!examMode) {
+        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : getFullExamQuestionCount();
+        if (count >= fullThreshold) examMode = 'full';
+        else if (count > 0 && count < fullThreshold) examMode = 'quiz';
+      }
+    } catch(_) { /* keep null if inference fails */ }
 
     // resolve user via X-Session-Token (same logic as /api/auth/me)
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
-    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+    if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
     let user = null;
-    if (/^\d+$/.test(sessionToken)) {
+    // If token looks like JWT, try to decode
+    if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+      try {
+        const decoded = jwt.verify(sessionToken, jwtSecret);
+        // Try by sub (user id) first
+        if (decoded && decoded.sub) {
+          user = await User.findByPk(Number(decoded.sub));
+        }
+        // Fallback: try by email
+        if (!user && decoded && decoded.email) {
+          user = await User.findOne({ where: { Email: decoded.email } });
+        }
+      } catch (e) {
+        // Invalid JWT, fallback to legacy lookup
+      }
+    }
+    // Legacy: if numeric, try by Id first
+    if (!user && /^\d+$/.test(sessionToken)) {
       user = await User.findByPk(Number(sessionToken));
     }
+    // Legacy: try by username or email
     if (!user) {
       const Op = db.Sequelize && db.Sequelize.Op;
       const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
       user = await User.findOne({ where });
     }
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
     const bloqueio = Boolean(user.BloqueioAtivado);
     // Enforce hard cap for blocked users
@@ -49,124 +166,581 @@ exports.selectQuestions = async (req, res) => {
   const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
   const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
+  const categorias = Array.isArray(req.body.categorias) && req.body.categorias.length ? req.body.categorias.map(Number) : null;
+  // Flag premium: somente questões inéditas
+  const onlyNew = (!bloqueio) && (req.body.onlyNew === true || req.body.onlyNew === 'true');
+  const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length) || (categorias && categorias.length));
 
-  // Build WHERE clause
-  const whereClauses = [`excluido = false`, `idstatus = 1`];
-  if (bloqueio) whereClauses.push(`seed = true`);
+  // Build WHERE clause with parameterized queries to prevent SQL injection
+  // Prefix with q. to avoid ambiguity when joining tables that also have 'excluido'
+  const whereClauses = [`q.excluido = false`, `q.idstatus = 1`];
+  const replacements = {};
+  
+  // Optional exam version filter from environment (EXAM_VER)
+  const examVersion = (process.env.EXAM_VER || '').trim();
+  if (examVersion) {
+    whereClauses.push(`q.versao_exame = :examVersion`);
+    replacements.examVersion = examVersion;
+  }
+  
+  // Filter by exam type linkage if available in DB (1:N)
+  if (examCfg && examCfg._dbId) {
+    whereClauses.push(`q.exam_type_id = :examTypeId`);
+    replacements.examTypeId = Number(examCfg._dbId);
+  }
+  
+  if (bloqueio) whereClauses.push(`q.seed = true`);
+  
   // AND semantics across tabs; OR within each list
-  // i.e., if user chose dominios AND grupos, a question must match both a selected domínio AND a selected grupo
-  if (dominios && dominios.length) whereClauses.push(`iddominio IN (${dominios.join(',')})`);
-  if (areas && areas.length) whereClauses.push(`codareaconhecimento IN (${areas.join(',')})`);
-  if (grupos && grupos.length) whereClauses.push(`codgrupoprocesso IN (${grupos.join(',')})`);
+  // Using ANY() for safe array parameter binding
+  if (dominios && dominios.length) {
+    whereClauses.push(`q.iddominio = ANY(ARRAY[:dominios])`);
+    replacements.dominios = dominios;
+  }
+  if (areas && areas.length) {
+    whereClauses.push(`q.codareaconhecimento = ANY(ARRAY[:areas])`);
+    replacements.areas = areas;
+  }
+  if (grupos && grupos.length) {
+    whereClauses.push(`q.codgrupoprocesso = ANY(ARRAY[:grupos])`);
+    replacements.grupos = grupos;
+  }
+  if (categorias && categorias.length) {
+    whereClauses.push(`q.codigocategoria = ANY(ARRAY[:categorias])`);
+    replacements.categorias = categorias;
+  }
+  
+  // Excluir questões já respondidas se onlyNew ativo (premium)
+  if (onlyNew) {
+    try {
+      const answeredSql = `SELECT DISTINCT aq.question_id AS qid
+        FROM exam_attempt_answer aa
+        JOIN exam_attempt_question aq ON aq.id = aa.attempt_question_id
+        JOIN exam_attempt a ON a.id = aq.attempt_id
+        WHERE a.user_id = :uid ${examCfg && examCfg._dbId ? 'AND a.exam_type_id = :etype' : ''}`;
+      const answeredRows = await sequelize.query(answeredSql, { replacements: { uid: user.Id || user.id, etype: examCfg ? examCfg._dbId : null }, type: sequelize.QueryTypes.SELECT });
+      const answeredIds = (answeredRows || []).map(r => Number(r.qid)).filter(n => Number.isFinite(n));
+      if (answeredIds.length) {
+        const limited = answeredIds.slice(0, 10000); // limite defensivo
+        whereClauses.push(`q.id != ALL(ARRAY[:answeredIds])`);
+        replacements.answeredIds = limited;
+      }
+    } catch(e) { /* ignore */ }
+  }
   const whereSql = whereClauses.join(' AND ');
 
-    // Count available
-  const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;
-    const countRes = await sequelize.query(countQuery, { type: sequelize.QueryTypes.SELECT });
-    const available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
+    // Count available (with exam_type when applicable)
+  const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao q WHERE ${whereSql}`;
+    const countRes = await sequelize.query(countQuery, { replacements, type: sequelize.QueryTypes.SELECT });
+    let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
+
+    // Always respect exam type; no fallback that drops exam_type
+    const whereSqlUsed = whereSql;
+
     // Support preflight count-only check
     const onlyCount = Boolean(req.body && req.body.onlyCount) || String(req.query && req.query.onlyCount).toLowerCase() === 'true';
     if (onlyCount) {
-      return res.json({ available });
-    }
-    if (available < count) {
-      return res.status(400).json({ error: 'Not enough questions available', available });
-    }
-
-
-    // Select random questions and join explicacaoguia to get the explanation text
-    // explicacaoguia.Descricao contains the explicacao and links by idquestao -> questao.id
-    const selectQ = `SELECT q.id, q.descricao, eg."Descricao" AS explicacao
-      FROM questao q
-      LEFT JOIN explicacaoguia eg ON eg.idquestao = q.id AND (eg."Excluido" = false OR eg."Excluido" IS NULL)
-      WHERE ${whereSql}
-      ORDER BY random()
-      LIMIT :limit`;
-    const questions = await sequelize.query(selectQ, { replacements: { limit: count }, type: sequelize.QueryTypes.SELECT });
-
-    const ids = questions.map(q => q.id);
-
-    // Fetch options for selected questions (exclude excluded options)
-    let options = [];
-    if (ids.length) {
-      // Use the actual table/column names for RespostaOpcao (case-sensitive in this DB)
-      const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao, "IsCorreta" AS iscorreta
-        FROM respostaopcao
-        WHERE ("Excluido" = false OR "Excluido" IS NULL) AND "IdQuestao" IN (:ids)
-        ORDER BY random()`;
-      options = await sequelize.query(optsQ, { replacements: { ids }, type: sequelize.QueryTypes.SELECT });
+      const wantDebugSql = String(req.get('X-Debug-SQL') || '').toLowerCase() === 'true';
+      const out = { available };
+      if (wantDebugSql) {
+        out.where = whereSqlUsed;
+        out.query = `SELECT COUNT(*)::int AS cnt FROM questao q WHERE ${whereSqlUsed}`;
+        out.filters = { dominios, areas, grupos, categorias, bloqueio, examType };
+      }
+      return res.json(out);
     }
 
-    // group options by question id
-    const optsByQ = {};
-    options.forEach(o => {
-      const qid = o.idquestao || o.IdQuestao || o.IdQuestao;
-      if (!optsByQ[qid]) optsByQ[qid] = [];
-      // do not include iscorreta in payload
-      optsByQ[qid].push({ id: o.id || o.Id, descricao: o.descricao || o.Descricao });
-    });
+    if (available < 1) {
+      return next(badRequest('Not enough questions available', 'NOT_ENOUGH_QUESTIONS', { available }));
+    }
+    // New selection path for full exam mode (distribution + pretest) else legacy random selection
+    let payloadQuestions = [];
+    let ids = [];
+    const FULL_TOTAL = count; // requested total (e.g. 180)
+    const PRETEST_COUNT_TARGET = (examMode === 'full') ? 5 : 0; // fixed 5 for full exam
+    const REGULAR_TARGET = Math.max(FULL_TOTAL - PRETEST_COUNT_TARGET, 0);
 
-    // assemble payload
-    const payloadQuestions = questions.map(q => ({
-      id: q.id || q.Id,
-      descricao: q.descricao || q.Descricao,
-      explicacao: q.explicacao || q.Explicacao,
-      options: optsByQ[q.id] || []
-    }));
+    const baseQuestionSelect = (extraWhere, limit, extraReplacements = {}) => {
+      const queryReplacements = { ...replacements, limit, ...extraReplacements };
+      return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl",
+              eg.descricao AS explicacao
+        FROM questao q
+        LEFT JOIN explicacaoguia eg
+               ON eg.idrespostaopcao = (
+                    SELECT ro.id
+                      FROM respostaopcao ro
+                     WHERE ro.idquestao = q.id
+                       AND (ro.iscorreta = TRUE OR ro.iscorreta = 't')
+                       AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+                     ORDER BY ro.id
+                     LIMIT 1
+               )
+              AND (eg.excluido = false OR eg.excluido IS NULL)
+        WHERE ${whereSqlUsed} ${extraWhere ? ' AND ' + extraWhere : ''}
+        ORDER BY random()
+        LIMIT :limit`, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
+    };
 
-    // generate temporary session id (not persisted yet)
+    if (examMode === 'full') {
+      // 1) Pretest questions (q.is_pretest = true)
+      const pretestRows = await baseQuestionSelect(`q.is_pretest = TRUE`, PRETEST_COUNT_TARGET);
+      const actualPretestCount = pretestRows.length;
+
+      // 2) Regular distributed questions via ECO table (iddominiogeral share)
+      // Load ECO shares (id_dominio, share).
+      // Supports both legacy table names (eco) and quoted ("ECO").
+      // If versioning tables exist, select the ECO rows for the effective version:
+      // - Prefer per-user override (user_exam_content_version)
+      // - Else fall back to admin/default (exam_content_current_version)
+      // - Else fall back to latest known version for that exam_type
+      let ecoShares = [];
+      const examTypeIdForEco = Number(examTypeId) || null;
+      const userIdForEco = Number((user && (user.Id || user.id)) || 0) || null;
+      let examContentVersionIdForEco = null;
+
+      if (examTypeIdForEco && userIdForEco) {
+        try {
+          const row = await sequelize.query(
+            `SELECT uecv.exam_content_version_id AS id
+               FROM user_exam_content_version uecv
+              WHERE uecv.user_id = :uid
+                AND uecv.exam_type_id = :examTypeId
+                AND uecv.active = TRUE
+                AND (uecv.starts_at IS NULL OR uecv.starts_at <= NOW())
+                AND (uecv.ends_at IS NULL OR uecv.ends_at > NOW())
+              ORDER BY uecv.id DESC
+              LIMIT 1`,
+            { replacements: { uid: userIdForEco, examTypeId: examTypeIdForEco }, type: sequelize.QueryTypes.SELECT }
+          );
+          if (Array.isArray(row) && row[0] && row[0].id != null) {
+            const n = Number(row[0].id);
+            if (Number.isFinite(n) && n > 0) examContentVersionIdForEco = n;
+          }
+        } catch (_) { /* ignore */ }
+
+        if (!examContentVersionIdForEco) {
+          try {
+            const row = await sequelize.query(
+              `SELECT exam_content_version_id AS id
+                 FROM exam_content_current_version
+                WHERE exam_type_id = :examTypeId
+                LIMIT 1`,
+              { replacements: { examTypeId: examTypeIdForEco }, type: sequelize.QueryTypes.SELECT }
+            );
+            if (Array.isArray(row) && row[0] && row[0].id != null) {
+              const n = Number(row[0].id);
+              if (Number.isFinite(n) && n > 0) examContentVersionIdForEco = n;
+            }
+          } catch (_) { /* ignore */ }
+        }
+
+        if (!examContentVersionIdForEco) {
+          try {
+            const row = await sequelize.query(
+              `SELECT id
+                 FROM exam_content_version
+                WHERE exam_type_id = :examTypeId
+                ORDER BY effective_from DESC NULLS LAST, id DESC
+                LIMIT 1`,
+              { replacements: { examTypeId: examTypeIdForEco }, type: sequelize.QueryTypes.SELECT }
+            );
+            if (Array.isArray(row) && row[0] && row[0].id != null) {
+              const n = Number(row[0].id);
+              if (Number.isFinite(n) && n > 0) examContentVersionIdForEco = n;
+            }
+          } catch (_) { /* ignore */ }
+        }
+      }
+
+      const ecoQueries = [
+        {
+          sql: `SELECT e.id_dominio, e.share
+                  FROM eco e
+                 WHERE e.exam_content_version_id = :examContentVersionId`,
+          replacements: { examContentVersionId: examContentVersionIdForEco }
+        },
+        {
+          sql: `SELECT e.id_dominio, e.share
+                  FROM "ECO" e
+                 WHERE e.exam_content_version_id = :examContentVersionId`,
+          replacements: { examContentVersionId: examContentVersionIdForEco }
+        },
+        // Fallbacks for older schemas
+        {
+          sql: `SELECT id_dominio, share FROM eco WHERE (:examTypeId IS NULL) OR (id = :examTypeId)`,
+          replacements: { examTypeId: examTypeIdForEco }
+        },
+        {
+          sql: `SELECT id_dominio, share FROM "ECO" WHERE (:examTypeId IS NULL) OR (id = :examTypeId)`,
+          replacements: { examTypeId: examTypeIdForEco }
+        },
+        { sql: `SELECT id_dominio, share FROM eco`, replacements: {} },
+        { sql: `SELECT id_dominio, share FROM "ECO"`, replacements: {} },
+      ];
+
+      for (const q of ecoQueries) {
+        try {
+          // Skip version-filtered queries when version is unknown
+          if (q.sql.includes('exam_content_version_id') && !examContentVersionIdForEco) continue;
+          const rows = await sequelize.query(q.sql, {
+            replacements: q.replacements,
+            type: sequelize.QueryTypes.SELECT
+          });
+          if (Array.isArray(rows) && rows.length) {
+            ecoShares = rows;
+            break;
+          }
+        } catch (_) {
+          // try next
+        }
+      }
+
+      // Compute allocations
+      let allocations = [];
+      if (ecoShares.length) {
+        const sumShare = ecoShares.reduce((s, r) => s + Number(r.share || 0), 0);
+        // Determine divisor: if sum looks like percentage (around 100) use 100; else use sumShare as weight total.
+        const divisor = (sumShare > 99 && sumShare < 101) ? 100 : (sumShare > 0 ? sumShare : 1);
+        // Preliminary allocation with fractional tracking
+        const prelim = ecoShares.map(r => {
+          const rawAlloc = (Number(r.share || 0) / divisor) * REGULAR_TARGET;
+          return { id_dominio: r.id_dominio, share: Number(r.share || 0), raw: rawAlloc, floor: Math.floor(rawAlloc), frac: rawAlloc - Math.floor(rawAlloc) };
+        });
+        let allocated = prelim.reduce((s, r) => s + r.floor, 0);
+        let remainder = REGULAR_TARGET - allocated;
+        // Distribute remainder by largest fractional part
+        prelim.sort((a, b) => b.frac - a.frac);
+        for (let i = 0; i < prelim.length && remainder > 0; i++, remainder--) prelim[i].floor++;
+        allocations = prelim.map(r => ({ id_dominio: r.id_dominio, count: r.floor })).filter(a => a.count > 0);
+      }
+
+      // Fallback: if no ecoShares, select all remaining without distribution
+      if (!allocations.length) allocations = [{ id_dominio: null, count: REGULAR_TARGET }];
+
+      // Query per domain respecting availability and excluding pretest ids
+      let regularRows = [];
+      const excludeIds = new Set(pretestRows.map(r => r.id));
+      for (const alloc of allocations) {
+        if (alloc.count <= 0) continue;
+        const extraWhereParts = [`q.is_pretest = FALSE`];
+        const extraReplacements = {};
+        
+        if (alloc.id_dominio != null) {
+          extraWhereParts.push(`q.iddominiogeral = :domainId`);
+          extraReplacements.domainId = Number(alloc.id_dominio);
+        }
+        if (excludeIds.size) {
+          extraWhereParts.push(`q.id != ALL(ARRAY[:excludeIds])`);
+          extraReplacements.excludeIds = Array.from(excludeIds);
+        }
+        const extraWhere = extraWhereParts.join(' AND ');
+        const rows = await baseQuestionSelect(extraWhere, alloc.count, extraReplacements);
+        rows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });
+      }
+
+      // Top-up if shortage
+      const currentRegularCount = regularRows.length;
+      if (currentRegularCount < REGULAR_TARGET) {
+        const needed = REGULAR_TARGET - currentRegularCount;
+        const topUpWhereParts = [`q.is_pretest = FALSE`];
+        const topUpReplacements = {};
+        if (excludeIds.size) {
+          topUpWhereParts.push(`q.id != ALL(ARRAY[:excludeIds])`);
+          topUpReplacements.excludeIds = Array.from(excludeIds);
+        }
+        const topUpWhere = topUpWhereParts.join(' AND ');
+        const topRows = await baseQuestionSelect(topUpWhere, needed, topUpReplacements);
+        topRows.forEach(r => { regularRows.push(r); excludeIds.add(r.id); });
+      }
+
+      // Combine, then fetch options once for all selected IDs
+      const combined = [...pretestRows.map(r => ({ ...r, _isPreTest: true })), ...regularRows.map(r => ({ ...r, _isPreTest: false }))];
+      // (removed verbose Q266 debug block)
+      // Shuffle order
+      for (let i = combined.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [combined[i], combined[j]] = [combined[j], combined[i]];
+      }
+      const allIds = combined.map(q => q.id).filter(n => Number.isFinite(n));
+      let rawOptions = [];
+      if (allIds.length) {
+        try {
+          const optsQ = `SELECT id, idquestao, descricao
+            FROM respostaopcao
+            WHERE (excluido = FALSE OR excluido IS NULL) AND idquestao IN (:ids)
+            ORDER BY idquestao, id`;
+          rawOptions = await sequelize.query(optsQ, { replacements: { ids: allIds }, type: sequelize.QueryTypes.SELECT });
+        } catch(_) { rawOptions = []; }
+      }
+      const optsByQ = {};
+      rawOptions.forEach(o => {
+        const qid = Number(o.idquestao || o.IdQuestao);
+        if (!Number.isFinite(qid)) return;
+        if (!optsByQ[qid]) optsByQ[qid] = [];
+        optsByQ[qid].push({ id: o.id || o.Id, descricao: o.descricao || o.Descricao });
+      });
+      payloadQuestions = combined.map(q => {
+        const slug = (q.tiposlug || '').toString().toLowerCase();
+        let type = null;
+        if (slug) {
+          if (slug === 'multi' || slug === 'multiple' || slug === 'checkbox') type = 'checkbox';
+          else if (slug === 'single' || slug === 'radio') type = 'radio';
+          else type = slug;
+        } else {
+          type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
+        }
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [], _isPreTest: q._isPreTest };
+      });
+      // (removed post-mapping Q266 debug)
+      ids = allIds;
+    } else {
+      // Legacy path (quiz or non-full)
+      const limitUsed = Math.min(count, available);
+      const questions = await baseQuestionSelect(null, limitUsed);
+      ids = questions.map(q => q.id);
+      // Fetch options
+      let options = [];
+      if (ids.length) {
+        const optsQ = `SELECT id, idquestao, descricao, iscorreta
+          FROM respostaopcao
+          WHERE (excluido = false OR excluido IS NULL) AND idquestao IN (:ids)
+          ORDER BY random()`;
+        options = await sequelize.query(optsQ, { replacements: { ids }, type: sequelize.QueryTypes.SELECT });
+      }
+      const optsByQ = {};
+      options.forEach(o => {
+        const qid = o.idquestao || o.IdQuestao;
+        if (!optsByQ[qid]) optsByQ[qid] = [];
+        optsByQ[qid].push({ id: o.id || o.Id, descricao: o.descricao || o.Descricao });
+      });
+      payloadQuestions = questions.map(q => {
+        const slug = (q.tiposlug || '').toString().toLowerCase();
+        let type = null;
+        if (slug) {
+          if (slug === 'multi' || slug === 'multiple' || slug === 'checkbox') type = 'checkbox';
+          else if (slug === 'single' || slug === 'radio') type = 'radio';
+          else type = slug;
+        } else {
+          type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
+        }
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [] };
+      });
+      // (removed legacy Q266 debug)
+    }
+
+    // generate session id and persist attempt with ordered questions
   const sessionId = genSessionId();
 
-    // Note: persistence to Simulation and simulation_questions is intentionally left commented for later activation.
+    // initialize pause state based on policy
+    const policy = examCfg.pausas || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+    const pauseState = { pauseUntil: 0, consumed: {} };
+    (policy.checkpoints || []).forEach((cp) => { pauseState.consumed[cp] = false; });
 
-    return res.json({ sessionId, total: payloadQuestions.length, questions: payloadQuestions });
+    // Persist attempt and ordered questions mirroring start-on-demand
+    let attempt = null;
+    try {
+      await db.sequelize.transaction(async (t) => {
+        attempt = await db.ExamAttempt.create({
+          UserId: user.Id || user.id,
+          ExamTypeId: examCfg._dbId || null,
+          Modo: 'select',
+          QuantidadeQuestoes: payloadQuestions.length,
+          ExamMode: examMode || null,
+          StartedAt: new Date(),
+          LastActivityAt: new Date(),
+          Status: 'in_progress',
+          PauseState: pauseState,
+          Meta: { sessionId, source: 'select', examType: examCfg.id, examMode: examMode || null },
+          BlueprintSnapshot: {
+            id: examCfg.id,
+            nome: examCfg.nome,
+            numeroQuestoes: examCfg.numeroQuestoes,
+            duracaoMinutos: examCfg.duracaoMinutos,
+            pausas: policy,
+            opcoesPorQuestao: examCfg.opcoesPorQuestao,
+            multiplaSelecao: examCfg.multiplaSelecao,
+            pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
+          },
+          FiltrosUsados: { dominios, areas, grupos, onlyNew: !!onlyNew, fallbackIgnoreExamType: false },
+        }, { transaction: t });
+        if (attempt && payloadQuestions.length) {
+          const rows = payloadQuestions.map((q, idx) => ({ AttemptId: attempt.Id, QuestionId: q.id, Ordem: idx + 1, IsPreTest: q._isPreTest === true }));
+          await db.ExamAttemptQuestion.bulkCreate(rows, { transaction: t });
+        }
+      });
+      // Stats: increment started count
+      try { if (attempt && attempt.Id) await userStatsService.incrementStarted(attempt.UserId || (user && (user.Id || user.id))); } catch(_) {}
+    } catch (e) {
+      logger.warn('selectQuestions: could not persist attempt', e);
+    }
+
+    // Keep session state in memory to support later submit and pause
+    try {
+      await putSession(sessionId, {
+        userId: user.Id || user.id,
+        examType: examCfg.id,
+        examTypeId: examCfg._dbId || null,
+        attemptId: attempt ? attempt.Id : null,
+        questionIds: ids,
+        pausePolicy: policy,
+        pauses: pauseState,
+      });
+    } catch(_){ }
+
+    // Include minimal exam blueprint for the client when selecting inline
+    const blueprint = {
+      id: examCfg.id,
+      nome: examCfg.nome,
+      numeroQuestoes: examCfg.numeroQuestoes,
+      duracaoMinutos: examCfg.duracaoMinutos,
+      pausas: examCfg.pausas,
+      opcoesPorQuestao: examCfg.opcoesPorQuestao,
+      multiplaSelecao: examCfg.multiplaSelecao,
+    };
+
+    // Enrichment: always load imagem_url for all selected ids (covers cases where base SELECT dropped or returned null)
+    try {
+      const allIdsForImg = (payloadQuestions || []).map(q => Number(q.id)).filter(n => Number.isFinite(n));
+      if (allIdsForImg.length) {
+        const imgRows = await sequelize.query('SELECT id, imagem_url FROM public.questao WHERE id IN (:ids)', {
+          replacements: { ids: allIdsForImg },
+          type: sequelize.QueryTypes.SELECT,
+        });
+        const imgById = new Map((imgRows || []).map(r => [Number(r.id), (r.imagem_url != null && r.imagem_url !== '') ? String(r.imagem_url) : null]));
+        payloadQuestions = (payloadQuestions || []).map(q => {
+          if (!q) return q;
+          const fresh = imgById.get(Number(q.id));
+          // Precedence: use non-empty fresh value over existing; keep both aliases synced
+          const finalImg = fresh || q.imagem_url || q.imagemUrl || null;
+          return { ...q, imagem_url: finalImg, imagemUrl: finalImg };
+        });
+        // Debug after enrichment for Q266
+        try {
+          const enrichedQ266 = payloadQuestions.find(q => q && Number(q.id) === 266);
+          if (enrichedQ266) logger.debug('[selectQuestions] enriched Q266 imagem_url length=', enrichedQ266.imagem_url ? String(enrichedQ266.imagem_url).length : 0, 'prefix50=', enrichedQ266.imagem_url ? String(enrichedQ266.imagem_url).slice(0,50) : null);
+        } catch(_) {}
+      }
+    } catch(e) { /* ignore enrichment errors */ }
+
+    // Optional debug header: if client sends X-Debug-Images:true add lengths summary
+    const wantDebugImages = String(req.get('X-Debug-Images') || '').toLowerCase() === 'true';
+    if (wantDebugImages) {
+      try {
+        const dbg = payloadQuestions.filter(q => q && q.id).map(q => ({ id: q.id, len: q.imagem_url ? String(q.imagem_url).length : 0 }));
+        res.set('X-Images-Debug', encodeURIComponent(JSON.stringify(dbg.slice(0, 50))));
+      } catch(_) {}
+    }
+
+    return res.json({ sessionId, total: payloadQuestions.length, examType: examCfg.id, examMode: examMode || null, attemptId: attempt ? attempt.Id : null, exam: blueprint, questions: payloadQuestions });
   } catch (err) {
-    console.error('Erro selectQuestions:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    logger.error('Erro selectQuestions:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_SELECT_QUESTIONS'));
   }
 };
 
 // Placeholder for starting a persisted exam/session (not implemented yet)
-exports.startExam = async (req, res) => {
+exports.startExam = async (req, res, next) => {
   try {
-    return res.status(501).json({ message: 'startExam not implemented yet' });
+    return next(new AppError('startExam not implemented yet', 501, 'NOT_IMPLEMENTED'));
   } catch (err) {
-    console.error('Erro startExam:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    logger.error('Erro startExam:', err);
+    return next(internalError('Erro interno', 'INTERNAL_ERROR_START_EXAM'));
   }
 };
 
 // POST /api/exams/submit
-// Body: { sessionId: string, answers: [{ questionId: number, optionId: number }] }
-exports.submitAnswers = async (req, res) => {
+// Body: { sessionId: string, answers: [{ questionId: number, optionId?: number, optionIds?: number[], response?: any }] }
+// Used by: frontend/assets/build/script_exam.js e frontend/script_exam.js quando o usuário finaliza ou salva parcialmente
+exports.submitAnswers = async (req, res, next) => {
   try {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
-    if (!sessionToken) return res.status(400).json({ error: 'X-Session-Token required' });
+    if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
-    // resolve user (same as other endpoints)
+    // resolve user (aceita JWT ou ID/email)
     let user = null;
-    if (/^\d+$/.test(sessionToken)) {
-      user = await User.findByPk(Number(sessionToken));
+    let tokenPayload = null;
+    // Se for JWT, decodifica
+    if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+      try {
+        tokenPayload = jwt.verify(sessionToken, jwtSecret);
+      } catch (e) {
+        return next(unauthorized('Invalid session token', 'INVALID_SESSION_TOKEN'));
+      }
+      // Tenta buscar por sub (ID), email ou nome
+      if (tokenPayload && tokenPayload.sub) {
+        user = await User.findByPk(Number(tokenPayload.sub));
+      }
+      if (!user && tokenPayload && tokenPayload.email) {
+        user = await User.findOne({ where: { Email: tokenPayload.email } });
+      }
+      if (!user && tokenPayload && tokenPayload.name) {
+        user = await User.findOne({ where: { NomeUsuario: tokenPayload.name } });
+      }
+    } else {
+      // Se não for JWT, tenta ID, nome ou email direto
+      if (/^\d+$/.test(sessionToken)) {
+        user = await User.findByPk(Number(sessionToken));
+      }
+      if (!user) {
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+        user = await User.findOne({ where });
+      }
     }
-    if (!user) {
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+  const { sessionId, answers } = req.body || {};
+    const partial = Boolean(req.body && req.body.partial);
+    if (!sessionId) return next(badRequest('sessionId required', 'SESSION_ID_REQUIRED'));
+    if (!Array.isArray(answers)) return next(badRequest('answers required', 'ANSWERS_REQUIRED'));
+  const s = await getSession(sessionId);
+  let attemptId = s && s.attemptId ? Number(s.attemptId) : null;
+  // Fallback: recover attemptId from DB when memory session is missing (e.g., server restart)
+  if (!attemptId) {
+    try {
       const Op = db.Sequelize && db.Sequelize.Op;
-      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-      user = await User.findOne({ where });
+      // First, try by Meta.sessionId match for this user and in-progress status
+      let attempt = null;
+      try {
+        // Prefer JSON lookup if supported
+        attempt = await db.ExamAttempt.findOne({
+          where: {
+            UserId: user.Id || user.id,
+            Status: 'in_progress',
+            ...(Op ? { [Op.and]: [ db.sequelize.where(db.sequelize.json('meta.sessionId'), sessionId) ] } : {}),
+          },
+          order: [['StartedAt', 'DESC']],
+        });
+      } catch(_) { attempt = null; }
+      // If not found (e.g., older attempts without Meta), fallback to latest in_progress for user
+      if (!attempt) {
+        attempt = await db.ExamAttempt.findOne({ where: { UserId: user.Id || user.id, Status: 'in_progress' }, order: [['StartedAt', 'DESC']] });
+      }
+      if (attempt && attempt.Id) attemptId = Number(attempt.Id);
+    } catch(_){ /* keep attemptId as null if lookup fails */ }
+  }
+
+    // collect question ids: prefer session questionIds to ensure unanswered are included
+    let qids = (s && Array.isArray(s.questionIds) && s.questionIds.length) ? s.questionIds.map(Number) : [];
+    if (!qids.length) {
+      qids = Array.from(new Set(answers.map(a => Number(a.questionId)).filter(n => !Number.isNaN(n))));
     }
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!qids.length) return next(badRequest('no valid questionIds', 'NO_VALID_QUESTION_IDS'));
 
-    const { sessionId, answers } = req.body || {};
-    if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
-    if (!Array.isArray(answers) || !answers.length) return res.status(400).json({ error: 'answers required' });
-
-    // collect question ids
-    const qids = Array.from(new Set(answers.map(a => Number(a.questionId)).filter(n => !Number.isNaN(n))));
-    if (!qids.length) return res.status(400).json({ error: 'no valid questionIds' });
+    // Fetch IsPreTest flags for questions to exclude from scoring
+    let pretestQids = new Set();
+    if (attemptId) {
+      try {
+        const pretestQ = `SELECT "QuestionId" FROM exam_attempt_question WHERE "AttemptId" = :aid AND "IsPreTest" = TRUE`;
+        const pretestRows = await sequelize.query(pretestQ, { replacements: { aid: attemptId }, type: sequelize.QueryTypes.SELECT });
+        pretestQids = new Set((pretestRows || []).map(r => Number(r.QuestionId || r.questionid)).filter(n => Number.isFinite(n)));
+      } catch(e) { /* ignore if column doesn't exist yet */ }
+    }
 
     // fetch correct option ids from respostaopcao
-    const correctQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao
+    const correctQ = `SELECT id, idquestao
       FROM respostaopcao
-      WHERE "IsCorreta" = true AND "IdQuestao" IN (:qids)`;
+      WHERE iscorreta = true AND idquestao IN (:qids)`;
     const correctRows = await sequelize.query(correctQ, { replacements: { qids }, type: sequelize.QueryTypes.SELECT });
 
     const correctByQ = {};
@@ -176,23 +750,1093 @@ exports.submitAnswers = async (req, res) => {
       }
     });
 
-    // grade
+    // grade (single or multi)
     let totalCorrect = 0;
-    const details = answers.map(a => {
-      const qid = Number(a.questionId);
-      const chosen = Number(a.optionId);
-      const correctOpt = correctByQ[qid] || null;
-      const ok = !!(correctOpt && chosen === correctOpt);
-      if (ok) totalCorrect += 1;
-      return { questionId: qid, chosenOptionId: chosen, correct: ok };
+  // build answers map and compute grading across all qids (unanswered => not correct)
+    const byQ = new Map();
+    (answers || []).forEach(a => {
+      const qid = Number(a && a.questionId);
+      if (!Number.isFinite(qid)) return;
+      if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
+        byQ.set(qid, { typed: true, response: a.response });
+      } else if (Array.isArray(a.optionIds)) {
+        const ids = a.optionIds.map(Number).filter(n => Number.isFinite(n));
+        byQ.set(qid, { multi: true, optionIds: ids });
+      } else {
+        const id = (a && a.optionId != null) ? Number(a.optionId) : null;
+        byQ.set(qid, { multi: false, optionId: Number.isFinite(id) ? id : null });
+      }
     });
 
-    const result = { sessionId, totalQuestions: qids.length, totalCorrect, details };
+    const details = qids.map(qid => {
+      const rec = byQ.get(Number(qid));
+      const isPretest = pretestQids.has(Number(qid));
+      let ok = false;
+      if (rec && rec.typed) {
+        ok = false; // typed grading engine TBD
+      } else if (rec && rec.multi) {
+        const chosenSet = new Set((rec.optionIds || []).map(Number));
+        const correctSet = new Set([correctByQ[qid]].filter(Boolean));
+        ok = chosenSet.size === correctSet.size && [...chosenSet].every(x => correctSet.has(x));
+      } else {
+        const chosen = rec ? rec.optionId : null;
+        const correctOpt = correctByQ[qid] || null;
+        ok = !!(correctOpt && chosen != null && Number(chosen) === Number(correctOpt));
+      }
+      // Only count toward score if not pretest
+      if (ok && !isPretest) totalCorrect += 1;
+      return { questionId: Number(qid), chosenOptionId: (rec && rec.multi === false) ? (rec.optionId ?? null) : null, correct: ok, isPretest };
+    });
 
-    // Note: persistence to Simulation not implemented here (per request)
+    // Calculate scorable questions (exclude pretest)
+    const scorableQids = qids.filter(qid => !pretestQids.has(Number(qid)));
+    const result = { sessionId, totalQuestions: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect, details };
+
+    // Persist answers if we have an attempt
+    try {
+      if (attemptId) {
+        // if partial, only consider questions present in payload; else consider all qids (for final)
+        const persistQids = partial ? Array.from(byQ.keys()) : qids;
+        const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId, QuestionId: persistQids } });
+        const aqMap = new Map(aqRows.map(r => [Number(r.QuestionId), Number(r.Id)]));
+        // Build toInsert with selected answers only (for partial), or include null markers (for final)
+        const toInsert = [];
+
+        if (partial) {
+          // Replace answers for provided questions with current snapshot
+          const aqIdsToReplace = [];
+          for (const a of (answers || [])) {
+            const qid = Number(a.questionId);
+            const aqid = aqMap.get(qid);
+            if (!aqid) continue;
+            aqIdsToReplace.push(aqid);
+          }
+          if (aqIdsToReplace.length) {
+            await db.ExamAttemptAnswer.destroy({ where: { AttemptQuestionId: aqIdsToReplace } });
+          }
+          for (const a of (answers || [])) {
+            const qid = Number(a.questionId);
+            const aqid = aqMap.get(qid);
+            if (!aqid) continue;
+            if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
+              const payload = a.response == null ? null : a.response;
+              toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: payload, Selecionada: payload != null });
+            } else if (Array.isArray(a.optionIds)) {
+              const arr = a.optionIds.map(Number).filter(n => Number.isFinite(n));
+              for (const optId of arr) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId, Selecionada: true });
+            } else {
+              const optId = (a && a.optionId != null) ? Number(a.optionId) : null;
+              if (Number.isFinite(optId)) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId, Selecionada: true });
+            }
+          }
+          if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert);
+        } else {
+          // Final submission: include null markers for unanswered
+          for (const a of (answers || [])) {
+            const qid = Number(a.questionId);
+            const aqid = aqMap.get(qid);
+            if (!aqid) continue;
+            if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
+              const payload = a.response == null ? null : a.response;
+              toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: payload, Selecionada: payload != null });
+            } else if (Array.isArray(a.optionIds)) {
+              const arr = a.optionIds.map(Number).filter(n => Number.isFinite(n));
+              if (!arr.length) {
+                toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Selecionada: false });
+              } else {
+                for (const optId of arr) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId, Selecionada: true });
+              }
+            } else {
+              const optId = (a && a.optionId != null) ? Number(a.optionId) : null;
+              if (Number.isFinite(optId)) toInsert.push({ AttemptQuestionId: aqid, OptionId: optId, Selecionada: true });
+              else toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Selecionada: false });
+            }
+          }
+          // insert null for any missing
+          const answeredSet = new Set((answers || []).map(x => Number(x.questionId)).filter(n => Number.isFinite(n)));
+          for (const qid of qids) {
+            const nq = Number(qid);
+            if (!answeredSet.has(nq)) {
+              const aqid = aqMap.get(nq);
+              if (aqid) toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: null, Selecionada: false });
+            }
+          }
+          if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert, { ignoreDuplicates: true });
+        }
+
+        // Score and finish attempt only if not partial
+        // Always refresh LastActivityAt on any submission
+        if (attemptId) {
+          try {
+            await db.ExamAttempt.update({ LastActivityAt: new Date() }, { where: { Id: attemptId } });
+          } catch(_) { /* ignore activity update errors */ }
+        }
+        if (!partial) {
+          const examSlug = (s && s.examType) || 'pmp';
+          const examCfg = await getExamTypeBySlugOrDefault(examSlug);
+          // Use scorableQids for percentage calculation (exclude pretest)
+          const scorableCount = scorableQids.length;
+          const percent = scorableCount > 0 ? (totalCorrect * 100.0) / scorableCount : 0;
+          const aprovado = (examCfg && examCfg.pontuacaoMinima != null) ? (percent >= Number(examCfg.pontuacaoMinima)) : null;
+          await db.ExamAttempt.update({
+            Corretas: totalCorrect,
+            Total: scorableCount, // store scorable count (excludes pretest)
+            ScorePercent: percent,
+            Aprovado: aprovado,
+            Status: 'finished',
+            FinishedAt: new Date(),
+            StatusReason: 'user_finish',
+            LastActivityAt: new Date(),
+          }, { where: { Id: attemptId } });
+          // Stats: increment finished count with score percent
+          try { if (attemptId) await userStatsService.incrementFinished(user.Id || user.id, percent); } catch(_) {}
+        }
+      }
+    } catch (e) { logger.warn('submitAnswers persistence warning:', e); }
+
+    // For partial submissions, just acknowledge ok and include counts that were computed
+    if (partial) return res.json({ ok: true, sessionId, saved: (answers || []).length, totalKnown: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect });
     return res.json(result);
   } catch (err) {
-    console.error('Erro submitAnswers:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    logger.error('Erro submitAnswers:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_SUBMIT_ANSWERS'));
+  }
+};
+
+// POST /api/exams/start-on-demand
+// Body: { count, filters... }
+// Returns { sessionId, total }
+// Used by: (reservado para fluxo alternativo; não há chamada ativa no frontend no momento)
+exports.startOnDemand = async (req, res, next) => {
+  try {
+  const examType = (req.body && req.body.examType) || (req.get('X-Exam-Type') || '').trim() || 'pmp';
+  const examCfg = await getExamTypeBySlugOrDefault(examType);
+  // Resolve exam mode from header or infer by count
+  let headerMode = (req.get('X-Exam-Mode') || '').trim().toLowerCase();
+  if (!(headerMode === 'quiz' || headerMode === 'full')) headerMode = null;
+  let count = Number((req.body && req.body.count) || 0) || 0;
+    if (!count || count <= 0) return next(badRequest('count required', 'COUNT_REQUIRED'));
+    const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
+    if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
+
+    let user = null;
+    if (/^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+    if (!user) {
+      const Op = db.Sequelize && db.Sequelize.Op;
+      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+      user = await User.findOne({ where });
+    }
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+    const bloqueio = Boolean(user.BloqueioAtivado);
+    if (bloqueio && count > 25) count = 25;
+    // Infer mode when header not provided: full when count >= blueprint total; quiz when count < full threshold
+    let examMode = headerMode;
+    try {
+      if (!examMode) {
+        const fullThreshold = (examCfg && Number(examCfg.numeroQuestoes)) ? Number(examCfg.numeroQuestoes) : getFullExamQuestionCount();
+        if (count >= fullThreshold) examMode = 'full';
+        else if (count > 0 && count < fullThreshold) examMode = 'quiz';
+      }
+    } catch(_) { examMode = examMode || null; }
+
+  const dominios = Array.isArray(req.body.dominios) && req.body.dominios.length ? req.body.dominios.map(Number) : null;
+  const areas = Array.isArray(req.body.areas) && req.body.areas.length ? req.body.areas.map(Number) : null;
+  const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
+  const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length));
+    const whereClauses = [`excluido = false`, `idstatus = 1`];
+    const queryReplacements = {};
+    
+    if (examCfg && examCfg._dbId) {
+      whereClauses.push(`exam_type_id = :examTypeId`);
+      queryReplacements.examTypeId = Number(examCfg._dbId);
+    }
+    if (bloqueio) whereClauses.push(`seed = true`);
+    if (dominios && dominios.length) {
+      whereClauses.push(`iddominio = ANY(ARRAY[:dominios])`);
+      queryReplacements.dominios = dominios;
+    }
+    if (areas && areas.length) {
+      whereClauses.push(`codareaconhecimento = ANY(ARRAY[:areas])`);
+      queryReplacements.areas = areas;
+    }
+    if (grupos && grupos.length) {
+      whereClauses.push(`codgrupoprocesso = ANY(ARRAY[:grupos])`);
+      queryReplacements.grupos = grupos;
+    }
+    const whereSql = whereClauses.join(' AND ');
+
+    const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao WHERE ${whereSql}`;
+    const countRes = await sequelize.query(countQuery, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
+    let available = (countRes && countRes[0] && Number(countRes[0].cnt)) || 0;
+
+    // Always respect exam type; no fallback that drops exam_type
+    const whereSqlUsed = whereSql;
+    if (available < 1) return next(badRequest('Not enough questions available', 'NOT_ENOUGH_QUESTIONS', { available }));
+    const limitUsed = Math.min(count, available);
+
+    queryReplacements.limit = limitUsed;
+    const selectIdsQ = `SELECT q.id FROM questao q WHERE ${whereSqlUsed} ORDER BY random() LIMIT :limit`;
+    const rows = await sequelize.query(selectIdsQ, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
+    const questionIds = rows.map(r => r.id || r.Id);
+    const sessionId = genSessionId();
+    // initialize pause state based on policy
+    const policy = examCfg.pausas || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+    const pauseState = { pauseUntil: 0, consumed: {} };
+    (policy.checkpoints || []).forEach((cp) => { pauseState.consumed[cp] = false; });
+
+    // Persist attempt and ordered questions
+    const orm = db.sequelize;
+    let attempt = null;
+    await orm.transaction(async (t) => {
+      attempt = await db.ExamAttempt.create({
+        UserId: user.Id || user.id,
+        ExamTypeId: examCfg._dbId || null,
+        Modo: 'on-demand',
+        QuantidadeQuestoes: questionIds.length,
+        ExamMode: examMode || null,
+        StartedAt: new Date(),
+        LastActivityAt: new Date(),
+        Status: 'in_progress',
+        PauseState: pauseState,
+        Meta: { sessionId, source: 'on-demand', examType: examCfg.id, examMode: examMode || null },
+        BlueprintSnapshot: {
+          id: examCfg.id,
+          nome: examCfg.nome,
+          numeroQuestoes: examCfg.numeroQuestoes,
+          duracaoMinutos: examCfg.duracaoMinutos,
+          pausas: policy,
+          opcoesPorQuestao: examCfg.opcoesPorQuestao,
+          multiplaSelecao: examCfg.multiplaSelecao,
+          pontuacaoMinima: examCfg.pontuacaoMinima ?? null,
+        },
+  FiltrosUsados: { dominios, areas, grupos, fallbackIgnoreExamType: false },
+      }, { transaction: t });
+      if (attempt && questionIds.length) {
+        const rows = questionIds.map((qid, idx) => ({ AttemptId: attempt.Id, QuestionId: qid, Ordem: idx + 1 }));
+        await db.ExamAttemptQuestion.bulkCreate(rows, { transaction: t });
+      }
+    });
+
+    // Stats: increment started count
+    try { if (attempt && attempt.Id) await userStatsService.incrementStarted(attempt.UserId || (user && (user.Id || user.id))); } catch(_) {}
+
+    await putSession(sessionId, {
+      userId: user.Id || user.id,
+      examType: examCfg.id,
+      examTypeId: examCfg._dbId || null,
+      attemptId: attempt ? attempt.Id : null,
+      questionIds,
+      pausePolicy: policy,
+      pauses: pauseState,
+    });
+
+    return res.json({ sessionId, total: questionIds.length, examType: examCfg.id, examMode: examMode || null, attemptId: attempt ? attempt.Id : null, exam: {
+      id: examCfg.id,
+      nome: examCfg.nome,
+      numeroQuestoes: examCfg.numeroQuestoes,
+      duracaoMinutos: examCfg.duracaoMinutos,
+      pausas: policy,
+      opcoesPorQuestao: examCfg.opcoesPorQuestao,
+      multiplaSelecao: examCfg.multiplaSelecao,
+    }});
+  } catch (err) {
+    logger.error('Erro startOnDemand:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_START_ON_DEMAND'));
+  }
+};
+
+// GET /api/exams/:sessionId/question/:index
+// Used by: fluxo on-demand (quando ativo) para buscar questão a questão
+exports.getQuestion = async (req, res, next) => {
+  try {
+    const { sessionId, index } = { sessionId: req.params.sessionId, index: Number(req.params.index) };
+    const s = await getSession(sessionId);
+    if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
+    if (!Number.isInteger(index) || index < 0 || index >= s.questionIds.length) return next(badRequest('invalid index', 'INVALID_INDEX'));
+    const qid = s.questionIds[index];
+        const qQ = `
+          SELECT q.id, q.descricao, q.tiposlug, q.interacaospec, q.multiplaescolha AS multiplaescolha,
+            eg.descricao AS explicacao,
+            qt.ui_schema AS ui_schema
+       FROM questao q
+       LEFT JOIN explicacaoguia eg
+         ON eg.idrespostaopcao = (
+              SELECT ro.id
+           FROM respostaopcao ro
+          WHERE ro.idquestao = q.id
+            AND (ro.iscorreta = TRUE OR ro.iscorreta = 't')
+            AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+          ORDER BY ro.id
+          LIMIT 1
+         )
+        AND (eg.excluido = false OR eg.excluido IS NULL)
+       LEFT JOIN question_type qt
+         ON qt.slug = q.tiposlug AND (qt.ativo = TRUE OR qt.ativo IS NULL)
+      WHERE q.id = :id
+      LIMIT 1`;
+    const qRows = await sequelize.query(qQ, { replacements: { id: qid }, type: sequelize.QueryTypes.SELECT });
+    if (!qRows || !qRows.length) return next(notFound('question not found', 'QUESTION_NOT_FOUND'));
+    const q = qRows[0];
+    // If tiposlug is present but refers to advanced type, return interaction payload.
+    // For basic types ('single'/'multi' or synonyms), keep legacy options path below.
+    if (q.tiposlug) {
+      const basic = (()=>{ try { const t = String(q.tiposlug).toLowerCase(); return (t === 'single' || t === 'radio' || t === 'multi' || t === 'multiple' || t === 'checkbox'); } catch(_) { return false; } })();
+      if (!basic) {
+        const interacao = q.interacaospec || null;
+        return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: {
+          id: q.id,
+          type: q.tiposlug,
+          descricao: q.descricao || q.Descricao,
+          explicacao: q.explicacao || q.Explicacao,
+          interacao,
+          ui: q.ui_schema || null,
+        }});
+      }
+    }
+    // Legacy options-based question: include per-question type using questao.multiplaescolha
+    const optsQ = `SELECT "Id" AS id, "IdQuestao" AS idquestao, "Descricao" AS descricao FROM respostaopcao WHERE ("Excluido" = false OR "Excluido" IS NULL) AND "IdQuestao" = :qid ORDER BY random()`;
+    const opts = await sequelize.query(optsQ, { replacements: { qid }, type: sequelize.QueryTypes.SELECT });
+    // derive type: when multiplaescolha true -> checkbox, else radio
+    let type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
+    if (q.tiposlug) {
+      const t = String(q.tiposlug).toLowerCase();
+      if (t === 'multi' || t === 'multiple' || t === 'checkbox') type = 'checkbox';
+      else if (t === 'single' || t === 'radio') type = 'radio';
+    }
+    return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: { id: q.id, type, descricao: q.descricao || q.Descricao, explicacao: q.explicacao || q.Explicacao, options: opts } });
+  } catch (err) {
+    logger.error('Erro getQuestion:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_GET_QUESTION'));
+  }
+};
+
+// POST /api/exams/:sessionId/pause/start { index }
+// Used by: frontend/pages/examFull.html para iniciar pausa nos checkpoints
+exports.pauseStart = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const index = Number(req.body && req.body.index);
+    const s = await getSession(sessionId);
+    if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
+    if (!Number.isInteger(index)) return next(badRequest('index required', 'INDEX_REQUIRED'));
+    const policy = s.pausePolicy || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+    if (!policy.permitido) return next(badRequest('pause not permitted for this exam', 'PAUSE_NOT_PERMITTED'));
+    const cps = Array.isArray(policy.checkpoints) ? policy.checkpoints : [];
+    if (!cps.includes(index)) return next(badRequest('pause not allowed at this index', 'PAUSE_NOT_ALLOWED'));
+    const consumed = s.pauses && s.pauses.consumed ? s.pauses.consumed : {};
+    if (consumed[index]) return next(badRequest('pause already consumed', 'PAUSE_ALREADY_CONSUMED'));
+    const ms = (Number(policy.duracaoMinutosPorPausa) || 0) * 60 * 1000;
+    const until = Date.now() + ms;
+    consumed[index] = true;
+    await updateSession(sessionId, { pauses: { ...s.pauses, pauseUntil: until, consumed }, pausePolicy: policy });
+    return res.json({ ok: true, pauseUntil: until });
+  } catch (err) {
+    logger.error('Erro pauseStart:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_PAUSE_START'));
+  }
+};
+
+// POST /api/exams/:sessionId/pause/skip { index }
+// Used by: frontend/pages/examFull.html para pular pausa no checkpoint
+exports.pauseSkip = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const index = Number(req.body && req.body.index);
+    const s = await getSession(sessionId);
+    if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
+    if (!Number.isInteger(index)) return next(badRequest('index required', 'INDEX_REQUIRED'));
+    const policy = s.pausePolicy || { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+    const cps = Array.isArray(policy.checkpoints) ? policy.checkpoints : [];
+    if (!cps.includes(index)) return next(badRequest('skip not allowed at this index', 'SKIP_NOT_ALLOWED'));
+    const consumed = s.pauses && s.pauses.consumed ? s.pauses.consumed : {};
+    if (consumed[index]) return res.status(200).json({ ok: true, already: true });
+    consumed[index] = true;
+    await updateSession(sessionId, { pauses: { ...s.pauses, consumed } });
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error('Erro pauseSkip:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_PAUSE_SKIP'));
+  }
+};
+
+// GET /api/exams/:sessionId/pause/status
+// Used by: frontend/pages/examFull.html para consultar o estado da pausa
+exports.pauseStatus = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const s = await getSession(sessionId);
+    if (!s) return next(notFound('session not found', 'SESSION_NOT_FOUND'));
+    return res.json({ pauses: s.pauses || {}, policy: s.pausePolicy || null, examType: s.examType || 'pmp' });
+  } catch (err) {
+    logger.error('Erro pauseStatus:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_PAUSE_STATUS'));
+  }
+};
+
+// POST /api/exams/check-answer
+// Body: { questionId, optionId?, optionIds? }
+// Returns: { questionId, correctOptionIds: number[], isCorrect: boolean, explanations: { [optionId]: string|null } }
+// Note: This endpoint reveals correct answers by design (requested by UI).
+exports.checkAnswer = async (req, res, next) => {
+  try {
+    const questionId = Number(req.body && req.body.questionId);
+    if (!Number.isFinite(questionId) || questionId <= 0) return next(badRequest('invalid questionId', 'INVALID_QUESTION_ID'));
+
+    const selectedSingle = req.body && req.body.optionId != null ? Number(req.body.optionId) : null;
+    const selectedMulti = Array.isArray(req.body && req.body.optionIds)
+      ? req.body.optionIds.map(Number).filter(n => Number.isFinite(n) && n > 0)
+      : null;
+
+    // Load options for the question, include correctness flag and latest explanation per option
+    const sql = `
+      SELECT ro.id AS id,
+             ro.idquestao AS idquestao,
+             ro.iscorreta AS correta,
+             eg.descricao AS explicacao
+        FROM respostaopcao ro
+        LEFT JOIN LATERAL (
+          SELECT e1.descricao
+            FROM explicacaoguia e1
+           WHERE e1.idrespostaopcao = ro.id
+             AND (e1.excluido = FALSE OR e1.excluido IS NULL)
+           ORDER BY e1.id DESC
+           LIMIT 1
+        ) eg ON TRUE
+       WHERE ro.idquestao = :qid
+         AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+       ORDER BY ro.id ASC
+    `;
+
+    const rows = await sequelize.query(sql, {
+      replacements: { qid: questionId },
+      type: sequelize.QueryTypes.SELECT,
+    });
+
+    if (!rows || !rows.length) return next(notFound('question/options not found', 'QUESTION_OPTIONS_NOT_FOUND'));
+
+    const correctOptionIds = rows
+      .filter(r => (r.correta === true || r.correta === 't' || r.correta === 1 || r.correta === '1'))
+      .map(r => Number(r.id))
+      .filter(n => Number.isFinite(n) && n > 0);
+
+    const explanations = {};
+    rows.forEach(r => {
+      const id = Number(r.id);
+      if (!Number.isFinite(id) || id <= 0) return;
+      explanations[String(id)] = (r.explicacao == null) ? null : String(r.explicacao);
+    });
+
+    // Determine correctness
+    let isCorrect = false;
+    if (selectedMulti && selectedMulti.length) {
+      const selSet = new Set(selectedMulti.map(String));
+      const corrSet = new Set(correctOptionIds.map(String));
+      if (selSet.size === corrSet.size) {
+        isCorrect = true;
+        for (const v of selSet) {
+          if (!corrSet.has(v)) { isCorrect = false; break; }
+        }
+      }
+    } else if (selectedSingle != null && Number.isFinite(selectedSingle) && selectedSingle > 0) {
+      isCorrect = correctOptionIds.map(String).includes(String(selectedSingle));
+    }
+
+    return res.json({
+      questionId,
+      correctOptionIds,
+      isCorrect,
+      explanations,
+    });
+  } catch (err) {
+    logger.error('Erro checkAnswer:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_CHECK_ANSWER'));
+  }
+};
+
+// POST /api/exams/resume
+// Body: { sessionId?: string, attemptId?: number }
+// Rebuilds in-memory session state after server restart, using DB as source of truth
+// Used by: frontend/pages/exam.html e frontend/pages/examFull.html no auto-resume ao detectar 404 de sessão
+exports.resumeSession = async (req, res, next) => {
+  try {
+    // Resolve user (same policy as other endpoints)
+    const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
+    if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
+
+    let user = null;
+    if (/^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
+    if (!user) {
+      const Op = db.Sequelize && db.Sequelize.Op;
+      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+      user = await db.User.findOne({ where });
+    }
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+    const reqSessionId = (req.body && req.body.sessionId) ? String(req.body.sessionId) : null;
+    const reqAttemptId = (req.body && req.body.attemptId) ? Number(req.body.attemptId) : null;
+
+    // Locate attempt
+    let attempt = null;
+    if (Number.isFinite(reqAttemptId) && reqAttemptId > 0) {
+      attempt = await db.ExamAttempt.findOne({ where: { Id: reqAttemptId, UserId: user.Id || user.id, Status: 'in_progress' } });
+    }
+    if (!attempt && reqSessionId) {
+      try {
+        // Prefer JSON meta.sessionId match
+        const Op = db.Sequelize && db.Sequelize.Op;
+        attempt = await db.ExamAttempt.findOne({
+          where: {
+            UserId: user.Id || user.id,
+            Status: 'in_progress',
+            ...(Op ? { [Op.and]: [ db.sequelize.where(db.sequelize.json('meta.sessionId'), reqSessionId) ] } : {}),
+          },
+          order: [['StartedAt', 'DESC']],
+        });
+      } catch(_) { attempt = null; }
+    }
+    if (!attempt) return next(notFound('attempt not found', 'ATTEMPT_NOT_FOUND'));
+
+    // Load ordered question ids
+    const rows = await db.ExamAttemptQuestion.findAll({
+      where: { AttemptId: attempt.Id },
+      order: [['Ordem', 'ASC']],
+      attributes: ['QuestionId']
+    });
+    const questionIds = (rows || []).map(r => Number(r.QuestionId)).filter(n => Number.isFinite(n));
+
+    // Rebuild pause policy/state from snapshot when available, else from exam type config
+    let policy = null;
+    try {
+      const snap = attempt.BlueprintSnapshot || null;
+      if (snap && typeof snap === 'object' && snap.pausas) policy = snap.pausas;
+    } catch(_) { policy = null; }
+    if (!policy) {
+      try {
+        const exType = await getExamTypeBySlugOrDefault((attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp');
+        policy = exType && exType.pausas ? exType.pausas : { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 };
+      } catch(_) { policy = { permitido: false, checkpoints: [], duracaoMinutosPorPausa: 0 }; }
+    }
+
+    const pauseState = attempt.PauseState || { pauseUntil: 0, consumed: {} };
+
+    // Decide which sessionId to use: keep client-provided sessionId if available; otherwise mint a new one
+    const newSessionId = reqSessionId || genSessionId();
+
+    // Put in-memory session
+    await putSession(newSessionId, {
+      userId: user.Id || user.id,
+      examType: (attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp',
+      examTypeId: attempt.ExamTypeId || null,
+      attemptId: attempt.Id,
+      questionIds,
+      pausePolicy: policy,
+      pauses: pauseState,
+    });
+
+    return res.json({ ok: true, sessionId: newSessionId, attemptId: attempt.Id, total: questionIds.length, examType: (attempt.BlueprintSnapshot && attempt.BlueprintSnapshot.id) || 'pmp' });
+  } catch (err) {
+    logger.error('Erro resumeSession:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_RESUME_SESSION'));
+  }
+};
+
+  // GET /api/exams/last
+  // Returns summary of the last finished attempt for the resolved user
+  // Response: { correct, total, scorePercent, approved, finishedAt, examTypeId }
+  // Used by: frontend/index.html (loadLastExamResults) para alimentar o gauge de "Último exame"
+  exports.lastAttemptSummary = async (req, res, next) => {
+    try {
+      // Resolve user using the same policy applied in selection endpoints
+      const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+      const authHeader = (req.get('Authorization') || '').trim();
+      let bearerToken = '';
+      if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
+      const sessionToken = bearerToken || legacyToken;
+      if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
+
+      let user = null;
+      
+      // Unified JWT decode attempt (bearer first, then legacy if bearer absent)
+      async function tryResolveFromJwt(raw) {
+        if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
+        let decoded = null;
+        try { decoded = jwt.verify(raw, jwtSecret); }
+        catch(e){
+          try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
+        }
+        if (!decoded) {
+          // Manual payload decode fallback (ignore signature) if jsonwebtoken failed
+          try {
+            const parts = raw.split('.');
+            if (parts.length === 3) {
+              const payloadB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+              // pad base64
+              const pad = payloadB64.length % 4; const padded = pad ? payloadB64 + '='.repeat(4-pad) : payloadB64;
+              const buf = Buffer.from(padded, 'base64');
+              const jsonStr = buf.toString('utf8');
+              decoded = JSON.parse(jsonStr);
+            }
+          } catch(err){ }
+        }
+        if (!decoded) { return; }
+        const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
+        for (const cid of candidateIds) {
+          if (!user && cid != null && /^\d+$/.test(String(cid))) {
+            user = await db.User.findByPk(Number(cid));
+            if (user) { }
+          }
+        }
+        if (!user && decoded.email) {
+          user = await db.User.findOne({ where: { Email: decoded.email } });
+          if (user) { }
+        }
+        const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
+        for (const uname of candidateUsernames) {
+          if (!user && uname) {
+            user = await db.User.findOne({ where: { NomeUsuario: uname } });
+            if (user) { }
+          }
+        }
+      }
+      // Try bearer token first; if not resolved and legacy differs, try legacy
+      await tryResolveFromJwt(bearerToken);
+      if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwt(legacyToken);
+      // Fallback: attempt legacy token if bearer failed
+      if (!user && legacyToken) {
+        if (/^\d+$/.test(legacyToken)) {
+          user = await db.User.findByPk(Number(legacyToken));
+          if (user) { }
+        }
+        if (!user) {
+          const Op = db.Sequelize && db.Sequelize.Op;
+          const whereLegacy = Op ? { [Op.or]: [{ NomeUsuario: legacyToken }, { Email: legacyToken }] } : { NomeUsuario: legacyToken };
+          user = await db.User.findOne({ where: whereLegacy });
+          if (user) { }
+        }
+      }
+      // Final fallback: interpret combined sessionToken (legacy-only scenario)
+      if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
+      if (!user) {
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+        user = await db.User.findOne({ where });
+      }
+      
+      if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+      const attempt = await db.ExamAttempt.findOne({
+        where: { UserId: user.Id || user.id, Status: 'finished' },
+        order: [['FinishedAt', 'DESC']],
+        attributes: ['Id','Corretas','Total','QuantidadeQuestoes','ScorePercent','Aprovado','StartedAt','FinishedAt','ExamTypeId','ExamMode']
+      });
+      if (!attempt) return res.status(204).end();
+
+      const correct = Number(attempt.Corretas != null ? attempt.Corretas : 0);
+      const total = Number(
+        attempt.Total != null ? attempt.Total : (attempt.QuantidadeQuestoes != null ? attempt.QuantidadeQuestoes : 0)
+      );
+      let scorePercent = null;
+      if (attempt.ScorePercent != null) {
+        scorePercent = Number(attempt.ScorePercent);
+        if (!Number.isFinite(scorePercent) && total > 0) scorePercent = (correct * 100.0) / total;
+      } else {
+        scorePercent = total > 0 ? (correct * 100.0) / total : 0;
+      }
+
+      // duration in seconds when both timestamps present
+      let durationSeconds = null;
+      try {
+        if (attempt.StartedAt && attempt.FinishedAt) {
+          const ms = new Date(attempt.FinishedAt) - new Date(attempt.StartedAt);
+          if (Number.isFinite(ms)) durationSeconds = Math.max(0, Math.round(ms / 1000));
+        }
+      } catch(_) { durationSeconds = null; }
+
+      return res.json({
+        correct,
+        total,
+        scorePercent,
+        approved: attempt.Aprovado == null ? null : !!attempt.Aprovado,
+        startedAt: attempt.StartedAt,
+        finishedAt: attempt.FinishedAt,
+        examTypeId: attempt.ExamTypeId || null,
+        durationSeconds,
+        examMode: attempt.ExamMode || null
+      });
+    } catch (err) {
+      logger.error('Erro lastAttemptSummary:', err);
+      return next(internalError('Internal error', 'INTERNAL_ERROR_LAST_SUMMARY'));
+    }
+  };
+
+  // GET /api/exams/history?limit=3
+  // Returns the last N finished attempts for the resolved user (default 3)
+  // Response: [{ correct,total,scorePercent,approved,startedAt,finishedAt,examTypeId,durationSeconds }]
+  // Used by: frontend/index.html (loadLastExamResults) para estilizar o gauge conforme regra dos últimos 3
+  exports.lastAttemptsHistory = async (req, res, next) => {
+    try {
+      // Allow up to 50 history items instead of previous cap 10
+      const limitRequested = Number(req.query.limit) || 3;
+      const limit = Math.max(1, Math.min(50, limitRequested));
+      
+      const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+      const authHeader = (req.get('Authorization') || '').trim();
+      let bearerToken = '';
+      if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
+      const sessionToken = bearerToken || legacyToken;
+      if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
+
+      let user = null;
+      
+      // Unified JWT decode attempt for history
+      async function tryResolveFromJwtHistory(raw) {
+        if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
+        let decoded = null;
+        try { decoded = jwt.verify(raw, jwtSecret); }
+        catch(e){
+          try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
+        }
+        if (!decoded) {
+          // Manual payload decode fallback
+            try {
+              const parts = raw.split('.');
+              if (parts.length === 3) {
+                const payloadB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+                const pad = payloadB64.length % 4; const padded = pad ? payloadB64 + '='.repeat(4-pad) : payloadB64;
+                const buf = Buffer.from(padded, 'base64');
+                const jsonStr = buf.toString('utf8');
+                decoded = JSON.parse(jsonStr);
+                
+              }
+            } catch(err){ }
+        }
+        if (!decoded) { return; }
+        const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
+        for (const cid of candidateIds) {
+          if (!user && cid != null && /^\d+$/.test(String(cid))) {
+            user = await db.User.findByPk(Number(cid));
+            if (user) { }
+          }
+        }
+        if (!user && decoded.email) {
+          user = await db.User.findOne({ where: { Email: decoded.email } });
+          if (user) { }
+        }
+        const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
+        for (const uname of candidateUsernames) {
+          if (!user && uname) {
+            user = await db.User.findOne({ where: { NomeUsuario: uname } });
+            if (user) { }
+          }
+        }
+      }
+      await tryResolveFromJwtHistory(bearerToken);
+      if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwtHistory(legacyToken);
+      // Fallback legacy token resolution if bearer failed
+      if (!user && legacyToken) {
+        if (/^\d+$/.test(legacyToken)) {
+          user = await db.User.findByPk(Number(legacyToken));
+          if (user) { }
+        }
+        if (!user) {
+          const Op = db.Sequelize && db.Sequelize.Op;
+          const whereLegacy = Op ? { [Op.or]: [{ NomeUsuario: legacyToken }, { Email: legacyToken }] } : { NomeUsuario: legacyToken };
+          user = await db.User.findOne({ where: whereLegacy });
+          if (user) { }
+        }
+      }
+      // Final fallback: combined sessionToken (legacy-only scenario)
+      if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
+      if (!user) {
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+        user = await db.User.findOne({ where });
+      }
+      
+      if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+      const attempts = await db.ExamAttempt.findAll({
+        where: { UserId: user.Id || user.id, Status: 'finished' },
+        order: [['FinishedAt', 'DESC']],
+        limit,
+        attributes: ['Id','Corretas','Total','QuantidadeQuestoes','ScorePercent','Aprovado','StartedAt','FinishedAt','ExamTypeId','ExamMode']
+      });
+      const out = (attempts || []).map(a => {
+        const correct = Number(a.Corretas != null ? a.Corretas : 0);
+        const total = Number(a.Total != null ? a.Total : (a.QuantidadeQuestoes != null ? a.QuantidadeQuestoes : 0));
+        let scorePercent = null;
+        if (a.ScorePercent != null) {
+          scorePercent = Number(a.ScorePercent);
+          if (!Number.isFinite(scorePercent) && total > 0) scorePercent = (correct * 100.0) / total;
+        } else {
+          scorePercent = total > 0 ? (correct * 100.0) / total : 0;
+        }
+        let durationSeconds = null;
+        try {
+          if (a.StartedAt && a.FinishedAt) {
+            const ms = new Date(a.FinishedAt) - new Date(a.StartedAt);
+            if (Number.isFinite(ms)) durationSeconds = Math.max(0, Math.round(ms / 1000));
+          }
+        } catch(_) { durationSeconds = null; }
+        return {
+          attemptId: a.Id, // added so frontend can link to review
+          id: a.Id,        // convenience alias for older UI fallbacks
+          correct,
+          total,
+          scorePercent,
+          approved: a.Aprovado == null ? null : !!a.Aprovado,
+          startedAt: a.StartedAt,
+          finishedAt: a.FinishedAt,
+          examTypeId: a.ExamTypeId || null,
+          durationSeconds,
+          examMode: a.ExamMode || null
+        };
+      });
+      return res.json(out);
+    } catch (err) {
+      logger.error('Erro lastAttemptsHistory:', err);
+      return next(internalError('Internal error', 'INTERNAL_ERROR_LAST_HISTORY'));
+    }
+  };
+
+  // POST /api/admin/exams/mark-abandoned
+  // Marks in-progress attempts as abandoned based on inactivity and low progress rules.
+  exports.markAbandonedAttempts = async (req, res) => {
+    try {
+      const db = require('../models');
+      const policies = require('../config/examPolicies');
+      const { computeAttemptProgress } = require('../utils/examProgress');
+      const now = Date.now();
+      const batchLimit = policies.BATCH_LIMIT || 250;
+      const attempts = await db.ExamAttempt.findAll({ where: { Status: 'in_progress' }, order: [['StartedAt', 'ASC']], limit: batchLimit });
+      let processed = 0; let markedTimeout = 0; let markedLowProgress = 0;
+      for (const attempt of attempts) {
+        processed++;
+        const lastActivity = attempt.LastActivityAt || attempt.StartedAt || new Date();
+        const hoursSinceActivity = (now - new Date(lastActivity).getTime()) / 3600000;
+        const isFull = String(attempt.ExamMode || '').toLowerCase() === 'full';
+        const inactivityLimit = isFull ? policies.INACTIVITY_TIMEOUT_FULL_HOURS : policies.INACTIVITY_TIMEOUT_DEFAULT_HOURS;
+        const progress = await computeAttemptProgress(db, attempt.Id);
+        const respondedPercent = progress.respondedPercent;
+        let reason = null;
+        if (hoursSinceActivity >= inactivityLimit) {
+          reason = 'timeout_inactivity'; markedTimeout++;
+        } else if (hoursSinceActivity >= policies.ABANDON_THRESHOLD_INACTIVITY_HOURS && respondedPercent < policies.ABANDON_THRESHOLD_PERCENT) {
+          reason = 'abandoned_low_progress'; markedLowProgress++;
+        }
+        if (reason) {
+          await db.ExamAttempt.update({ Status: 'abandoned', StatusReason: reason }, { where: { Id: attempt.Id } });
+          // Stats: increment abandoned count (categorize by reason)
+          try { await userStatsService.incrementAbandoned(attempt.UserId || attempt.UserID || attempt.user_id, reason); } catch(_) {}
+        }
+      }
+      return res.json({ ok: true, processed, markedTimeout, markedLowProgress });
+    } catch (err) {
+      logger.error('Erro markAbandonedAttempts:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  };
+
+  // POST /api/admin/exams/purge-abandoned
+  // Purges abandoned attempts older than policy age and low progress threshold.
+  exports.purgeAbandonedAttempts = async (req, res) => {
+    try {
+      const db = require('../models');
+      const policies = require('../config/examPolicies');
+      const { computeAttemptProgress } = require('../utils/examProgress');
+      const now = Date.now();
+      const cutoffMs = now - policies.PURGE_AFTER_DAYS * 86400000;
+      const batchLimit = policies.BATCH_LIMIT || 250;
+      const attempts = await db.ExamAttempt.findAll({ where: { Status: 'abandoned' }, order: [['StartedAt', 'ASC']], limit: batchLimit });
+      let inspected = 0; let purged = 0;
+      for (const attempt of attempts) {
+        inspected++;
+        const startedMs = new Date(attempt.StartedAt || new Date()).getTime();
+        if (startedMs > cutoffMs) continue;
+        const progress = await computeAttemptProgress(db, attempt.Id);
+        if (progress.respondedPercent >= policies.PURGE_LOW_PROGRESS_PERCENT) continue;
+        const snapshot = {
+          AttemptId: attempt.Id,
+          UserId: attempt.UserId || null,
+          ExamTypeId: attempt.ExamTypeId || null,
+          ExamMode: attempt.ExamMode || null,
+          QuantidadeQuestoes: attempt.QuantidadeQuestoes || null,
+          RespondedCount: progress.respondedCount,
+          RespondedPercent: progress.respondedPercent,
+          StatusBefore: attempt.Status,
+          StatusReasonBefore: attempt.StatusReason || null,
+          StartedAt: attempt.StartedAt || null,
+          FinishedAt: attempt.FinishedAt || null,
+          PurgeReason: 'policy',
+          Meta: attempt.Meta || null,
+        };
+        await db.sequelize.transaction(async (t) => {
+          await db.ExamAttemptPurgeLog.create(snapshot, { transaction: t });
+          const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attempt.Id }, attributes: ['Id'], transaction: t });
+          const aqIds = aqRows.map(r => r.Id);
+          if (aqIds.length) await db.ExamAttemptAnswer.destroy({ where: { AttemptQuestionId: aqIds }, transaction: t });
+          await db.ExamAttemptQuestion.destroy({ where: { AttemptId: attempt.Id }, transaction: t });
+          await db.ExamAttempt.destroy({ where: { Id: attempt.Id }, transaction: t });
+        });
+        purged++;
+        // Stats: increment purged count
+        try { await userStatsService.incrementPurged(attempt.UserId || attempt.UserID || attempt.user_id); } catch(_) {}
+      }
+      return res.json({ ok: true, inspected, purged });
+    } catch (err) {
+      logger.error('Erro purgeAbandonedAttempts:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  };
+
+// GET /api/exams/result/:attemptId
+// Returns the finished attempt's questions with correct flags and selected answers for review
+// Response shape expected by frontend pages examReviewFull.html/examReviewQuiz.html:
+// { total, questions: [{ id, descricao, texto, options: [{ id, texto, isCorrect|correta }] }], answers: { q_<id>: { optionId|optionIds } } }
+exports.getAttemptResult = async (req, res, next) => {
+  try {
+    const attemptId = Number(req.params.attemptId);
+    if (!Number.isFinite(attemptId) || attemptId <= 0) return next(badRequest('invalid attemptId', 'INVALID_ATTEMPT_ID'));
+
+    // Resolve user using Authorization Bearer or X-Session-Token (same policy as history)
+    const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
+    const authHeader = (req.get('Authorization') || '').trim();
+    let bearerToken = '';
+    if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
+    const sessionToken = bearerToken || legacyToken;
+    if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
+
+    let user = null;
+    async function tryResolveFromJwt(raw) {
+      if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
+      let decoded = null;
+      try { decoded = jwt.verify(raw, jwtSecret); }
+      catch(e){ try { decoded = jwt.decode(raw); } catch(_) { decoded = null; } }
+      if (!decoded) return;
+      const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
+      for (const cid of candidateIds) {
+        if (!user && cid != null && /^\d+$/.test(String(cid))) {
+          user = await db.User.findByPk(Number(cid));
+        }
+      }
+      if (!user && decoded.email) {
+        user = await db.User.findOne({ where: { Email: decoded.email } });
+      }
+      const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
+      for (const uname of candidateUsernames) {
+        if (!user && uname) {
+          user = await db.User.findOne({ where: { NomeUsuario: uname } });
+        }
+      }
+    }
+    await tryResolveFromJwt(bearerToken);
+    if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwt(legacyToken);
+    if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
+    if (!user) {
+      const Op = db.Sequelize && db.Sequelize.Op;
+      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
+      user = await db.User.findOne({ where });
+    }
+    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+    // Load attempt and ensure it belongs to resolved user and is finished
+    const attempt = await db.ExamAttempt.findOne({ where: { Id: attemptId, UserId: user.Id || user.id } });
+    if (!attempt) return next(notFound('attempt not found', 'ATTEMPT_NOT_FOUND'));
+    if (String(attempt.Status || '').toLowerCase() !== 'finished') {
+      // Allow viewing only finished attempts
+      return next(badRequest('attempt not finished', 'ATTEMPT_NOT_FINISHED'));
+    }
+
+    // Load ordered questions for this attempt
+    const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId }, order: [['Ordem', 'ASC']], attributes: ['Id','QuestionId','Ordem'] });
+    const questionIds = aqRows.map(r => Number(r.QuestionId)).filter(n => Number.isFinite(n));
+    const aqIdByQ = new Map(aqRows.map(r => [Number(r.QuestionId), Number(r.Id)]));
+    const total = questionIds.length;
+
+    // Fetch options with correctness flags + per-option explanation (explicacaoguia.descricao)
+    let rawOptions = [];
+    if (questionIds.length) {
+      try {
+        rawOptions = await sequelize.query(
+          `SELECT ro.id, ro.idquestao, ro.descricao, ro.iscorreta,
+                  eg.descricao AS explicacao
+             FROM respostaopcao ro
+             LEFT JOIN LATERAL (
+               SELECT e1.descricao
+                 FROM explicacaoguia e1
+                WHERE e1.idrespostaopcao = ro.id
+                  AND (e1.excluido = false OR e1.excluido IS NULL)
+                ORDER BY e1.dataalteracao DESC NULLS LAST, e1.datacadastro DESC NULLS LAST, e1.id DESC
+                LIMIT 1
+             ) eg ON TRUE
+            WHERE (ro.excluido = false OR ro.excluido IS NULL)
+              AND ro.idquestao IN (:ids)
+            ORDER BY ro.idquestao, ro.id`,
+          { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
+        );
+      } catch(_) { rawOptions = []; }
+    }
+    const optsByQ = new Map();
+    rawOptions.forEach(o => {
+      const qid = Number(o.idquestao || o.IdQuestao);
+      if (!Number.isFinite(qid)) return;
+      const arr = optsByQ.get(qid) || [];
+      const explicacao = (o.explicacao != null && String(o.explicacao).trim() !== '') ? String(o.explicacao) : null;
+      arr.push({
+        id: Number(o.id || o.Id),
+        texto: o.descricao || o.Descricao || '',
+        descricao: o.descricao || o.Descricao || '',
+        explicacao,
+        isCorrect: !!(o.iscorreta || o.IsCorreta),
+        correta: !!(o.iscorreta || o.IsCorreta)
+      });
+      optsByQ.set(qid, arr);
+    });
+
+    // Fetch answers selected for each AttemptQuestion
+    const aqIds = aqRows.map(r => Number(r.Id));
+    let ansRows = [];
+    if (aqIds.length) {
+      try {
+        ansRows = await db.ExamAttemptAnswer.findAll({ where: { AttemptQuestionId: aqIds }, attributes: ['AttemptQuestionId','OptionId','Resposta','Selecionada'] });
+      } catch(_) { ansRows = []; }
+    }
+    const selectedByAq = new Map();
+    ansRows.forEach(a => {
+      const aqid = Number(a.AttemptQuestionId);
+      const list = selectedByAq.get(aqid) || [];
+      if (a.OptionId != null && (a.Selecionada === true || a.Selecionada === 't')) list.push(Number(a.OptionId));
+      selectedByAq.set(aqid, list);
+    });
+
+    const questions = questionIds.map((qid) => ({ id: qid, descricao: null, texto: null, options: optsByQ.get(qid) || [] }));
+    // Populate question text/descricao from questao table for completeness
+    try {
+      if (questionIds.length) {
+        const qRows = await sequelize.query(
+          `SELECT id, descricao FROM questao WHERE id IN (:ids)`,
+          { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
+        );
+        const txtById = new Map((qRows || []).map(r => [Number(r.id || r.Id), String(r.descricao || r.Descricao || '')]));
+        for (const q of questions) { const t = txtById.get(Number(q.id)); if (t != null) { q.descricao = t; q.texto = t; } }
+      }
+    } catch(_) { /* ignore */ }
+
+    // Build answers map keyed by q_<id>
+    const answers = {};
+    for (const qid of questionIds) {
+      const aqid = aqIdByQ.get(Number(qid));
+      const selected = (aqid != null) ? (selectedByAq.get(Number(aqid)) || []) : [];
+      const key = 'q_' + String(qid);
+      if (selected.length > 1) answers[key] = { optionIds: selected };
+      else if (selected.length === 1) answers[key] = { optionId: selected[0] };
+      else answers[key] = { optionIds: [] };
+    }
+
+    return res.json({ total, questions, answers });
+  } catch (err) {
+    logger.error('Erro getAttemptResult:', err);
+    return next(internalError('Internal error', 'INTERNAL_ERROR_GET_ATTEMPT_RESULT'));
   }
 };

@@ -24,11 +24,11 @@ function csrfProtection(req, res, next) {
 
   // Get token from header or body
   const tokenFromRequest = req.headers['x-csrf-token'] || 
-                          req.body._csrf || 
-                          req.query._csrf;
+                          (req.body && req.body._csrf) || 
+                          (req.query && req.query._csrf);
   
   // Get token from cookie
-  const tokenFromCookie = req.cookies.csrfToken;
+  const tokenFromCookie = req.cookies && req.cookies.csrfToken;
 
   // Validate token exists
   if (!tokenFromRequest || !tokenFromCookie) {
@@ -128,7 +128,7 @@ function generateCsrfToken(req, res) {
   // Store token with metadata
   tokenStore.set(token, {
     createdAt: Date.now(),
-    sessionId: req.cookies.sessionToken || 'anonymous'
+    sessionId: (req.cookies && req.cookies.sessionToken) || 'anonymous'
   });
 
   // Set cookie with token

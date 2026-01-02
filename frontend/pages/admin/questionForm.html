@@ -104,7 +104,10 @@
     </div>
 
     <section id="sec-nova" class="tab-section active">
-      <h1>Cadastrar Questão</h1>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0;">Cadastrar Questão</h1>
+        <button class="btn secondary" id="deleteQuestionNova" type="button">Excluir</button>
+      </div>
 
       <div class="row">
       <label for="descricao">Enunciado</label>
@@ -218,7 +221,10 @@
     </section>
 
     <section id="sec-nav" class="tab-section">
-      <h1>Navegação de Questões</h1>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0;">Navegação de Questões</h1>
+        <button class="btn secondary" id="deleteQuestionNav" type="button">Excluir</button>
+      </div>
 
       <div class="row inline" style="align-items:flex-end;">
         <div>
@@ -1250,6 +1256,45 @@
       }
     }
 
+    async function deleteCurrentQuestion(){
+      const id = Number(navState.currentId);
+      if (!Number.isFinite(id) || id <= 0) {
+        alert('Nenhuma questão carregada. Use a aba Navegação para selecionar uma questão.');
+        return;
+      }
+      const ok = confirm(`Excluir a questão ID ${id}?\n\nEsta ação apaga definitivamente a questão, alternativas e explicações (hard delete).`);
+      if (!ok) return;
+
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/${id}`;
+        const resp = await fetch(url, { method: 'DELETE', headers: { 'X-Session-Token': token } });
+        if (!resp.ok) {
+          const txt = await resp.text().catch(()=> '');
+          alert('Erro ao excluir: ' + (txt || resp.status));
+          return;
+        }
+        navSetStatus('Questão excluída. Carregando próxima...');
+
+        // Refresh cached IDs and move to a nearby question.
+        navState.allIds = [];
+        navState.lastFetch = 0;
+        const nextId = await navFindAdjacentId(id, 'next');
+        if (nextId) await navLoadById(nextId);
+        else {
+          const prevId = await navFindAdjacentId(id, 'prev');
+          if (prevId) await navLoadById(prevId);
+          else {
+            navState.currentId = null;
+            navSetStatus('Nenhuma questão encontrada');
+          }
+        }
+      } catch(e){
+        logger.error('[deleteCurrentQuestion] error:', e);
+        alert('Falha ao excluir a questão');
+      }
+    }
+
     function normalizeDescricaoKey(s){
       return String(s || '').trim().toLowerCase();
     }
@@ -1440,6 +1485,10 @@
       if (!Number.isFinite(id)) { navSetStatus('ID inválido'); return; }
       await navLoadById(id);
     });
+
+    // Excluir buttons (same behavior)
+    $('deleteQuestionNova').addEventListener('click', deleteCurrentQuestion);
+    $('deleteQuestionNav').addEventListener('click', deleteCurrentQuestion);
 
     $('addOptNav').onclick = function(e){ e.preventDefault(); $('optsNav').appendChild(makeOptRowNav()); };
     $('clearOptsNav').onclick = function(e){ e.preventDefault(); $('optsNav').innerHTML=''; ensureAtLeastTwoNav(); };

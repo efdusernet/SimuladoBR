@@ -479,8 +479,13 @@ exports.deleteQuestion = async (req, res, next) => {
 			}
 
 			// Hard-delete in FK-safe order: explicacaoguia -> respostaopcao -> questao
+			// NOTE: some deployments don't have explicacaoguia.idquestao (legacy schema),
+			// so delete by linked option ids (idrespostaopcao) instead.
 			const delEg = await sequelize.query(
-				'DELETE FROM public.explicacaoguia WHERE idquestao = :id',
+				`DELETE FROM public.explicacaoguia
+				 WHERE idrespostaopcao IN (
+					SELECT id FROM public.respostaopcao WHERE idquestao = :id
+				 )`,
 				{ replacements: { id }, transaction: t }
 			);
 			result.deleted.explicacaoguia = Array.isArray(delEg) ? (delEg[1] && typeof delEg[1].rowCount === 'number' ? delEg[1].rowCount : (typeof delEg[1] === 'number' ? delEg[1] : 0)) : 0;

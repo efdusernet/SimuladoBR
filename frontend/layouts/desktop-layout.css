@@ -1,0 +1,300 @@
+/**
+ * Desktop Layout Styles
+ * Layout: Sidebar fixa (280px) + Área de conteúdo
+ */
+
+/* Custom Properties Desktop */
+:root {
+  --sidebar-width: 280px;
+  --sidebar-bg: #1e293b;
+  --sidebar-text: #e2e8f0;
+  --sidebar-hover: #334155;
+  --sidebar-active: #4f46e5;
+  --content-max-width: 1200px;
+  --header-height: 60px;
+  --desktop-padding: 2rem;
+}
+
+/* Two-Column Layout Desktop */
+body[data-layout="desktop"] {
+  display: flex;
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background: #f8fafc;
+}
+
+/* Sidebar Container - Coluna Esquerda Fixa */
+body[data-layout="desktop"] #sidebarMount {
+  display: block !important;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--sidebar-bg);
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Content Area - Coluna Direita */
+body[data-layout="desktop"] .content {
+  margin-left: var(--sidebar-width);
+  flex: 1;
+  padding: 1rem;
+  min-height: 100vh;
+  background: #f8fafc;
+  width: calc(100% - var(--sidebar-width));
+  color: #fff;
+}
+
+/* Esconder bottom-nav no desktop */
+body[data-layout="desktop"] #bottomNavMount {
+  display: none !important;
+}
+
+/* Ocultar botão admin no desktop (agora está no sidebar) */
+body[data-layout="desktop"] #adminMenuBtn,
+body[data-layout="desktop"] #adminMenuPanel {
+  display: none !important;
+}
+
+/* Posicionamento do botão de notificações no desktop - dentro da área de conteúdo */
+body[data-layout="desktop"] #notifBellBtn {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  left: auto !important;
+  z-index: 2300;
+}
+
+body[data-layout="desktop"] #notifPanel {
+  position: fixed !important;
+  top: 64px !important;
+  right: 20px !important;
+  left: auto !important;
+}
+
+/* Cards em desktop: transforma grid 2x2 em lista linear */
+body[data-layout="desktop"] .section {
+  margin-bottom: 2rem;
+}
+
+body[data-layout="desktop"] .section.active {
+  display: block;
+}
+
+/* Reduzir padding/margin das sections carregadas dinamicamente */
+body[data-layout="desktop"] #exam-setup,
+body[data-layout="desktop"] #progresso-geral {
+  padding: 0;
+  margin: 0;
+}
+
+body[data-layout="desktop"] #exam-setup > *,
+body[data-layout="desktop"] #progresso-geral > * {
+  max-width: 100%;
+}
+
+/* Esconder elementos desnecessários do progressoGeral carregado dinamicamente */
+body[data-layout="desktop"] #progresso-geral .menu-toggle,
+body[data-layout="desktop"] #progresso-geral .nav-menu {
+  display: none !important;
+}
+
+/* Resetar estilos do main.content dentro do progresso-geral */
+body[data-layout="desktop"] #progresso-geral main.content {
+  margin-left: 0 !important;
+  padding: 0 !important;
+  overflow-y: visible !important;
+  flex: none !important;
+}
+
+/* Alinhar container à esquerda */
+body[data-layout="desktop"] #progresso-geral .container {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  padding-left: 0 !important;
+}
+
+/* Transforma card-grid de 2x2 para lista vertical */
+body[data-layout="desktop"] .card-grid {
+  display: flex !important;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 100%;
+  margin: 1.5rem 0;
+}
+
+/* Cards viram itens de lista: largura total, layout horizontal */
+body[data-layout="desktop"] .card {
+  width: 83% !important;
+  height: auto !important;
+  min-height: 64px;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-direction: row !important;
+  position: relative;
+  overflow: hidden;
+}
+
+body[data-layout="desktop"] .card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.8),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+body[data-layout="desktop"] .card:hover::before {
+  left: 100%;
+}
+
+body[data-layout="desktop"] .card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transform: translateX(4px);
+  background: linear-gradient(135deg, #e8e8e8 0%, #c8c8c8 100%);
+}
+
+/* Ícones ficam à esquerda */
+body[data-layout="desktop"] .card .thumb,
+body[data-layout="desktop"] .card .card-img {
+  width: 40px !important;
+  height: 40px !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+/* Labels ficam ao lado do ícone */
+body[data-layout="desktop"] .card .card-label {
+  flex: 1;
+  text-align: left !important;
+  font-size: 1rem !important;
+  font-weight: 500;
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+/* Remover pseudo-element de overlay dos gradientes */
+body[data-layout="desktop"] .card::after {
+  display: none !important;
+}
+
+/* Header desktop */
+body[data-layout="desktop"] .desktop-header {
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--header-height);
+}
+
+body[data-layout="desktop"] .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+body[data-layout="desktop"] .breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+body[data-layout="desktop"] .breadcrumb-item:not(:last-child)::after {
+  content: '›';
+  margin-left: 0.5rem;
+  color: #cbd5e1;
+}
+
+body[data-layout="desktop"] .breadcrumb-item.active {
+  color: #0f172a;
+  font-weight: 500;
+}
+
+/* Animações */
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+body[data-layout="desktop"] #sidebarMount {
+  animation: slideInFromLeft 0.3s ease-out;
+}
+
+/* Responsividade Desktop */
+@media (min-width: 768px) and (max-width: 1024px) {
+  body[data-layout="desktop"] .cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --sidebar-width: 320px;
+  }
+  
+  body[data-layout="desktop"] .content {
+    max-width: calc(100vw - var(--sidebar-width));
+  }
+}
+
+/* Estados de loading */
+body[data-layout="desktop"] .loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 25%,
+    #e2e8f0 50%,
+    #f1f5f9 75%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Acessibilidade */
+body[data-layout="desktop"] :focus-visible {
+  outline: 2px solid var(--sidebar-active);
+  outline-offset: 2px;
+}
+
+/* Performance */
+body[data-layout="desktop"] #sidebarMount {
+  contain: layout style;
+  will-change: transform;
+}

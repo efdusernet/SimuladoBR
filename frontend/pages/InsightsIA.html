@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <script src="/utils/layoutManager.js"></script>
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/logout.js"></script>
+  <!-- Support chat widget (served via backend /chat proxy) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Insights da IA</title>
+  <link rel="stylesheet" href="/layouts/mobile-layout.css">
+  <link rel="stylesheet" href="/layouts/desktop-layout.css" media="(min-width: 768px)">
+  <link rel="stylesheet" href="/layouts/fullscreen-layout.css">
+  <style>
+    :root{
+      --primary: #0b5ed7;
+      --muted: #6c757d;
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --subtext: #334155;
+    }
+    body{ margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+    h1{ font-size:1rem; margin:12px 8px; font-weight:600; padding-left:8px; }
+
+    .menu-toggle{
+      position: fixed; top: 8px; left: 8px; z-index: 1100;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 8px;
+      border: 1px solid #d6d9e0; background:#fff; cursor:pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover{ background:#f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile{
+      display:inline-block; width: 18px; height: 2px; background: #333; border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    .menu-panel{
+      position: fixed; top: 44px; left: 8px; z-index: 1099;
+      background:#fff; border:1px solid #d6d9e0; border-radius:10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px; padding: 6px; display:none;
+    }
+    .menu-panel.open{ display:block; }
+    .menu-panel a{ display:block; padding: 6px 8px; color:#222; text-decoration:none; border-radius:6px; }
+    .menu-panel a:hover{ background:#f4f7fb; }
+
+    /* Quando estiver no desktop (layout com sidebar), este menu mobile não deve aparecer */
+    body[data-layout='desktop'] .menu-toggle{ display: none !important; }
+    body[data-layout='desktop'] .menu-panel{ display: none !important; }
+
+    /* Igual ao background de .content no index.html (mobile/fullscreen): gradiente escuro */
+    .wrap{
+      padding: 0 8px 16px;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
+                  radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+                  linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
+    }
+
+    .controls{
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap: wrap;
+    }
+    .controls label{ font-size: 0.75rem; font-weight: 700; color: var(--subtext); }
+    .controls input{
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      min-width: 240px;
+    }
+    .controls button{
+      padding: 8px 12px;
+      border: 1px solid var(--primary);
+      background: var(--primary);
+      color: #fff;
+      border-radius: 8px;
+      cursor:pointer;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+    .controls button:disabled{
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .grid{
+      margin-top: 10px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .card{
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .card h2{ margin:0 0 6px; font-size: 0.75rem; color: var(--subtext); }
+    .value{ font-size: 1.15rem; font-weight: 800; color: var(--text); }
+
+    .section{
+      margin-top: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .section-title{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .section-title h2{ margin:0; font-size:0.85rem; }
+    .badge{
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #0f172a;
+      background:#f1f5f9;
+      border:1px solid #e2e8f0;
+      padding: 4px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    ul{ margin: 8px 0 0; padding-left: 18px; color: var(--subtext); }
+    li{ margin: 4px 0; font-size: 0.85rem; line-height: 1.35; }
+    .empty{ color: #64748b; }
+    .kv{ display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; margin-top: 6px; }
+    .k{ font-size: 0.75rem; font-weight: 800; color: var(--subtext); }
+    .v{ font-size: 0.85rem; color: var(--text); }
+    .muted{ color: #64748b; }
+    .split{ display:grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+    .split .card{ padding: 8px 10px; }
+    .split h3{ margin:0 0 6px; font-size: 0.8rem; color: var(--subtext); }
+    .small{ font-size: 0.8rem; color: var(--subtext); }
+
+    .tb-card{ display:flex; gap:10px; align-items:flex-start; }
+    .tb-list{ flex: 1 1 auto; min-width: 0; }
+    .tb-chart{ flex: 0 0 120px; width: 120px; }
+    .tb-chart svg{ width: 120px; height: 82px; display:block; }
+    /* Nota no rodapé do card com altura mínima (sem sobrepor conteúdo) */
+    .tb-has-note{
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      align-items: start;
+    }
+    .tb-has-note .tb-note{ margin-top: 8px; text-align: left; }
+    /* Limita a coluna da lista para não empurrar o gráfico para a direita */
+    .tb-has-note .tb-card{
+      display: grid;
+      grid-template-columns: fit-content(360px) 120px;
+      column-gap: 10px;
+      align-items: start;
+    }
+    .tb-has-note .tb-list{ min-width: 0; }
+    .tb-has-note .tb-chart{ justify-self: start; }
+    @media (max-width: 420px){
+      .tb-card{ flex-direction: column; }
+      .tb-chart{ width: 100%; flex-basis: auto; }
+      .tb-chart svg{ width: 100%; }
+    }
+    /* No mobile mantém comportamento; só ajusta espaçamento natural */
+    @media (max-width: 420px){
+      .tb-has-note .tb-note{ margin-top: 10px; }
+      .tb-has-note .tb-card{ grid-template-columns: 1fr; }
+      .tb-has-note .tb-chart{ width: 100%; }
+    }
+    @media (min-width: 640px){
+      .split{ grid-template-columns: 1fr 1fr; }
+    }
+
+    .chart{ margin-top: 8px; width: 100%; overflow:hidden; }
+
+    #loading{ display:none; margin-top: 10px; font-size: 0.85rem; color: #64748b; }
+    #error{ display:none; margin-top: 10px; font-size: 0.85rem; color: #b91c1c; }
+
+    @media (min-width: 640px){
+      h1{ font-size:1.1rem; margin:16px; padding-left:35px; }
+      .wrap{ padding: 0 16px 24px; }
+      .grid{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+
+    /* Desktop layout (LayoutManager): manter aparência clara dentro de .content */
+    body[data-layout='desktop'] .content{ background: var(--bg) !important; color: var(--text) !important; }
+
+    /* KPI cards: manter valor abaixo do texto mesmo no desktop-layout global (.card flex-row) */
+    body[data-layout='desktop'] .grid .kpi-card{
+      display: block !important;
+    }
+    body[data-layout='desktop'] .grid .kpi-card .value{
+      display: block;
+    }
+
+    /* Cards com nota (IND12): não herdar flex-row do desktop-layout global */
+    body[data-layout='desktop'] .tb-has-note{
+      display: grid !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebarMount"></div>
+  <main class="content">
+    <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+      <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+    </button>
+    <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+      <a href="/" rel="noopener">Início (Menu)</a>
+      <a href="/pages/Indicadores.html" rel="noopener">Indicadores</a>
+      <a href="/pages/progressoGeral.html" rel="noopener">Progresso Geral</a>
+      <a href="#" class="page-logout">Sair</a>
+    </nav>
+
+    <div class="wrap">
+      <div aria-label="Cabeçalho Insights da IA" style="background: linear-gradient(135deg, rgb(79, 70, 229), rgb(67, 56, 202)); color: rgb(255, 255, 255); padding: 12px 14px; border-radius: 8px; margin: 0px 0px 10px; display: flex; align-items: center; justify-content: space-between; position: relative; top: 5px;"><div style="font-size: 0.92rem; font-weight: 700; ">Insights da IA</div></div>
+
+      <div class="controls" aria-label="Controles">
+        <button id="btnCarregar" type="button">Atualizar</button>
+        <span id="lastUpdated" class="muted small">Última atualização: —</span>
+        <span class="muted small">Usuário: <strong id="meEmail">—</strong></span>
+      </div>
+
+      <div id="loading">Carregando insights...</div>
+      <div id="error">Falha ao carregar. Verifique login e servidor.</div>
+
+      <div class="grid" aria-label="KPIs">
+        <div class="card kpi-card">
+          <h2>Sua escala de preparação de 0 a 100</h2>
+          <div class="value" id="kpiReadiness">—</div>
+        </div>
+        <div class="card kpi-card">
+          <h2>Consistência (dias ativos)</h2>
+          <div class="value" id="kpiConsistency">—</div>
+        </div>
+        <div class="card kpi-card">
+          <h2>Score médio (período)</h2>
+          <div class="value" id="kpiAvgScore">—</div>
+        </div>
+        <div class="card kpi-card">
+          <h2>Taxa de conclusão</h2>
+          <div class="value" id="kpiCompletion">—</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          <h2 id="aiHeadline">Insights</h2>
+          <div class="badge" id="ollamaBadge">—</div>
+        </div>
+        <ul id="aiInsights"></ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><h2>Alertas / Riscos</h2></div>
+        <ul id="aiRisks"></ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><h2>Ações sugeridas (7 dias)</h2></div>
+        <ul id="aiActions"></ul>
+      </div>
+
+      <div class="section" id="indicatorsSection">
+        <div class="section-title"><h2>Indicadores (IND1–IND7 e IND9–IND12)</h2></div>
+        <div id="indicatorsErrors" class="small" style="display:none"></div>
+        <div id="indicatorsBox" class="small"><span class="muted">—</span></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><h2>Evolução do score (média diária)</h2></div>
+        <div class="chart" id="chartScore"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><h2>Taxas: conclusão x abandono</h2></div>
+        <div class="chart" id="chartRates"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function(){
+      const menuToggle = document.getElementById('menuToggle');
+      const pageMenu = document.getElementById('pageMenu');
+      function setOpen(open){
+        pageMenu.classList.toggle('open', open);
+        pageMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+        menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      menuToggle.addEventListener('click', () => setOpen(!pageMenu.classList.contains('open')));
+      document.addEventListener('click', (e) => {
+        if (!pageMenu.classList.contains('open')) return;
+        if (pageMenu.contains(e.target) || menuToggle.contains(e.target)) return;
+        setOpen(false);
+      });
+    })();
+  </script>
+  <script>
+    (function(){
+      function initLayout(){
+        try {
+          if (window.LayoutManager && typeof window.LayoutManager.init === 'function') {
+            window.LayoutManager.init();
+          }
+        } catch(_){ }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLayout);
+      } else {
+        initLayout();
+      }
+    })();
+  </script>
+  <script src="/script_ai_insights.js"></script>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat Widget Host</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        margin: 0;
+        background: #f6f7f9;
+        color: #111;
+      }
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 32px 20px 80px;
+      }
+      .top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: -0.02em;
+      }
+      .sub {
+        margin: 8px 0 0;
+        color: #444;
+        max-width: 70ch;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e6e6e6;
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin-top: 18px;
+      }
+      @media (min-width: 880px) {
+        .grid { grid-template-columns: 1.2fr 0.8fr; }
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        background: #f2f2f2;
+        border: 1px solid #e6e6e6;
+        padding: 2px 6px;
+        border-radius: 8px;
+      }
+      pre {
+        margin: 10px 0 0;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 12px;
+        padding: 12px;
+        overflow: auto;
+        font-size: 12px;
+      }
+      .status {
+        margin: 0;
+        font-size: 13px;
+        color: #b00020;
+      }
+      .hint {
+        margin: 10px 0 0;
+        font-size: 13px;
+        color: #444;
+        line-height: 1.45;
+      }
+      .list { margin: 8px 0 0; padding-left: 18px; color: #444; }
+      .list li { margin: 6px 0; }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 160px;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      @media (max-width: 520px) {
+        .row { grid-template-columns: 1fr; }
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: #444;
+        margin-bottom: 6px;
+      }
+      input, select, button {
+        font: inherit;
+      }
+      input[type="text"], input[type="password"], select {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #e6e6e6;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #fff;
+      }
+      .btn {
+        border: 1px solid #0f172a;
+        background: #0f172a;
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+      .btn.secondary {
+        background: #fff;
+        color: #0f172a;
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+      }
+      .ok {
+        color: #0b6;
+        font-size: 13px;
+        margin: 10px 0 0;
+      }
+      .err {
+        color: #b00020;
+        font-size: 13px;
+        margin: 10px 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+    <link rel="icon" href="data:," />
+      <div class="top">
+        <div>
+          <h1>Chat Widget Host</h1>
+          <p class="sub">Página de demonstração para validar o widget embeddable. Se o botão flutuante aparecer no canto inferior direito, o widget carregou corretamente.</p>
+        </div>
+        <div class="card" style="min-width: 280px;">
+          <p id="widget-status" class="status">Widget: aguardando…</p>
+          <div class="hint">API configurada: <code>http://localhost:4010</code></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div style="font-weight: 700;">Como testar</div>
+          <ul class="list">
+            <li>Suba o serviço: <code>npm run dev</code></li>
+            <li>Abra esta página e procure o botão do chat no canto</li>
+            <li>Envie uma mensagem pelo widget e veja no painel <code>/admin</code></li>
+          </ul>
+
+          <div style="font-weight: 700; margin-top: 12px;">Embed usado aqui</div>
+          <pre>&lt;script
+  src="http://localhost:4010/widget/chat-widget.js"
+  data-chat-api="http://localhost:4010"
+  data-chat-title="Suporte"
+&gt;&lt;/script&gt;</pre>
+        </div>
+
+        <div class="card">
+          <div style="font-weight: 700;">Dicas</div>
+          <ul class="list">
+            <li>Se o widget não aparecer, verifique <code>/health</code> na API.</li>
+            <li>Se o admin estiver em outro host, configure o <code>API Base</code> no painel e ajuste <code>CORS_ORIGINS</code>.</li>
+          </ul>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1;">
+          <div style="font-weight: 700;">Convites por email</div>
+          <p class="hint">Crie convites para novos usuários do painel. Você escolhe o papel (<b>Admin</b> ou <b>Agente</b>) e pode adicionar vários emails.</p>
+
+          <div class="row">
+            <div>
+              <label for="invite-api">API Base</label>
+              <input id="invite-api" type="text" value="http://localhost:4010" placeholder="http://localhost:4010" />
+            </div>
+            <div>
+              <label for="invite-token">Token admin/root</label>
+              <input id="invite-token" type="password" placeholder="Bearer ..." />
+            </div>
+          </div>
+
+          <div id="invite-rows" style="margin-top: 10px;"></div>
+
+          <div class="actions">
+            <button id="invite-add" class="btn secondary" type="button">Adicionar outro</button>
+            <button id="invite-send" class="btn" type="button">Enviar convites</button>
+          </div>
+
+          <div id="invite-msg" class="hint" style="margin-top: 10px;"></div>
+          <div id="invite-results" style="margin-top: 10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="http://localhost:4010/widget/chat-widget.js"
+      data-chat-api="http://localhost:4010"
+      data-chat-title="Suporte"
+    ></script>
+
+    <script>
+      (function () {
+        var el = document.getElementById('widget-status');
+        function update() {
+          var ok = false;
+          try { ok = !!window.__chatServiceWidgetLoaded; } catch (e) { ok = false; }
+          if (ok) {
+            el.style.color = '#0b6';
+            el.textContent = 'Widget: script carregado (deve aparecer o botão no canto).';
+          } else {
+            el.style.color = '#b00020';
+            el.textContent = 'Widget: script NÃO carregou. Verifique se http://localhost:4010 está rodando e se o navegador não bloqueou o script.';
+          }
+        }
+        setTimeout(update, 500);
+      })();
+    </script>
+
+    <script>
+      (function () {
+        var rowsEl = document.getElementById('invite-rows');
+        var addBtn = document.getElementById('invite-add');
+        var sendBtn = document.getElementById('invite-send');
+        var apiEl = document.getElementById('invite-api');
+        var tokenEl = document.getElementById('invite-token');
+        var msgEl = document.getElementById('invite-msg');
+        var resultsEl = document.getElementById('invite-results');
+
+        function setMsg(kind, text) {
+          msgEl.className = kind === 'err' ? 'err' : (kind === 'ok' ? 'ok' : 'hint');
+          msgEl.textContent = text || '';
+        }
+
+        function createRow() {
+          var wrap = document.createElement('div');
+          wrap.className = 'row';
+          wrap.innerHTML =
+            '<div>' +
+              '<label>Email</label>' +
+              '<input class="invite-email" type="text" placeholder="nome@empresa.com" />' +
+            '</div>' +
+            '<div>' +
+              '<label>Papel</label>' +
+              '<select class="invite-role">' +
+                '<option value="attendant">Agente</option>' +
+                '<option value="admin">Admin</option>' +
+              '</select>' +
+            '</div>';
+          return wrap;
+        }
+
+        function addRow(initialEmail, initialRole) {
+          var r = createRow();
+          var email = r.querySelector('.invite-email');
+          var role = r.querySelector('.invite-role');
+          if (initialEmail) email.value = initialEmail;
+          if (initialRole) role.value = initialRole;
+          rowsEl.appendChild(r);
+        }
+
+        function getInvites() {
+          var emails = rowsEl.querySelectorAll('.invite-email');
+          var roles = rowsEl.querySelectorAll('.invite-role');
+          var invites = [];
+          for (var i = 0; i < emails.length; i++) {
+            var e = (emails[i].value || '').trim();
+            var r = (roles[i].value || 'attendant').trim();
+            if (!e) continue;
+            invites.push({ email: e, role: r });
+          }
+          return invites;
+        }
+
+        function normalizeApiBase(v) {
+          var s = String(v || '').trim();
+          if (!s) return '';
+          return s.replace(/\/+$/, '');
+        }
+
+        function extractToken(v) {
+          var s = String(v || '').trim();
+          if (!s) return '';
+          // Accept pasted "Bearer xxx" or raw token.
+          s = s.replace(/^Bearer\s+/i, '').trim();
+          // If user pastes decorated token, attempt to extract 64-hex.
+          var m = s.match(/[a-f0-9]{64}/i);
+          if (m) return m[0];
+          return s;
+        }
+
+        function escapeHtml(s) {
+          return String(s).replace(/[&<>"']/g, function (c) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+          });
+        }
+
+        async function sendInvites() {
+          resultsEl.innerHTML = '';
+          setMsg('hint', 'Enviando…');
+
+          var apiBase = normalizeApiBase(apiEl.value);
+          var token = extractToken(tokenEl.value);
+          var invites = getInvites();
+
+          if (!apiBase) {
+            setMsg('err', 'Informe o API Base');
+            return;
+          }
+          if (!token) {
+            setMsg('err', 'Informe o token admin/root');
+            return;
+          }
+          if (invites.length < 1) {
+            setMsg('err', 'Adicione ao menos um email');
+            return;
+          }
+
+          sendBtn.disabled = true;
+          addBtn.disabled = true;
+          try {
+            var resp = await fetch(apiBase + '/v1/admin/invites', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token,
+              },
+              body: JSON.stringify({ invites: invites, apiBase: apiBase }),
+            });
+
+            var data = null;
+            try { data = await resp.json(); } catch (e) { data = null; }
+            if (!resp.ok || !data || !data.ok) {
+              var msg = (data && (data.error || data.message)) ? String(data.error || data.message) : ('HTTP ' + resp.status);
+              setMsg('err', 'Erro ao enviar: ' + msg);
+              return;
+            }
+
+            if (data.smtpEnabled) {
+              setMsg('ok', 'Convites gerados e emails enviados (SMTP).');
+            } else {
+              setMsg('err', 'SMTP não configurado na API. Copie os tokens abaixo e envie manualmente.');
+            }
+
+            var html = '<div class="hint">Resultados:</div>';
+            html += '<div class="card" style="padding: 12px; margin-top: 8px;">';
+            html += '<div class="mono" style="white-space: pre-wrap;">';
+            for (var i = 0; i < data.results.length; i++) {
+              var r = data.results[i];
+              if (r && r.ok) {
+                var status = r.sent ? 'ENVIADO' : ('FALHOU' + (r.emailError ? (' (' + r.emailError + ')') : ''));
+                html += escapeHtml(r.email) + ' [' + escapeHtml(r.role) + '] — ' + escapeHtml(status) + '\n' +
+                  'token: ' + escapeHtml(r.token) + '\n\n';
+              } else {
+                html += escapeHtml((r && r.email) || '(sem email)') + ': ERRO ' + escapeHtml((r && r.error) || 'UNKNOWN') + '\n';
+              }
+            }
+            html += '</div></div>';
+            resultsEl.innerHTML = html;
+          } catch (err) {
+            setMsg('err', 'Falha de rede/CORS: ' + (err && err.message ? err.message : String(err)));
+          } finally {
+            sendBtn.disabled = false;
+            addBtn.disabled = false;
+          }
+        }
+
+        addBtn.addEventListener('click', function () {
+          addRow('', 'attendant');
+        });
+        sendBtn.addEventListener('click', function () {
+          sendInvites();
+        });
+
+        // Start with one row.
+        addRow('', 'attendant');
+      })();
+    </script>
+  </body>
+</html>

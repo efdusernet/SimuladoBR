@@ -2,107 +2,762 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
+  <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
+  <script src="/utils/csrf.js"></script>
+  <!-- Support chat widget (served via backend /chat proxy) -->
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Simulado — Exame Completo</title>
+  <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
+  <link rel="stylesheet" href="../dist/styles.css" />
   <link rel="stylesheet" href="../styles.css" />
   <meta name="description" content="Exame completo com 180 questões" />
 </head>
 <body>
+  
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
     <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
   </header>
-  <p id="status" style="max-width:900px;margin:10px auto 0;display:none;padding:0 18px;color:#333"></p>
-  <div id="autosaveIndicator" style="max-width:900px;margin:4px auto 0;padding:0 18px;color:var(--muted);font-size:0.95rem;display:none;"></div>
+  
   <div id="toast" class="toast" aria-live="polite" style="display:none"></div>
+  
 
-  <main class="exam-container" role="main">
-    <header class="exam-header">
-      <div class="header-left" aria-hidden="true"></div>
-
-      <div class="header-center" id="centerHeader">
-        <div class="knowledge-area" id="knowledgeArea" aria-live="polite">
-          <strong>Exame Completo</strong>
-          <div class="muted" style="font-size:12px;">180 questões</div>
-        </div>
+  <main class="exam-container" role="main" style="margin-top:8px;">
+    <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
+      <div class="header-left">
         <div class="timer" id="timerBox" aria-live="polite" title="Tempo decorrido">
           <span id="timerDisplay">00:00</span>
+          <span id="pauseBadge" class="pause-badge" style="display:none; margin-left:8px; background:#fff3cd; color:#8a6d3b; border:1px solid #ffeeba; border-radius:999px; padding:2px 8px; font-size:12px; line-height:1.2;">Em pausa 10:00</span>
+        </div>
+      </div>
+
+      <div class="header-center" id="centerHeader">
+        <div class="resource-Buttons" id="resource-buttons" aria-live="polite">
+          <div class="inline-flex">
+            <button class="rounded-l-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bmark">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M6 2h12c.55 0 1 .45 1 1v17l-7-3-7 3V3c0-.55.45-1 1-1z"></path>
+              </svg>
+              Marcar questão
+            </button>
+
+            <button class="-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bgrid">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <!-- Grid icon (3x3 squares) -->
+                <rect x="3" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="3" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="3" y="17" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="17" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="17" width="4" height="4" rx="0.8"></rect>
+              </svg>
+              Grid de questões
+            </button>
+          </div>
         </div>
       </div>
 
       <div class="header-right controls">
         <div class="font-control">
-          <button id="fontToggle" class="icon-btn" aria-expanded="false" aria-controls="fontSlider" title="Ajustar tamanho da fonte">Aa</button>
           <div id="fontSlider" class="font-slider" hidden>
-            <label for="fontRange">Tamanho da fonte</label>
             <input id="fontRange" type="range" min="12" max="24" value="16" />
           </div>
         </div>
       </div>
+      <!-- Timer posicionado na coluna esquerda do header -->
     </header>
 
-    <section class="question-panel" aria-labelledby="questionNumber">
-      <div class="meta-row">
-        <div id="qStatus" class="q-status">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
+  <section class="question-panel" aria-labelledby="questionNumber">
+      <div class="meta-row" style="display:flex; align-items:center;">
+        <div id="qStatus" class="q-status" style="font-size:17px; font-family: Arial, Helvetica, sans-serif;">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">1</span></div>
+        <span id="questionIdDisplay" style="margin-left:auto; font-size:14px; color:#555;"></span>
         <!-- Exame completo não exibe like/dislike -->
       </div>
 
       <article class="question-content" id="questionContent">
         <p id="questionText" class="question-text">Carregando pergunta...</p>
+        <div id="questionImageWrapper" style="display:none; margin:12px 0 16px; text-align:center;"></div>
 
         <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="0" />
-              <span class="option-text" id="opt0">Opção A</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="1" />
-              <span class="option-text" id="opt1">Opção B</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="2" />
-              <span class="option-text" id="opt2">Opção C</span>
-            </label>
-          </div>
-          <div class="option">
-            <label>
-              <input type="radio" name="answer" value="3" />
-              <span class="option-text" id="opt3">Opção D</span>
-            </label>
-          </div>
+          <div id="answersContainer"></div>
         </form>
 
-        <div class="actions-row">
+        <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
+          <button id="finishExamBtn" type="button" class="primary-btn" style="background:#FA8072;color:#fff; margin-right:auto;">Finalizar exame</button>
           <button id="backBtn" class="primary-btn" style="display:none;margin-right:8px;">Voltar</button>
           <button id="continueBtn" class="primary-btn">Continuar</button>
         </div>
+        <div id="continueStatusLabel" style="margin-top:6px;color:#666;font-size:12px;">Status do botão: —</div>
       </article>
     </section>
   </main>
+  <!-- Keyboard shortcuts: 1=A, 2=B, 3=C, 4=D -->
+  <script>
+    (function(){
+      function isTyping(e){
+        const t = e.target;
+        const tag = (t && t.tagName || '').toLowerCase();
+        return tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+      }
+      function selectOptionByIndex(idx){
+        try {
+          const container = document.getElementById('answersContainer');
+          if (!container) return;
+          // Find inputs for options (radio or checkbox) in order
+          const inputs = Array.from(container.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+          if (!inputs.length) return;
+          const el = inputs[idx];
+          if (!el) return;
+          if (el.disabled) return;
+          el.click(); // let any listeners handle state changes
+          el.focus();
+        } catch(_){}
+      }
+      window.addEventListener('keydown', function(e){
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        if (isTyping(e)) return;
+        const k = e.key;
+        if (k === '1'){ e.preventDefault(); selectOptionByIndex(0); }
+        else if (k === '2'){ e.preventDefault(); selectOptionByIndex(1); }
+        else if (k === '3'){ e.preventDefault(); selectOptionByIndex(2); }
+        else if (k === '4'){ e.preventDefault(); selectOptionByIndex(3); }
+      }, { capture: true });
+    })();
+  </script>
   <!-- define session vars required by exam pages -->
   <script>
     try {
-      // tempoExame (minutos totais para o exame completo): 180 questões = 230 minutos
-      const _tempoExame = 230; // minutos
-      // FullExam: número total de questões do exame completo
-      const _FullExam = 180;
+      let bp = null;
+      try { const raw = localStorage.getItem('examBlueprint'); bp = raw ? JSON.parse(raw) : null; } catch(_) { bp = null; }
+      const _tempoExame = (bp && Number(bp.duracaoMinutos)) ? Number(bp.duracaoMinutos) : 230;
+      const _FullExam = (bp && Number(bp.numeroQuestoes)) ? Number(bp.numeroQuestoes) : 180;
       sessionStorage.setItem('tempoExame', JSON.stringify(_tempoExame));
       sessionStorage.setItem('FullExam', JSON.stringify(_FullExam));
-      // também expor como variáveis globais numéricas para uso imediato no script
       window.tempoExame = _tempoExame;
       window.FullExam = _FullExam;
+      window.ExamMultiplaSelecao = !!(bp && bp.multiplaSelecao);
+      window.ExamCheckpoints = (bp && bp.pausas && Array.isArray(bp.pausas.checkpoints)) ? bp.pausas.checkpoints.slice() : [60,120];
     } catch (e) {
-      console.warn('Falha ao definir variáveis de sessão:', e);
+      logger.warn('Falha ao definir variáveis de sessão:', e);
     }
+  </script>
+  <!-- Exibir imagem da questão (campo imagem_url / imagemUrl) abaixo do enunciado -->
+  <script>
+    (function(){
+      function resolveQuestions(){
+        try {
+          if (Array.isArray(window.QUESTIONS)) return window.QUESTIONS;
+          const sid = window.currentSessionId || null; if (!sid) return [];
+          const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(`questions_${sid}`) : localStorage.getItem(`questions_${sid}`);
+          if (!raw) return [];
+          const arr = JSON.parse(raw); return Array.isArray(arr)? arr : [];
+        } catch(_) { return []; }
+      }
+      function currentIndex(){
+        try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : 0; } catch(_) { return 0; }
+      }
+      function buildSrc(str){
+        if (!str) return null;
+        const s = String(str).trim();
+        if (!s) return null;
+        if (/^data:image\//i.test(s)) return s; // already data URI
+        if (/^https?:\/\//i.test(s) || s.startsWith('/') ) return s; // http(s) or site-relative
+        if (/^data:/i.test(s)) return s; // other data types
+        // heuristic: raw base64 (PNG/JPEG) no prefix
+        if (/^[A-Za-z0-9+/=]+$/.test(s) && s.length > 100) {
+          return 'data:image/png;base64,' + s; // assume png if unknown
+        }
+        return s; // fallback (may 404)
+      }
+      // Silent enrichment helpers to recover missing imagemUrl
+      const _imgEnrichment = { inflight: Object.create(null), cache: Object.create(null) };
+      function getSessionId(){ try { return window.currentSessionId || null; } catch(_) { return null; } }
+      function patchQuestionInStorage(id, fields){
+        try {
+          let patched = false;
+          if (Array.isArray(window.QUESTIONS)){
+            const i = window.QUESTIONS.findIndex(q => q && q.id === id);
+            if (i >= 0) { window.QUESTIONS[i] = Object.assign({}, window.QUESTIONS[i], fields); patched = true; }
+          }
+          const sid = getSessionId();
+          if (sid){
+            const key = `questions_${sid}`;
+            const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(key) : localStorage.getItem(key);
+            if (raw){
+              try {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)){
+                  const j = arr.findIndex(q => q && q.id === id);
+                  if (j >= 0) { arr[j] = Object.assign({}, arr[j], fields); patched = true; }
+                  localStorage.setItem(key, JSON.stringify(arr));
+                }
+              } catch(_){ }
+            }
+          }
+          return patched;
+        } catch(_) { return false; }
+      }
+      async function fetchQuestionForImage(id){
+        try {
+          if (!Number.isFinite(id)) return null;
+          if (_imgEnrichment.cache[id]) return _imgEnrichment.cache[id];
+          if (_imgEnrichment.inflight[id]) return await _imgEnrichment.inflight[id];
+          const token = (localStorage.getItem('sessionToken') || '').trim();
+          const doFetch = async () => {
+            const tryUrls = [`/api/questions/view/${id}`, `/api/questions/${id}`];
+            for (let k=0; k<tryUrls.length; k++){
+              try {
+                const r = await fetch(tryUrls[k], { headers: token ? { 'X-Session-Token': token } : {} });
+                if (r && r.ok){ const q = await r.json(); return q; }
+              } catch(_){ }
+            }
+            return null;
+          };
+          _imgEnrichment.inflight[id] = doFetch().finally(()=>{ delete _imgEnrichment.inflight[id]; });
+          const data = await _imgEnrichment.inflight[id];
+          if (data) _imgEnrichment.cache[id] = data;
+          return data;
+        } catch(_) { return null; }
+      }
+      // Adiciona lógica de pré-visualização reutilizada do questionForm
+      function showImagePreview(wrapper, src){
+        if (!wrapper) return;
+        if (!src){ wrapper.innerHTML=''; wrapper.style.display='none'; return; }
+        // Build DOM elements instead of inline onerror HTML to avoid quote parsing issues
+        wrapper.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'Imagem ilustrativa da questão';
+        img.style.maxWidth = '333px';
+        img.style.width = '100%';
+        img.style.height = 'auto';
+        img.style.maxHeight = '206px';
+        img.style.objectFit = 'contain';
+        img.style.cursor = 'zoom-in';
+        img.title = 'Clique para ampliar';
+        img.style.border = '1px solid #e2e8f0';
+        img.style.background = '#fff';
+        img.style.borderRadius = '6px';
+        img.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+        img.onerror = function(){
+          wrapper.innerHTML = '<div style="max-width:680px;margin:0 auto;padding:12px;border:1px dashed #94a3b8;border-radius:6px;background:#f8fafc;color:#b00020;font-size:13px;">Erro ao carregar imagem</div>';
+        };
+        img.addEventListener('click', function(){ try { window.open(src, '_blank'); } catch(_){} });
+        wrapper.appendChild(img);
+        wrapper.style.display='block';
+      }
+      function renderImage(){
+        try {
+          const wrap = document.getElementById('questionImageWrapper'); if (!wrap) return;
+          const qs = resolveQuestions(); const idx = currentIndex(); const q = (idx>=0 && idx < qs.length)? qs[idx] : null;
+          const raw = q && (q.imagemUrl || q.imagem_url || q.imageUrl || q.image_url) || '';
+          
+          let src = buildSrc(raw);
+          let origin = src ? 'field' : null;
+          // suprimir logs específicos da questão 266
+          if (!src) {
+            try {
+              const qt = document.getElementById('questionText');
+              const inlineImg = qt ? qt.querySelector('img') : null;
+              const inlineSrc = inlineImg ? inlineImg.getAttribute('src') : null;
+              if (inlineSrc) src = buildSrc(inlineSrc);
+              if (src) origin = 'inline-dom';
+            } catch(_) { /* ignore */ }
+          }
+          if (!src && q) {
+            try {
+              const html = String(q.descricao || q.text || '').trim();
+              const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (m && m[1]) src = buildSrc(m[1]);
+              if (src) origin = 'descricao-html';
+            } catch(_) { /* ignore */ }
+          }
+          if (!src && q && q.explicacao) {
+            try {
+              const html2 = String(q.explicacao || '').trim();
+              const m2 = html2.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (m2 && m2[1]) src = buildSrc(m2[1]);
+              if (src) origin = 'explicacao-html';
+            } catch(_) { /* ignore */ }
+          }
+          // Diagnostic
+          try {
+            logger.debug('[examFull] renderImage idx', idx, 'id', q && q.id, 'hasRaw?', !!raw, 'srcResolved?', !!src, 'origin', origin);
+            // suprimir logs específicos da questão 266
+          } catch(_){ }
+          // If no image, hide wrapper
+          if (!src){
+            // Heuristic: question text references clicking an image area (hotspot style)
+            let needsHint = false;
+            try {
+              const lower = String(q && (q.descricao || q.text || '')) .toLowerCase();
+              if (lower.includes('clicando na área correta da imagem') || lower.includes('area correta da imagem') || lower.includes('área correta da imagem')) {
+                needsHint = true;
+              }
+            } catch(_){ }
+            if (needsHint && q) {
+              wrap.innerHTML = '<div class="question-image-missing" style="max-width:680px;margin:0 auto;padding:12px;border:1px dashed #94a3b8;border-radius:6px;background:#f8fafc;color:#475569;font-size:13px;line-height:1.4;">Imagem original desta questão não está disponível no banco de dados. Continue respondendo normalmente selecionando a alternativa correta. Se você possuir o arquivo da imagem, associe-o preenchendo <code>imagem_url</code> para a questão ID '+ q.id + '.</div>';
+              wrap.style.display='block';
+              try { logger.debug('[examFull] imagem ausente, exibindo placeholder para questão', q.id); } catch(_){ }
+            } else {
+              wrap.style.display='none';
+              wrap.innerHTML='';
+            }
+            // Attempt silent enrichment to recover image if server has it
+            if (q && q.id){
+              fetchQuestionForImage(q.id).then(data => {
+                try {
+                  const url = data && (data.imagemUrl || data.imagem_url);
+                  if (url){
+                    patchQuestionInStorage(q.id, { imagemUrl: url, imagem_url: url });
+                    const enriched = buildSrc(url);
+                    if (enriched) showImagePreview(wrap, enriched);
+                  }
+                } catch(_){ }
+              }).catch(()=>{});
+            }
+            return;
+          }
+          // Usa lógica compartilhada para exibir imagem e tratar erros
+          showImagePreview(wrap, src);
+        } catch(_) { /* ignore */ }
+      }
+      // Hook into question index change event
+      document.addEventListener('exam:question-index-changed', renderImage);
+      // Initial attempt (in case first question already loaded)
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(renderImage,120)); else setTimeout(renderImage,120);
+    })();
+  </script>
+  <!-- Debug helper: auto-jump to questão ID 266 for imagem testing when localStorage.debugQ266 === 'true' (press F9 to toggle) -->
+  <script>
+    (function(){
+      function tryJump266(){
+        try {
+          const qs = (function(){
+            if (Array.isArray(window.QUESTIONS)) return window.QUESTIONS;
+            const sid = window.currentSessionId || null; if (!sid) return [];
+            const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(`questions_${sid}`) : localStorage.getItem(`questions_${sid}`);
+            if (!raw) return [];
+            const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : [];
+          })();
+          const idx = qs.findIndex(q => q && q.id === 266);
+          if (idx < 0){ logger.debug('[debug266] Questão 266 não encontrada ainda (len=', qs.length, ')'); return; }
+          const labelEl = document.getElementById('questionNumber');
+          if (labelEl) labelEl.textContent = String(idx + 1);
+          document.dispatchEvent(new CustomEvent('exam:question-index-changed',{ detail:{ index: idx } }));
+          logger.debug('[debug266] Jump realizado para idx', idx, 'questão', qs[idx]);
+        } catch(e){ logger.debug('[debug266] Falha ao tentar pular para 266:', e); }
+      }
+      function scheduleJump(){ setTimeout(tryJump266, 800); setTimeout(tryJump266, 1600); setTimeout(tryJump266, 4000); }
+      if (localStorage.getItem('debugQ266') === 'true') scheduleJump();
+      // Toggle via F9
+      window.addEventListener('keydown', (ev)=>{
+        if (ev.key === 'F9') {
+          const cur = localStorage.getItem('debugQ266') === 'true';
+          localStorage.setItem('debugQ266', cur ? 'false' : 'true');
+          logger.debug('[debug266] debugQ266 agora =', !cur);
+          if (!cur) scheduleJump();
+        }
+      });
+    })();
+  </script>
+
+  <!-- Modal de Grid de Questões -->
+  <div id="gridModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="width: min(100%, 96vw); max-width: 1200px; height: min(88vh, 900px); display:flex; flex-direction:column; padding: 0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #ddd; background:#f7f7f7;">
+        <h2 style="margin:0; font-size:1rem;">Grid de Questões</h2>
+        <button id="closeGridModal" class="secondary-btn" type="button" style="margin-left:auto;">Fechar</button>
+      </div>
+      <iframe id="gridFrame" title="Grid de Questões" src="" style="flex:1; width:100%; height:100%; border:0; background:white;"></iframe>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      function openGrid(){
+        try {
+          const modal = document.getElementById('gridModal');
+          const frame = document.getElementById('gridFrame');
+          if (!modal || !frame) return;
+          frame.src = '/pages/grid.html?t=' + Date.now();
+          modal.style.display = '';
+          modal.setAttribute('aria-hidden','false');
+        } catch(e){}
+      }
+      function closeGrid(){
+        try {
+          const modal = document.getElementById('gridModal');
+          const frame = document.getElementById('gridFrame');
+          if (!modal) return;
+          modal.style.display = 'none';
+          modal.setAttribute('aria-hidden','true');
+          if (frame) frame.src = '';
+        } catch(e){}
+      }
+      function ensureTopPauseButtons(idx){
+        try {
+          const modal = document.getElementById('gridModal');
+          const cps = (function(){ try { const raw = localStorage.getItem('examBlueprint'); const bp = raw ? JSON.parse(raw) : null; return (bp && bp.pausas && Array.isArray(bp.pausas.checkpoints)) ? bp.pausas.checkpoints : [60,120]; } catch(_) { return [60,120]; } })();
+          const need = cps.includes(idx);
+          if (!need){ removeTopPauseButtons(); return; }
+          modal.style.display = 'none';
+          modal.setAttribute('aria-hidden','true');
+          try { const frame = document.getElementById('gridFrame'); if (frame) frame.src = ''; } catch(_){ }
+        } catch(e){}
+      }
+      function attachGridHandlers(){
+        const btn = document.getElementById('bgrid');
+        if (btn) btn.addEventListener('click', openGrid);
+        const close = document.getElementById('closeGridModal');
+        if (close) close.addEventListener('click', closeGrid);
+                // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
+                const bs = document.getElementById('bSkipPause');
+                if (bs) { bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> Continuar exame'; bs.disabled = true; }
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGrid(); });
+      }
+                // manter o botão Continuar desabilitado durante a pausa
+                try {
+                  if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'false');
+                  const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                } catch(_){ }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachGridHandlers); else attachGridHandlers();
+    })();
   </script>
 
   <!-- registration/session script must run before exam script -->
+  <!-- Prefer non-minified script on examFull to honor latest safety fixes for missing #status/#autosaveIndicator -->
   <script src="../script.js"></script>
+  <!-- Shared exam cleanup utilities -->
+  <script src="../components/examCleanup.js"></script>
+  <!-- Intercept selection to bypass filters when count=180 and fallback ignoring exam_type if needed; also auto-resume session on 404 -->
+  <script>
+    (function(){
+      try {
+        const origFetch = window.fetch.bind(window);
+        window.fetch = async function(input, init){
+          try {
+            const url = (typeof input === 'string') ? input : (input && input.url) || '';
+            if (url && url.endsWith('/api/exams/select') && init && typeof init === 'object' && String(init.method||'').toUpperCase() === 'POST' && init.body) {
+              let body = null; try { body = JSON.parse(init.body); } catch(_){ body = null; }
+              const cnt = body && Number(body.count);
+              const onlyCount = !!(body && body.onlyCount === true);
+              // Inject full mode header unless caller provided
+              try {
+                const headers = new Headers(init.headers || {});
+                if (!headers.has('X-Exam-Mode')) headers.set('X-Exam-Mode', 'full');
+                init.headers = headers;
+              } catch(_){ }
+              if (cnt === 180 && body) {
+                delete body.areas; delete body.grupos; delete body.dominios; delete body.categorias;
+                init.body = JSON.stringify(body);
+              }
+              const resp = await origFetch(input, init);
+              // Fallback: if 180 and server says available=0, retry without exam type constraint
+              if (resp && resp.status === 400 && cnt === 180) {
+                let available = null;
+                try { const t = await resp.clone().text(); const j = t ? JSON.parse(t) : null; if (j && typeof j.available === 'number') available = j.available; } catch(_){}
+                if (available === 0) {
+                  const headers = new Headers(init.headers || {});
+                  headers.delete('X-Exam-Type');
+                  // Preserve full mode on fallback retry
+                  if (!headers.has('X-Exam-Mode')) headers.set('X-Exam-Mode', 'full');
+                  return await origFetch(input, { method: 'POST', headers, body: JSON.stringify({ count: cnt, ignoreExamType: true, onlyCount }) });
+                }
+              }
+              return resp;
+            } else if (url && /\/api\/exams\/.+\/question\//.test(url)) {
+              // If session was lost (server restart), try to resume transparently once
+              const resp = await origFetch(input, init);
+              if (resp && resp.status === 404) {
+                try {
+                  const txt = await resp.clone().text();
+                  const isSessionMissing = /session not found/i.test(txt || '');
+                  if (isSessionMissing) {
+                    // Extract sessionId from URL and attempt resume with X-Session-Token
+                    const m = url.match(/\/api\/exams\/([^/]+)\/question\//);
+                    const sid = m && m[1] ? m[1] : null;
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    if (sid && token) {
+                      const r = await origFetch('/api/exams/resume', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                        body: JSON.stringify({ sessionId: sid })
+                      });
+                      if (r && r.ok) {
+                        // Retry original question fetch once
+                        return await origFetch(input, init);
+                      }
+                    }
+                  }
+                } catch(_){ }
+              }
+              return resp;
+            }
+          } catch(_){ }
+          return origFetch(input, init);
+        };
+      } catch(_){ }
+    })();
+  </script>
+  <!-- Make progress.currentIdx and backBarrier 1-based in storage, but expose 0-based to runtime reads -->
+  <script>
+    (function(){
+      try {
+        const LS = window.localStorage;
+        if (!LS) return;
+        const __origGetItem = LS.getItem.bind(LS);
+        const __origSetItem = LS.setItem.bind(LS);
+        // expose originals in case we need to bypass the shim
+        window.__lsOrigGetItem = __origGetItem;
+        window.__lsOrigSetItem = __origSetItem;
+
+        function isProgressKey(key){ return typeof key === 'string' && /^progress_/i.test(key); }
+        function isBarrierKey(key){ return typeof key === 'string' && /^backBarrier_/i.test(key); }
+
+        LS.getItem = function(key){
+          const val = __origGetItem(key);
+          try {
+            if (isProgressKey(key) && val){
+              const obj = JSON.parse(val);
+              if (obj && typeof obj.currentIdx === 'number'){
+                // Convert 1-based (stored) -> 0-based (runtime)
+                const zero = Math.max(0, Math.floor(obj.currentIdx) - 1);
+                const clone = { ...obj, currentIdx: zero };
+                return JSON.stringify(clone);
+              }
+              return val;
+            }
+            if (isBarrierKey(key) && val){
+              const n = Number(val);
+              if (Number.isFinite(n)){
+                const zero = Math.max(0, Math.floor(n) - 1);
+                return String(zero);
+              }
+              return val;
+            }
+          } catch(_){}
+          return val;
+        };
+
+        LS.setItem = function(key, value){
+          try {
+            if (isProgressKey(key) && typeof value === 'string' && value.length){
+              try {
+                const obj = JSON.parse(value);
+                if (obj && typeof obj.currentIdx === 'number'){
+                  // Convert 0-based (runtime) -> 1-based (stored)
+                  const one = Math.max(1, Math.floor(obj.currentIdx) + 1);
+                  const clone = { ...obj, currentIdx: one };
+                  return __origSetItem(key, JSON.stringify(clone));
+                }
+              } catch(_){}
+            }
+            if (isBarrierKey(key) && typeof value === 'string' && value.length){
+              const n = Number(value);
+              if (Number.isFinite(n)){
+                const one = Math.max(1, Math.floor(n) + 1);
+                return __origSetItem(key, String(one));
+              }
+            }
+          } catch(_){}
+          return __origSetItem(key, value);
+        };
+
+        // Optional: keep storage immediately in sync with the visible label
+        function syncProgressIdxToLabel(){
+          try {
+            const sid = window.currentSessionId || null; if (!sid) return;
+            const key = `progress_${sid}`;
+            const el = document.getElementById('questionNumber'); if (!el) return;
+            const n = Number((el.textContent||'').trim()); if (!Number.isFinite(n) || n < 1) return;
+            let obj = {};
+            try { const raw = window.__lsOrigGetItem(key); obj = raw ? JSON.parse(raw) : {}; } catch(_) { obj = {}; }
+            obj.currentIdx = n; // store 1-based directly using original setter
+            window.__lsOrigSetItem(key, JSON.stringify(obj));
+          } catch(_){}
+        }
+
+        // Observe label changes to ensure storage reflects what user sees
+        function installObserver(){
+          try {
+            const el = document.getElementById('questionNumber'); if (!el) return;
+            const mo = new MutationObserver(()=>{ try { syncProgressIdxToLabel(); } catch(_){} });
+            mo.observe(el, { characterData: true, childList: true, subtree: true });
+            // Initial sync after first render
+            setTimeout(syncProgressIdxToLabel, 0);
+          } catch(_){}
+        }
+        // expose for other inline handlers
+        window.__syncProgressIdxToLabel = syncProgressIdxToLabel;
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installObserver); else installObserver();
+      } catch(_){ }
+    })();
+  </script>
+  <!-- DOMPurify for XSS protection -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+  <!-- Sanitization utilities -->
+  <script src="../utils/sanitize.js"></script>
+  <!-- Prefer non-minified script to ensure image fields & diagnostics are active -->
   <script src="../script_exam.js"></script>
+  <!-- <script src="../assets/build/script_exam.js"></script> -->
+
+  <!-- Ensure question ID label and Continue visibility update regardless of build/non-build script -->
+  <script>
+    (function(){
+      function getIdxFromLabel(){
+        try { const el = document.getElementById('questionNumber'); const n = Number((el && el.textContent || '').trim()); return Number.isFinite(n)? n-1 : null; } catch(_) { return null; }
+      }
+      function getQuestionsArray(){
+        try {
+          if (Array.isArray(window.QUESTIONS) && window.QUESTIONS.length) return window.QUESTIONS;
+          const sid = window.currentSessionId || null; if (!sid) return [];
+          // use original getters if shimmed
+          const getItem = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem : (k)=>localStorage.getItem(k);
+          const raw = getItem(`questions_${sid}`);
+          if (!raw) return [];
+          const arr = JSON.parse(raw);
+          return Array.isArray(arr) ? arr : [];
+        } catch(_) { return []; }
+      }
+      function updateQuestionAux(forcedIdx){
+        try {
+          const idx = (typeof forcedIdx === 'number') ? forcedIdx : getIdxFromLabel();
+          // Update ID label
+          try {
+            const idSpan = document.getElementById('questionIdDisplay');
+            if (idSpan){
+              const arr = getQuestionsArray();
+              const q = (typeof idx === 'number' && idx >= 0 && idx < arr.length) ? arr[idx] : null;
+              idSpan.textContent = (q && q.id != null) ? ('ID: ' + q.id) : '';
+            }
+          } catch(_){ }
+          // Change Continue button to "Enviar" at question 180 (1-based)
+          try {
+            const contBtn = document.getElementById('continueBtn');
+            if (contBtn){
+              const labelNum = (typeof idx === 'number') ? (idx + 1) : null;
+              if (labelNum === 180) {
+                contBtn.textContent = 'Enviar';
+                contBtn.style.background = '#10b981'; // Green color for submit
+              } else {
+                contBtn.textContent = 'Continuar';
+                contBtn.style.background = ''; // Reset to default
+              }
+            }
+          } catch(_){ }
+        } catch(_){ }
+      }
+      // React to index change events if available
+      try {
+        document.addEventListener('exam:question-index-changed', function(ev){
+          try {
+            const i = ev && ev.detail && typeof ev.detail.index === 'number' ? ev.detail.index : null;
+            updateQuestionAux(i);
+          } catch(_) { updateQuestionAux(); }
+        });
+      } catch(_){ }
+      // Fallback: observe the question number label changing
+      try {
+        const qn = document.getElementById('questionNumber');
+        if (qn && window.MutationObserver){
+          const mo = new MutationObserver(()=>{ updateQuestionAux(); });
+          mo.observe(qn, { childList:true, characterData:true, subtree:true });
+        }
+      } catch(_){ }
+      // Initial paint (retry shortly if questions not yet cached)
+      function boot(){
+        updateQuestionAux();
+        setTimeout(updateQuestionAux, 120);
+        setTimeout(updateQuestionAux, 400);
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+    })();
+  </script>
+
+  <!-- Hard-gate Continue at currentIdx 59 and 119 (0-based) => label 60 and 120, regardless of build version -->
+  <script>
+    (function(){
+      function isPauseActive(){
+        try {
+          const sid = window.currentSessionId || null; if (!sid) return false;
+          const raw = localStorage.getItem(`pauseUntil_${sid}`); if (!raw) return false;
+          const until = Number(raw); if (!Number.isFinite(until)) return false;
+          return until > Date.now();
+        } catch(e){ return false; }
+      }
+      function allowOverride(){
+        try { const sid = window.currentSessionId || null; if (!sid) return false; return localStorage.getItem(`allowContinueAfterCheckpoint_${sid}`) === 'true'; } catch(e){ return false; }
+      }
+  function isGateIndex(idx){ return idx === 59 || idx === 119; }
+      function getCurrentIdxFromLabel(){ try { const el = document.getElementById('questionNumber'); const n = Number((el&&el.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; } catch(_) { return null; } }
+
+      function writeStatus(){
+        try {
+          const lab = document.getElementById('continueStatusLabel');
+          const btn = document.getElementById('continueBtn');
+          if (!lab || !btn) return;
+          const on = !btn.disabled;
+          lab.textContent = 'Status do botão: ' + (on ? 'Habilitado' : 'Desabilitado');
+          lab.style.color = on ? '#1b5e20' : '#b00020';
+        } catch(_){ }
+      }
+
+      function enforceGate(idx){
+        try {
+          const btn = document.getElementById('continueBtn'); if (!btn) return;
+          const inPause = isPauseActive();
+          const gated = isGateIndex(idx) && !allowOverride();
+          btn.disabled = inPause || gated;
+          writeStatus();
+        } catch(_){}
+      }
+
+      // Keep disabled state in sync on index change
+      try {
+        document.addEventListener('exam:question-index-changed', function(ev){
+          try { const idx = ev && ev.detail && typeof ev.detail.index === 'number' ? ev.detail.index : null; if (idx == null) return; enforceGate(idx); } catch(_){}
+        });
+      } catch(_){ }
+
+      // Prevent advancing via click even if other scripts re-enable the button
+      try {
+        document.addEventListener('click', function(ev){
+          try {
+            const btn = ev.target && (ev.target.id === 'continueBtn' ? ev.target : (ev.target.closest && ev.target.closest('#continueBtn')));
+            if (!btn) return;
+            const idx = getCurrentIdxFromLabel(); if (idx == null) return;
+            const inPause = isPauseActive();
+            const gated = isGateIndex(idx) && !allowOverride();
+            if (inPause || gated){
+              ev.preventDefault(); ev.stopImmediatePropagation();
+              try { btn.disabled = true; } catch(_){ }
+              try { if (typeof showToast === 'function') showToast('Revise neste ponto. Use os botões no topo para continuar ou fazer a pausa.'); } catch(_){ }
+              try { writeStatus(); } catch(_){ }
+            }
+          } catch(_){ }
+        }, true);
+      } catch(_){ }
+
+      // Observe disabled attribute to keep label in sync even if other scripts toggle it
+      try {
+        const btn = document.getElementById('continueBtn');
+        if (btn && window.MutationObserver){
+          const mo = new MutationObserver(()=>{ try { writeStatus(); } catch(_){} });
+          mo.observe(btn, { attributes: true, attributeFilter: ['disabled'] });
+          // initial paint
+          writeStatus();
+        } else {
+          // fallback initial paint
+          writeStatus();
+        }
+      } catch(_){ }
+    })();
+  </script>
 
   <!-- initialize global QtdQuestoes and timer behavior -->
   <script>
@@ -113,7 +768,8 @@
           const token = localStorage.getItem('sessionToken') || '';
           const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
           if ((!token && !hasIdentity) || ((token && token.endsWith('#')) && !hasIdentity)) {
-            window.location.replace('http://localhost:3000');
+            try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+            window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
             return;
           }
         } catch(e) {}
@@ -122,23 +778,21 @@
         let q = null;
         try { q = localStorage.getItem('examQuestionCount'); } catch(e) { q = null; }
         const parsed = q ? Number(q) : null;
-        // fallback to FullExam if not set
         const full = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
         const qtd = (parsed && !isNaN(parsed)) ? parsed : 0;
-        // Guard: se não houver quantidade definida pelo setup e não vier com startExam, encaminhar para a configuração
         const shouldStart = (sessionStorage.getItem('startExam') === 'true');
         if (!qtd && !shouldStart) {
-          try { window.location.replace('/pages/examSetup.html'); } catch(e) { window.location.href = '/pages/examSetup.html'; }
+          window.location.assign('/pages/examSetup.html');
           return;
         }
         const finalQtd = qtd || (full || 0);
         // expose as global numeric
         window.QtdQuestoes = Number(finalQtd);
-        // update totalQuestions display on the exam page to reflect selection
+        // update totalQuestions display
         try {
           const totalEl = document.getElementById('totalQuestions');
           if (totalEl) totalEl.textContent = String(window.QtdQuestoes);
-        } catch(e) { console.warn('update totalQuestions failed', e); }
+        } catch(e) { }
 
         function fmtSeconds(s){
           s = Math.max(0, Math.floor(s));
@@ -153,65 +807,603 @@
           return `${m}:${sec}`;
         }
 
-        function computeSeconds() {
-          const tempo = (typeof window.tempoExame === 'number') ? window.tempoExame : (sessionStorage.getItem('tempoExame') ? JSON.parse(sessionStorage.getItem('tempoExame')) : null); // minutos do exame completo
+        function computeSeconds(){
+          const tempo = (typeof window.tempoExame === 'number') ? window.tempoExame : (sessionStorage.getItem('tempoExame') ? JSON.parse(sessionStorage.getItem('tempoExame')) : null);
           const fullNum = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
-          const qtdNum = Number(window.QtdQuestoes) || 0;
+          const qtdNum = (typeof window.QtdQuestoes === 'number') ? window.QtdQuestoes : 0;
           if (!tempo || !fullNum || !qtdNum) return 0;
-          const totalMinutes = (qtdNum * tempo) / fullNum; // minutos proporcionais
-          const seconds = totalMinutes * 60;
-          return Math.max(0, Math.round(seconds));
+          const totalMinutes = (qtdNum * tempo) / fullNum;
+          return Math.max(0, Math.round(totalMinutes * 60));
         }
 
         let _timerInterval = null;
-        function startCountdown() {
+        function startCountdown(){
           try {
-            if (_timerInterval) return; // already running
+            if (_timerInterval) return;
+            const display = document.getElementById('timerDisplay'); if (!display) return;
+            const sid = window.currentSessionId || null;
             let remaining = computeSeconds();
             try {
-              const progRaw = (window.currentSessionId && localStorage.getItem(`progress_${window.currentSessionId}`)) || null;
-              if (progRaw) {
-                const prog = JSON.parse(progRaw);
-                if (prog && typeof prog === 'object' && prog.remainingSeconds !== undefined && prog.remainingSeconds !== null) {
-                  remaining = Number(prog.remainingSeconds) || remaining;
+              if (sid){
+                const key = `progress_${sid}`;
+                const progRaw = localStorage.getItem(key);
+                if (progRaw){
+                  const prog = JSON.parse(progRaw);
+                  if (prog && typeof prog.remainingSeconds === 'number') remaining = prog.remainingSeconds;
                 }
               }
-            } catch(e) { /* ignore */ }
-            const display = document.getElementById('timerDisplay');
-            if (!display) return;
+            } catch(_){ }
             display.textContent = fmtSeconds(remaining);
-            _timerInterval = setInterval(() => {
-              remaining -= 1;
-              if (remaining <= 0) {
-                display.textContent = fmtSeconds(0);
-                clearInterval(_timerInterval);
-                _timerInterval = null;
-                try { alert('Tempo esgotado.'); } catch(e){}
-                return;
-              }
-              display.textContent = fmtSeconds(remaining);
+            _timerInterval = setInterval(()=>{
               try {
-                if (window.currentSessionId) {
-                  const key = `progress_${window.currentSessionId}`;
+                const sidLoc = window.currentSessionId || null;
+                let inPause = false;
+                if (sidLoc){
+                  const rawPU = localStorage.getItem(`pauseUntil_${sidLoc}`);
+                  if (rawPU){ const until = Number(rawPU); if (Number.isFinite(until) && until > Date.now()) inPause = true; }
+                }
+                if (!inPause) remaining = Math.max(0, remaining - 1);
+                if (display) display.textContent = fmtSeconds(remaining);
+                if (sidLoc){
+                  const key = `progress_${sidLoc}`;
                   const cur = JSON.parse(localStorage.getItem(key) || '{}') || {};
                   cur.remainingSeconds = remaining;
                   localStorage.setItem(key, JSON.stringify(cur));
-                  localStorage.setItem(`${key}_savedAt`, new Date().toISOString());
                 }
-              } catch(e) {}
+                if (remaining <= 0){
+                  clearInterval(_timerInterval); _timerInterval = null;
+                  try { alert('Tempo esgotado.'); } catch(e){}
+                  try {
+                    const contBtn = document.getElementById('continueBtn');
+                    if (contBtn) { contBtn.disabled = true; contBtn.style.pointerEvents = 'none'; }
+                    const form = document.getElementById('answersForm');
+                    if (form) {
+                      const inputs = form.querySelectorAll('input, select, textarea, button');
+                      inputs.forEach(el => { try { el.disabled = true; el.style.pointerEvents = 'none'; } catch(_){} });
+                    }
+                  } catch(_){}
+                  try {
+                    if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
+                    else if (typeof window.clearExamData === 'function') { window.clearExamData(); }
+                  } catch(_){}
+                  try { window.location.assign('/pages/examSetup.html'); } catch(_){ window.location.href = '/pages/examSetup.html'; }
+                }
+              } catch(e){ }
             }, 1000);
-          } catch (e) { console.warn('startCountdown error', e); }
+          } catch(e){ }
         }
 
-        if (shouldStart) {
-          try { sessionStorage.removeItem('startExam'); } catch(e){}
-          startCountdown();
-        }
+        if (shouldStart){ try { sessionStorage.removeItem('startExam'); } catch(e){} startCountdown(); }
         window.startExamCountdown = startCountdown;
 
-      } catch (e) { console.warn('Init exam timer error', e); }
+      } catch(e){ }
     })();
   </script>
+  </script>
+
+  <!-- Finalizar exame: limpa variáveis de sessão/cache e deixa TODO para persistência futura -->
+  <script>
+    (function(){
+      function clearExamData(){
+        try {
+          const sid = (window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId') || '').trim();
+          if (sid) {
+            const keys = [
+              `progress_${sid}`,
+              `answers_${sid}`,
+              `questions_${sid}`,
+              `highlights_${sid}`,
+              `questoesMarcadas_${sid}`,
+              `backBarrier_${sid}`,
+              `allowContinueAfterCheckpoint_${sid}`,
+              `pauseUntil_${sid}`,
+              `pauseConsumed_${sid}_cp1`,
+              `pauseConsumed_${sid}_cp2`,
+              `FirstStop_${sid}`,
+              `SecondStop_${sid}`
+            ];
+            keys.forEach(k => { try { localStorage.removeItem(k); } catch(_){ } });
+          }
+          // Chaves gerais do exame
+          ['examQuestionCount','examCountFromDefault','examFilters'].forEach(k=>{ try{ localStorage.removeItem(k);}catch(_){}});
+        } catch(_){ }
+        // Limpa sessionStorage inteiro
+        try { sessionStorage.clear(); } catch(_){ }
+        // Limpa caches (Service Worker)
+        try { if (window.caches && caches.keys) { caches.keys().then(names => names.forEach(n => caches.delete(n))).catch(()=>{}); } } catch(_){ }
+
+        // TODO: Persistir dados do exame no banco (resultado, tempo, respostas etc.)
+        // Exemplo:
+        // fetch('/api/exams/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ /* payload */ }) });
+
+        try { if (typeof showToast === 'function') showToast('Exame finalizado. Dados locais limpos.'); } catch(_){ }
+      }
+      // Modal de confirmação de finalização (unificado)
+      function openFinishConfirm(){
+        // Calcula % de completude e injeta no modal unificado
+        try {
+          function getQuestions(){
+            if (Array.isArray(window.QUESTIONS) && window.QUESTIONS.length) return window.QUESTIONS;
+            try {
+              const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+              if (!sid) return [];
+              const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(`questions_${sid}`) : localStorage.getItem(`questions_${sid}`);
+              if (!raw) return [];
+              const arr = JSON.parse(raw);
+              return Array.isArray(arr) ? arr : [];
+            } catch(_) { return []; }
+          }
+          function getAnswers(){
+            // window.ANSWERS pode existir no script não-minificado
+            if (window.ANSWERS && typeof window.ANSWERS === 'object') return window.ANSWERS;
+            try {
+              const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+              if (!sid) return {};
+              const raw = (typeof window.__lsOrigGetItem === 'function') ? window.__lsOrigGetItem(`answers_${sid}`) : localStorage.getItem(`answers_${sid}`);
+              if (!raw) return {};
+              const obj = JSON.parse(raw);
+              return (obj && typeof obj === 'object') ? obj : {};
+            } catch(_) { return {}; }
+          }
+          const qs = getQuestions();
+          const ans = getAnswers();
+          const totalQuestions = qs.length;
+          let answeredCount = 0;
+          if (totalQuestions > 0) {
+            for (let i = 0; i < totalQuestions; i++) {
+              const q = qs[i];
+              const key = (q && q.id != null) ? `q_${q.id}` : `idx_${i}`;
+              const a = ans[key];
+              if (!a) continue;
+              const hasSingle = (a.optionId != null && a.optionId !== '');
+              const hasMultiIds = Array.isArray(a.optionIds) && a.optionIds.length > 0;
+              const hasIndices = Array.isArray(a.indices) && a.indices.length > 0; // multi-select fallback
+              if (hasSingle || hasMultiIds || hasIndices) answeredCount++;
+            }
+          }
+          const percent = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+          window.__lastCompletionPercent = percent;
+          const msgEl = document.getElementById('finishModalMessage');
+          const yesBtn = document.getElementById('finishConfirmYes');
+          if (msgEl){
+            if (percent >= 95){
+              msgEl.innerHTML = `Você respondeu <strong>${percent.toFixed(1)}%</strong> das questões.<br>Ao encerrar o exame, suas questões serão submetidas como estão.<br><br>Deseja continuar?`;
+              if (yesBtn) yesBtn.textContent = 'Sim, enviar e encerrar';
+            } else {
+              msgEl.innerHTML = `Você respondeu <strong>${percent.toFixed(1)}%</strong> das questões deste exame.<br>Esta tentativa <strong>não será gravada</strong> na base de dados de exames realizados.<br><br>Deseja mesmo sair?`;
+              if (yesBtn) yesBtn.textContent = 'Sim, sair sem salvar';
+            }
+          }
+        } catch(_){ }
+        const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display=''; m.setAttribute('aria-hidden','false'); }
+      }
+      function closeFinishConfirm(){ const m=document.getElementById('finishConfirmModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
+      function attach(){
+        const b = document.getElementById('finishExamBtn'); if (b) b.addEventListener('click', openFinishConfirm);
+  const yes = document.getElementById('finishConfirmYes'); if (yes) yes.addEventListener('click', async ()=>{
+    const pct = window.__lastCompletionPercent || 0;
+    try { yes.disabled = true; yes.textContent = 'Processando...'; } catch(_){ }
+    if (pct >= 95) {
+      // Envia resultados - submitExam já faz limpeza e redirecionamento
+      try { 
+        closeFinishConfirm();
+        if (typeof window.submitExam === 'function') {
+          await window.submitExam();
+          // submitExam já redireciona para examPmiResults.html (>=180 questões) ou home
+        }
+      } catch(err){ 
+        logger.error('Erro ao submeter exame:', err);
+        alert('Erro ao enviar resultados. Tente novamente.');
+        try { yes.disabled = false; yes.textContent = 'Sim, enviar e encerrar'; } catch(_){}
+      }
+      return;
+    } else {
+      // Fluxo antigo: sair sem salvar
+      try { closeFinishConfirm(); } catch(_){ }
+      try { clearExamData(); } catch(_){ }
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+        const isGuest = token && token.endsWith('#');
+        const isLogged = !!(token || hasIdentity) && !(isGuest && !hasIdentity);
+        if (isLogged) { window.location.assign('/'); } else { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
+      } catch(e){ try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); }
+    }
+  });
+        const no = document.getElementById('finishConfirmNo'); if (no) no.addEventListener('click', closeFinishConfirm);
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') { closeFinishConfirm(); } });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach); else attach();
+    })();
+  </script>
+
+  <!-- Modal de confirmação para finalizar exame -->
+  <div id="finishConfirmModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:600px; padding:20px; text-align:center;">
+      <p id="finishModalMessage" style="margin:0 0 16px 0; font-size:16px; line-height:1.5;"></p>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
+        <button id="finishConfirmYes" class="primary-btn" type="button" style="background:#dc3545;">Sim</button>
+        <button id="finishConfirmNo" class="secondary-btn" type="button">Não</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Marca a questão atual: salva JSON com { currentIdx, questionNumber, letter } em localStorage por sessão -->
+  <script>
+    (function(){
+      function mapSpanIdToLetter(id){
+        if(!id) return null;
+        const m = id.match(/^opt(\d+)$/);
+        if(!m) return null;
+        const n = parseInt(m[1], 10);
+        const zeroBased = !!document.getElementById('opt0');
+        if (zeroBased) { if (n >= 0 && n <= 3) return ['A','B','C','D'][n]; }
+        else { if (n >= 1 && n <= 4) return String.fromCharCode(64 + n); }
+        return null;
+      }
+      function getSelectedLetter(){
+        const checked = document.querySelector('input[name="answer"]:checked');
+        if(!checked) return null;
+        let span = checked.nextElementSibling;
+        if (!span || !(span.classList && span.classList.contains('option-text'))){
+          const label = checked.closest && checked.closest('label');
+          if (label) span = label.querySelector('.option-text');
+        }
+        const sid = span && span.id || null;
+        let letter = mapSpanIdToLetter(sid);
+        if (!letter){
+          const idx = Number(checked.value);
+          if (Number.isInteger(idx) && idx >= 0 && idx <= 3) letter = ['A','B','C','D'][idx];
+        }
+        return letter;
+      }
+      function getCurrentIdxViaDom(){
+        try { const el = document.getElementById('questionNumber'); if (!el) return null; const n = Number((el.textContent||'').trim()); return (Number.isFinite(n) && n >= 1) ? n - 1 : null; } catch(e){ return null; }
+      }
+      function getCurrentIdxFromProgress(){
+        try{
+          const sid = window.currentSessionId || null;
+          const key = sid ? `progress_${sid}` : null;
+          if(key){ const raw = localStorage.getItem(key); if(raw){ const obj = JSON.parse(raw); if (obj && typeof obj.currentIdx === 'number') return obj.currentIdx; } }
+        }catch(e){}
+        return getCurrentIdxViaDom();
+      }
+      function readMarkedList(){
+        const sid = window.currentSessionId || '';
+        const key = sid ? `questoesMarcadas_${sid}` : 'questoesMarcadas';
+        try{ const raw = localStorage.getItem(key); if(!raw) return { key, list: [] }; const arr = JSON.parse(raw); return { key, list: Array.isArray(arr) ? arr : [] }; }catch(e){ return { key, list: [] }; }
+      }
+      function writeMarkedList(key, list){ try{ localStorage.setItem(key, JSON.stringify(list)); }catch(e){} }
+      function onMarkClick(){
+        try{
+          const letter = getSelectedLetter();
+          let curIdx = getCurrentIdxFromProgress(); if (curIdx === null || curIdx === undefined) curIdx = getCurrentIdxViaDom();
+          const questionNumber = (typeof curIdx === 'number') ? (curIdx + 1) : null;
+          const { key, list } = readMarkedList();
+          if (typeof curIdx === 'number'){
+            const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
+            if (i >= 0) {
+              // Questão já está marcada - REMOVER (toggle off)
+              list.splice(i, 1);
+              writeMarkedList(key, list);
+              try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} desmarcada.`); } catch(_){ }
+            } else {
+              // Questão não está marcada - ADICIONAR (toggle on)
+              const entry = { currentIdx: curIdx, questionNumber, letter: letter || null, savedAt: new Date().toISOString() };
+              list.push(entry);
+              writeMarkedList(key, list);
+              try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
+            }
+          } else {
+            const entry = { currentIdx: null, questionNumber: null, letter: letter || null, savedAt: new Date().toISOString() };
+            list.push(entry);
+            writeMarkedList(key, list);
+            try { if (typeof showToast === 'function') showToast(`Questão marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
+          }
+        } catch(err){ logger.warn('Falha ao salvar letra da opção marcada:', err); }
+      }
+      function onAnswerChanged(){
+        try {
+          const letter = getSelectedLetter();
+          let curIdx = getCurrentIdxFromProgress(); if (curIdx === null || curIdx === undefined) curIdx = getCurrentIdxViaDom();
+          const { key, list } = readMarkedList();
+          if (typeof curIdx === 'number' && Array.isArray(list)){
+            const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
+            if (i >= 0){ list[i].letter = letter || null; list[i].savedAt = new Date().toISOString(); writeMarkedList(key, list); }
+          }
+          try { if (typeof window.__syncProgressIdxToLabel === 'function') window.__syncProgressIdxToLabel(); } catch(_){ }
+        } catch(e) { /* noop */ }
+      }
+      function attach(){
+        const btn = document.getElementById('bmark'); if (btn) btn.addEventListener('click', onMarkClick);
+        try { const radios = document.querySelectorAll('input[name="answer"]'); radios.forEach(r => r.addEventListener('change', onAnswerChanged)); } catch(_) {}
+      }
+      if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', attach); } else { attach(); }
+    })();
+  </script>
+
+  <!-- Modal de Pré-Pausa (revisão) + botões de pausa no topo -->
+  <div id="prePauseModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:880px; padding:18px;">
+      <h2 style="margin-top:0;">Atenção</h2>
+      <p style="white-space:pre-wrap; line-height:1.45;">
+Revise suas questões. Durante o exame, será oferecido para que você decida fazer a primeira pausa de 10 minutos ou que continue sem ela. Ao escolher continuar sem fazer a pausa ou ainda optando por ela, suas questões serão congeladas até este ponto, e quaisquer que tenham sido suas respostas ou a asusência delas, serão submetidas sem opção de reversão. Seu tempo continua contando normalmente. Um botão "Fazer Pausa" e "Continuar exame" irá aparecer na tela do exame. Ao terminar sua revisão, clique em "Fazer pausa", caso queira. Todas as questões serão submetidas como estão e o cronômetro ficará pausado por 10 minutos. Caso não queira a pausa, clique em "Continuar sem 1ª pausa", igualmente, as questões não respondidas serão submetidas como estão.
+      </p>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+        <button id="btnReviewQuestions" class="secondary-btn" type="button">Revisar questões</button>
+        <button id="btnSkipPause" class="primary-btn" type="button">Continuar sem a 1ª pausa</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      function setBarrierTo(val){
+        try {
+          const sid = window.currentSessionId || null; if (!sid) return;
+          // Store 1-based barrier directly using original setter to avoid double conversion
+          if (window.__lsOrigSetItem) window.__lsOrigSetItem(`backBarrier_${sid}`, String(val));
+          else localStorage.setItem(`backBarrier_${sid}`, String(val));
+        } catch(e){}
+      }
+      function getCurrentIdx(){
+        try { const el = document.getElementById('questionNumber'); if (!el) return null; const n = Number((el.textContent||'').trim()); return (Number.isFinite(n) && n>=1)? n-1 : null; } catch(e){ return null; }
+      }
+  // Define back-navigation barrier based on 0-based idx at the checkpoint question.
+  // Checkpoints occur at questions 60 and 120 (1-based), which are idx 59 and 119 (0-based).
+  // We set barrier to the first question AFTER the checkpoint (idx 60 and 120),
+  // so the Back button appears starting at questions 62 and 122 (idx 61 and 121),
+  // and allows returning only up to questions 61 and 121 respectively.
+  function targetBarrierFor(idx){
+    // Pause now occurs at questions 60 and 120 (1-based) => idx 59 and 119 (0-based)
+    if (idx === 59) return 60; if (idx === 119) return 120; return null;
+  }
+      function showPrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display=''; m.setAttribute('aria-hidden','false'); } }
+      function hidePrePauseModal(){ const m = document.getElementById('prePauseModal'); if (m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }
+      // Track pause consumption per checkpoint to avoid re-rendering buttons after auto end
+  function checkpointKeyFor(idx){ return idx===59 ? 'cp1' : (idx===119 ? 'cp2' : null); }
+      function isPauseConsumedFor(idx){
+        try { const cp = checkpointKeyFor(idx); if (!cp) return false; const sid = window.currentSessionId || null; if (!sid) return false; return localStorage.getItem(`pauseConsumed_${sid}_${cp}`) === 'true'; } catch(_) { return false; }
+      }
+      function markPauseConsumedFor(idx){
+        try { const cp = checkpointKeyFor(idx); if (!cp) return; const sid = window.currentSessionId || null; if (!sid) return; localStorage.setItem(`pauseConsumed_${sid}_${cp}`, 'true'); } catch(_) { }
+      }
+      function setSkipButtonDisabled(disabled, label){
+        try {
+          const bs = document.getElementById('bSkipPause');
+          if (!bs) return;
+          if (label){
+            bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
+          }
+          bs.disabled = !!disabled;
+          bs.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+          bs.style.pointerEvents = disabled ? 'none' : '';
+          if (disabled) bs.classList.add('is-disabled'); else bs.classList.remove('is-disabled');
+        } catch(e){}
+      }
+      function setPauseButtonDisabled(disabled){
+        try {
+          const bp = document.getElementById('bPause');
+          if (!bp) return;
+          bp.disabled = !!disabled;
+          bp.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+          bp.style.pointerEvents = disabled ? 'none' : '';
+          if (disabled) bp.classList.add('is-disabled'); else bp.classList.remove('is-disabled');
+        } catch(e){}
+      }
+      function ensureTopPauseButtons(idx){
+        try {
+          const container = document.querySelector('#resource-buttons .inline-flex'); if (!container) return;
+          const need = ((idx === 59 || idx === 119) && !isPauseConsumedFor(idx));
+          if (!need){ removeTopPauseButtons(); return; }
+          if (!document.getElementById('bPause')){
+            const bp = document.createElement('button');
+            bp.id='bPause'; bp.type='button';
+            bp.className='-ml-px border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50';
+            bp.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Fazer pausa';
+            bp.addEventListener('click', ()=>{
+              try {
+                const sid = window.currentSessionId || null; if (sid){ localStorage.setItem(`pauseUntil_${sid}`, String(Date.now() + 10*60*1000)); }
+                const i = getCurrentIdx(); const tb = targetBarrierFor(i); if (tb) setBarrierTo(tb);
+                // Marcar flags por sessão: FirstStop_<sid>/SecondStop_<sid> indicando se usuário fez 1ª ou 2ª pausa
+                try {
+                  const cur = typeof i === 'number' ? i : getCurrentIdx();
+                  if (typeof cur === 'number') {
+                    if (sid) {
+                      if (cur < 119) { localStorage.setItem(`FirstStop_${sid}`, 'true'); }
+                      else { localStorage.setItem(`SecondStop_${sid}`, 'true'); }
+                    }
+                  }
+                } catch(_){ }
+                // trocar rótulo do botão de skip para "Continuar exame" e desabilitá-lo durante a pausa
+                setSkipButtonDisabled(true, 'Continuar exame');
+                // desabilitar também o botão "Fazer pausa" durante a pausa
+                setPauseButtonDisabled(true);
+                // iniciar contador regressivo no botão de pausa
+                startPauseCountdown();
+                // manter o botão Continuar desabilitado durante a pausa
+                try {
+                  if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'false');
+                  const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                } catch(_){ }
+                if (typeof showToast === 'function') showToast('Pausa de 10 minutos iniciada.');
+              } catch(e){}
+            });
+            container.appendChild(bp);
+          }
+          if (!document.getElementById('bSkipPause')){
+            const bs = document.createElement('button');
+            bs.id='bSkipPause'; bs.type='button';
+            bs.className='-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50';
+            const label = (idx >= 119) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
+            bs.innerHTML='<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label;
+            bs.addEventListener('click', ()=>{
+              try {
+                const i=getCurrentIdx(); const tb=targetBarrierFor(i); if (tb) setBarrierTo(tb);
+                // se estiver em pausa, não faz nada (fica desabilitado)
+                const sid = window.currentSessionId || null;
+                if (sid) {
+                  const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
+                  if (rawPU) { return; }
+                }
+                // marcar este checkpoint como consumido e remover imediatamente os botões do header
+                try { markPauseConsumedFor(idx); } catch(_){ }
+                try { removeTopPauseButtons(); } catch(_){ }
+                // se não estiver em pausa, é a ação de continuar sem a pausa deste checkpoint
+                try {
+                  const sid2 = window.currentSessionId || null;
+                  if (sid2) localStorage.setItem(`allowContinueAfterCheckpoint_${sid2}`, 'true');
+                } catch(_){}
+                const contBtn2 = document.getElementById('continueBtn'); if (contBtn2) contBtn2.disabled = false;
+                if (typeof showToast==='function') showToast(label);
+              } catch(e){}
+            });
+            container.appendChild(bs);
+          }
+          // Ao renderizar, se já estiver em pausa ativa, refletir estado: skip desabilitado e Continuar desabilitado
+          try {
+            const sid = window.currentSessionId || null;
+            if (sid){
+              const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
+              const until = rawPU ? Number(rawPU) : 0;
+              if (Number.isFinite(until) && until > Date.now()){
+                setSkipButtonDisabled(true, 'Continuar exame');
+                setPauseButtonDisabled(true);
+                const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = true;
+                startPauseCountdown();
+              }
+            }
+          } catch(_){ }
+        } catch(e){}
+      }
+      let PAUSE_TICKER_ID = null;
+      function formatMMSS(ms){
+        const s = Math.max(0, Math.floor(ms/1000));
+        const mm = String(Math.floor(s/60)).padStart(2,'0');
+        const ss = String(s%60).padStart(2,'0');
+        return `${mm}:${ss}`;
+      }
+      function startPauseCountdown(){
+        try {
+          const bp = document.getElementById('bPause'); if (!bp) return;
+          if (PAUSE_TICKER_ID) { clearInterval(PAUSE_TICKER_ID); PAUSE_TICKER_ID = null; }
+          const sid = window.currentSessionId || null; if (!sid) return;
+          const badge = document.getElementById('pauseBadge');
+          const update = ()=>{
+            const rawPU = localStorage.getItem(`pauseUntil_${sid}`);
+            const until = rawPU ? Number(rawPU) : 0;
+            const now = Date.now();
+            const remain = Math.max(0, until - now);
+            bp.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Fazer pausa (' + formatMMSS(remain) + ')';
+            if (badge){
+              if (remain > 0){ badge.textContent = 'Em pausa ' + formatMMSS(remain); badge.style.display = ''; }
+              else { badge.style.display = 'none'; }
+            }
+            if (remain <= 0){ stopPauseCountdown(true); }
+          };
+          update();
+          PAUSE_TICKER_ID = setInterval(update, 1000);
+        } catch(e){}
+      }
+      function stopPauseCountdown(autoEnd){
+        try {
+          if (PAUSE_TICKER_ID) { clearInterval(PAUSE_TICKER_ID); PAUSE_TICKER_ID = null; }
+          const bp = document.getElementById('bPause');
+          const bs = document.getElementById('bSkipPause');
+          const badge = document.getElementById('pauseBadge');
+          if (badge){ badge.style.display = 'none'; }
+          const sid = window.currentSessionId || null;
+          if (autoEnd){
+            // Remover chave de pausa e esconder botões ao final automático
+            try { if (sid) localStorage.removeItem(`pauseUntil_${sid}`); } catch(_){ }
+            if (bp){ bp.style.display = 'none'; }
+            if (bs){ bs.style.display = 'none'; bs.disabled = false; }
+            // Marcar pausa consumida neste checkpoint para não reexibir
+            const idx = getCurrentIdx(); markPauseConsumedFor(idx);
+            // Retomar cronômetro e reabilitar botão Continuar
+            try { if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'true'); } catch(_){ }
+            const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = false;
+            if (typeof showToast==='function') { showToast('Fim do intervalo. Exame retomado.', 2000, { center: true }); }
+          } else {
+            // Retorno manual (não utilizado pois o botão fica desabilitado durante a pausa)
+            if (bp){ bp.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Fazer pausa'; }
+            if (bs){
+              const i = (function(){ const q = document.getElementById('questionNumber'); if (!q) return null; const n = Number((q.textContent||'').trim()); return Number.isFinite(n)? n-1 : null; })();
+              const label = (i >= 119) ? 'Continuar sem 2ª pausa' : 'Continuar sem 1ª pausa';
+              bs.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg> ' + label; bs.disabled = false;
+            }
+          }
+        } catch(e){}
+      }
+      function removeTopPauseButtons(){
+        try{
+          stopPauseCountdown();
+          ['bPause','bSkipPause'].forEach(id=>{ const el=document.getElementById(id); if (el && el.parentElement) el.parentElement.removeChild(el); });
+        }catch(e){}
+      }
+
+      // Show pre-pause modal with per-checkpoint gating:
+      // - At question 60 (1-based, idx 59): consider only FirstStop_<sid>
+      // - At question 120 (1-based, idx 119): consider only SecondStop_<sid>
+      function shouldShowPrePauseFor(idx){
+        try {
+          const sid = window.currentSessionId || null;
+          if (!sid) return true; // sem sessão, mantenha comportamento padrão
+          const first = localStorage.getItem(`FirstStop_${sid}`) === 'true';
+          const second = localStorage.getItem(`SecondStop_${sid}`) === 'true';
+          if (idx === 59) return !first;
+          if (idx === 119) return !second;
+          return true;
+        } catch(e){ return true; }
+      }
+
+      document.addEventListener('exam:question-index-changed', (ev)=>{
+        try {
+          const idx = ev && ev.detail && ev.detail.index;
+          if ((idx === 59 || idx === 119) && shouldShowPrePauseFor(idx)){
+            // Atualiza o rótulo do botão do modal conforme o checkpoint (1ª ou 2ª pausa)
+            try {
+              const skip = document.getElementById('btnSkipPause');
+              if (skip) skip.textContent = (idx >= 119) ? 'Continuar sem a 2ª pausa' : 'Continuar sem a 1ª pausa';
+            } catch(e){}
+            showPrePauseModal();
+            ensureTopPauseButtons(idx);
+          }
+          else { hidePrePauseModal(); removeTopPauseButtons(); }
+        } catch(e){}
+      });
+      document.getElementById('btnReviewQuestions')?.addEventListener('click', ()=>{ hidePrePauseModal(); });
+      document.getElementById('btnSkipPause')?.addEventListener('click', ()=>{
+        try {
+          const i = getCurrentIdx();
+          const tb = targetBarrierFor(i);
+          if (tb) setBarrierTo(tb);
+          // Marcar este checkpoint como consumido para não reexibir os botões no header
+          try {
+            const cpIdx = (typeof i === 'number' && i >= 119) ? 119 : 59;
+            markPauseConsumedFor(cpIdx);
+          } catch(_){ }
+          // Remover imediatamente os botões do header (Fazer pausa / Continuar sem pausa)
+          try { removeTopPauseButtons(); } catch(_){ }
+          // Liberar a continuação após o checkpoint
+          try {
+            const sid = window.currentSessionId || null;
+            if (sid) localStorage.setItem(`allowContinueAfterCheckpoint_${sid}`, 'true');
+            const contBtn = document.getElementById('continueBtn'); if (contBtn) contBtn.disabled = false;
+          } catch(_){ }
+          // Informar via toast qual opção foi escolhida (1ª ou 2ª pausa)
+          try {
+            const msg = (typeof i === 'number' && i >= 119) ? 'Continuando sem a 2ª pausa.' : 'Continuando sem a 1ª pausa.';
+            if (typeof showToast==='function') showToast(msg);
+          } catch(_){ }
+        } catch(e){}
+        hidePrePauseModal();
+      });
+    })();
+  </script>
+
+  
 
   <!-- Registration modal -->
   <div id="emailModal" class="modal" aria-hidden="true" style="display:none;">
@@ -231,3 +1423,34 @@
   </div>
 </body>
 </html>
+<!-- Botão temporário de teste: subtrai 60s da pausa ativa -->
+<button id="testMinus60" type="button" aria-label="Subtrair 60 segundos da pausa (teste)"
+  style="position:fixed; right:12px; bottom:12px; z-index:9999; background:#ffecec; color:#b20000; border:1px solid #ffbdbd; border-radius:8px; padding:8px 10px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.12);">
+  −60s Pausa (teste)
+</button>
+<script>
+  (function(){
+    try {
+      const btn = document.getElementById('testMinus60');
+      if (!btn) return;
+      btn.addEventListener('click', ()=>{
+        try {
+          const sid = window.currentSessionId || null;
+          if (!sid) { try { if (typeof showToast==='function') showToast('Sessão indisponível.'); } catch(_){} return; }
+          const key = `pauseUntil_${sid}`;
+          const raw = localStorage.getItem(key);
+          const now = Date.now();
+          const until = raw ? Number(raw) : 0;
+          if (!Number.isFinite(until) || until <= now){
+            try { if (typeof showToast==='function') showToast('Sem pausa ativa.'); } catch(_){}
+            return;
+          }
+          const newUntil = Math.max(now, until - 60*1000);
+          localStorage.setItem(key, String(newUntil));
+          try { if (typeof showToast==='function') showToast('−60s na pausa (teste)'); } catch(_){}
+          // startPauseCountdown atualiza a cada segundo lendo localStorage; não é necessário chamar aqui
+        } catch(e){}
+      });
+    } catch(e){}
+  })();
+</script>

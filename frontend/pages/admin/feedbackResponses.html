@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Responder Feedbacks</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
+    .wrap{ max-width:960px; margin:20px auto; padding:16px; background:#111827; border:1px solid #1f2937; border-radius:10px; }
+    table{ width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td{ border-bottom:1px solid #1f2937; padding:8px; text-align:left; font-size:.9rem; }
+    th{ color:#a5b4fc; }
+    .btn{ padding:6px 10px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
+    .btn-primary{ background:#4f46e5; color:#fff; }
+    .btn-muted{ background:#334155; color:#e5e7eb; }
+    .resp-box{ display:flex; gap:8px; align-items:flex-start; }
+    textarea{ width:100%; min-height:80px; resize:vertical; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    .status{ font-size:.8rem; color:#93c5fd; min-height:18px; }
+    /* Override global light background variable to ensure no white stripe */
+    :root{ --bg: #0f172a; }
+    html{ background:#0f172a; }
+    body.light-app{ background:#0f172a !important; }
+    /* Neutralize any element that might be using var(--bg) at top */
+    body > .top-bar, body > .header, body > header{ background:#0f172a !important; border:none !important; }
+  </style>
+  <script src="/utils/logout.js"></script>
+</head>
+<body>
+  <!-- Admin quick menu -->
+  <button id="adminMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu Admin" style="display:none;position:fixed;top:12px;left:12px;z-index:2300;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.10);background:#1e293b;color:#e5e7eb;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.30);font-size:.85rem;font-weight:600;">Admin ▾</button>
+  <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">
+      <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão</a>
+      <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
+      <a id="lnkAdminFeedbackResp" href="/pages/admin/feedbackResponses.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Responder feedbacks</a>
+      <a id="lnkAdminNotifications" href="/pages/admin/notifications.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Notificações</a>
+      <button id="btnAdminFixture" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#0d9488;font-size:.85rem;border-radius:6px;cursor:pointer;">Gerar tentativa fixture</button>
+      <button id="btnAdminReconcile" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#4f46e5;font-size:.85rem;border-radius:6px;cursor:pointer;">Reconciliar estatísticas</button>
+      <button id="btnAdminPurge" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#b91c1c;font-size:.85rem;border-radius:6px;cursor:pointer;">Expurgar tentativas abandonadas</button>
+      <button id="btnAdminMarkAbandoned" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#dc2626;font-size:.85rem;border-radius:6px;cursor:pointer;">Marcar abandonadas (inatividade)</button>
+      <button id="btnAdminLogout" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f1f5f9;color:#334155;font-size:.85rem;border-radius:6px;cursor:pointer;">Sair</button>
+  </nav>
+  
+  <div class="wrap">
+    <h1 style="margin:0 0 10px;">Feedbacks pendentes</h1>
+    <p style="color:#94a3b8">Somente administradores. Responda abaixo; a resposta será vinculada ao feedback e à questão.</p>
+    <div id="status" class="status"></div>
+    <table aria-label="Feedbacks pendentes" style="table-layout:auto;">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Questão</th>
+          <th>Categoria</th>
+          <th>Usuário</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="feedbackTextList" aria-label="Textos dos feedbacks" style="margin-top:18px; display:grid; gap:12px;"></div>
+  </div>
+
+  <!-- Bottom navigation component mount -->
+  <div id="bottomNavMount"></div>
+  <script>
+    // Admin menu logic: mirror top Admin button behavior from index.html
+    (function initAdminMenu(){
+      const btn = document.getElementById('adminMenuBtn');
+      const panel = document.getElementById('adminMenuPanel');
+      if (!btn || !panel) return;
+      const token = (localStorage.getItem('sessionToken') || '').trim();
+      const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+      const sessionForHeader = nomeUsuario || token;
+      if (!token) return;
+      function applyTokenFallback(){
+        try {
+          const q = encodeURIComponent(token);
+          ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp'].forEach(id => {
+            const a = document.getElementById(id); if (!a) return;
+            const href = a.getAttribute('href') || '';
+            if (href.includes('sessionToken=')) return;
+            const sep = href.includes('?') ? '&' : '?';
+            a.setAttribute('href', href + sep + 'sessionToken=' + q);
+          });
+        } catch(_){}
+      }
+      const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+      const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+      const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+      const probeHeaders = { };
+      if (sessionForHeader) probeHeaders['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) probeHeaders['Authorization'] = `${jwtType} ${jwtTok}`;
+      fetch(probeUrl, { headers: probeHeaders, method: 'GET' })
+        .then(r => {
+          if (!r.ok) return Promise.reject('Not admin');
+          btn.style.display = 'inline-flex';
+          applyTokenFallback();
+          function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
+          function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
+          btn.addEventListener('click', e => { e.stopPropagation(); if (panel.style.display === 'block') close(); else open(); });
+          document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) close(); });
+          // Wire admin actions similar to index.html
+          const purgeBtn = document.getElementById('btnAdminPurge');
+          const markBtn = document.getElementById('btnAdminMarkAbandoned');
+          const reconcileBtn = document.getElementById('btnAdminReconcile');
+          const fixtureBtn = document.getElementById('btnAdminFixture');
+          function getSessionIdentity(){
+            const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
+            const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+            return nomeUsuario || sessionToken;
+          }
+          async function adminPost(path){
+            const identity = getSessionIdentity();
+            const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+            const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+            const headers = { 'Content-Type':'application/json' };
+            if (identity) headers['X-Session-Token'] = identity;
+            if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+            const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity);
+            const resp = await fetch(url,{method:'POST',headers});
+            const data = await resp.json().catch(()=>({}));
+            return {ok:resp.ok,status:resp.status,data};
+          }
+          if (reconcileBtn){
+            reconcileBtn.addEventListener('click', async ()=>{
+              close();
+              try {
+                const r = await adminPost('/api/admin/exams/reconcile-stats');
+                alert(r.ok ? 'Reconciliação disparada.' : `Falhou (${r.status}).`);
+              } catch(e){ alert('Erro ao reconciliar: '+ e); }
+            });
+          }
+          if (fixtureBtn){
+            fixtureBtn.addEventListener('click', ()=>{
+              close();
+              window.location.assign('/pages/admin/fixture.html');
+            });
+          }
+          if (purgeBtn){
+            purgeBtn.addEventListener('click', async ()=>{
+              close();
+              if (!confirm('Confirma expurgo de tentativas abandonadas conforme política? Esta ação é permanente.')) return;
+              try {
+                const r = await adminPost('/api/admin/exams/purge-abandoned');
+                alert(r.ok ? `Expurgo: ${r.data.purged} purgadas (inspecionadas ${r.data.inspected}).` : `Falhou (${r.status}).`);
+              } catch(e){ alert('Erro ao expurgar: '+ e); }
+            });
+          }
+          if (markBtn){
+            markBtn.addEventListener('click', async ()=>{
+              close();
+              if (!confirm('Executar marcação de tentativas abandonadas por inatividade?')) return;
+              try {
+                const r = await adminPost('/api/admin/exams/mark-abandoned');
+                alert(r.ok ? `Marcadas: timeout=${r.data.markedTimeout}, lowProgress=${r.data.markedLowProgress} (processadas ${r.data.processed}).` : `Falhou (${r.status}).`);
+              } catch(e){ alert('Erro ao marcar: ' + e); }
+            });
+          }
+          const logoutBtn = document.getElementById('btnAdminLogout');
+          if (logoutBtn){
+            logoutBtn.addEventListener('click', ()=>{
+              close();
+              if (window.performLogout) {
+                window.performLogout({ confirm: false, showNotification: false });
+              } else {
+                try { localStorage.clear(); sessionStorage.clear(); document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
+                setTimeout(()=>{ window.location.href='/login'; }, 300);
+              }
+            });
+          }
+        })
+        .catch(()=>{});
+    })();
+
+    (function(){
+      function loadBottomNav(){
+        var mount = document.getElementById('bottomNavMount');
+        if(!mount) return;
+        fetch('../../components/bottomNav.html')
+          .then(r => r.ok ? r.text() : null)
+          .then(html => { if(html){
+            mount.innerHTML = html;
+            try {
+              var scripts = Array.from(mount.querySelectorAll('script'));
+              scripts.forEach(old => {
+                var s = document.createElement('script');
+                if(old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                old.parentNode.removeChild(old);
+                mount.appendChild(s);
+              });
+            } catch(_){ }
+          }}).catch(()=>{});
+      }
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadBottomNav); else loadBottomNav();
+    })();
+
+    (function(){
+      const status = document.getElementById('status');
+      const rows = document.getElementById('rows');
+      const textList = document.getElementById('feedbackTextList');
+      function headers(){
+        const h = {};
+        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+        const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+        if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+        if (sessionTok) h['X-Session-Token'] = sessionTok;
+        h['Content-Type'] = 'application/json';
+        return h;
+      }
+      async function load(){
+        status.textContent = 'Carregando...';
+        try {
+          const r = await fetch('/api/admin/feedback/pending', { headers: headers() });
+          if(!r.ok){ status.textContent='Acesso negado ou falha'; return; }
+          const list = await r.json();
+          rows.innerHTML='';
+          if(textList) textList.innerHTML='';
+          if(!Array.isArray(list) || !list.length){ rows.innerHTML='<tr><td colspan="4">Nenhum feedback pendente.</td></tr>'; status.textContent=''; return; }
+          const frag = document.createDocumentFragment();
+          list.forEach(item => {
+            const usuarioNome = (item.usuarioNome || item.usuarionome || '').trim() || 'Desconhecido';
+            const usuarioIdRaw = item.usuarioId ?? item.usuarioid ?? item.reportadopor ?? item.idusuario ?? item.userId ?? item.usuarioId;
+            const usuarioId = (usuarioIdRaw !== undefined && usuarioIdRaw !== null && usuarioIdRaw !== '') ? usuarioIdRaw : '—';
+            const usuarioDisplay = usuarioNome + ' - ' + (usuarioId === null ? '—' : usuarioId);
+            // table row
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${item.id}</td><td>${item.idquestao}</td><td>${item.idcategoria}</td><td>${usuarioDisplay}</td>`;
+            frag.appendChild(tr);
+            // card with text + responder
+            if(textList){
+              const card = document.createElement('div');
+              card.style.cssText='background:#1e293b;padding:12px 14px;border:1px solid #334155;border-radius:8px;display:flex;flex-direction:column;gap:10px;';
+              const head = document.createElement('div');
+              head.style.cssText='font-size:.7rem;color:#94a3b8;font-weight:600;display:flex;flex-wrap:wrap;gap:10px;';
+              head.innerHTML = `ID: <strong>${item.id}</strong> · Questão: <strong>${item.idquestao}</strong> · Categoria: <strong>${item.idcategoria}</strong> · Usuário: <strong>${usuarioDisplay}</strong>`;
+              const contentRow = document.createElement('div');
+              contentRow.style.cssText='display:flex;flex-direction:row;gap:16px;align-items:stretch;';
+              const bodyWrap = document.createElement('div'); bodyWrap.style.cssText='flex:1;min-width:0;';
+              const body = document.createElement('div'); body.style.cssText='font-size:.8rem;line-height:1.4;color:#e2e8f0;white-space:pre-wrap;word-break:break-word;'; body.textContent=item.texto||''; bodyWrap.appendChild(body);
+              const respWrap = document.createElement('div'); respWrap.style.cssText='width:300px;display:flex;flex-direction:column;gap:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px;';
+              const ta = document.createElement('textarea'); ta.placeholder='Responder este feedback'; ta.style.cssText='width:100%;min-height:90px;resize:vertical;padding:8px;border-radius:6px;border:1px solid #1f2937;background:#0f172a;color:#e5e7eb;font-size:.75rem;';
+              const notifyWrap = document.createElement('div'); notifyWrap.style.cssText='display:flex;flex-direction:column;gap:4px;';
+              const notifyChkLabel = document.createElement('label'); notifyChkLabel.style.cssText='display:flex;align-items:center;gap:6px;font-size:.65rem;color:#cbd5e1;font-weight:600;';
+              const notifyChk = document.createElement('input'); notifyChk.type='checkbox'; notifyChk.style.width='14px'; notifyChk.style.height='14px';
+              notifyChkLabel.appendChild(notifyChk); notifyChkLabel.appendChild(document.createTextNode('Notificar usuário'));
+              const notifyFields = document.createElement('div'); notifyFields.style.cssText='display:none;flex-direction:column;gap:4px;background:#1e293b;padding:6px;border:1px solid #334155;border-radius:6px;';
+              const notifTitulo = document.createElement('input'); notifTitulo.type='text'; notifTitulo.placeholder='Título (opcional)'; notifTitulo.style.cssText='padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e5e7eb;font-size:.65rem;';
+              const notifMsg = document.createElement('textarea'); notifMsg.placeholder='Mensagem (opcional)'; notifMsg.style.cssText='min-height:54px;padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e5e7eb;font-size:.65rem;resize:vertical;';
+              notifyFields.appendChild(notifTitulo); notifyFields.appendChild(notifMsg);
+              notifyChk.addEventListener('change',()=>{ notifyFields.style.display = notifyChk.checked ? 'flex' : 'none'; });
+              notifyWrap.appendChild(notifyChkLabel); notifyWrap.appendChild(notifyFields);
+              const btn = document.createElement('button'); btn.className='btn btn-primary'; btn.textContent='Enviar resposta'; btn.style.fontSize='.7rem';
+              const msg = document.createElement('div'); msg.className='status'; msg.style.minHeight='16px';
+              btn.onclick = async ()=>{
+                msg.textContent='Enviando...'; btn.disabled=true;
+                try {
+                  const payload = { idfeedback: item.id, resposta: ta.value.trim() };
+                  if(!payload.resposta){ msg.textContent='Digite uma resposta.'; btn.disabled=false; return; }
+                  const rr = await fetch('/api/admin/feedback/respond',{method:'POST', headers: headers(), body: JSON.stringify(payload)});
+                  if(rr.ok){
+                    msg.textContent='Resposta registrada.'; card.style.opacity='0.6'; tr.style.opacity='0.6';
+                    if(notifyChk.checked){
+                      try {
+                        const userId = (item.usuarioId!=null?item.usuarioId:null) || item.usuarioid || item.reportadopor || item.idusuario || item.userId || item.usuarioId || null;
+                        if(userId){
+                          const notifBody={ categoria:'Avisos', titulo:(notifTitulo.value.trim()||'Resposta ao seu feedback'), mensagem:(notifMsg.value.trim()||('Sua questão #'+item.idquestao+' recebeu resposta: '+payload.resposta.substring(0,140)+(payload.resposta.length>140?'…':''))), targetType:'user', targetUserId:Number(userId)};
+                            const rn = await fetch('/api/admin/notifications',{method:'POST', headers: headers(), body: JSON.stringify(notifBody)});
+                            if(rn.ok){
+                              const created = await rn.json().catch(()=>null);
+                              if(created && created.id){
+                                const rs = await fetch('/api/admin/notifications/'+created.id+'/send',{method:'POST', headers: headers()});
+                                if(rs.ok) msg.textContent += ' Notificação enviada.'; else msg.textContent += ' (Falha ao enviar notificação)';
+                              } else {
+                                msg.textContent += ' (Notificação criada sem ID)';
+                              }
+                            } else {
+                              msg.textContent += ' (Falha ao criar notificação)';
+                            }
+                        } else msg.textContent += ' (ID usuário ausente)';
+                      } catch(_){ msg.textContent += ' (Erro ao notificar)'; }
+                    }
+                    setTimeout(load,800);
+                  } else { const d=await rr.json().catch(()=>({})); msg.textContent=d.error||'Falha'; }
+                } catch(e){ msg.textContent='Erro de rede'; }
+                btn.disabled=false;
+              };
+              respWrap.appendChild(ta); respWrap.appendChild(notifyWrap); respWrap.appendChild(btn); respWrap.appendChild(msg);
+              contentRow.appendChild(bodyWrap); contentRow.appendChild(respWrap);
+              card.appendChild(head); card.appendChild(contentRow); textList.appendChild(card);
+            }
+          });
+          rows.appendChild(frag);
+          status.textContent='';
+        } catch(e){ status.textContent='Erro ao carregar'; }
+      }
+      load();
+    })();
+
+    // Bottom nav replaced by shared component; page-specific handlers no longer required.
+  </script>
+</body>
+</html>

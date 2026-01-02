@@ -1,0 +1,172 @@
+<style>
+  .pass-probability {
+    border: 4px solid transparent;
+    border-radius: 8px;
+    padding: 6px 12px;
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    max-width: 417px;
+  }
+  /* Mobile: fix the card near the bottom of the page */
+  @media (max-width: 640px) {
+    .pass-probability {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(env(safe-area-inset-bottom) + 56px);
+      margin: 0 auto;
+      z-index: 1500;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    }
+  }
+  .pass-probability h3 {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  /* Background performance classes (mirror lastExamResults thresholds) */
+  .pass-probability.perf-gt85 { 
+    background-image: none;
+    background-color: #fff;
+    border-color: #0A7A0A;
+  }
+  .pass-probability.perf-75-85 { 
+    background-image: none;
+    background-color: #fff;
+    border-color: #32CD32;
+  }
+  .pass-probability.perf-70-74 { 
+    background-image: none;
+    background-color: #fff;
+    border-color: #FED7AA;
+  }
+  .pass-probability.perf-lt70 {
+    background-image: none;
+    background-color: #fff;
+    border-color: #FCA5A5;
+  }
+</style>
+<div class="pass-probability" role="group" aria-label="Probabilidade de aprovação">
+  <h3>Probabilidade de passar no exame</h3>
+  <div id="passProbabilityMount" aria-live="polite"></div>
+</div>
+<script src="/components/sb-hbar.js"></script>
+<script>
+  (function initPassProbability(){
+    // Make the whole card clickable to open Indicadores -> Probabilidade de Sucesso
+    try {
+      const card = document.querySelector('.pass-probability');
+      if (card) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', () => {
+          window.location.assign('/pages/Indicadores.html?tab=prob');
+        });
+      }
+    } catch(_){}
+    const mount = document.getElementById('passProbabilityMount');
+    if (!mount) return;
+    mount.style.minWidth = '220px';
+    mount.style.minHeight = '24px';
+    const sessionToken = (window.localStorage && window.localStorage.getItem('sessionToken')) || '';
+    const jwtTok = (window.localStorage && window.localStorage.getItem('jwtToken')) || '';
+    const jwtType = (window.localStorage && window.localStorage.getItem('jwtTokenType')) || 'Bearer';
+    // exam_type: prefer numeric id; else send uppercase slug to match table values
+    const rawExamType = (window.localStorage && window.localStorage.getItem('examType')) || '';
+    const rawExamTypeId = (window.localStorage && window.localStorage.getItem('examTypeId')) || '';
+    let examTypeParam = 'PMP';
+    try {
+      const n = Number(rawExamTypeId || rawExamType);
+      if (Number.isFinite(n) && n > 0) {
+        examTypeParam = String(Math.floor(n));
+      } else {
+        examTypeParam = String(rawExamType || 'PMP').toUpperCase();
+      }
+    } catch(_){ examTypeParam = String(rawExamType || 'PMP').toUpperCase(); }
+    const apiBase = (window.API_V1 || '/api/v1');
+    const baseUrl = `${apiBase}/indicators/IND12?exam_type=${encodeURIComponent(examTypeParam)}`;
+    const PASS_THRESHOLD = 75; // percentual médio esperado para aprovação
+
+    async function fetchInd12(){
+      try {
+        const headers = { 'Accept': 'application/json' };
+        if (sessionToken) headers['X-Session-Token'] = sessionToken;
+        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+        const resp = await fetch(baseUrl, { cache: 'no-store', headers, credentials: 'include' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function computeProbability(dominios){
+      // Consolidated: overall = (Σ acertos / Σ total) × 100; probability = clamp((overall / PASS_THRESHOLD) × 100)
+      const totals = dominios.reduce((acc, d) => { acc.total += (Number(d.total)||0); acc.acertos += (Number(d.acertos)||0); return acc; }, { total:0, acertos:0 });
+      const overall = totals.total > 0 ? Number(((totals.acertos / totals.total) * 100).toFixed(2)) : null;
+      const probability = overall != null ? Math.max(0, Math.min(100, Number(((overall / PASS_THRESHOLD) * 100).toFixed(0)))) : 5;
+      return { overallPercent: overall, probability };
+    }
+
+    async function render(data){
+      mount.innerHTML = '';
+      const host = mount.parentElement; // .pass-probability
+      // Ensure custom element is ready before instantiation
+      try { if (window.customElements && window.customElements.whenDefined) { await window.customElements.whenDefined('sb-hbar'); } } catch(_){}
+      // Title is already present; add subtitle with overall vs threshold
+      const subtitle = document.createElement('div');
+      subtitle.style.fontSize = '0.8rem';
+      subtitle.style.color = '#475569';
+      subtitle.style.marginBottom = '8px';
+      subtitle.textContent = data.overallPercent != null ? `Média geral: ${data.overallPercent}% • Linha de corte: 75%` : 'Média geral: —';
+      mount.appendChild(subtitle);
+
+      // Overall probability bar
+      const bar = document.createElement('sb-hbar');
+
+      bar.setAttribute('value', String(data.probability ?? 5));
+      bar.setAttribute('max', '100');
+      bar.setAttribute('label', 'Probabilidade de aprovação');
+      bar.setAttribute('show-percent', '');
+      // Color logic: <75 = #B91C1C (blood red), >75 and <85 = #32CD32 (green), >=85 = #0A7A0A (dark green)
+      if ((data.probability||0) >= 85) {
+        bar.setAttribute('color', '#0A7A0A');
+      } else if ((data.probability||0) > 75) {
+        bar.setAttribute('color', '#32CD32');
+      } else {
+        bar.setAttribute('color', '#B91C1C');
+      }
+      mount.appendChild(bar);
+
+      // Formula display block
+
+
+      // Apply background performance classes similar to lastExamResults gauge
+      try {
+        if (host) {
+          const pct = Math.max(0, Math.min(100, Number(data.probability||0))) / 100;
+          host.classList.remove('perf-gt85','perf-75-85','perf-70-74','perf-lt70');
+          if (pct >= 0.85) {
+            host.classList.add('perf-gt85');
+          } else if (pct > 0.75) {
+            host.classList.add('perf-75-85');
+          } else if (pct >= 0.70) {
+            host.classList.add('perf-70-74');
+          } else {
+            host.classList.add('perf-lt70');
+          }
+        }
+      } catch(_){}
+    }
+
+    (async function(){
+      const ind12 = await fetchInd12();
+      if (!ind12 || !Array.isArray(ind12.dominios) || !ind12.dominios.length){
+        render({ probability: 5, dominios: [] });
+        return;
+      }
+      const calc = computeProbability(ind12.dominios);
+      render({ probability: calc.probability, overallPercent: calc.overallPercent, dominios: ind12.dominios });
+    })();
+  })();
+</script>

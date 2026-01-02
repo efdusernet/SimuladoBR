@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SimuladosBR — Login</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="Simulados completos para certificação PMP com questões reais e indicadores detalhados">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SimuladosBR">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  
+  <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
+  <link rel="stylesheet" href="/dist/styles.css">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    :root {
+      --brand: #4f46e5;
+      --brand-700: #4338ca;
+      --brand-900: #312e81;
+      --bg: #0b1020;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --shadow: 0 20px 40px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
+                  radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+                  linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji";
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    main { display: grid; place-items: center; padding: 32px 16px; }
+
+    /* Brand header (hidden in login, but keep style ready) */
+    #userHeader { background: rgba(255,255,255,.04) !important; border-bottom: 1px solid rgba(255,255,255,.08) !important; color: var(--text); }
+
+    /* Modal wrapper centers the card */
+    .modal { display: grid; place-items: center; position: fixed; inset: 0; padding: 24px; backdrop-filter: blur(6px); background: rgba(2,6,23,.45); }
+
+    .modal-content {
+      width: 100%; max-width: 420px;
+      background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      display: grid; gap: 12px;
+    }
+
+    .modal-content h2 {
+      margin: 0 0 4px 0;
+      font-size: 1.25rem; font-weight: 700; letter-spacing: .2px;
+      color: var(--text);
+    }
+    .modal-content p { margin: 0 0 8px 0; color: var(--muted); font-size: .95rem; }
+
+    .modal-content input {
+      width: 100%; height: 44px;
+      background: #0b1221;
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 0 14px;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .modal-content input::placeholder { color: #7b8499; }
+    .modal-content input:focus { border-color: rgba(79,70,229,.6); box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+
+    .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+    .modal-actions button {
+      height: 44px; border-radius: 12px; border: 1px solid transparent;
+      font-weight: 600; letter-spacing: .2px; cursor: pointer;
+      transition: transform .08s ease, box-shadow .15s ease, background .15s ease;
+    }
+    #submitEmail {
+      background: linear-gradient(180deg, var(--brand) 0%, var(--brand-700) 100%);
+      color: white;
+      box-shadow: 0 10px 22px rgba(79,70,229,.35);
+    }
+    #submitEmail:hover { filter: brightness(1.05); }
+    #submitEmail:active { transform: translateY(1px); }
+    .secondary-btn { background: #0b1221; color: var(--text); border-color: rgba(255,255,255,.08); }
+    .secondary-btn:hover { background: #0d1526; }
+    .secondary-btn:active { transform: translateY(1px); }
+
+    #forgotPasswordLink { color: var(--brand); text-decoration: none; }
+    #forgotPasswordLink:hover { text-decoration: underline; }
+
+    #modalError { color: var(--danger) !important; padding-top: 2px; }
+
+    /* Subtle animated accent */
+    .modal-content::before {
+      content: ""; position: absolute; inset: -1px; border-radius: inherit;
+      background: radial-gradient(800px 200px at 0% 0%, rgba(79,70,229,.12), transparent);
+      pointer-events: none;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 420px) {
+      .modal-content { padding: 22px; border-radius: 14px; }
+      .modal-actions { grid-template-columns: 1fr; }
+    }
+  </style>
+  
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
+
+  <!-- CSRF Protection -->
+  <script src="/utils/csrf.js"></script>
+</head>
+<body>
+  <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
+    <div style="max-width:900px;margin:0 auto;">Bem-vindo, <strong id="userNameHeader"></strong></div>
+  </header>
+  <main>
+  </main>
+
+  <!-- Modal de Login / Registro -->
+  <div id="emailModal" class="modal" aria-hidden="true" style="display:block;">
+    <div class="modal-content">
+      <h2>Registro obrigatório</h2>
+      <p>Por favor, informe seu e-mail para registrar o aplicativo.</p>
+      <input id="nameInput" type="text" placeholder="Seu nome completo" />
+      <input id="emailInput" type="email" placeholder="seu@exemplo.com" />
+      <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" />
+      <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" style="display:none;" />
+      <input id="newPasswordInput" type="password" placeholder="Nova senha (mínimo 6 caracteres)" style="display:none;" />
+      <input id="confirmPasswordInput" type="password" placeholder="Confirmar nova senha" style="display:none;" />
+      <div class="modal-actions">
+        <button id="submitEmail">Registrar</button>
+        <button id="toggleModeBtn" class="secondary-btn" type="button">Já tenho conta</button>
+      </div>
+      <a id="forgotPasswordLink" href="#" style="display:none;text-align:center;margin-top:8px;font-size:0.875rem;color:#4f46e5;text-decoration:none;">Esqueci minha senha</a>
+      <p id="modalError" style="color:crimson;display:none;"></p>
+    </div>
+  </div>
+
+  <!-- DOMPurify for XSS protection -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+  <!-- Sanitization utilities -->
+  <script src="/utils/sanitize.js"></script>
+  <script src="/script.js" defer></script>
+</body>
+</html>

@@ -1,3 +1,107 @@
+/* Ícone pequeno para card customizado */
+/* Ícone pequeno, nunca maior que o card */
+/* Força o ícone a nunca ultrapassar o card, com !important */
+/* Remove regras antigas e centraliza .thumb corretamente */
+.card--simulador {
+	flex-direction: column;
+	gap: 6px;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	display: flex;
+	height: 100%;
+}
+/* Garante tamanho fixo e impede expansão por outros estilos */
+/* Reduzido mais 10% */
+/* Reduzido mais 25% */
+.card--simulador .thumb {
+	width: 35px !important;
+	height: 35px !important;
+	max-width: 35px !important;
+	max-height: 35px !important;
+	border-radius: 6px;
+	object-fit: cover !important;
+	display: block;
+	margin: 0 auto;
+	box-shadow: none;
+}
+@media (min-width:480px){
+	.card--simulador .thumb {
+		width: 43px !important;
+		height: 43px !important;
+		max-width: 43px !important;
+		max-height: 43px !important;
+	}
+}
+/* Custom exam card visual (faixa branca + imagem) */
+
+.card--custom-exam {
+	position: relative;
+	padding: 0;
+	background: transparent;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	align-items: stretch;
+	width: 84px;
+	height: 84px;
+	box-shadow: var(--shadow);
+	border-radius: 10px;
+	border: 1px solid var(--border);
+	overflow: hidden;
+}
+/* Ajuste para imagem igual aos outros cards */
+
+.card--custom-exam .card-img-wrap {
+	width: 100%;
+	height: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+}
+.card--custom-exam .card-img {
+	width: 32px;
+	height: 32px;
+	object-fit: contain;
+	display: block;
+	margin: 0 auto;
+}
+@media (min-width:480px){
+	.card--custom-exam .card-img-wrap {
+		height: 44px;
+	}
+	.card--custom-exam .card-img {
+		width: 32px;
+		height: 32px;
+	}
+}
+.card--custom-exam .card-bottom-bar {
+	height: 20px;
+	background: #fff;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-bottom-left-radius: 10px;
+	border-bottom-right-radius: 10px;
+	box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+}
+.card--custom-exam .card-label {
+	color: #111827;
+	font-size: .78rem;
+	font-weight: 500;
+	user-select: none;
+}
+@media (min-width:480px){
+	.card--custom-exam {
+	width: 84px; /* unchanged */
+	height: 84px; /* unchanged */
+	}
+	.card--custom-exam .card-img-wrap {
+		height: 84px;
+	}
+}
 :root{
 	--base-font-size: 16px;
 	--bg: #f5f7fb;
@@ -10,15 +114,17 @@
 }
 
 html,body{
-	height:100%;
 	margin:0;
-	font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-	font-size: var(--base-font-size);
-	background: var(--bg);
-	color: #111827;
+	padding:0;
+	width:100%;
+	min-height:100%;
+	color:#111827;
 	-webkit-font-smoothing:antialiased;
 	-moz-osx-font-smoothing:grayscale;
 }
+
+/* Optional light background only when explicitly opted-in */
+body.light-app{ background: var(--bg); }
 
 /* container principal */
 .exam-container{
@@ -55,6 +161,67 @@ html,body{
 	white-space: nowrap;
 	text-align: center;
 }
+
+/* Resource buttons container (examFull) */
+.resource-Buttons{
+	display:flex;
+	justify-content:center;
+	align-items:center;
+}
+
+/* Spacing between resource buttons (~20px) */
+.resource-Buttons .inline-flex > * + * { margin-left: 20px !important; }
+
+/* Reduce vertical padding by ~8px total (4px top + 4px bottom) */
+.resource-Buttons .inline-flex > button{
+	padding-top: 0.25rem !important; /* ~4px */
+	padding-bottom: 0.25rem !important; /* ~4px */
+}
+
+/* Icon inside resource buttons */
+.resource-Buttons .btn-icon{
+	width: 16px;
+	height: 16px;
+	margin-right: 8px;
+	display: inline-block;
+	fill: currentColor;
+	flex: 0 0 auto;
+}
+
+/* Generic icon size for buttons (used outside resource-Buttons as well) */
+.btn-icon{
+	width: 16px;
+	height: 16px;
+	margin-right: 8px;
+	display: inline-block;
+	fill: currentColor;
+	flex: 0 0 auto;
+}
+
+/* Minimal utility classes to support the provided button group markup */
+.inline-flex{ display:inline-flex; }
+.-ml-px{ margin-left:-1px; }
+.rounded-l-sm{ border-top-left-radius:0.125rem; border-bottom-left-radius:0.125rem; }
+.rounded-r-sm{ border-top-right-radius:0.125rem; border-bottom-right-radius:0.125rem; }
+.border{ border:1px solid currentColor; }
+.border-gray-200{ border-color:#e5e7eb; }
+.px-3{ padding-left:0.75rem; padding-right:0.75rem; }
+.py-2{ padding-top:0.5rem; padding-bottom:0.5rem; }
+.font-medium{ font-weight:500; }
+.text-gray-700{ color:#374151; }
+.transition-colors{ transition: color .15s ease, background-color .15s ease, border-color .15s ease; }
+.hover\:bg-gray-50:hover{ background:#f9fafb; }
+.hover\:text-gray-900:hover{ color:#111827; }
+.focus\:z-10:focus{ z-index:10; position:relative; }
+.focus\:outline-none:focus{ outline: none; }
+/* simplified focus ring */
+.focus\:ring-2:focus{ box-shadow:0 0 0 2px rgba(59,130,246,0.6); }
+/* combine ring color and simple offset effect */
+.focus\:ring-blue-500:focus{ box-shadow:0 0 0 2px rgba(59,130,246,0.6); }
+.focus\:ring-offset-2:focus{ box-shadow:0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px rgba(59,130,246,0.6); }
+.focus\:ring-offset-white:focus{ box-shadow:0 0 0 3px #fff, 0 0 0 5px rgba(59,130,246,0.6); }
+.disabled\:pointer-events-auto:disabled{ pointer-events:auto; }
+.disabled\:opacity-50:disabled{ opacity:.5; }
 
 /* timer é colocado dentro da coluna central, mas alinhado à direita do elemento central. */
 .timer{
@@ -163,6 +330,11 @@ html,body{
 	max-width: 100%;
 }
 
+/* Destaque de questão (texto em vermelho) */
+.question-content p.question-text.highlighted{
+	color: #d32f2f; /* vermelho para destaque */
+}
+
 /* respostas */
 .answers-form{ display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
 
@@ -223,6 +395,23 @@ html,body{
 }
 .toast.show{ opacity: 1; transform: translateY(0); }
 
+/* Central positioning variant for toast */
+.toast.toast-center{
+	left: 50%;
+	top: 50%;
+	right: auto;
+	bottom: auto;
+	max-width: 80vw;
+	text-align: center;
+	z-index: 9999;
+	/* start slightly above center for a subtle motion */
+	transform: translate(-50%, -42%);
+}
+.toast.toast-center.show{
+	/* keep centered when visible */
+	transform: translate(-50%, -50%);
+}
+
 /* Responsividade: em telas <=600px, adaptamos layout para evitar sobreposição */
 @media (max-width: 600px){
 	.exam-container{ padding:12px; }
@@ -235,4 +424,65 @@ html,body{
 	/* para telas pequenas, reduzir o tamanho mínimo da fonte da pergunta */
 	:root{ --question-font-size: 14px; }
 }
+
+/* ===== Sidebar (cores: #1E90FF, #191970, #1C1C1C, #F8F8FF) ===== */
+.sidebar{
+	position: fixed;
+	inset: 0 auto 0 0;
+	width: 260px;
+	background: #191970; /* MidnightBlue */
+	color: #F8F8FF; /* Ghost White */
+	z-index: 1200;
+	box-shadow: 2px 0 12px rgba(0,0,0,0.25);
+	border-right: 1px solid #1C1C1C;
+	display: flex;
+	flex-direction: column;
+}
+.sidebar .brand{
+	padding: 18px 16px;
+	font-weight: 700;
+	letter-spacing: 0.3px;
+	border-bottom: 1px solid #1C1C1C;
+}
+.sidebar .menu{ list-style: none; margin: 0; padding: 10px 0; overflow-y: auto; }
+.sidebar a{ color: #F8F8FF; text-decoration: none; display: block; }
+.menu-link{
+	padding: 10px 16px;
+	display: flex; align-items: center; justify-content: space-between;
+	gap: 10px;
+	cursor: pointer;
+	transition: background .15s ease;
+}
+.menu-link:hover{ background: rgba(30,144,255,0.15); }
+.menu-link .label{ font-weight: 600; }
+.menu-link .caret{ font-size: 12px; opacity: 0.8; }
+.submenu{ display:none; padding: 6px 0 8px; }
+.submenu.open{ display:block; }
+.submenu a{
+	padding: 8px 16px 8px 28px;
+	font-size: 0.95rem;
+	opacity: 0.95;
+}
+.submenu a:hover{ background: rgba(30,144,255,0.2); }
+.sidebar .footer{
+	margin-top: auto;
+	padding: 10px 16px; font-size: 0.85rem; opacity: 0.8; border-top: 1px solid #1C1C1C;
+}
+
+/* Layout helper when sidebar exists */
+.with-sidebar{ margin-left: 260px; }
+/* Also support body-level padding so pages without a wrapper still align */
+body.has-sidebar{ padding-left: 260px; }
+
+@media (max-width: 900px){
+	.sidebar{ transform: translateX(-100%); transition: transform .2s ease; }
+	.sidebar.open{ transform: translateX(0); }
+		.with-sidebar{ margin-left: 0; }
+		body.has-sidebar{ padding-left: 0; }
+}
+
+/* Ensure text inside main.content is white by default */
+main.content{ color:#fff; }
+/* Text color for ov-grid component */
+.ov-grid{ color:#fff; }
 

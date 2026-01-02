@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Controlled Logging System (must load before other scripts) -->
+  <script src="/utils/logger.js"></script>
+  <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
+  <script src="/utils/csrf.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastrar Questão</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .menu-toggle {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1100;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #d6d9e0;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover { background: #f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile {
+      display:inline-block;
+      width: 18px;
+      height: 2px;
+      background: #333;
+      border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    .menu-panel {
+      position: fixed;
+      top: 44px;
+      left: 8px;
+      z-index: 1099;
+      background: #fff;
+      border: 1px solid #d6d9e0;
+      border-radius: 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px;
+      padding: 6px;
+      display: none;
+    }
+    .menu-panel.open { display: block; }
+    .menu-panel a {
+      display: block;
+      padding: 6px 8px;
+      color: #222;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .menu-panel a:hover { background: #f4f7fb; }
+    
+    .container{ max-width: 900px; margin: 24px auto; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom) + 80px); background:#fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06);} 
+    /* Garantir que elementos focados próximos ao fim não fiquem escondidos atrás do bottom nav */
+    .container *:focus-visible{ scroll-margin-bottom: 100px; }
+    .row{ margin-bottom: 12px; }
+    label{ display:block; font-weight:600; margin-bottom:6px; }
+    input[type="text"], textarea, select{ width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; }
+    .inline{ display:flex; gap:12px; align-items:flex-start; flex-wrap: wrap; }
+    .inline > *{ flex: 1 1 200px; }
+    /* Two-column grid for select fields */
+    .form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    @media (max-width: 720px){ .form-grid{ grid-template-columns: 1fr; } }
+    .opts{ margin-top:8px; }
+    .opt{ display:flex; gap:8px; align-items:flex-start; margin-bottom:10px; }
+    .opt input[type="text"]{ flex: 1; }
+    .opt .opt-fields{ flex: 1; display:flex; flex-direction:column; gap:6px; }
+    .opt textarea{ width: 100%; }
+    .actions{ display:flex; gap:12px; margin-top: 16px; }
+    .btn{ background:#2b6cb0; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
+    .btn.secondary{ background:#edf2f7; color:#2b6cb0; border:1px solid #c6d3ff; }
+    .hint{ font-size:.9rem; color:#555; }
+    /* Tabs */
+    .tabs{ display:flex; gap:8px; border-bottom:1px solid #eee; margin-bottom:12px; }
+    .tab{ padding:8px 12px; cursor:pointer; border-radius:8px 8px 0 0; background:#f7fafc; color:#2d3748; user-select:none; }
+    .tab.active{ background:#fff; border:1px solid #eee; border-bottom:none; }
+    .tab-section{ display:none; }
+    .tab-section.active{ display:block; }
+    .dup-warning{ border-color:#ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
+  </style>
+</head>
+<body>
+  <button id="menuToggle" class="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu">
+    <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+  </button>
+  <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
+    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/pages/admin/questionForm.html" rel="noopener">Cadastrar Questão</a>
+    <a href="/pages/admin/questionBulk.html" rel="noopener">Upload em Lote</a>
+  </nav>
+
+  <div class="container">
+    <div class="tabs">
+      <div class="tab active" data-target="sec-nova">Nova questão</div>
+      <div class="tab" data-target="sec-nav">Navegação</div>
+    </div>
+
+    <section id="sec-nova" class="tab-section active">
+      <h1>Cadastrar Questão</h1>
+
+      <div class="row">
+      <label for="descricao">Enunciado</label>
+      <textarea id="descricao" rows="6" placeholder="Digite o enunciado da questão..."></textarea>
+      <div id="dupStatus" style="margin-top:4px;font-size:.85rem;color:#b91c1c;font-weight:600;" aria-live="polite"></div>
+    </div>
+
+    <div class="row">
+      <label for="imagemUrl">Imagem (URL ou Base64)</label>
+      <input type="text" id="imagemUrl" placeholder="Cole a URL da imagem ou dados base64" />
+      <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+        <input type="file" id="imagemFile" accept="image/*" style="display: none;" />
+        <button class="btn secondary" type="button" onclick="$('imagemFile').click()">Escolher arquivo</button>
+        <button class="btn secondary" type="button" onclick="$('imagemUrl').value=''; $('imagemPreview').innerHTML=''">Limpar</button>
+      </div>
+      <div id="imagemPreview" style="margin-top: 8px; max-width: 300px;"></div>
+    </div>
+
+    <div class="row form-grid">
+      <div>
+        <label for="examType">Tipo de exame</label>
+        <select id="examType"></select>
+      </div>
+        <div>
+          <label for="versaoExame">Versão do exame</label>
+          <select id="versaoExame"></select>
+        </div>
+      <div>
+        <label for="tipo">Tipo</label>
+        <select id="tipo">
+          <option value="single">Opção única (rádio)</option>
+          <option value="multi">Múltipla escolha (checkbox)</option>
+        </select>
+      </div>
+      <div>
+        <label for="seed">Questão gratuita*</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="checkbox" id="seed" />
+          <span class="hint">Disponibilizar para usuários do gratuito?</span>
+        </div>
+      </div>
+      <div>
+        <label for="iddominiogeral">Domínio Geral</label>
+        <select id="iddominiogeral"></select>
+      </div>
+      <div>
+        <label for="iddominio">Domínio (opcional)</label>
+        <select id="iddominio"></select>
+      </div>
+      <!-- Área do conhecimento desativada -->
+      <div>
+        <label for="grupo">Grupo de processo</label>
+        <select id="grupo"></select>
+      </div>
+      <div>
+        <label for="idprincipio">Princípio (opcional)</label>
+        <select id="idprincipio"></select>
+      </div>
+      <div>
+        <label for="codigocategoria">Categoria</label>
+        <select id="codigocategoria"></select>
+      </div>
+      <div>
+        <label for="codniveldificuldade">Nível de Dificuldade</label>
+        <select id="codniveldificuldade"></select>
+      </div>
+      <div>
+        <label for="idtask">Task (opcional)</label>
+        <input type="text" id="idtaskFilter" placeholder="Filtrar tasks..." style="margin-bottom:6px;" />
+        <select id="idtask"></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Dicas (opcional)</label>
+      <input type="text" id="dica" placeholder="Dica curta" />
+    </div>
+
+    <div class="row">
+      <label>Alternativas</label>
+      <div class="hint">Marque a correta. No tipo "Opção única" só é permitido 1 correta.</div>
+      <!-- Paste helper: colar alternativas em linhas e distribuir automaticamente -->
+      <div style="margin:8px 0 10px;">
+        <label for="optsPaste" style="font-weight:500; margin-bottom:6px; display:block">Colar alternativas (uma por linha)</label>
+        <textarea id="optsPaste" rows="3" placeholder="Cole aqui: cada linha será uma alternativa"></textarea>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+          <button class="btn secondary" type="button" id="optsPasteApply">Distribuir</button>
+          <span style="font-size:.85rem; color:#666">Separadores suportados: quebra de linha, ponto-e-vírgula (;) ou barra vertical (|)</span>
+        </div>
+      </div>
+      <div id="opts" class="opts"></div>
+      <div class="actions">
+        <button class="btn secondary" id="addOpt">+ Adicionar alternativa</button>
+        <button class="btn secondary" id="clearOpts">Limpar alternativas</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <label for="explicacao">Explicação (opcional)</label>
+      <textarea id="explicacao" rows="4" placeholder="Texto de explicação"></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="save">Salvar</button>
+      <a class="btn secondary" href="/">Voltar</a>
+    </div>
+
+    <div id="status" class="row"></div>
+    <!-- Exibe ID da questão recém cadastrada (espelhando estilo da aba Navegação) -->
+    <div id="statusNovaQuestao" class="row" aria-live="polite"></div>
+    </section>
+
+    <section id="sec-nav" class="tab-section">
+      <h1>Navegação de Questões</h1>
+
+      <div class="row inline" style="align-items:flex-end;">
+        <div>
+          <label for="navGotoId">Ir para ID</label>
+          <input type="text" id="navGotoId" placeholder="ex.: 123" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn secondary" id="navPrev" type="button">Anterior</button>
+          <button class="btn secondary" id="navNext" type="button">Próxima</button>
+          <button class="btn" id="navGotoBtn" type="button">Ir</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="descricaoNav">Enunciado</label>
+        <textarea id="descricaoNav" rows="6" placeholder="Enunciado da questão..."></textarea>
+        <div id="dupStatusNav" style="margin-top:4px;font-size:.8rem;color:#b45309;font-weight:600;" aria-live="polite"></div>
+      </div>
+
+      <div class="row">
+        <label for="imagemUrlNav">Imagem (URL ou Base64)</label>
+        <input type="text" id="imagemUrlNav" placeholder="Cole a URL da imagem ou dados base64" />
+        <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+          <input type="file" id="imagemFileNav" accept="image/*" style="display: none;" />
+          <button class="btn secondary" type="button" onclick="$('imagemFileNav').click()">Escolher arquivo</button>
+          <button class="btn secondary" type="button" onclick="$('imagemUrlNav').value=''; $('imagemPreviewNav').innerHTML=''">Limpar</button>
+        </div>
+        <div id="imagemPreviewNav" style="margin-top: 8px; max-width: 300px;"></div>
+      </div>
+
+      <div class="row form-grid">
+        <div>
+          <label for="examTypeNav">Tipo de exame</label>
+          <select id="examTypeNav"></select>
+        </div>
+        <div>
+          <label for="versaoExameNav">Versão do exame</label>
+          <select id="versaoExameNav"></select>
+        </div>
+        <div>
+          <label for="tipoNav">Tipo</label>
+          <select id="tipoNav">
+            <option value="single">Opção única (rádio)</option>
+            <option value="multi">Múltipla escolha (checkbox)</option>
+          </select>
+        </div>
+        <div>
+          <label for="seedNav">Questão gratuita*</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" id="seedNav" />
+            <span class="hint">Disponibilizar para usuários do gratuito?</span>
+          </div>
+        </div>
+        <div>
+          <label for="iddominiogeralNav">Domínio Geral</label>
+          <select id="iddominiogeralNav"></select>
+        </div>
+        <div>
+          <label for="iddominioNav">Domínio (opcional)</label>
+          <select id="iddominioNav"></select>
+        </div>
+        <!-- Área do conhecimento desativada -->
+        <div>
+          <label for="grupoNav">Grupo de processo</label>
+          <select id="grupoNav"></select>
+        </div>
+        <div>
+          <label for="idprincipioNav">Princípio (opcional)</label>
+          <select id="idprincipioNav"></select>
+        </div>
+        <div>
+          <label for="codigocategoriaNav">Categoria</label>
+          <select id="codigocategoriaNav"></select>
+        </div>
+        <div>
+          <label for="codniveldificuldadeNav">Nível de Dificuldade</label>
+          <select id="codniveldificuldadeNav"></select>
+        </div>
+        <div>
+          <label for="idtaskNav">Task (opcional)</label>
+          <input type="text" id="idtaskNavFilter" placeholder="Filtrar tasks..." style="margin-bottom:6px;" />
+          <select id="idtaskNav"></select>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="dicaNav">Dicas (opcional)</label>
+        <input type="text" id="dicaNav" placeholder="Dica curta" />
+      </div>
+
+      <div class="row">
+        <label>Alternativas</label>
+        <div class="hint">Marque a correta. No tipo "Opção única" só é permitido 1 correta.</div>
+        <div id="optsNav" class="opts"></div>
+        <div class="actions">
+          <button class="btn secondary" id="addOptNav">+ Adicionar alternativa</button>
+          <button class="btn secondary" id="clearOptsNav">Limpar alternativas</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="explicacaoNav">Explicação (opcional)</label>
+        <textarea id="explicacaoNav" rows="4" placeholder="Texto de explicação"></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="btn secondary" id="analyzeAI" type="button">Analisar com IA</button>
+        <label style="display:flex; gap:8px; align-items:center; margin-left:8px; font-weight:600; color:#2d3748;">
+          <input type="checkbox" id="aiUseWeb" />
+          <span class="hint" style="margin:0;">Usar web context</span>
+        </label>
+        <button class="btn" id="saveNav" type="button">Salvar</button>
+        <div id="statusNav" style="align-self:center; font-size:.9rem; color:#555;" aria-live="polite"></div>
+      </div>
+
+      <div id="aiStatus" class="row" style="margin-top:10px; font-size:.9rem; color:#555;"></div>
+      <div id="aiResult" class="row" style="margin-top:10px; display:none; border:1px solid #ddd; border-radius:10px; padding:12px; background:#fff;">
+        <div style="font-weight:700; margin-bottom:8px;">Sugestões da IA</div>
+        <div id="aiSummary" style="margin-bottom:10px; color:#222;"></div>
+        <div id="aiFields"></div>
+        <div style="margin-top:12px;">
+          <div style="font-weight:700; margin-bottom:6px;">Dica sugerida</div>
+          <div id="aiDica" style="white-space:pre-wrap;"></div>
+        </div>
+        <div id="aiMeta" style="margin-top:10px; font-size:.85rem; color:#666;"></div>
+      </div>
+
+    </section>
+  </div>
+
+  <script>
+    const $ = (id)=> document.getElementById(id);
+    const BACKEND_BASE = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+
+    // Simple cache to avoid spamming meta endpoints and hitting 429
+    const metaCache = Object.create(null);
+    const metaInflight = Object.create(null);
+    async function fetchMetaOnce(key, path){
+      if (metaCache[key]) return metaCache[key];
+      if (metaInflight[key]) return metaInflight[key];
+      const url = (BACKEND_BASE || '').replace(/\/$/, '') + path;
+      metaInflight[key] = (async ()=>{
+        const resp = await fetch(url);
+        if (!resp.ok){
+          // propagate textual error for debugging
+          const txt = await resp.text().catch(()=> '');
+          throw new Error(`GET ${path} failed: ${resp.status} ${txt}`);
+        }
+        const data = await resp.json();
+        metaCache[key] = data;
+        return data;
+      })().finally(()=>{ delete metaInflight[key]; });
+      return metaInflight[key];
+    }
+
+    async function loadVersoesExame(selectId){
+      try{
+        const data = await fetchMetaOnce('versoes-exame', '/api/meta/versoes-exame');
+        const sel = $(selectId);
+        if (!sel) return;
+        sel.innerHTML = '<option value="">(opcional)</option>';
+        (Array.isArray(data) ? data : []).forEach(it => {
+          const opt = document.createElement('option');
+          opt.value = String(it.id||'');
+          opt.textContent = String(it.descricao||'');
+          sel.appendChild(opt);
+        });
+        // Default: select the first non-placeholder option if none selected
+        try {
+          if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1;
+        } catch(_){ }
+      } catch(e){ logger.error('[loadVersoesExame] error:', e); }
+    }
+
+    // Image upload handlers
+    function setupImageUpload(fileInputId, urlInputId, previewId) {
+      const fileInput = $(fileInputId);
+      const urlInput = $(urlInputId);
+      const preview = $(previewId);
+      
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          
+          if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione um arquivo de imagem válido');
+            fileInput.value = '';
+            return;
+          }
+          
+          if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            alert('Imagem muito grande. Limite: 5MB');
+            fileInput.value = '';
+            return;
+          }
+          
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const base64 = ev.target.result;
+            urlInput.value = base64;
+            showImagePreview(previewId, base64);
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+      
+      if (urlInput) {
+        urlInput.addEventListener('input', () => {
+          const val = urlInput.value.trim();
+          if (val) showImagePreview(previewId, val);
+          else if (preview) preview.innerHTML = '';
+        });
+      }
+    }
+    
+    function showImagePreview(previewId, src) {
+      const preview = $(previewId);
+      if (!preview) return;
+      preview.innerHTML = `<img src="${src}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" onerror="this.parentElement.innerHTML='<span style=color:red>Erro ao carregar imagem</span>'" />`;
+    }
+
+    function makeOptRow(text = '', correta = false, explicacao = ''){
+      const wrap = document.createElement('div');
+      wrap.className = 'opt';
+      const tipo = $('tipo').value;
+      const check = document.createElement('input');
+      check.type = (tipo === 'multi') ? 'checkbox' : 'radio';
+      check.name = 'correta';
+      check.checked = !!correta;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Texto da alternativa';
+      input.value = text || '';
+
+      const fields = document.createElement('div');
+      fields.className = 'opt-fields';
+      const exp = document.createElement('textarea');
+      exp.rows = 2;
+      exp.placeholder = 'Explicação da alternativa (opcional)';
+      exp.value = explicacao || '';
+
+      const del = document.createElement('button');
+      del.className = 'btn secondary';
+      del.type = 'button';
+      del.textContent = 'Remover';
+      del.onclick = ()=> wrap.remove();
+
+      // Enforce single-correct for single type
+      check.addEventListener('change', ()=>{
+        if ($('tipo').value !== 'multi' && check.checked){
+          document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(r=>{ if (r !== check) r.checked = false; });
+        }
+      });
+
+      fields.appendChild(input);
+      fields.appendChild(exp);
+      wrap.appendChild(check);
+      wrap.appendChild(fields);
+      wrap.appendChild(del);
+      return wrap;
+    }
+
+    function ensureAtLeastTwo(){
+      const list = $('opts');
+      while (list.children.length < 4){ list.appendChild(makeOptRow()); }
+    }
+
+    $('addOpt').onclick = function(e){ e.preventDefault(); $('opts').appendChild(makeOptRow()); };
+    $('clearOpts').onclick = function(e){ e.preventDefault(); $('opts').innerHTML=''; ensureAtLeastTwo(); setTimeout(()=>{ if (window.initAlternativesDistribution) window.initAlternativesDistribution(); },0); };
+    $('tipo').addEventListener('change', ()=>{
+      // Rebuild checks to correct control type
+      const list = $('opts');
+      const current = Array.from(list.children).map(row => ({
+        text: row.querySelector('input[type=text]')?.value || '',
+        correta: !!row.querySelector('input[type=checkbox],input[type=radio]')?.checked,
+        explicacao: row.querySelector('textarea')?.value || ''
+      }));
+      list.innerHTML='';
+      current.forEach(o => list.appendChild(makeOptRow(o.text, o.correta, o.explicacao)));
+    });
+
+    function readOptions(){
+      const rows = Array.from(document.querySelectorAll('#opts .opt'));
+      const tipo = $('tipo').value;
+      const out = [];
+      let correctCount = 0;
+      rows.forEach(r => {
+        const text = r.querySelector('input[type=text]').value.trim();
+        const correta = r.querySelector('input[type=checkbox],input[type=radio]').checked;
+        const explicacao = (r.querySelector('textarea')?.value || '').trim();
+        if (text){ out.push({ descricao: text, correta }); if (correta) correctCount++; }
+      });
+      if (tipo === 'single' && correctCount > 1){
+        // keep only the first checked as correct
+        let seen = false;
+        out.forEach(o => { if (o.correta){ if (!seen) { seen = true; } else { o.correta = false; } } });
+      }
+      // Add explicacao back to each option preserving order
+      // (we only include it for options that have text)
+      {
+        const filteredRows = rows
+          .map(r => ({
+            text: (r.querySelector('input[type=text]')?.value || '').trim(),
+            exp: (r.querySelector('textarea')?.value || '').trim()
+          }))
+          .filter(x => x.text);
+        for (let i = 0; i < out.length; i++) {
+          out[i].explicacao = filteredRows[i] ? filteredRows[i].exp : '';
+        }
+      }
+      return out;
+    }
+
+    function getSelectLabel(selectId, value){
+      try {
+        const sel = $(selectId);
+        if (!sel) return null;
+        const v = String(value == null ? '' : value);
+        if (!v) return null;
+        const opt = Array.from(sel.options || []).find(o => String(o.value) === v);
+        const txt = opt ? (opt.textContent || '').trim() : '';
+        return txt || null;
+      } catch(_){
+        return null;
+      }
+    }
+
+    function formatConfidence(c){
+      const s = String(c || '').toLowerCase();
+      if (s === 'high') return 'Alta';
+      if (s === 'medium') return 'Média';
+      if (s === 'low') return 'Baixa';
+      return c || '—';
+    }
+    function escapeHtml(s){
+      const str = String(s == null ? '' : s);
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function fieldLabel(fieldKey){
+      const map = {
+        iddominiogeral: 'Domínio Geral',
+        iddominio: 'Domínio',
+        idprincipio: 'Princípio',
+        codigocategoria: 'Categoria',
+        codgrupoprocesso: 'Grupo de processo',
+        id_task: 'Task',
+      };
+      return map[fieldKey] || fieldKey;
+    }
+
+    function renderAiResult(payload){
+      const box = $('aiResult');
+      const sum = $('aiSummary');
+      const fieldsEl = $('aiFields');
+      const dicaEl = $('aiDica');
+      const metaEl = $('aiMeta');
+
+      if (!box || !sum || !fieldsEl || !dicaEl || !metaEl) return;
+
+      const result = payload && payload.result ? payload.result : null;
+      const disagreements = (payload && payload.disagreements) ? payload.disagreements : [];
+      const validationIssues = (payload && payload.validationIssues) ? payload.validationIssues : [];
+      const meta = payload && payload.meta ? payload.meta : {};
+
+      const ctx = result && result.context ? result.context : null;
+      const ctxSummary = ctx && ctx.summary ? String(ctx.summary) : '';
+      const tags = ctx && Array.isArray(ctx.tags) ? ctx.tags : [];
+
+      sum.innerHTML = '';
+      if (ctxSummary) {
+        const p = document.createElement('div');
+        p.style.whiteSpace = 'pre-wrap';
+        p.textContent = ctxSummary;
+        sum.appendChild(p);
+      }
+      if (tags && tags.length) {
+        const t = document.createElement('div');
+        t.style.marginTop = '6px';
+        t.style.fontSize = '.85rem';
+        t.style.color = '#666';
+        t.textContent = 'Tags: ' + tags.slice(0, 10).join(', ');
+        sum.appendChild(t);
+      }
+
+      const f = result && result.fields ? result.fields : {};
+      fieldsEl.innerHTML = '';
+
+      const table = document.createElement('table');
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Campo</th>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Atual</th>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Sugestão</th>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Justificativa</th>'
+        + '<th style="text-align:left; padding:8px 6px; border-bottom:1px solid #eee;">Confiança</th>'
+        + '</tr>';
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      const keys = ['iddominiogeral', 'iddominio', 'idprincipio', 'codigocategoria', 'codgrupoprocesso', 'id_task'];
+      keys.forEach(k => {
+        const item = f[k] || {};
+        const currentId = item.currentId;
+        const suggestedId = item.suggestedId;
+        const differs = !!item.differsFromCurrent;
+        const reason = item.reason ? String(item.reason) : '';
+
+        const selectId = (k === 'codgrupoprocesso')
+          ? 'grupoNav'
+          : (k === 'id_task')
+            ? 'idtaskNav'
+            : (k + 'Nav');
+
+        const currentLabel = getSelectLabel(selectId, currentId) || (currentId != null ? String(currentId) : '—');
+
+        const suggestedLabel = getSelectLabel(selectId, suggestedId) || (suggestedId != null ? String(suggestedId) : '—');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = ''
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee; font-weight:600;">${escapeHtml(fieldLabel(k))}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${escapeHtml(currentLabel)}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${escapeHtml(suggestedLabel)}${differs ? ' <span style="font-weight:700;">(diverge)</span>' : ''}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee; font-size:.9rem; color:#555; white-space:pre-wrap;">${reason ? escapeHtml(reason) : '—'}</td>`
+          + `<td style="padding:8px 6px; border-bottom:1px solid #eee;">${escapeHtml(formatConfidence(item.confidence))}</td>`;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      fieldsEl.appendChild(table);
+
+      const dica = result && result.dica ? result.dica : null;
+      const bits = [];
+      if (meta && meta.model) bits.push(`Modelo: ${meta.model}`);
+      if (meta && meta.usedWeb) bits.push(`Web: sim (${Number(meta.sourcesCount || 0)} fontes)`);
+      if (typeof meta.disagreementsCount === 'number') bits.push(`Divergências: ${meta.disagreementsCount}`);
+      if (typeof meta.validationIssuesCount === 'number') bits.push(`Validações: ${meta.validationIssuesCount}`);
+      if (validationIssues && validationIssues.length) bits.push('Aviso: a IA sugeriu algum ID inválido e foi descartado.');
+      metaEl.textContent = bits.join(' · ');
+
+      box.style.display = 'block';
+    }
+
+    async function analyzeWithAI(){
+      const btn = $('analyzeAI');
+      const status = $('aiStatus');
+      const box = $('aiResult');
+      if (box) box.style.display = 'none';
+      if (status) status.textContent = '';
+
+      try {
+        const descricao = $('descricaoNav').value.trim();
+        if (!descricao){ alert('Informe o enunciado'); return; }
+
+        const options = readOptionsNav();
+        const alternativas = options
+          .map((o, idx) => {
+            const letter = String.fromCharCode('A'.charCodeAt(0) + idx);
+            const text = String(o && o.descricao != null ? o.descricao : '').trim();
+            const exp = String(o && o.explicacao != null ? o.explicacao : '').trim();
+            if (!text) return '';
+            if (exp) return `${letter}) ${text}\nExplicação (opcional no cadastro): ${exp}`;
+            return `${letter}) ${text}`;
+          })
+          .filter(Boolean);
+
+        let correta = null;
+        try {
+          const idx = options.findIndex(o => !!o.correta);
+          if (idx >= 0) correta = String.fromCharCode('A'.charCodeAt(0) + idx);
+        } catch(_){ }
+
+        const token = localStorage.getItem('sessionToken') || '';
+        if (!token){ alert('Sessão sem token. Faça login novamente.'); return; }
+
+        const current = {
+          iddominiogeral: ($('iddominiogeralNav').value || '').trim() || null,
+          iddominio: ($('iddominioNav').value || '').trim() || null,
+          idprincipio: ($('idprincipioNav').value || '').trim() || null,
+          codigocategoria: ($('codigocategoriaNav').value || '').trim() || null,
+          codgrupoprocesso: ($('grupoNav').value || '').trim() || null,
+          id_task: ($('idtaskNav').value || '').trim() || null,
+        };
+
+        const base = (BACKEND_BASE || '').replace(/\/$/, '');
+        const url = base + '/api/ai/question-classify';
+
+        const useWeb = (()=>{
+          try { return !!($('aiUseWeb') && $('aiUseWeb').checked); } catch(_){ return false; }
+        })();
+
+        if (btn) {
+          btn.disabled = true;
+          btn.dataset._oldText = btn.textContent;
+          btn.textContent = 'Analisando...';
+        }
+        if (status) status.textContent = useWeb ? 'Buscando fontes na web + IA...' : 'Enviando para IA...';
+
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Session-Token': token,
+          },
+          body: JSON.stringify({
+            question: { descricao, alternativas, correta },
+            current,
+            dicaMaxChars: 180,
+            web: { enabled: useWeb, maxSources: 3 },
+          })
+        });
+
+        if (!resp.ok){
+          let txt = '';
+          try {
+            const payload = await resp.clone().json();
+            const baseMsg = payload && (payload.message || payload.error || payload.code)
+              ? `${payload.code || resp.status}: ${payload.message || payload.error || 'Erro'}`
+              : '';
+
+            // In development, backend returns "details" for operational errors.
+            // Show a short snippet to help debug invalid JSON responses.
+            const raw = payload && payload.details && payload.details.raw ? String(payload.details.raw) : '';
+            const rawLen = payload && payload.details && payload.details.rawLen != null ? Number(payload.details.rawLen) : null;
+            const extra = raw
+              ? `\n\nLLM raw (${rawLen != null ? rawLen : raw.length} chars, início):\n${raw.slice(0, 800)}`
+              : '';
+            txt = (baseMsg || '') + extra;
+          } catch(_){
+            try { txt = await resp.text(); } catch(_e) { txt = ''; }
+          }
+          throw new Error(txt || `Falha na análise (${resp.status})`);
+        }
+
+        const data = await resp.json();
+        if (status) status.textContent = 'Análise concluída.';
+        renderAiResult(data);
+      } catch(e) {
+        logger.error(e);
+        if ($('aiStatus')) $('aiStatus').textContent = 'Erro: ' + (e && e.message ? e.message : 'Falha na análise');
+      } finally {
+        const btn = $('analyzeAI');
+        if (btn) {
+          btn.disabled = false;
+          const old = btn.dataset._oldText;
+          if (old) btn.textContent = old;
+          delete btn.dataset._oldText;
+        }
+      }
+    }
+
+    try {
+      const aiBtn = $('analyzeAI');
+      if (aiBtn) aiBtn.addEventListener('click', analyzeWithAI);
+    } catch(_){ }
+
+    // NAV: option helpers
+    function makeOptRowNav(text = '', correta = false, explicacao = ''){
+      const wrap = document.createElement('div');
+      wrap.className = 'opt';
+      const tipo = $('tipoNav').value;
+      const check = document.createElement('input');
+      check.type = (tipo === 'multi') ? 'checkbox' : 'radio';
+      check.name = 'corretaNav';
+      check.checked = !!correta;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Texto da alternativa';
+      input.value = text || '';
+
+      const fields = document.createElement('div');
+      fields.className = 'opt-fields';
+      const exp = document.createElement('textarea');
+      exp.rows = 2;
+      exp.placeholder = 'Explicação da alternativa (opcional)';
+      exp.value = explicacao || '';
+
+      const del = document.createElement('button');
+      del.className = 'btn secondary';
+      del.type = 'button';
+      del.textContent = 'Remover';
+      del.onclick = ()=> wrap.remove();
+
+      check.addEventListener('change', ()=>{
+        if ($('tipoNav').value !== 'multi' && check.checked){
+          document.querySelectorAll('#optsNav input[type=radio][name=corretaNav]').forEach(r=>{ if (r !== check) r.checked = false; });
+        }
+      });
+      fields.appendChild(input);
+      fields.appendChild(exp);
+      wrap.appendChild(check);
+      wrap.appendChild(fields);
+      wrap.appendChild(del);
+      return wrap;
+    }
+
+    function ensureAtLeastTwoNav(){
+      const list = $('optsNav');
+      while (list.children.length < 4){ list.appendChild(makeOptRowNav()); }
+    }
+
+    function readOptionsNav(){
+      const rows = Array.from(document.querySelectorAll('#optsNav .opt'));
+      const tipo = $('tipoNav').value;
+      const out = [];
+      let correctCount = 0;
+      rows.forEach(r => {
+        const text = r.querySelector('input[type=text]').value.trim();
+        const correta = r.querySelector('input[type=checkbox],input[type=radio]').checked;
+        const explicacao = (r.querySelector('textarea')?.value || '').trim();
+        if (text){ out.push({ descricao: text, correta }); if (correta) correctCount++; }
+      });
+      if (tipo === 'single' && correctCount > 1){
+        let seen = false;
+        out.forEach(o => { if (o.correta){ if (!seen) { seen = true; } else { o.correta = false; } } });
+      }
+      {
+        const filteredRows = rows
+          .map(r => ({
+            text: (r.querySelector('input[type=text]')?.value || '').trim(),
+            exp: (r.querySelector('textarea')?.value || '').trim()
+          }))
+          .filter(x => x.text);
+        for (let i = 0; i < out.length; i++) {
+          out[i].explicacao = filteredRows[i] ? filteredRows[i].exp : '';
+        }
+      }
+      return out;
+    }
+
+    async function loadExamTypes(targetId = 'examType'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('examTypes', '/api/exams/types');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(t => {
+          const o = document.createElement('option');
+          o.value = t._dbId || t.id; // use numeric id from database
+          o.textContent = t.nome || t.id;
+          sel.appendChild(o);
+        });
+        // Prefer default value = 1 when available for questionForm
+        try {
+          if (targetId === 'examType') {
+            const hasOne = Array.from(sel.options).some(opt => String(opt.value) === '1');
+            if (hasOne) {
+              sel.value = '1';
+            } else if (!sel.value && sel.options.length > 1) {
+              sel.selectedIndex = 1;
+            }
+          } else {
+            // For other selects, keep previous behavior
+            if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1;
+          }
+        } catch(e){}
+      } catch (e) {
+        logger.error('[loadExamTypes] error:', e);
+      }
+    }
+
+    async function loadDominioGeral(targetId = 'iddominiogeral'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('dominiogeral', '/api/meta/dominios-geral');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(d => {
+          const o = document.createElement('option');
+          o.value = d.id;
+          o.textContent = `${d.id} - ${d.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        const sel = $('examType');
+        if (sel) sel.innerHTML = '<option value="pmp">PMP</option>';
+      }
+    }
+
+    async function loadDominios(targetId = 'iddominio'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('dominios', '/api/meta/dominios');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(d => {
+          const o = document.createElement('option');
+          o.value = d.id;
+          o.textContent = `${d.id} - ${d.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        logger.error('[loadDominios] error:', e);
+      }
+    }
+
+    async function loadAreas(targetId = 'area'){
+      // Área do conhecimento desativada
+      // Endpoint relacionado (desativado aqui): GET /api/meta/areas
+      // const list = await fetchMetaOnce('areas', '/api/meta/areas');
+      return;
+    }
+
+    async function loadGrupos(targetId = 'grupo'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('grupos', '/api/meta/grupos');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(g => {
+          const o = document.createElement('option');
+          o.value = g.id;
+          o.textContent = `${g.id} - ${g.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        logger.error('[loadGrupos] error:', e);
+      }
+    }
+
+    async function loadPrincipios(targetId = 'idprincipio'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('principios', '/api/meta/principios');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(p => {
+          const o = document.createElement('option');
+          o.value = p.id;
+          o.textContent = `${p.id} - ${p.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        logger.error('[loadPrincipios] error:', e);
+      }
+    }
+
+    async function loadCategorias(targetId = 'codigocategoria'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('categorias', '/api/meta/categorias');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(c => {
+          const o = document.createElement('option');
+          o.value = c.id;
+          o.textContent = `${c.id} - ${c.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        logger.error('[loadCategorias] error:', e);
+      }
+    }
+
+    async function loadNiveisDificuldade(targetId = 'codniveldificuldade'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('niveis', '/api/meta/niveis-dificuldade');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(n => {
+          const o = document.createElement('option');
+          o.value = n.id;
+          o.textContent = `${n.id} - ${n.descricao || 'N/A'}`;
+          sel.appendChild(o);
+        });
+      } catch(e) {
+        logger.error('[loadNiveisDificuldade] error:', e);
+      }
+    }
+
+    async function loadTasks(targetId = 'idtask'){
+      try {
+        const sel = $(targetId);
+        sel.innerHTML = '<option value="">Carregando...</option>';
+        const list = await fetchMetaOnce('tasks', '/api/meta/tasks');
+        sel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Selecione —';
+        sel.appendChild(optNone);
+        (list || []).forEach(t => {
+          const o = document.createElement('option');
+          o.value = t.id;
+          // Backend already sends formatted string: "Task <numero> <dominio> <descricao>"
+          // So we just use t.descricao directly
+          o.textContent = t.descricao || 'N/A';
+          sel.appendChild(o);
+        });
+        // Attach filter if matching filter input exists
+        attachTaskFilter(targetId, targetId === 'idtask' ? 'idtaskFilter' : (targetId === 'idtaskNav' ? 'idtaskNavFilter' : null));
+      } catch(e) {
+        logger.error('[loadTasks] error:', e);
+      }
+    }
+
+    function attachTaskFilter(selectId, filterId){
+      if (!filterId) return;
+      const sel = $(selectId);
+      const inp = $(filterId);
+      if (!sel || !inp) return;
+      let debounceTimer = null;
+      const apply = ()=>{
+        const term = inp.value.trim().toLowerCase();
+        Array.from(sel.options).forEach(opt => {
+          if (!opt.value) { opt.hidden = false; return; }
+          const txt = (opt.textContent || '').toLowerCase();
+          opt.hidden = term && !txt.includes(term);
+        });
+        // If current selection is hidden, reset to placeholder
+        if (sel.selectedOptions.length && sel.selectedOptions[0].hidden){ sel.selectedIndex = 0; }
+      };
+      inp.addEventListener('input', ()=>{
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(apply, 120);
+      });
+    }
+
+    $('save').onclick = async function(){
+      const descricao = $('descricao').value.trim();
+      const tiposlug = $('tipo').value;
+      const examTypeId = ($('examType').value || '').trim();
+      const iddominio = ($('iddominio').value || '').trim();
+      const versao_exame = ($('versaoExame').value || '').trim();
+      const grupo = ($('grupo').value || '').trim();
+      const iddominiogeral = ($('iddominiogeral').value || '').trim();
+      const idprincipio = ($('idprincipio').value || '').trim();
+      const codigocategoria = ($('codigocategoria').value || '').trim();
+      const codniveldificuldade = ($('codniveldificuldade').value || '').trim();
+      const id_task = ($('idtask').value || '').trim();
+      const dica = $('dica').value.trim();
+      const imagemUrl = ($('imagemUrl').value || '').trim();
+      const explicacao = $('explicacao').value.trim();
+        if (!descricao){ alert('Informe o enunciado'); return; }
+        if (!examTypeId){ alert('Selecione o tipo de exame'); return; }
+        if (!iddominiogeral){ alert('Selecione o domínio geral'); return; }
+        if (!iddominio){ alert('Selecione o domínio'); return; }
+        if (!codigocategoria){ alert('Selecione a categoria'); return; }
+        if (!codniveldificuldade){ alert('Selecione o nível de dificuldade'); return; }
+      // Checagem duplicata (usa função compartilhada; aborta se existir)
+      const dupId = await checkDuplicate(true);
+      if (dupId) { $('status').textContent = 'Duplicada: já existe (ID ' + dupId + ')'; return; }
+      // Sanitiza alternativas diretamente antes de ler (remove numeração, rótulos A/B/C, pontos). Também interpreta prefixo * para marcar correta.
+      (function(){
+        try {
+          const tipoAtual = $('tipo').value;
+          const rows = Array.from(document.querySelectorAll('#opts .opt'));
+          let firstMarkedSeen = false;
+          rows.forEach(r => {
+            const inp = r.querySelector('input[type=text]');
+            const check = r.querySelector('input[type="checkbox"],input[type="radio"]');
+            if (!inp) return;
+            let val = String(inp.value||'').trim();
+            if (!val) return;
+            let mark = false;
+            if (val.startsWith('*')) { mark = true; val = val.replace(/^\*+\s*/, '').trim(); }
+            val = val.replace(/^(\(?\s*\d+\)?\s*[\.\)\-:])\s*/, '');
+            val = val.replace(/^\s*\d+\s+/, '');
+            val = val.replace(/^(\(?\s*[A-Za-z]\)?\s*[\.\)\-:])\s*/, '');
+            val = val.replace(/^\s*[A-Za-z]\s+/, '');
+            val = val.replace(/^\s*\.+\s*/, '');
+            val = val.replace(/\s{2,}/g, ' ').trim();
+            inp.value = val;
+            if (check){
+              if (tipoAtual === 'multi') {
+                if (mark) check.checked = true; // mantém múltiplas
+              } else {
+                if (mark && !firstMarkedSeen){
+                  firstMarkedSeen = true;
+                  check.checked = true;
+                  try { document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(radio=>{ if (radio!==check) radio.checked=false; }); } catch(_){ }
+                }
+              }
+            }
+          });
+        } catch(_){ }
+      })();
+      const options = readOptions();
+      if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
+      if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+
+      const sessionUserId = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
+      if (!sessionUserId){ alert('Sessão sem userId. Faça login novamente.'); return; }
+      const payload = {
+        descricao,
+        tiposlug,
+        seed: !!$('seed').checked,
+        examTypeId: examTypeId ? Number(examTypeId) : undefined,
+        versao_exame: versao_exame || undefined,
+        iddominio: iddominio ? Number(iddominio) : undefined,
+        codgrupoprocesso: grupo ? Number(grupo) : undefined,
+        iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
+        idprincipio: idprincipio ? Number(idprincipio) : undefined,
+        codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
+        codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
+        id_task: id_task ? Number(id_task) : undefined,
+        dica: dica || undefined,
+        imagemUrl: imagemUrl || undefined,
+        explicacao: explicacao || undefined,
+        options,
+        // Audit: backend should use this to set respostaopcao.CriadoUsuario
+        createdByUserId: sessionUserId
+      };
+      const token = localStorage.getItem('sessionToken') || '';
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const url = base + '/api/questions';
+      $('status').textContent = 'Salvando...';
+      const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+      if (!resp.ok){ const t = await resp.text(); $('status').textContent = 'Erro ao salvar: ' + t; return; }
+      const data = await resp.json();
+      $('status').textContent = 'Criado com sucesso. ID: ' + data.id;
+      try { $('statusNovaQuestao').textContent = 'Questão ID ' + data.id; } catch(_){ }
+      // Atualiza painel de Navegação para refletir novo ID quando usuário trocar de aba
+      try { $('statusNav').textContent = 'Questão ID ' + data.id; } catch(_){ }
+      // Limpar formulário
+      $('descricao').value = '';
+      $('dica').value = '';
+      $('imagemUrl').value = '';
+      $('imagemPreview').innerHTML = '';
+      $('explicacao').value = '';
+      try { $('seed').checked = false; } catch{}
+      // limpar selects e tipo
+      try { $('examType').value = ''; } catch{}
+      try { $('versaoExame').value = ''; } catch{}
+      try { $('tipo').value = 'single'; } catch{}
+      try { $('iddominiogeral').value = ''; } catch{}
+      try { $('iddominio').value = ''; } catch{}
+      try { $('grupo').value = ''; } catch{}
+      try { $('idprincipio').value = ''; } catch{}
+      try { $('codigocategoria').value = ''; } catch{}
+      try { $('codniveldificuldade').value = ''; } catch{}
+      try { $('imagemFile').value = ''; } catch{}
+      // Limpar filtro de tasks e textarea de colagem de alternativas
+      try { $('idtaskFilter').value = ''; $('idtaskFilter').dispatchEvent(new Event('input')); } catch{}
+      try { $('optsPaste').value = ''; } catch{}
+      $('opts').innerHTML = '';
+      ensureAtLeastTwo();
+      // Recarregar selects essenciais para auto-preencher com padrão
+      try { await loadExamTypes('examType'); } catch(_){ }
+      try { await loadVersoesExame('versaoExame'); } catch(_){ }
+      try { await loadDominioGeral('iddominiogeral'); } catch(_){ }
+      // Marca para limpeza reforçada em reinit
+      window._afterSaveReset = true;
+      // Reativar distribuição após recriar inputs
+      setTimeout(()=>{ if (window.initAlternativesDistribution) window.initAlternativesDistribution(); },0);
+    };
+
+    // init
+    let navInitialized = false;
+    function initTabs(){
+      const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
+      tabs.forEach(tab => tab.addEventListener('click', async () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.getAttribute('data-target');
+        const sec = document.getElementById(target);
+        if (sec) sec.classList.add('active');
+        
+        // Auto-load first question when Navegação tab is opened for the first time
+        if (target === 'sec-nav' && !navInitialized) {
+          navInitialized = true;
+          await Promise.all([ loadVersoesExame('versaoExameNav') ]);
+          logger.info('[initTabs] Loading first question for Navegação tab...');
+          const firstId = await navGetFirstId(); 
+          logger.info('[initTabs] firstId result:', firstId);
+          if (firstId) {
+            logger.info('[initTabs] Calling navLoadById with:', firstId);
+            await navLoadById(firstId);
+          } else {
+            logger.warn('[initTabs] No first ID found');
+            navSetStatus('Nenhuma questão encontrada');
+          }
+        }
+      }));
+    }
+
+    // Navegação state and logic
+    const navState = { loading: false, currentId: null, allIds: [], lastFetch: 0 };
+    const navOriginal = { id: null, descricaoKey: '', examTypeId: null };
+    let navStatusTimer = null;
+    function navSetStatus(msg){
+      const el = $('statusNav');
+      if (!el) return;
+      const text = String(msg || '');
+      el.textContent = text;
+      if (navStatusTimer) { try { clearTimeout(navStatusTimer); } catch(_) {} navStatusTimer = null; }
+      // Only auto-hide ephemeral success message near the Save button.
+      if (text.toLowerCase().includes('salvo com sucesso')) {
+        navStatusTimer = setTimeout(() => {
+          try { el.textContent = ''; } catch(_) {}
+        }, 3000);
+      }
+    }
+
+    function normalizeDescricaoKey(s){
+      return String(s || '').trim().toLowerCase();
+    }
+
+    async function navGetFirstId(){
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const url = (BACKEND_BASE||'').replace(/\/$/, '') + '/api/questions?page=1&pageSize=1&order=id%20asc';
+        logger.info('[navGetFirstId] fetching:', url);
+        const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+        logger.info('[navGetFirstId] status:', resp.status);
+        if (!resp.ok) { 
+          logger.error('[navGetFirstId] error response:', await resp.text());
+          return null; 
+        }
+        const data = await resp.json();
+        logger.info('[navGetFirstId] data:', data);
+        const rawFirst = (data.items && data.items.length) ? data.items[0] : null;
+        const firstId = Number(rawFirst);
+        logger.info('[navGetFirstId] firstId:', firstId);
+        return Number.isFinite(firstId) ? firstId : null;
+      } catch(e){ 
+        logger.error('[navGetFirstId] exception:', e);
+        return null; 
+      }
+    }
+
+    async function navLoadById(id){
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) return;
+      navSetStatus('Carregando questão...');
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/${idNum}`;
+        const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+        if (!resp.ok){ const t = await resp.text(); navSetStatus('Erro: ' + t); return; }
+        const q = await resp.json();
+
+        // Ensure metadata loaded
+        await Promise.all([ loadExamTypes('examTypeNav'), loadDominioGeral('iddominiogeralNav'), loadVersoesExame('versaoExameNav') ]);
+
+        $('descricaoNav').value = q.descricao || '';
+        $('tipoNav').value = (q.tiposlug || 'single');
+        try { $('seedNav').checked = !!q.seed; } catch(_){ }
+        
+        // Wait for selects to be populated before setting values
+        await Promise.all([
+          loadDominios('iddominioNav'),
+          loadGrupos('grupoNav'),
+          loadPrincipios('idprincipioNav'),
+          loadCategorias('codigocategoriaNav'),
+          loadNiveisDificuldade('codniveldificuldadeNav'),
+          loadTasks('idtaskNav')
+        ]);
+        
+        $('iddominioNav').value = q.iddominio != null ? String(q.iddominio) : '';
+        $('grupoNav').value = q.codgrupoprocesso != null ? String(q.codgrupoprocesso) : '';
+        $('iddominiogeralNav').value = q.iddominiogeral != null ? String(q.iddominiogeral) : '';
+        $('idprincipioNav').value = q.idprincipio != null ? String(q.idprincipio) : '';
+        $('codigocategoriaNav').value = q.codigocategoria != null ? String(q.codigocategoria) : '';
+        $('codniveldificuldadeNav').value = q.codniveldificuldade != null ? String(q.codniveldificuldade) : '';
+        $('idtaskNav').value = q.id_task != null ? String(q.id_task) : '';
+        $('dicaNav').value = q.dica || '';
+        $('imagemUrlNav').value = q.imagemUrl || '';
+        if (q.imagemUrl) showImagePreview('imagemPreviewNav', q.imagemUrl);
+        else $('imagemPreviewNav').innerHTML = '';
+        $('explicacaoNav').value = q.explicacao || '';
+        $('versaoExameNav').value = (q.versao_exame || '');
+        // Use exam_type_id from the question record
+        if (q.examType && q.examType.id != null){ 
+          $('examTypeNav').value = String(q.examType.id); 
+        }
+
+        // Build options
+        const list = $('optsNav');
+        list.innerHTML = '';
+        const arr = Array.isArray(q.options) ? q.options : [];
+        if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta, o.explicacao || ''))); }
+        ensureAtLeastTwoNav();
+
+        navState.currentId = idNum;
+        $('navGotoId').value = String(idNum);
+        navSetStatus(`Questão ID ${idNum}`);
+
+        // Snapshot original key fields so we only block duplicates when user changes them
+        try {
+          navOriginal.id = idNum;
+          navOriginal.descricaoKey = normalizeDescricaoKey(q.descricao || '');
+          navOriginal.examTypeId = (q.examType && q.examType.id != null) ? Number(q.examType.id) : null;
+        } catch(_){ }
+      } catch(e){ navSetStatus('Falha ao carregar questão'); }
+    }
+
+    async function navLoadAllIds(){
+      // Cache IDs for 30 seconds
+      const now = Date.now();
+      if (navState.allIds.length > 0 && (now - navState.lastFetch) < 30000) {
+        return navState.allIds;
+      }
+      
+      try {
+        const token = localStorage.getItem('sessionToken') || '';
+        const allIds = [];
+        let page = 1;
+        let hasMore = true;
+        
+        // Fetch all IDs in batches
+        while (hasMore) {
+          const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions?page=${page}&pageSize=100&order=id%20asc`;
+          const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+          if (!resp.ok) break;
+          const data = await resp.json();
+          if (!Array.isArray(data.items) || data.items.length === 0) break;
+
+          const batchIds = data.items.map(Number).filter(Number.isFinite);
+          allIds.push(...batchIds);
+          
+          // Check if there are more pages
+          hasMore = (page * 100 < data.total);
+          page++;
+        }
+        
+        navState.allIds = allIds;
+        navState.lastFetch = now;
+        logger.info('[navLoadAllIds] Loaded', allIds.length, 'question IDs');
+        return allIds;
+      } catch(e) {
+        logger.error('[navLoadAllIds] error:', e);
+        return navState.allIds; // Return cached if fetch fails
+      }
+    }
+
+    async function navFindAdjacentId(currentId, direction){
+      // direction: 'prev' or 'next'
+      try {
+        const currentNum = Number(currentId);
+        if (!Number.isFinite(currentNum)) return null;
+        const allIds = await navLoadAllIds();
+        if (allIds.length === 0) return null;
+        
+        // Find index of current ID
+        const currentIndex = allIds.indexOf(currentNum);
+        if (currentIndex === -1) {
+          // Current ID not in list - try to find closest
+          if (direction === 'prev') {
+            // Find largest ID smaller than currentId
+            for (let i = allIds.length - 1; i >= 0; i--) {
+              if (allIds[i] < currentNum) return allIds[i];
+            }
+          } else {
+            // Find smallest ID larger than currentId
+            for (let i = 0; i < allIds.length; i++) {
+              if (allIds[i] > currentNum) return allIds[i];
+            }
+          }
+          return null;
+        }
+        
+        // Navigate based on index
+        if (direction === 'prev') {
+          return currentIndex > 0 ? allIds[currentIndex - 1] : null;
+        } else {
+          return currentIndex < allIds.length - 1 ? allIds[currentIndex + 1] : null;
+        }
+      } catch(e){ 
+        logger.error('[navFindAdjacentId] error:', e);
+        return null; 
+      }
+    }
+
+    $('navPrev').addEventListener('click', async ()=>{
+      const currentId = navState.currentId;
+      if (!currentId) return;
+      const prevId = await navFindAdjacentId(currentId, 'prev');
+      if (prevId) await navLoadById(prevId);
+      else navSetStatus('Não há questão anterior');
+    });
+    $('navNext').addEventListener('click', async ()=>{
+      const currentId = navState.currentId;
+      if (!currentId) return;
+      const nextId = await navFindAdjacentId(currentId, 'next');
+      if (nextId) await navLoadById(nextId);
+      else navSetStatus('Não há próxima questão');
+    });
+    $('navGotoBtn').addEventListener('click', async ()=>{
+      const val = ($('navGotoId').value || '').trim();
+      const id = Number(val);
+      if (!Number.isFinite(id)) { navSetStatus('ID inválido'); return; }
+      await navLoadById(id);
+    });
+
+    $('addOptNav').onclick = function(e){ e.preventDefault(); $('optsNav').appendChild(makeOptRowNav()); };
+    $('clearOptsNav').onclick = function(e){ e.preventDefault(); $('optsNav').innerHTML=''; ensureAtLeastTwoNav(); };
+    $('tipoNav').addEventListener('change', ()=>{
+      const list = $('optsNav');
+      const current = Array.from(list.children).map(row => ({
+        text: row.querySelector('input[type=text]')?.value || '',
+        correta: !!row.querySelector('input[type=checkbox],input[type=radio]')?.checked,
+        explicacao: row.querySelector('textarea')?.value || ''
+      }));
+      list.innerHTML='';
+      current.forEach(o => list.appendChild(makeOptRowNav(o.text, o.correta, o.explicacao)));
+    });
+
+    $('saveNav').addEventListener('click', async ()=>{
+      const id = Number(navState.currentId);
+      if (!Number.isFinite(id) || id <= 0) { navSetStatus('Nenhuma questão carregada'); return; }
+      const descricao = $('descricaoNav').value.trim();
+      const tiposlug = $('tipoNav').value;
+      const examTypeId = ($('examTypeNav').value || '').trim();
+      const iddominio = ($('iddominioNav').value || '').trim();
+      const versao_exame = ($('versaoExameNav').value || '').trim();
+      const grupo = ($('grupoNav').value || '').trim();
+      const iddominiogeral = ($('iddominiogeralNav').value || '').trim();
+      const idprincipio = ($('idprincipioNav').value || '').trim();
+      const codigocategoria = ($('codigocategoriaNav').value || '').trim();
+      const codniveldificuldade = ($('codniveldificuldadeNav').value || '').trim();
+      const id_task = ($('idtaskNav').value || '').trim();
+      const dica = $('dicaNav').value.trim();
+      const imagemUrl = ($('imagemUrlNav').value || '').trim();
+      const explicacao = $('explicacaoNav').value.trim();
+      if (!descricao){ alert('Informe o enunciado'); return; }
+      // Nota: verificação de duplicata deliberadamente omitida em updates.
+      const options = readOptionsNav();
+      if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
+      if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+
+      // Clear any stale status from previous duplicate checks
+      try { navSetStatus(''); } catch(_){ }
+
+      // Checagem duplicata na atualização:
+      // Só bloqueia se o usuário ALTERAR enunciado e/ou tipo de exame para colidir com outra questão.
+      // Se já existem duplicatas históricas no banco, ainda deve permitir editar outros campos.
+      const currentKey = normalizeDescricaoKey(descricao);
+      const currentExamTypeNum = examTypeId ? Number(examTypeId) : null;
+      const originalKey = normalizeDescricaoKey(navOriginal.descricaoKey);
+      const originalExamTypeNum = (navOriginal.examTypeId != null) ? Number(navOriginal.examTypeId) : null;
+      const keyChanged = (currentKey !== originalKey) || (Number.isFinite(currentExamTypeNum) && Number.isFinite(originalExamTypeNum) && currentExamTypeNum !== originalExamTypeNum);
+
+      if (keyChanged) {
+        const dupIdNav = await checkDuplicateNav(true);
+        const dupNum = (dupIdNav == null) ? null : Number(dupIdNav);
+        if (dupNum != null && Number.isFinite(dupNum) && dupNum !== id){
+          navSetStatus('Duplicada: já existe ID ' + dupIdNav);
+          return;
+        }
+      }
+
+      const sessionUserIdUpdate = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
+      if (!sessionUserIdUpdate){ alert('Sessão sem userId. Faça login novamente.'); return; }
+      const payload = {
+        descricao,
+        tiposlug,
+        seed: !!$('seedNav').checked,
+        examTypeId: examTypeId ? Number(examTypeId) : undefined,
+        versao_exame: versao_exame || undefined,
+        iddominio: iddominio ? Number(iddominio) : undefined,
+        codgrupoprocesso: grupo ? Number(grupo) : undefined,
+        iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
+        idprincipio: idprincipio ? Number(idprincipio) : undefined,
+        codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
+        codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
+        id_task: id_task ? Number(id_task) : undefined,
+        dica: dica || undefined,
+        imagemUrl: imagemUrl || undefined,
+        explicacao: explicacao || undefined,
+        options,
+        // Audit: backend should use this to set respostaopcao.AlteradoUsuario
+        updatedByUserId: sessionUserIdUpdate
+      };
+      const token = localStorage.getItem('sessionToken') || '';
+      const base = (BACKEND_BASE || '').replace(/\/$/, '');
+      const url = base + `/api/questions/${id}`;
+      navSetStatus('Salvando...');
+      const resp = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+      const txt = await resp.text();
+      if (!resp.ok){ navSetStatus('Erro ao salvar: ' + txt); return; }
+      navSetStatus('Salvo com sucesso');
+    });
+
+    // Keyboard shortcut: Ctrl+S (or Cmd+S on macOS) to save in Navegação
+    document.addEventListener('keydown', (e) => {
+      const isSaveCombo = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S');
+      if (!isSaveCombo) return;
+      // Only handle when Navegação tab is active
+      const secNav = document.getElementById('sec-nav');
+      if (secNav && secNav.classList.contains('active')) {
+        e.preventDefault();
+        const btn = $('saveNav');
+        if (btn) btn.click();
+      }
+    });
+
+    // init
+    loadExamTypes();
+    loadVersoesExame('versaoExame');
+    loadDominioGeral();
+    loadDominios('iddominio');
+    loadGrupos('grupo');
+    loadPrincipios('idprincipio');
+    loadCategorias('codigocategoria');
+    loadNiveisDificuldade('codniveldificuldade');
+    loadTasks('idtask');
+    ensureAtLeastTwo();
+    setupImageUpload('imagemFile', 'imagemUrl', 'imagemPreview');
+    initTabs();
+
+    // init nav - prepare controls but don't load yet
+    loadExamTypes('examTypeNav');
+    loadDominioGeral('iddominiogeralNav');
+    loadDominios('iddominioNav');
+    loadGrupos('grupoNav');
+    loadPrincipios('idprincipioNav');
+    loadCategorias('codigocategoriaNav');
+    loadNiveisDificuldade('codniveldificuldadeNav');
+    loadTasks('idtaskNav');
+    setupImageUpload('imagemFileNav', 'imagemUrlNav', 'imagemPreviewNav');
+    ensureAtLeastTwoNav();
+
+    // Função duplicata para Navegação (ignora o próprio ID)
+    function renderDupNavAction(targetEl, dupId){
+      if (!targetEl) return;
+      const dupNum = Number(dupId);
+      // Reset
+      try { targetEl.replaceChildren(); } catch(_){ targetEl.textContent = ''; }
+      if (!Number.isFinite(dupNum)) return;
+
+      const label = document.createElement('span');
+      label.textContent = 'QUESTÃO JÁ CADASTRADA (ID ' + dupNum + ') ';
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn secondary';
+      btn.textContent = 'Ir para ID ' + dupNum;
+      btn.style.padding = '4px 8px';
+      btn.style.fontSize = '.75rem';
+      btn.style.marginLeft = '8px';
+      btn.addEventListener('click', async (e)=>{
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+        try {
+          await navLoadById(dupNum);
+          // Clear warning state after navigation
+          try { const el = $('dupStatusNav'); if (el) el.textContent = ''; } catch(_){ }
+          try { $('descricaoNav').classList.remove('dup-warning'); } catch(_){ }
+        } catch(_){ }
+      });
+
+      targetEl.appendChild(label);
+      targetEl.appendChild(btn);
+    }
+
+    async function checkDuplicateNav(show){
+      try {
+        const descricao = ($('descricaoNav').value || '').trim();
+        const examTypeId = ($('examTypeNav').value || '').trim();
+        const currentIdNum = Number(navState.currentId);
+        if (!descricao || !examTypeId) { return null; }
+        const base = (BACKEND_BASE || '').replace(/\/$/, '');
+        const dupUrl = base + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
+        const tokenDup = localStorage.getItem('sessionToken') || '';
+        const resp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
+        if (!resp.ok) { return null; }
+        const dj = await resp.json().catch(()=>({}));
+        if (dj && dj.exists && dj.id){
+          const foundIdNum = Number(dj.id);
+          if (Number.isFinite(foundIdNum) && (!Number.isFinite(currentIdNum) || foundIdNum !== currentIdNum)){
+            if (show){ 
+              const el = $('dupStatusNav'); 
+              if (el) renderDupNavAction(el, foundIdNum);
+              try { $('descricaoNav').classList.add('dup-warning'); } catch(_){ }
+            }
+            return foundIdNum;
+          }
+        } else {
+          const el = $('dupStatusNav');
+          if (el) {
+            try { el.replaceChildren(); } catch(_){ el.textContent = ''; }
+          }
+          try { $('descricaoNav').classList.remove('dup-warning'); } catch(_){ }
+        }
+        return null;
+      } catch(_){ return null; }
+    }
+
+    // onblur para descricaoNav
+    try { const dnav = $('descricaoNav'); if (dnav){ dnav.addEventListener('blur', ()=>{ checkDuplicateNav(true); }); dnav.addEventListener('input', ()=>{ const el = $('dupStatusNav'); if (el && el.textContent) el.textContent = ''; try { dnav.classList.remove('dup-warning'); } catch(_){ } }); } } catch(_){ }
+
+    // Função compartilhada de verificação de duplicata para criação
+    async function checkDuplicate(showIfFound = true){
+      try {
+        const descricao = ($('descricao').value || '').trim();
+        const examTypeId = ($('examType').value || '').trim();
+        if (!descricao || !examTypeId) { return null; }
+        const base = (BACKEND_BASE || '').replace(/\/$/, '');
+        const dupUrl = base + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
+        const tokenDup = localStorage.getItem('sessionToken') || '';
+        const dupResp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
+        if (!dupResp.ok) return null;
+        const dj = await dupResp.json().catch(()=>({}));
+        if (dj && dj.exists && dj.id){
+          if (showIfFound){
+            const el = $('dupStatus');
+            if (el) el.textContent = 'QUESTÃO JÁ CADASTRADA (ID ' + dj.id + ')';
+            try { $('descricao').value = ''; } catch(_){ }
+            try { $('descricao').classList.add('dup-warning'); } catch(_){ }
+          }
+          return dj.id;
+        } else {
+          // Limpa mensagem se não achou
+          const el = $('dupStatus');
+          if (el) el.textContent = '';
+          try { $('descricao').classList.remove('dup-warning'); } catch(_){ }
+        }
+        return null;
+      } catch(_){ return null; }
+    }
+
+    // onblur do textarea descricao dispara verificação
+    try {
+      const descEl = $('descricao');
+      if (descEl){
+        descEl.addEventListener('blur', ()=>{ checkDuplicate(true); });
+        // Ao digitar, remover mensagem de duplicata (caso esteja visível)
+        descEl.addEventListener('input', ()=>{ const el = $('dupStatus'); if (el && el.textContent) el.textContent = ''; try { descEl.classList.remove('dup-warning'); } catch(_){ } });
+      }
+    } catch(_){ }
+
+    // Menu toggle functionality
+    (function initTopMenu(){
+      const btn = document.getElementById('menuToggle');
+      const panel = document.getElementById('pageMenu');
+      if (!btn || !panel) return;
+      const close = ()=>{ panel.classList.remove('open'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); };
+      const open = ()=>{ panel.classList.add('open'); panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); };
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        if (panel.classList.contains('open')) close(); else open();
+      });
+      document.addEventListener('click', (e)=>{
+        if (!panel.contains(e.target) && e.target !== btn) close();
+      });
+    })();
+  </script>
+<script>
+// Distribuição dinâmica de alternativas (reativa após cada reset)
+window.initAlternativesDistribution = function(){
+  try {
+    const opts = document.getElementById('opts');
+    if (!opts) return;
+    // Limpeza reforçada pós-save
+    if (window._afterSaveReset){
+      try { const el = document.getElementById('optsPaste'); if (el) el.value=''; } catch{}
+      delete window._afterSaveReset;
+    }
+    function getAltInputs(){
+      return Array.from(opts.querySelectorAll('.opt input[type="text"][placeholder="Texto da alternativa"]'));
+    }
+    function sanitizeLine(raw){
+      try {
+        let s = String(raw || '').trim();
+        if (!s) return '';
+        const hasStar = s.startsWith('*');
+        if (hasStar) s = s.slice(1).trim();
+        s = s.replace(/^(\(?\s*\d+\)?\s*[\.)\-:])\s*/, '');
+        s = s.replace(/^\s*\d+\s+/, '');
+        s = s.replace(/^(\(?\s*[A-Za-z]\)?\s*[\.)\-:])\s*/, '');
+        s = s.replace(/^\s*[A-Za-z]\s+/, '');
+        s = s.replace(/^\s*\.+\s*/, '');
+        s = s.replace(/\s{2,}/g, ' ').trim();
+        return hasStar ? ('* ' + s) : s;
+      } catch(_) { return String(raw||'').trim(); }
+    }
+    function distributeFromText(raw){
+      if (typeof raw !== 'string') return;
+      const altInputs = getAltInputs();
+      if (!altInputs.length) return;
+      let parts = raw.split(/\r?\n/);
+      if (parts.length <= 1) parts = raw.split(/[;|]/);
+      const lines = parts.map(sanitizeLine).map(s => s.trim()).filter(s => s.length > 0);
+      if (!lines.length) return;
+      const isMulti = (document.getElementById('tipo')?.value === 'multi');
+      let firstMarkedSeen = false;
+      for (let i = 0; i < altInputs.length; i++){
+        const line = lines[i];
+        if (line == null) break;
+        let text = line;
+        let mark = false;
+        if (text.startsWith('*')){ mark = true; text = text.replace(/^\*+\s*/, ''); }
+        altInputs[i].value = text;
+        const row = altInputs[i].closest('.opt');
+        const check = row ? row.querySelector('input[type="checkbox"],input[type="radio"]') : null;
+        if (check){
+          if (isMulti){
+            check.checked = !!mark;
+          } else if (mark && !firstMarkedSeen){
+            firstMarkedSeen = true;
+            check.checked = true;
+            try { document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(r=>{ if (r !== check) r.checked = false; }); } catch(_){ }
+          }
+        }
+      }
+    }
+    // Rebind first input blur
+    const altInputs = getAltInputs();
+    if (altInputs.length){
+      const first = altInputs[0];
+      first.onblur = ()=>{ distributeFromText(first.value || ''); };
+    }
+    // Paste helpers
+    const pasteEl = document.getElementById('optsPaste');
+    const pasteBtn = document.getElementById('optsPasteApply');
+    function distributeFromTextarea(){ if (pasteEl) distributeFromText(pasteEl.value || ''); }
+    if (pasteBtn) pasteBtn.onclick = distributeFromTextarea;
+    if (pasteEl) pasteEl.onblur = distributeFromTextarea;
+  } catch(e){ /* ignore */ }
+};
+// Inicialização imediata
+window.initAlternativesDistribution();
+</script>
+  <!-- Bottom navigation component mount -->
+  <div id="bottomNavMount"></div>
+  <script>
+    (function(){
+      function loadBottomNav(){
+        var mount = document.getElementById('bottomNavMount');
+        if(!mount) return;
+        fetch('../../components/bottomNav.html')
+          .then(function(r){ return r.ok ? r.text() : null; })
+          .then(function(html){ if(html){
+              mount.innerHTML = html;
+              try {
+                var scripts = Array.from(mount.querySelectorAll('script'));
+                scripts.forEach(function(old){
+                  var s = document.createElement('script');
+                  if(old.src) s.src = old.src; else s.textContent = old.textContent || '';
+                  old.parentNode.removeChild(old);
+                  mount.appendChild(s);
+                });
+              } catch(_){ }
+          } })
+          .catch(function(){});
+      }
+      if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', loadBottomNav); } else { loadBottomNav(); }
+    })();
+  </script>
+</body>
+</html>

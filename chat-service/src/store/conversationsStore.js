@@ -1,10 +1,12 @@
 const { query } = require('../db/pool');
 
 const conversationsStore = {
-  async insert({ id, visitorId, userId, createdAt, status, origin }) {
+  async insert({ id, visitorId, userId, createdAt, status, origin, customerName = null }) {
+    const name = customerName != null ? String(customerName).trim() : '';
+    const finalName = name ? name.slice(0, 120) : null;
     await query(
-      'INSERT INTO conversations (id, visitor_id, user_id, created_at, status, origin) VALUES ($1, $2, $3, $4, $5, $6)',
-      [id, visitorId, userId, createdAt, status, origin]
+      'INSERT INTO conversations (id, visitor_id, user_id, created_at, status, origin, customer_name) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [id, visitorId, userId, createdAt, status, origin, finalName]
     );
   },
 

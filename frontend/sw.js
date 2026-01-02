@@ -8,7 +8,7 @@ const logger = (self && self.logger) ? self.logger : {
   error: (...args) => { try { console.error(...args); } catch(_){} }
 };
 
-const VERSION = '2.0.16';
+const VERSION = '2.0.17';
 const CACHE_PREFIX = 'simuladosbr';
 const CACHES = {
   STATIC: `${CACHE_PREFIX}-static-v${VERSION}`,
@@ -189,9 +189,29 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Bypass cache for frequently edited UI components to avoid stale code
-  if (url.pathname === '/components/sidebar.html' || url.pathname.endsWith('/frontend/components/sidebar.html')) {
-    event.respondWith(fetch(new Request(request, { cache: 'no-store' })).catch(() => networkFirstWithCache(request, CACHES.DYNAMIC)));
+  // Sidebar is loaded dynamically; keep it fresh to avoid stale navigation behavior.
+  // Network-first + cache fallback (offline) with a normalized cache key.
+  if (url.pathname === '/components/sidebar.html' || url.pathname.endsWith('/components/sidebar.html')) {
+    event.respondWith((async () => {
+      const key = cacheKeyWithoutSearch(url);
+      try {
+        const resp = await fetch(new Request(request, { cache: 'no-store' }));
+        if (resp && resp.ok) {
+          try {
+            const cache = await caches.open(CACHES.DYNAMIC);
+            await cache.put(key, resp.clone());
+          } catch (_) {}
+        }
+        return resp;
+      } catch (_) {
+        try {
+          const cache = await caches.open(CACHES.DYNAMIC);
+          const cached = await cache.match(key);
+          if (cached) return cached;
+        } catch (_) {}
+        return networkFirstWithCache(request, CACHES.DYNAMIC);
+      }
+    })());
     return;
   }
 

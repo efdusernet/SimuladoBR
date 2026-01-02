@@ -2834,8 +2834,18 @@
       'chat-host': () => {
         const url = `/chat/admin?sessionToken=${encodeURIComponent(sessionForHeader)}`;
         try {
-          const w = (window.top || window).open(url, '_blank', 'noopener');
-          if (!w) (window.top || window).location.assign(url);
+          const topWin = (window.top || window);
+          const w = topWin.open(url, '_blank', 'noopener,noreferrer');
+          if (!w) {
+            // Fallback that tends to bypass popup blockers better than window.open().
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }
         } catch (_) {
           (window.top || window).location.assign(url);
         }

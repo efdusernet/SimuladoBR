@@ -825,6 +825,40 @@
       }
     }
 
+    async function deleteOptionExplanationNav(optionId, btn, textarea){
+      const oid = Number(optionId);
+      if (!Number.isFinite(oid) || oid <= 0){
+        navSetStatus('Esta alternativa ainda não foi salva no banco.');
+        return;
+      }
+      const ok = confirm('Deletar explicação desta alternativa?\n\nEsta ação apaga definitivamente na tabela explicacaoguia.');
+      if (!ok) return;
+
+      const token = localStorage.getItem('sessionToken') || '';
+      const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/options/${oid}/explanation`;
+      try {
+        if (btn){ btn.disabled = true; btn.dataset._oldText = btn.textContent; btn.textContent = 'Deletando...'; }
+        const resp = await fetch(url, { method: 'DELETE', headers: { 'X-Session-Token': token } });
+        if (!resp.ok){
+          const txt = await resp.text().catch(()=> '');
+          navSetStatus('Erro ao deletar explicação: ' + (txt || resp.status));
+          return;
+        }
+        if (textarea) textarea.value = '';
+        navSetStatus('Explicação deletada');
+      } catch(e){
+        logger.error('[deleteOptionExplanationNav] error:', e);
+        navSetStatus('Falha ao deletar explicação');
+      } finally {
+        if (btn){
+          btn.disabled = false;
+          const old = btn.dataset._oldText;
+          if (old) btn.textContent = old;
+          delete btn.dataset._oldText;
+        }
+      }
+    }
+
     function makeOptRowNav(text = '', correta = false, explicacao = '', optionId = null){
       const wrap = document.createElement('div');
       wrap.className = 'opt';
@@ -859,6 +893,16 @@
         await saveOptionExplanationNav(currentOid, exp.value, saveExp);
       };
 
+      const delExp = document.createElement('button');
+      delExp.className = 'btn secondary';
+      delExp.type = 'button';
+      delExp.textContent = 'Deletar explicação';
+      delExp.disabled = !(Number.isFinite(oid) && oid > 0);
+      delExp.onclick = async () => {
+        const currentOid = Number(wrap.dataset.optionId);
+        await deleteOptionExplanationNav(currentOid, delExp, exp);
+      };
+
       const del = document.createElement('button');
       del.className = 'btn secondary';
       del.type = 'button';
@@ -873,6 +917,7 @@
       fields.appendChild(input);
       fields.appendChild(exp);
       fields.appendChild(saveExp);
+      fields.appendChild(delExp);
       wrap.appendChild(check);
       wrap.appendChild(fields);
       wrap.appendChild(del);

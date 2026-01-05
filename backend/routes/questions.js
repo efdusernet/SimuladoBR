@@ -34,6 +34,7 @@ router.put('/:id', requireAdmin, questionController.updateQuestion);
 
 // Save/update explanation for a specific option (respostaopcao)
 router.put('/options/:optionId/explanation', requireAdmin, questionController.saveOptionExplanation);
+router.delete('/options/:optionId/explanation', requireAdmin, questionController.deleteOptionExplanation);
 
 // Delete (soft-delete) question
 router.delete('/:id', requireAdmin, questionController.deleteQuestion);

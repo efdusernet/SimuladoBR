@@ -635,6 +635,47 @@ exports.saveOptionExplanation = async (req, res, next) => {
 	}
 };
 
+// Hard-delete explicacao rows for a single option (respostaopcao)
+// DELETE /api/questions/options/:optionId/explanation
+exports.deleteOptionExplanation = async (req, res, next) => {
+	try {
+		const optionId = Number(req.params.optionId);
+		if (!Number.isFinite(optionId) || optionId <= 0) return next(badRequest('invalid optionId', 'INVALID_OPTION_ID'));
+		const userId = req.user && (req.user.Id || req.user.id) ? Number(req.user.Id || req.user.id) : null;
+		if (!Number.isFinite(userId) || userId <= 0) return next(unauthorized('unauthorized', 'UNAUTHORIZED'));
+
+		const result = { ok: true, optionId, hardDeleted: true, deleted: 0 };
+		await sequelize.transaction(async (t) => {
+			// Ensure option exists
+			const optRows = await sequelize.query(
+				'SELECT id FROM public.respostaopcao WHERE id = :oid LIMIT 1',
+				{ replacements: { oid: optionId }, type: sequelize.QueryTypes.SELECT, transaction: t }
+			);
+			if (!optRows || !optRows[0] || optRows[0].id == null) throw notFound('option not found', 'OPTION_NOT_FOUND');
+
+			const cols = await _getPublicTableColumns('explicacaoguia', t);
+			const colOptionId = _pickColumn(cols, ['idrespostaopcao', 'IdRespostaOpcao']);
+			if (!colOptionId) {
+				throw internalError('explicacaoguia schema missing required columns', 'EXPLICACAOGUIA_SCHEMA_MISSING', { missing: { idrespostaopcao: true } });
+			}
+
+			const del = await sequelize.query(
+				`DELETE FROM public.explicacaoguia WHERE ${_quoteIdent(colOptionId)} = :oid`,
+				{ replacements: { oid: optionId }, transaction: t }
+			);
+			result.deleted = Array.isArray(del)
+				? (del[1] && typeof del[1].rowCount === 'number' ? del[1].rowCount : (typeof del[1] === 'number' ? del[1] : 0))
+				: 0;
+		});
+
+		return res.json(result);
+	} catch (err) {
+		if (err && err.status && err.code) return next(err);
+		logger.error('deleteOptionExplanation error:', err);
+		return next(internalError('Internal error', 'DELETE_OPTION_EXPLANATION_ERROR', err));
+	}
+};
+
 // Check if a question exists by exact descricao (case-insensitive, trimmed) and exam type (id or slug)
 exports.existsQuestion = async (req, res, next) => {
 	try {

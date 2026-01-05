@@ -14,6 +14,36 @@ function logQuestionSubmission(entry){
 	} catch(e){ logger.error('logQuestionSubmission error:', e); }
 }
 
+// Cache table columns so we can support legacy/mixed schemas (quoted vs unquoted column names)
+const _tableColumnsCache = new Map();
+function _quoteIdent(name){
+	const s = String(name || '');
+	if (/^[a-z_][a-z0-9_]*$/.test(s)) return s;
+	return '"' + s.replace(/"/g, '""') + '"';
+}
+async function _getPublicTableColumns(tableName, transaction){
+	const tname = String(tableName || '').toLowerCase();
+	if (!tname) return new Set();
+	const cached = _tableColumnsCache.get(tname);
+	const now = Date.now();
+	if (cached && cached.ts && (now - cached.ts) < 5 * 60 * 1000 && cached.cols) return cached.cols;
+	const rows = await sequelize.query(
+		`SELECT column_name
+		   FROM information_schema.columns
+		  WHERE table_schema = 'public' AND table_name = :tname`,
+		{ replacements: { tname }, type: sequelize.QueryTypes.SELECT, transaction }
+	);
+	const cols = new Set((rows || []).map(r => r && r.column_name).filter(Boolean));
+	_tableColumnsCache.set(tname, { ts: now, cols });
+	return cols;
+}
+function _pickColumn(colsSet, candidates){
+	for (const c of (candidates || [])) {
+		if (colsSet && colsSet.has(c)) return c;
+	}
+	return null;
+}
+
 exports.createQuestion = async (req, res, next) => {
 	try {
 		const b = req.body || {};
@@ -515,6 +545,93 @@ exports.deleteQuestion = async (req, res, next) => {
 		}
 		logger.error('deleteQuestion error:', err);
 		return next(internalError('Internal error', 'DELETE_QUESTION_ERROR', err));
+	}
+};
+
+// Save/update explicacao for a single option (respostaopcao)
+// PUT /api/questions/options/:optionId/explanation
+// Body: { descricao: string }
+exports.saveOptionExplanation = async (req, res, next) => {
+	try {
+		const optionId = Number(req.params.optionId);
+		if (!Number.isFinite(optionId) || optionId <= 0) return next(badRequest('invalid optionId', 'INVALID_OPTION_ID'));
+		const userId = req.user && (req.user.Id || req.user.id) ? Number(req.user.Id || req.user.id) : null;
+		if (!Number.isFinite(userId) || userId <= 0) return next(unauthorized('unauthorized', 'UNAUTHORIZED'));
+
+		const body = req.body || {};
+		const descricao = (body.descricao != null) ? String(body.descricao) : '';
+
+		const result = { ok: true, optionId, created: false, updated: false };
+		await sequelize.transaction(async (t) => {
+			// Ensure option exists (and capture question id if needed)
+			const optRows = await sequelize.query(
+				'SELECT id, idquestao FROM public.respostaopcao WHERE id = :oid LIMIT 1',
+				{ replacements: { oid: optionId }, type: sequelize.QueryTypes.SELECT, transaction: t }
+			);
+			if (!optRows || !optRows[0] || optRows[0].id == null) throw notFound('option not found', 'OPTION_NOT_FOUND');
+			const optionQuestionId = (optRows[0].idquestao != null) ? Number(optRows[0].idquestao) : null;
+
+			const cols = await _getPublicTableColumns('explicacaoguia', t);
+			const colOptionId = _pickColumn(cols, ['idrespostaopcao', 'IdRespostaOpcao']);
+			const colDescricao = _pickColumn(cols, ['descricao', 'Descricao']);
+			const colId = _pickColumn(cols, ['id', 'Id']);
+			const colExcluido = _pickColumn(cols, ['excluido', 'Excluido']);
+			const colDataCadastro = _pickColumn(cols, ['datacadastro', 'DataCadastro']);
+			const colDataAlteracao = _pickColumn(cols, ['dataalteracao', 'DataAlteracao']);
+			const colCriadoUsuario = _pickColumn(cols, ['criadousuario', 'CriadoUsuario', 'CriadoUsuarioId']);
+			const colAlteradoUsuario = _pickColumn(cols, ['alteradousuario', 'AlteradoUsuario', 'AlteradoUsuarioId']);
+			const colQuestao = _pickColumn(cols, ['idquestao', 'IdQuestao']);
+
+			if (!colOptionId || !colDescricao) {
+				throw internalError('explicacaoguia schema missing required columns', 'EXPLICACAOGUIA_SCHEMA_MISSING', { missing: { idrespostaopcao: !colOptionId, descricao: !colDescricao } });
+			}
+
+			// Find existing row by option id (prefer the most recent)
+			let existing = null;
+			if (colId) {
+				const orderBy = [];
+				if (colDataAlteracao) orderBy.push(`${_quoteIdent(colDataAlteracao)} DESC`);
+				orderBy.push(`${_quoteIdent(colId)} DESC`);
+				const selSql = `SELECT ${_quoteIdent(colId)} AS id${colExcluido ? `, ${_quoteIdent(colExcluido)} AS excluido` : ''}
+					FROM public.explicacaoguia
+					WHERE ${_quoteIdent(colOptionId)} = :oid
+					ORDER BY ${orderBy.join(', ')}
+					LIMIT 1`;
+				const rows = await sequelize.query(selSql, { replacements: { oid: optionId }, type: sequelize.QueryTypes.SELECT, transaction: t });
+				if (rows && rows[0] && rows[0].id != null) existing = rows[0];
+			}
+
+			if (existing && existing.id != null) {
+				const setParts = [`${_quoteIdent(colDescricao)} = :descricao`];
+				if (colDataAlteracao) setParts.push(`${_quoteIdent(colDataAlteracao)} = CURRENT_TIMESTAMP`);
+				if (colAlteradoUsuario) setParts.push(`${_quoteIdent(colAlteradoUsuario)} = :uid`);
+				if (colExcluido) setParts.push(`${_quoteIdent(colExcluido)} = FALSE`);
+				const updSql = `UPDATE public.explicacaoguia SET ${setParts.join(', ')} WHERE ${_quoteIdent(colId)} = :eid`;
+				await sequelize.query(updSql, { replacements: { descricao, uid: userId, eid: Number(existing.id) }, transaction: t });
+				result.updated = true;
+			} else {
+				const colsIns = [colOptionId, colDescricao];
+				const valsIns = [':oid', ':descricao'];
+				const repl = { oid: optionId, descricao, uid: userId, qid: optionQuestionId };
+
+				if (colQuestao && Number.isFinite(optionQuestionId)) { colsIns.push(colQuestao); valsIns.push(':qid'); }
+				if (colExcluido) { colsIns.push(colExcluido); valsIns.push('FALSE'); }
+				if (colDataCadastro) { colsIns.push(colDataCadastro); valsIns.push('CURRENT_TIMESTAMP'); }
+				if (colDataAlteracao) { colsIns.push(colDataAlteracao); valsIns.push('CURRENT_TIMESTAMP'); }
+				if (colCriadoUsuario) { colsIns.push(colCriadoUsuario); valsIns.push(':uid'); }
+				if (colAlteradoUsuario) { colsIns.push(colAlteradoUsuario); valsIns.push(':uid'); }
+
+				const insSql = `INSERT INTO public.explicacaoguia (${colsIns.map(_quoteIdent).join(', ')}) VALUES (${valsIns.join(', ')})`;
+				await sequelize.query(insSql, { replacements: repl, transaction: t });
+				result.created = true;
+			}
+		});
+
+		return res.json(result);
+	} catch (err) {
+		if (err && err.status && err.code) return next(err);
+		logger.error('saveOptionExplanation error:', err);
+		return next(internalError('Internal error', 'SAVE_OPTION_EXPLANATION_ERROR', err));
 	}
 };
 

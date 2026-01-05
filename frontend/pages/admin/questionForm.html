@@ -790,9 +790,47 @@
     } catch(_){ }
 
     // NAV: option helpers
-    function makeOptRowNav(text = '', correta = false, explicacao = ''){
+    async function saveOptionExplanationNav(optionId, descricao, btn){
+      const oid = Number(optionId);
+      if (!Number.isFinite(oid) || oid <= 0){
+        navSetStatus('Esta alternativa ainda não foi salva no banco.');
+        return;
+      }
+      const token = localStorage.getItem('sessionToken') || '';
+      const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/options/${oid}/explanation`;
+      const payload = { descricao: (descricao != null) ? String(descricao) : '' };
+      try {
+        if (btn){ btn.disabled = true; btn.dataset._oldText = btn.textContent; btn.textContent = 'Salvando...'; }
+        const resp = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok){
+          const txt = await resp.text().catch(()=> '');
+          navSetStatus('Erro ao salvar explicação: ' + (txt || resp.status));
+          return;
+        }
+        navSetStatus('Explicação salva com sucesso');
+      } catch(e){
+        logger.error('[saveOptionExplanationNav] error:', e);
+        navSetStatus('Falha ao salvar explicação');
+      } finally {
+        if (btn){
+          btn.disabled = false;
+          const old = btn.dataset._oldText;
+          if (old) btn.textContent = old;
+          delete btn.dataset._oldText;
+        }
+      }
+    }
+
+    function makeOptRowNav(text = '', correta = false, explicacao = '', optionId = null){
       const wrap = document.createElement('div');
       wrap.className = 'opt';
+      if (Number.isFinite(Number(optionId)) && Number(optionId) > 0) {
+        wrap.dataset.optionId = String(Number(optionId));
+      }
       const tipo = $('tipoNav').value;
       const check = document.createElement('input');
       check.type = (tipo === 'multi') ? 'checkbox' : 'radio';
@@ -810,6 +848,17 @@
       exp.placeholder = 'Explicação da alternativa (opcional)';
       exp.value = explicacao || '';
 
+      const saveExp = document.createElement('button');
+      saveExp.className = 'btn secondary';
+      saveExp.type = 'button';
+      saveExp.textContent = 'Salvar explicação';
+      const oid = Number(optionId);
+      saveExp.disabled = !(Number.isFinite(oid) && oid > 0);
+      saveExp.onclick = async () => {
+        const currentOid = Number(wrap.dataset.optionId);
+        await saveOptionExplanationNav(currentOid, exp.value, saveExp);
+      };
+
       const del = document.createElement('button');
       del.className = 'btn secondary';
       del.type = 'button';
@@ -823,6 +872,7 @@
       });
       fields.appendChild(input);
       fields.appendChild(exp);
+      fields.appendChild(saveExp);
       wrap.appendChild(check);
       wrap.appendChild(fields);
       wrap.appendChild(del);
@@ -1372,7 +1422,8 @@
         const list = $('optsNav');
         list.innerHTML = '';
         const arr = Array.isArray(q.options) ? q.options : [];
-        if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta, o.explicacao || ''))); }
+        if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta, o.explicacao || '', o.id)));
+        }
         ensureAtLeastTwoNav();
 
         navState.currentId = idNum;
@@ -1497,10 +1548,11 @@
       const current = Array.from(list.children).map(row => ({
         text: row.querySelector('input[type=text]')?.value || '',
         correta: !!row.querySelector('input[type=checkbox],input[type=radio]')?.checked,
-        explicacao: row.querySelector('textarea')?.value || ''
+        explicacao: row.querySelector('textarea')?.value || '',
+        optionId: row.dataset.optionId ? Number(row.dataset.optionId) : null
       }));
       list.innerHTML='';
-      current.forEach(o => list.appendChild(makeOptRowNav(o.text, o.correta, o.explicacao)));
+      current.forEach(o => list.appendChild(makeOptRowNav(o.text, o.correta, o.explicacao, o.optionId)));
     });
 
     $('saveNav').addEventListener('click', async ()=>{

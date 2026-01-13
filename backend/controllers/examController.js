@@ -1470,8 +1470,8 @@ exports.resumeSession = async (req, res, next) => {
     }
   };
 
-  // GET /api/exams/history?limit=3
-  // Returns the last N finished attempts for the resolved user (default 3)
+  // GET /api/exams/history?limit=3&status=finished|abandoned|in_progress|unfinished
+  // Returns the last N attempts for the resolved user (default: finished)
   // Response: [{ correct,total,scorePercent,approved,startedAt,finishedAt,examTypeId,durationSeconds }]
   // Used by: frontend/index.html (loadLastExamResults) para estilizar o gauge conforme regra dos últimos 3
   exports.lastAttemptsHistory = async (req, res, next) => {
@@ -1479,6 +1479,9 @@ exports.resumeSession = async (req, res, next) => {
       // Allow up to 50 history items instead of previous cap 10
       const limitRequested = Number(req.query.limit) || 3;
       const limit = Math.max(1, Math.min(50, limitRequested));
+
+      const rawStatus = String(req.query.status || 'finished').trim().toLowerCase();
+      const status = (rawStatus === 'abandoned' || rawStatus === 'finished' || rawStatus === 'in_progress' || rawStatus === 'unfinished') ? rawStatus : 'finished';
       
       const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
       const authHeader = (req.get('Authorization') || '').trim();
@@ -1556,11 +1559,18 @@ exports.resumeSession = async (req, res, next) => {
       
       if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
+      const where = { UserId: user.Id || user.id };
+      if (status === 'unfinished') {
+        where.Status = ['in_progress', 'abandoned'];
+      } else {
+        where.Status = status;
+      }
+
       const attempts = await db.ExamAttempt.findAll({
-        where: { UserId: user.Id || user.id, Status: 'finished' },
-        order: [['FinishedAt', 'DESC']],
+        where,
+        order: (status === 'abandoned' || status === 'in_progress' || status === 'unfinished') ? [['StartedAt', 'DESC']] : [['FinishedAt', 'DESC']],
         limit,
-        attributes: ['Id','Corretas','Total','QuantidadeQuestoes','ScorePercent','Aprovado','StartedAt','FinishedAt','ExamTypeId','ExamMode']
+        attributes: ['Id','Corretas','Total','QuantidadeQuestoes','ScorePercent','Aprovado','StartedAt','FinishedAt','ExamTypeId','ExamMode','Status','StatusReason']
       });
       const out = (attempts || []).map(a => {
         const correct = Number(a.Corretas != null ? a.Corretas : 0);
@@ -1590,7 +1600,9 @@ exports.resumeSession = async (req, res, next) => {
           finishedAt: a.FinishedAt,
           examTypeId: a.ExamTypeId || null,
           durationSeconds,
-          examMode: a.ExamMode || null
+          examMode: a.ExamMode || null,
+          status: a.Status || status,
+          statusReason: a.StatusReason || null
         };
       });
       return res.json(out);
@@ -1810,18 +1822,78 @@ exports.getAttemptResult = async (req, res, next) => {
       selectedByAq.set(aqid, list);
     });
 
-    const questions = questionIds.map((qid) => ({ id: qid, descricao: null, texto: null, options: optsByQ.get(qid) || [] }));
-    // Populate question text/descricao from questao table for completeness
+    const questions = questionIds.map((qid) => ({ id: qid, descricao: null, texto: null, explicacao: null, referencia: null, dominio: null, tarefa: null, abordagemGestao: null, options: optsByQ.get(qid) || [] }));
+
+    // Populate question text/descricao + fields from questao (explicacao, referencia) + metadados (dominio/tarefa/categoria)
     try {
       if (questionIds.length) {
+        const cols = await sequelize.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='questao'`,
+          { type: sequelize.QueryTypes.SELECT }
+        );
+        const names = new Set((cols || []).map(c => String(c.column_name)));
+        const hasExp = names.has('explicacao');
+        const hasRef = names.has('referencia');
+        const hasDomGeral = names.has('iddominiogeral');
+        const hasTask = names.has('id_task');
+        const hasCategoria = names.has('codigocategoria');
+
+        const select = [
+          'q.id AS id',
+          'q.descricao AS descricao',
+          hasExp ? 'q.explicacao AS explicacao' : 'NULL::text AS explicacao',
+          hasRef ? 'q.referencia AS referencia' : 'NULL::text AS referencia',
+          hasDomGeral ? 'q.iddominiogeral AS iddominiogeral' : 'NULL::int AS iddominiogeral',
+          hasTask ? 'q.id_task AS id_task' : 'NULL::int AS id_task',
+          hasCategoria ? 'q.codigocategoria AS codigocategoria' : 'NULL::int AS codigocategoria',
+          'dg.descricao AS dominio_descricao',
+          't.id_dominio AS task_id_dominio',
+          't.numero AS task_numero',
+          't.descricao AS task_descricao',
+          'cq.descricao AS categoria_descricao'
+        ].join(', ');
+
         const qRows = await sequelize.query(
-          `SELECT id, descricao FROM questao WHERE id IN (:ids)`,
+          `SELECT ${select}
+             FROM questao q
+             LEFT JOIN dominiogeral dg ON dg.id = q.iddominiogeral
+             LEFT JOIN public."Tasks" t ON t.id = q.id_task
+             LEFT JOIN categoriaquestao cq ON cq.id = q.codigocategoria
+            WHERE q.id IN (:ids)`,
           { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
         );
-        const txtById = new Map((qRows || []).map(r => [Number(r.id || r.Id), String(r.descricao || r.Descricao || '')]));
-        for (const q of questions) { const t = txtById.get(Number(q.id)); if (t != null) { q.descricao = t; q.texto = t; } }
+
+        const byId = new Map((qRows || []).map(r => [Number(r.id), r]));
+        for (const q of questions) {
+          const row = byId.get(Number(q.id));
+          if (!row) continue;
+          const txt = row.descricao != null ? String(row.descricao) : '';
+          q.descricao = txt;
+          q.texto = txt;
+          q.explicacao = row.explicacao != null ? String(row.explicacao) : null;
+          q.referencia = row.referencia != null ? String(row.referencia) : null;
+
+          if (row.iddominiogeral != null || row.dominio_descricao != null) {
+            q.dominio = {
+              id: row.iddominiogeral != null ? Number(row.iddominiogeral) : null,
+              descricao: row.dominio_descricao != null ? String(row.dominio_descricao) : null
+            };
+          }
+
+          if (row.task_id_dominio != null || row.task_numero != null || row.task_descricao != null) {
+            q.tarefa = {
+              id_dominio: row.task_id_dominio != null ? Number(row.task_id_dominio) : null,
+              numero: row.task_numero != null ? Number(row.task_numero) : null,
+              descricao: row.task_descricao != null ? String(row.task_descricao) : null
+            };
+          }
+
+          if (row.categoria_descricao != null) {
+            q.abordagemGestao = { descricao: String(row.categoria_descricao) };
+          }
+        }
       }
-    } catch(_) { /* ignore */ }
+    } catch (_) { /* ignore */ }
 
     // Build answers map keyed by q_<id>
     const answers = {};
@@ -1838,5 +1910,32 @@ exports.getAttemptResult = async (req, res, next) => {
   } catch (err) {
     logger.error('Erro getAttemptResult:', err);
     return next(internalError('Internal error', 'INTERNAL_ERROR_GET_ATTEMPT_RESULT'));
+  }
+};
+
+// DELETE /api/admin/exams/attempts/:attemptId
+// Admin-only hard delete of an attempt history (attempt + children rows)
+exports.deleteAttemptHistoryAdmin = async (req, res, next) => {
+  try {
+    const attemptId = Number(req.params.attemptId);
+    if (!Number.isFinite(attemptId) || attemptId <= 0) return next(badRequest('invalid attemptId', 'INVALID_ATTEMPT_ID'));
+
+    const attempt = await db.ExamAttempt.findByPk(attemptId);
+    if (!attempt) return next(notFound('attempt not found', 'ATTEMPT_NOT_FOUND'));
+
+    await db.sequelize.transaction(async (t) => {
+      const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId }, attributes: ['Id'], transaction: t });
+      const aqIds = (aqRows || []).map(r => r && r.Id != null ? Number(r.Id) : null).filter(n => Number.isFinite(n));
+      if (aqIds.length) {
+        await db.ExamAttemptAnswer.destroy({ where: { AttemptQuestionId: aqIds }, transaction: t });
+      }
+      await db.ExamAttemptQuestion.destroy({ where: { AttemptId: attemptId }, transaction: t });
+      await db.ExamAttempt.destroy({ where: { Id: attemptId }, transaction: t });
+    });
+
+    return res.json({ ok: true, attemptId });
+  } catch (err) {
+    logger.error('deleteAttemptHistoryAdmin error:', err);
+    return next(internalError('Internal error', 'DELETE_ATTEMPT_HISTORY_ERROR', err));
   }
 };

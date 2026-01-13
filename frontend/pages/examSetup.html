@@ -417,6 +417,7 @@
   const examTypeSelect = document.getElementById('examType');
   const quantidadeInput = document.getElementById('quantidade');
   const onlyNewInput = document.getElementById('onlyNew');
+  const onlyNewInfo = document.getElementById('onlynew-info');
     const resumoQtd = document.getElementById('resumo-qtd');
     const resumoFocos = document.getElementById('resumo-focos');
     const resumoIneditas = document.getElementById('resumo-ineditas');
@@ -462,13 +463,32 @@
       if (bloqueado) {
         onlyNewInput.checked = false;
         onlyNewInput.disabled = true;
-        document.getElementById('onlynew-info').textContent = 'Recurso Premium';
+        if (onlyNewInfo) onlyNewInfo.textContent = 'Recurso Premium';
         ineditasInfo.style.display = 'none';
       } else {
-        document.getElementById('onlynew-info').textContent = 'Usa apenas questões nunca respondidas.';
+        if (onlyNewInfo) onlyNewInfo.textContent = 'Usa apenas questões nunca respondidas.';
         ineditasInfo.style.display = '';
       }
     } catch(e){}
+
+    function updateOnlyNewInfoText(opts = {}){
+      if (bloqueado || !onlyNewInfo) return;
+      const checked = !!(onlyNewInput && onlyNewInput.checked);
+      if (!checked) {
+        onlyNewInfo.textContent = 'Usa apenas questões nunca respondidas.';
+        return;
+      }
+      if (opts && opts.pending) {
+        onlyNewInfo.textContent = 'Inéditas disponíveis: ...';
+        return;
+      }
+      const n = opts ? opts.count : null;
+      if (typeof n === 'number' && Number.isFinite(n)) {
+        onlyNewInfo.textContent = `Inéditas disponíveis: ${n}`;
+      } else {
+        onlyNewInfo.textContent = 'Inéditas disponíveis: -';
+      }
+    }
 
     // State for meta lists and selections
     // Área de Conhecimento desativada (aba + endpoints + filtros)
@@ -539,6 +559,8 @@
         const ineditas = await countIneditasForCurrentFilters();
         if (typeof ineditas === 'number') resumoIneditas.textContent = String(ineditas);
         else resumoIneditas.textContent = '-';
+        // Só mostrar contagem no texto do checkbox quando ele estiver marcado
+        updateOnlyNewInfoText({ count: (typeof ineditas === 'number' ? ineditas : null), pending: false });
       } catch(e){ resumoIneditas.textContent='-'; }
     }, 300);
 
@@ -560,6 +582,13 @@
         }
       }
     } catch(e) {}
+
+    // Após reidratar estado do checkbox, ajustar o texto conforme marcado/desmarcado
+    try {
+      if (!bloqueado) {
+        updateOnlyNewInfoText({ pending: !!(onlyNewInput && onlyNewInput.checked) });
+      }
+    } catch(_){ }
 
     function renderChecklist(items) {
       checklistDiv.innerHTML = '';
@@ -614,6 +643,7 @@
       if (!bloqueado && !(selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length)) {
         try {
           resumoIneditas.textContent = '...';
+          updateOnlyNewInfoText({ pending: true });
           // consulta sem filtros
           const base = (BACKEND_BASE || '').replace(/\/$/, '');
           const url = base + '/api/exams/select';
@@ -622,11 +652,31 @@
           const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
           const txt = await resp.text();
           let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
-          if (data && typeof data.available === 'number') resumoIneditas.textContent = String(data.available);
-          else resumoIneditas.textContent = '-';
+          if (data && typeof data.available === 'number') {
+            resumoIneditas.textContent = String(data.available);
+            updateOnlyNewInfoText({ count: data.available, pending: false });
+          } else {
+            resumoIneditas.textContent = '-';
+            updateOnlyNewInfoText({ count: null, pending: false });
+          }
         } catch(e){ resumoIneditas.textContent='-'; }
       }
     }
+
+    // Atualiza contagens quando o checkbox de inéditas muda
+    try {
+      if (onlyNewInput && !bloqueado) {
+        onlyNewInput.addEventListener('change', () => {
+          try { salvarSelecoes(); } catch(_){ }
+          try {
+            if (onlyNewInput.checked) updateOnlyNewInfoText({ pending: true });
+            else updateOnlyNewInfoText({ pending: false });
+          } catch(_){ }
+          try { atualizarResumo(); } catch(_){ }
+          try { scheduleAtualizarDisponiveis(); } catch(_){ }
+        });
+      }
+    } catch(_){ }
 
     function salvarSelecoes() {
       try {

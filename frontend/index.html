@@ -266,11 +266,17 @@
         <div id="examResultsModal" class="overlay" aria-hidden="true" style="display:none;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
             <div style="background:#fff;border-radius:12px;max-width:520px;width:92%;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.35);color:#111827">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                    <h2 style="margin:0;font-size:1.2rem;">Selecionar exame</h2>
+                    <h2 style="margin:0;font-size:1.2rem;">Histórico de exames</h2>
                     <button id="examResultsClose" type="button" aria-label="Fechar" style="background:none;border:none;font-size:1.6rem;color:#64748b;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center">×</button>
                 </div>
                 <div style="display:grid;gap:10px;">
-                    <div style="font-size:.9rem;color:#334155">Exames finalizados</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                        <div id="examHistoryListTitle" style="font-size:.9rem;color:#334155">Exames finalizados</div>
+                        <select id="examHistoryStatusFilter" aria-label="Filtrar histórico" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#111827;font-size:.9rem;">
+                            <option value="finished" selected>Finalizados</option>
+                            <option value="unfinished">Não finalizados</option>
+                        </select>
+                    </div>
                     <div id="examList" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
                 </div>
             </div>
@@ -353,6 +359,8 @@
                 const modal = document.getElementById('examResultsModal');
                 const closeBtn = document.getElementById('examResultsClose');
                 const listEl = document.getElementById('examList');
+                const filterEl = document.getElementById('examHistoryStatusFilter');
+                const titleEl = document.getElementById('examHistoryListTitle');
                 if (!modal || !closeBtn || !listEl) return;
                 function open(){
                     modal.style.display='flex';
@@ -381,10 +389,55 @@
                 closeBtn.addEventListener('click', (e)=>{ e.preventDefault(); close(); });
                 modal.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
 
+                if (filterEl) {
+                    filterEl.addEventListener('change', ()=>{ loadHistory(); });
+                }
+
+                window.loadExamHistoryModal = loadHistory;
+
+                function getHistoryStatus(){
+                    const v = String((filterEl && filterEl.value) || 'finished').trim().toLowerCase();
+                    return (v === 'unfinished' || v === 'finished') ? v : 'finished';
+                }
+
+                function updateHistoryTitle(status){
+                    if (!titleEl) return;
+                    titleEl.textContent = status === 'unfinished' ? 'Exames não finalizados' : 'Exames finalizados';
+                }
+
+                async function isAdminForHistory(){
+                    try {
+                        if (window.__historyModalIsAdmin === true) return true;
+                        if (window.__historyModalIsAdmin === false) return false;
+
+                        const token = (localStorage.getItem('sessionToken') || '').trim();
+                        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                        const identity = (nomeUsuario || token || '').trim();
+                        if (!identity) { window.__historyModalIsAdmin = false; return false; }
+
+                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+
+                        const headers = {};
+                        headers['X-Session-Token'] = identity;
+                        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(identity)}`;
+                        const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
+                        window.__historyModalIsAdmin = !!r.ok;
+                        return window.__historyModalIsAdmin;
+                    } catch(_){
+                        window.__historyModalIsAdmin = false;
+                        return false;
+                    }
+                }
+
                 async function loadHistory(){
                     try {
+                        const status = getHistoryStatus();
+                        updateHistoryTitle(status);
                         const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000').replace(/\/$/,'');
-                        const url = base + '/api/exams/history?limit=50';
+                        const url = base + '/api/exams/history?limit=50&status=' + encodeURIComponent(status);
                         const rawSession = (sessionStorage.getItem('X-Session-Token') || localStorage.getItem('sessionToken') || '').trim();
                         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
                         const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
@@ -400,19 +453,36 @@
                             // Silenced debug log for history HTTP status
                         }
                         if (!Array.isArray(list)) list = [];
-                        // Sort by finishedAt desc if present
+
+                        const isAdmin = status === 'unfinished' ? await isAdminForHistory() : false;
+
+                        // Sort according to current status
                         try {
-                            list.sort((a,b)=>{
-                                const af = a && a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
-                                const bf = b && b.finishedAt ? new Date(b.finishedAt).getTime() : 0;
-                                return bf - af;
-                            });
+                            if (status === 'unfinished') {
+                                list.sort((a,b)=>{
+                                    const af = a && a.startedAt ? new Date(a.startedAt).getTime() : 0;
+                                    const bf = b && b.startedAt ? new Date(b.startedAt).getTime() : 0;
+                                    return bf - af;
+                                });
+                            } else {
+                                list.sort((a,b)=>{
+                                    const af = a && a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
+                                    const bf = b && b.finishedAt ? new Date(b.finishedAt).getTime() : 0;
+                                    return bf - af;
+                                });
+                            }
                         } catch(_){ }
                         listEl.innerHTML = '';
                         if (!list.length){
                             const isGuest = rawSession && /^guest_/i.test(rawSession);
                             const empty = document.createElement('div');
-                            empty.textContent = rawSession ? (isGuest ? 'Sessão convidado — faça login para ver seu histórico' : 'Nenhum exame encontrado') : 'Faça login para ver seu histórico';
+                            if (!rawSession) {
+                                empty.textContent = 'Faça login para ver seu histórico';
+                            } else if (isGuest) {
+                                empty.textContent = 'Sessão convidado — faça login para ver seu histórico';
+                            } else {
+                                empty.textContent = status === 'unfinished' ? 'Nenhuma tentativa não finalizada encontrada' : 'Nenhum exame encontrado';
+                            }
                             empty.style.cssText = 'padding:8px;border:1px dashed #cbd5e1;border-radius:8px;color:#64748b;text-align:center';
                             listEl.appendChild(empty);
                             if (isGuest){
@@ -430,6 +500,8 @@
                                 if (!id) continue;
                                 const mode = String((item && (item.examMode || item.mode)) || '').toLowerCase();
                             const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
+                            const itemStatus = String((item && (item.status || item.Status)) || (status === 'unfinished' ? 'in_progress' : status) || 'finished').toLowerCase();
+                            const started = item && item.startedAt ? new Date(item.startedAt).toLocaleString('pt-BR') : '';
                             const finished = item && item.finishedAt ? new Date(item.finishedAt).toLocaleString('pt-BR') : '';
                             const pctNum = item && item.scorePercent != null ? Math.round(item.scorePercent) : null;
                             const btn = document.createElement('button');
@@ -440,14 +512,62 @@
                             const left = document.createElement('span'); left.textContent = title;
                             const right = document.createElement('span'); right.style.cssText = 'display:flex;gap:8px;color:#334155;font-size:.85rem';
                             const modeTag = document.createElement('span'); modeTag.textContent = (mode==='full'?'Full':'Quiz'); modeTag.style.cssText='padding:2px 6px;border-radius:6px;background:#eef2ff;color:#3730a3;font-weight:600'; right.appendChild(modeTag);
+                            if (itemStatus === 'abandoned' || itemStatus === 'in_progress') {
+                                const st = document.createElement('span');
+                                st.textContent = (itemStatus === 'abandoned') ? 'Abandonado' : 'Em andamento';
+                                st.style.cssText = 'padding:2px 6px;border-radius:6px;background:#eef2ff;color:#3730a3;font-weight:600';
+                                right.appendChild(st);
+                            }
                             if (pctNum != null){ const pctEl = document.createElement('span'); pctEl.textContent = pctNum + '%'; pctEl.style.cssText='color:#0f766e;font-weight:600'; right.appendChild(pctEl); }
-                            if (finished){ const dt = document.createElement('span'); dt.textContent = finished; dt.style.cssText='color:#64748b'; right.appendChild(dt); }
+                            if (itemStatus === 'abandoned' || itemStatus === 'in_progress') {
+                                if (started){ const dt = document.createElement('span'); dt.textContent = 'Início: ' + started; dt.style.cssText='color:#64748b'; right.appendChild(dt); }
+                            } else {
+                                if (finished){ const dt = document.createElement('span'); dt.textContent = finished; dt.style.cssText='color:#64748b'; right.appendChild(dt); }
+                            }
+
+                            if (isAdmin && (itemStatus === 'abandoned' || itemStatus === 'in_progress')) {
+                                const del = document.createElement('button');
+                                del.type = 'button';
+                                del.textContent = 'Excluir';
+                                del.title = 'Excluir tentativa não finalizada';
+                                del.style.cssText = 'margin-left:8px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#111827;cursor:pointer;font-size:.85rem;';
+                                del.addEventListener('click', async (ev)=>{
+                                    try { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(_){ }
+                                    const ok = window.confirm('Excluir esta tentativa não finalizada? Esta ação não pode ser desfeita.');
+                                    if (!ok) return;
+
+                                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                                    const identity = (nomeUsuario || token || '').trim();
+
+                                    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                                    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                                    const h = {};
+                                    if (identity) h['X-Session-Token'] = identity;
+                                    if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                                    const delUrl = base + '/api/admin/exams/attempts/' + encodeURIComponent(String(id)) + '?sessionToken=' + encodeURIComponent(identity);
+                                    const resp = await fetch(delUrl, { method: 'DELETE', headers: h, credentials: 'include' });
+                                    if (!resp.ok) {
+                                        const msg = await resp.text().catch(()=> '');
+                                        window.alert('Falha ao excluir. ' + (msg || ('HTTP ' + resp.status)));
+                                        return;
+                                    }
+                                    await loadHistory();
+                                });
+                                right.appendChild(del);
+                            }
+
                             btn.appendChild(left); btn.appendChild(right);
-                            btn.addEventListener('click', ()=>{
-                                const path = mode === 'full' ? '/pages/examReviewFull.html' : '/pages/examReviewQuiz.html';
-                                    const urlGo = `${path}?examId=${encodeURIComponent(String(id))}&mode=${encodeURIComponent(mode||'quiz')}`;
-                                window.location.assign(urlGo);
-                            });
+                            if (itemStatus === 'finished') {
+                                btn.addEventListener('click', ()=>{
+                                    const path = mode === 'full' ? '/pages/examReviewFull.html' : '/pages/examReviewQuiz.html';
+                                        const urlGo = `${path}?examId=${encodeURIComponent(String(id))}&mode=${encodeURIComponent(mode||'quiz')}`;
+                                    window.location.assign(urlGo);
+                                });
+                            } else {
+                                btn.style.cursor = 'default';
+                            }
                             listEl.appendChild(btn);
                         }
                     } catch(e){
@@ -1803,69 +1923,12 @@
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
                         try {
                             const modal = document.getElementById('examResultsModal');
-                            const listEl = document.getElementById('examList');
                             if (modal) {
                                 modal.style.display = 'flex';
                                 modal.setAttribute('aria-hidden','false');
-                                (async function loadHistory(){
-                                    try {
-                                        const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000').replace(/\/$/,'');
-                                        const url = base + '/api/exams/history?limit=50';
-                                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                                        const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
-                                        const headers = {};
-                                        if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
-                                        if (sessionTok) headers['X-Session-Token'] = sessionTok;
-                                        const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers, cache: 'no-store', credentials: 'include' });
-                                        let list = [];
-                                        if (r.ok) list = await r.json();
-                                        if (!Array.isArray(list)) list = [];
-                                        if (listEl) {
-                                            listEl.innerHTML = '';
-                                            if (!list.length){
-                                                const empty = document.createElement('div');
-                                                empty.textContent = 'Nenhum exame encontrado';
-                                                empty.style.cssText = 'padding:8px;border:1px dashed #cbd5e1;border-radius:8px;color:#64748b;text-align:center';
-                                                listEl.appendChild(empty);
-                                                return;
-                                            }
-                                            for (const item of list){
-                                                const id = item && (item.examAttemptId || item.attemptId || item.id || item.Id || item._id || item.sessionId || item.examId);
-                                                if (!id) continue;
-                                                const mode = String((item && (item.examMode || item.mode)) || '').toLowerCase();
-                                                const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
-                                                const finished = item && item.finishedAt ? new Date(item.finishedAt).toLocaleString('pt-BR') : '';
-                                                const pctNum = item && item.scorePercent != null ? Math.round(item.scorePercent) : null;
-                                                const btn = document.createElement('button');
-                                                btn.type = 'button';
-                                                btn.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#111827;font-size:.92rem;cursor:pointer';
-                                                btn.dataset.id = String(id);
-                                                btn.dataset.mode = mode || 'quiz';
-                                                const left = document.createElement('span'); left.textContent = title;
-                                                const right = document.createElement('span'); right.style.cssText = 'display:flex;gap:8px;color:#334155;font-size:.85rem';
-                                                const modeTag = document.createElement('span'); modeTag.textContent = (mode==='full'?'Full':'Quiz'); modeTag.style.cssText='padding:2px 6px;border-radius:6px;background:#eef2ff;color:#3730a3;font-weight:600'; right.appendChild(modeTag);
-                                                if (pctNum != null){ const pctEl = document.createElement('span'); pctEl.textContent = pctNum + '%'; pctEl.style.cssText='color:#0f766e;font-weight:600'; right.appendChild(pctEl); }
-                                                if (finished){ const dt = document.createElement('span'); dt.textContent = finished; dt.style.cssText='color:#64748b'; right.appendChild(dt); }
-                                                btn.appendChild(left); btn.appendChild(right);
-                                                btn.addEventListener('click', ()=>{
-                                                    const path = mode === 'full' ? '/pages/examReviewFull.html' : '/pages/examReviewQuiz.html';
-                                                    const urlGo = `${path}?examId=${encodeURIComponent(String(id))}&mode=${encodeURIComponent(mode||'quiz')}`;
-                                                    window.location.assign(urlGo);
-                                                });
-                                                listEl.appendChild(btn);
-                                            }
-                                        }
-                                    } catch(_) { 
-                                        if (listEl) {
-                                            listEl.innerHTML = '';
-                                            const err = document.createElement('div');
-                                            err.textContent = 'Falha ao carregar';
-                                            err.style.cssText = 'padding:8px;border:1px solid #fecaca;border-radius:8px;background:#fee2e2;color:#991b1b;text-align:center';
-                                            listEl.appendChild(err);
-                                        }
-                                    }
-                                })();
+                                if (typeof window.loadExamHistoryModal === 'function') {
+                                    window.loadExamHistoryModal();
+                                }
                             }
                         } catch(_){ }
                         return;

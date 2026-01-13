@@ -210,6 +210,11 @@
       <textarea id="explicacao" rows="4" placeholder="Texto de explicação"></textarea>
     </div>
 
+    <div class="row">
+      <label for="referencia">Referência (opcional)</label>
+      <textarea id="referencia" rows="2" placeholder="Texto de referência"></textarea>
+    </div>
+
     <div class="actions">
       <button class="btn" id="save">Salvar</button>
       <a class="btn secondary" href="/">Voltar</a>
@@ -223,7 +228,10 @@
     <section id="sec-nav" class="tab-section">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <h1 style="margin:0;">Navegação de Questões</h1>
-        <button class="btn secondary" id="deleteQuestionNav" type="button">Excluir</button>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn secondary" id="navEditBtn" type="button" title="Habilitar edição desta questão">✎ Editar</button>
+          <button class="btn secondary" id="deleteQuestionNav" type="button">Excluir</button>
+        </div>
       </div>
 
       <div class="row inline" style="align-items:flex-end;">
@@ -328,6 +336,11 @@
       <div class="row">
         <label for="explicacaoNav">Explicação (opcional)</label>
         <textarea id="explicacaoNav" rows="4" placeholder="Texto de explicação"></textarea>
+      </div>
+
+      <div class="row">
+        <label for="referenciaNav">Referência (opcional)</label>
+        <textarea id="referenciaNav" rows="2" placeholder="Texto de referência"></textarea>
       </div>
 
       <div class="actions">
@@ -887,7 +900,8 @@
       saveExp.type = 'button';
       saveExp.textContent = 'Salvar explicação';
       const oid = Number(optionId);
-      saveExp.disabled = !(Number.isFinite(oid) && oid > 0);
+      saveExp.dataset.role = 'saveExpNav';
+      saveExp.disabled = !(navState.editEnabled && Number.isFinite(oid) && oid > 0);
       saveExp.onclick = async () => {
         const currentOid = Number(wrap.dataset.optionId);
         await saveOptionExplanationNav(currentOid, exp.value, saveExp);
@@ -897,7 +911,8 @@
       delExp.className = 'btn secondary';
       delExp.type = 'button';
       delExp.textContent = 'Deletar explicação';
-      delExp.disabled = !(Number.isFinite(oid) && oid > 0);
+      delExp.dataset.role = 'delExpNav';
+      delExp.disabled = !(navState.editEnabled && Number.isFinite(oid) && oid > 0);
       delExp.onclick = async () => {
         const currentOid = Number(wrap.dataset.optionId);
         await deleteOptionExplanationNav(currentOid, delExp, exp);
@@ -908,6 +923,13 @@
       del.type = 'button';
       del.textContent = 'Remover';
       del.onclick = ()=> wrap.remove();
+
+      // Respect edit lock state
+      const editable = !!navState.editEnabled;
+      try { check.disabled = !editable; } catch(_){ }
+      try { input.disabled = !editable; } catch(_){ }
+      try { exp.disabled = !editable; } catch(_){ }
+      try { del.disabled = !editable; } catch(_){ }
 
       check.addEventListener('change', ()=>{
         if ($('tipoNav').value !== 'multi' && check.checked){
@@ -935,25 +957,19 @@
       const out = [];
       let correctCount = 0;
       rows.forEach(r => {
-        const text = r.querySelector('input[type=text]').value.trim();
-        const correta = r.querySelector('input[type=checkbox],input[type=radio]').checked;
+        const text = (r.querySelector('input[type=text]')?.value || '').trim();
+        if (!text) return;
+        const correta = !!r.querySelector('input[type=checkbox],input[type=radio]')?.checked;
         const explicacao = (r.querySelector('textarea')?.value || '').trim();
-        if (text){ out.push({ descricao: text, correta }); if (correta) correctCount++; }
+        const optionId = r.dataset.optionId ? Number(r.dataset.optionId) : null;
+        const payload = { descricao: text, correta, explicacao };
+        if (Number.isFinite(optionId) && optionId > 0) payload.id = optionId;
+        out.push(payload);
+        if (correta) correctCount++;
       });
       if (tipo === 'single' && correctCount > 1){
         let seen = false;
         out.forEach(o => { if (o.correta){ if (!seen) { seen = true; } else { o.correta = false; } } });
-      }
-      {
-        const filteredRows = rows
-          .map(r => ({
-            text: (r.querySelector('input[type=text]')?.value || '').trim(),
-            exp: (r.querySelector('textarea')?.value || '').trim()
-          }))
-          .filter(x => x.text);
-        for (let i = 0; i < out.length; i++) {
-          out[i].explicacao = filteredRows[i] ? filteredRows[i].exp : '';
-        }
       }
       return out;
     }
@@ -1189,6 +1205,7 @@
       const dica = $('dica').value.trim();
       const imagemUrl = ($('imagemUrl').value || '').trim();
       const explicacao = $('explicacao').value.trim();
+      const referencia = ($('referencia')?.value || '').trim();
         if (!descricao){ alert('Informe o enunciado'); return; }
         if (!examTypeId){ alert('Selecione o tipo de exame'); return; }
         if (!iddominiogeral){ alert('Selecione o domínio geral'); return; }
@@ -1255,6 +1272,7 @@
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
+        referencia: referencia || undefined,
         options,
         // Audit: backend should use this to set respostaopcao.CriadoUsuario
         createdByUserId: sessionUserId
@@ -1276,6 +1294,7 @@
       $('imagemUrl').value = '';
       $('imagemPreview').innerHTML = '';
       $('explicacao').value = '';
+      try { $('referencia').value = ''; } catch(_){ }
       try { $('seed').checked = false; } catch{}
       // limpar selects e tipo
       try { $('examType').value = ''; } catch{}
@@ -1334,7 +1353,7 @@
     }
 
     // Navegação state and logic
-    const navState = { loading: false, currentId: null, allIds: [], lastFetch: 0 };
+    const navState = { loading: false, currentId: null, allIds: [], lastFetch: 0, editEnabled: false };
     const navOriginal = { id: null, descricaoKey: '', examTypeId: null };
     let navStatusTimer = null;
     function navSetStatus(msg){
@@ -1349,6 +1368,63 @@
           try { el.textContent = ''; } catch(_) {}
         }, 3000);
       }
+    }
+
+    function navSetEditing(enabled){
+      navState.editEnabled = !!enabled;
+
+      const editBtn = $('navEditBtn');
+      if (editBtn) {
+        // One-way enable: once clicked, button becomes disabled until next load/save.
+        editBtn.disabled = !!enabled;
+        editBtn.textContent = enabled ? '✎ Editando' : '✎ Editar';
+      }
+
+      // Disable/enable all controls that can modify the loaded question in Navegação.
+      const idsToToggle = [
+        'descricaoNav',
+        'imagemUrlNav',
+        'imagemFileNav',
+        'examTypeNav',
+        'versaoExameNav',
+        'tipoNav',
+        'seedNav',
+        'iddominiogeralNav',
+        'iddominioNav',
+        'grupoNav',
+        'idprincipioNav',
+        'codigocategoriaNav',
+        'codniveldificuldadeNav',
+        'idtaskNavFilter',
+        'idtaskNav',
+        'dicaNav',
+        'explicacaoNav',
+        'referenciaNav',
+        'addOptNav',
+        'clearOptsNav',
+        'analyzeAI',
+        'aiUseWeb',
+        'saveNav'
+      ];
+      idsToToggle.forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        try { el.disabled = !enabled; } catch(_){ }
+      });
+
+      // Options list rows (created dynamically)
+      document.querySelectorAll('#optsNav .opt').forEach(row => {
+        const oid = row.dataset.optionId ? Number(row.dataset.optionId) : null;
+        const allowExpButtons = !!enabled && Number.isFinite(oid) && oid > 0;
+        row.querySelectorAll('input, textarea, select, button').forEach(el => {
+          const role = el && el.dataset ? el.dataset.role : '';
+          if (role === 'saveExpNav' || role === 'delExpNav') {
+            el.disabled = !allowExpButtons;
+            return;
+          }
+          try { el.disabled = !enabled; } catch(_){ }
+        });
+      });
     }
 
     async function deleteCurrentQuestion(){
@@ -1457,6 +1533,7 @@
         if (q.imagemUrl) showImagePreview('imagemPreviewNav', q.imagemUrl);
         else $('imagemPreviewNav').innerHTML = '';
         $('explicacaoNav').value = q.explicacao || '';
+        try { $('referenciaNav').value = q.referencia || ''; } catch(_){ }
         $('versaoExameNav').value = (q.versao_exame || '');
         // Use exam_type_id from the question record
         if (q.examType && q.examType.id != null){ 
@@ -1470,6 +1547,9 @@
         if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta, o.explicacao || '', o.id)));
         }
         ensureAtLeastTwoNav();
+
+        // Default: lock editing until the user explicitly enables it.
+        navSetEditing(false);
 
         navState.currentId = idNum;
         $('navGotoId').value = String(idNum);
@@ -1586,6 +1666,17 @@
     $('deleteQuestionNova').addEventListener('click', deleteCurrentQuestion);
     $('deleteQuestionNav').addEventListener('click', deleteCurrentQuestion);
 
+    // Enable editing explicitly for Navegação
+    $('navEditBtn').addEventListener('click', ()=>{
+      const id = Number(navState.currentId);
+      if (!Number.isFinite(id) || id <= 0){
+        navSetStatus('Carregue uma questão para editar');
+        return;
+      }
+      navSetEditing(true);
+      navSetStatus('Edição habilitada. Clique em Salvar para atualizar.');
+    });
+
     $('addOptNav').onclick = function(e){ e.preventDefault(); $('optsNav').appendChild(makeOptRowNav()); };
     $('clearOptsNav').onclick = function(e){ e.preventDefault(); $('optsNav').innerHTML=''; ensureAtLeastTwoNav(); };
     $('tipoNav').addEventListener('change', ()=>{
@@ -1598,9 +1689,15 @@
       }));
       list.innerHTML='';
       current.forEach(o => list.appendChild(makeOptRowNav(o.text, o.correta, o.explicacao, o.optionId)));
+      // Keep edit lock state applied after re-render
+      navSetEditing(!!navState.editEnabled);
     });
 
     $('saveNav').addEventListener('click', async ()=>{
+      if (!navState.editEnabled){
+        navSetStatus('Edição bloqueada. Clique em ✎ Editar para habilitar.');
+        return;
+      }
       const id = Number(navState.currentId);
       if (!Number.isFinite(id) || id <= 0) { navSetStatus('Nenhuma questão carregada'); return; }
       const descricao = $('descricaoNav').value.trim();
@@ -1617,11 +1714,14 @@
       const dica = $('dicaNav').value.trim();
       const imagemUrl = ($('imagemUrlNav').value || '').trim();
       const explicacao = $('explicacaoNav').value.trim();
+      const referencia = ($('referenciaNav')?.value || '').trim();
       if (!descricao){ alert('Informe o enunciado'); return; }
       // Nota: verificação de duplicata deliberadamente omitida em updates.
       const options = readOptionsNav();
-      if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
-      if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+      // Permite atualizar apenas a questão (sem mexer em opções) quando não há opções informadas.
+      // Se o usuário informou ao menos 1 alternativa, então exige pelo menos 2.
+      if (options.length > 0 && options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
+      if (options.length > 0 && tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
 
       // Clear any stale status from previous duplicate checks
       try { navSetStatus(''); } catch(_){ }
@@ -1662,6 +1762,7 @@
         dica: dica || undefined,
         imagemUrl: imagemUrl || undefined,
         explicacao: explicacao || undefined,
+        referencia: referencia || undefined,
         options,
         // Audit: backend should use this to set respostaopcao.AlteradoUsuario
         updatedByUserId: sessionUserIdUpdate
@@ -1672,7 +1773,20 @@
       navSetStatus('Salvando...');
       const resp = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
       const txt = await resp.text();
-      if (!resp.ok){ navSetStatus('Erro ao salvar: ' + txt); return; }
+      if (!resp.ok){
+        navSetStatus('Erro ao salvar: ' + (txt || resp.status));
+        return;
+      }
+      let data = null;
+      try { data = txt ? JSON.parse(txt) : null; } catch(_){ data = null; }
+      if (!data || data.ok !== true) {
+        navSetStatus('Resposta inesperada ao salvar. Status ' + resp.status);
+        logger.warn('[saveNav] unexpected response:', { status: resp.status, body: txt });
+        return;
+      }
+      // Recarrega imediatamente para garantir que persistiu e atualizar optionIds
+      navSetStatus('Salvo. Recarregando...');
+      await navLoadById(id);
       navSetStatus('Salvo com sucesso');
     });
 
@@ -1714,6 +1828,8 @@
     loadTasks('idtaskNav');
     setupImageUpload('imagemFileNav', 'imagemUrlNav', 'imagemPreviewNav');
     ensureAtLeastTwoNav();
+    // Navegação starts locked: user must click ✎ Editar to change anything.
+    navSetEditing(false);
 
     // Função duplicata para Navegação (ignora o próprio ID)
     function renderDupNavAction(targetEl, dupId){

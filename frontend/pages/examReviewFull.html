@@ -11,6 +11,7 @@
     .ans-correct{ border:1px solid #16a34a; background:#ecfdf5; }
     .ans-wrong{ border:1px solid #dc2626; background:#fef2f2; }
     .ans-selected{ box-shadow:0 0 0 2px rgba(99,102,241,0.4) inset; }
+    .ans-correct.ans-selected{ box-shadow:0 0 0 2px rgba(63,156,49,0.65) inset; }
     .review-note{ color:#334155; font-size:13px; margin-top:8px; }
     .opt-expl{ margin-top:6px; font-size:12px; color:#475569; line-height:1.35; padding:6px 8px; background:#ffffff; border-left:3px solid #cbd5e1; border-radius:6px; }
     .opt-expl strong{ font-weight:600; color:#334155; }
@@ -18,6 +19,7 @@
 </head>
 <body>
   <div style="position:fixed; top:8px; right:8px; z-index:1000;">
+    <button id="deleteHistoryBtn" class="primary-btn" type="button" style="display:none; margin-right:8px; background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Excluir histórico</button>
     <button id="exitReviewBtn" class="primary-btn" style="background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Encerrar revisão</button>
   </div>
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
@@ -46,6 +48,20 @@
         <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
           <div id="answersContainer"></div>
         </form>
+
+        <section id="questionDetails" style="margin-top:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;">
+          <div style="display:grid;gap:10px;">
+            <label id="questaoExplicacaoWrap" style="display:grid;gap:6px;font-size:13px;color:#334155;">
+              <span style="font-weight:600;">Explicação</span>
+              <textarea id="questaoExplicacao" rows="10" readonly style="width:100%;resize:vertical;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#111827;line-height:1.4;"></textarea>
+            </label>
+            <label id="questaoReferenciaWrap" style="display:grid;gap:6px;font-size:13px;color:#334155;">
+              <span style="font-weight:600;">Referência</span>
+              <textarea id="questaoReferencia" rows="7" readonly style="width:100%;resize:vertical;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#111827;line-height:1.4;"></textarea>
+            </label>
+            <div id="questaoMetaLinha" style="font-size:15px;color:#0f172a;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 12px;font-weight:700;line-height:1.35;"></div>
+          </div>
+        </section>
 
         <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
           <button id="backBtn" class="primary-btn" style="margin-right:auto;">Voltar</button>
@@ -90,6 +106,70 @@
       let REVIEW = { questions: [], answers: {} };
       function letterFromIndex(i){ return ['A','B','C','D','E','F'][i] || String(i); }
 
+      async function isAdmin(){
+        try {
+          const token = (localStorage.getItem('sessionToken') || '').trim();
+          const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+          const sessionForHeader = nomeUsuario || token;
+          if (!sessionForHeader) return false;
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const headers = {};
+          if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+          const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+          const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
+          return r && r.ok;
+        } catch(_){
+          return false;
+        }
+      }
+
+      async function setupDeleteHistoryButton(){
+        const btn = document.getElementById('deleteHistoryBtn');
+        if (!btn) return;
+        const attemptId = Number(examId);
+        if (!Number.isFinite(attemptId) || attemptId <= 0) return;
+
+        const okAdmin = await isAdmin();
+        if (!okAdmin) return;
+
+        btn.style.display = 'inline-block';
+        btn.addEventListener('click', async ()=>{
+          const ok = confirm(`Excluir histórico (tentativa ID ${attemptId})?\n\nEsta ação apaga definitivamente respostas e registros da tentativa.`);
+          if (!ok) return;
+          try {
+            const token = (localStorage.getItem('sessionToken') || '').trim();
+            const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+            const sessionForHeader = nomeUsuario || token;
+            const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+            const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+            const headers = { 'Content-Type': 'application/json' };
+            if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+            if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+            const csrfTok = await ensureCsrfToken();
+            if (csrfTok) headers['X-CSRF-Token'] = csrfTok;
+
+            const url = `/api/admin/exams/attempts/${encodeURIComponent(String(attemptId))}?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+            btn.disabled = true;
+            const resp = await fetch(url, { method: 'DELETE', headers, credentials: 'include' });
+            const txt = await resp.text().catch(()=> '');
+            if (!resp.ok) {
+              alert('Erro ao excluir histórico: ' + (txt || resp.status));
+              return;
+            }
+            try { sessionStorage.removeItem('currentReviewAttemptId'); } catch(_){ }
+            alert('Histórico excluído com sucesso.');
+            window.location.assign('/');
+          } catch(e){
+            alert('Falha ao excluir histórico.');
+          } finally {
+            try { btn.disabled = false; } catch(_){ }
+          }
+        });
+      }
+
       async function loadResult(){
         try {
           const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
@@ -118,6 +198,49 @@
         const idSpan = document.getElementById('questionIdDisplay'); if (idSpan) idSpan.textContent = q && q.id != null ? ('ID: ' + q.id) : '';
         const textEl = document.getElementById('questionText'); if (textEl) textEl.innerHTML = q && (q.descricao || q.text || '');
         const cont = document.getElementById('answersContainer'); if (cont) cont.innerHTML = '';
+
+        // New: questao.explicacao/referencia + domínio/tarefa/abordagem
+        try {
+          const sectionEl = document.getElementById('questionDetails');
+          const expWrap = document.getElementById('questaoExplicacaoWrap');
+          const refWrap = document.getElementById('questaoReferenciaWrap');
+          const expEl = document.getElementById('questaoExplicacao');
+          const refEl = document.getElementById('questaoReferencia');
+          const metaEl = document.getElementById('questaoMetaLinha');
+
+          const expVal = (q && q.explicacao != null) ? String(q.explicacao) : '';
+          const refVal = (q && q.referencia != null) ? String(q.referencia) : '';
+          const hasExp = !!(expVal && expVal.trim());
+          const hasRef = !!(refVal && refVal.trim());
+
+          if (expEl) expEl.value = hasExp ? expVal : '';
+          if (refEl) refEl.value = hasRef ? refVal : '';
+          if (expWrap) expWrap.style.display = hasExp ? 'grid' : 'none';
+          if (refWrap) refWrap.style.display = hasRef ? 'grid' : 'none';
+
+          if (metaEl) {
+            const dom = q && q.dominio ? q.dominio : null;
+            const tar = q && q.tarefa ? q.tarefa : null;
+            const cat = q && q.abordagemGestao ? q.abordagemGestao : null;
+            const parts = [];
+            if (dom && dom.id != null && dom.descricao) parts.push(`Domínio: ${dom.id} - ${dom.descricao}`);
+            else if (q && q.iddominiogeral != null && q.dominioDescricao) parts.push(`Domínio: ${q.iddominiogeral} - ${q.dominioDescricao}`);
+
+            if (tar && tar.id_dominio != null && tar.numero != null && tar.descricao) {
+              parts.push(`Tarefa: ${tar.id_dominio}.${tar.numero} - ${tar.descricao}`);
+            }
+
+            if (cat && cat.descricao) parts.push(`Abordagem de gestão: ${cat.descricao}`);
+            metaEl.textContent = parts.join(', ');
+          }
+
+          // Hide entire section if nothing to show
+          try {
+            const metaText = metaEl ? String(metaEl.textContent || '').trim() : '';
+            const hasAny = hasExp || hasRef || !!metaText;
+            if (sectionEl) sectionEl.style.display = hasAny ? '' : 'none';
+          } catch(_){ }
+        } catch(_){ }
 
         const key = q && q.id != null ? ('q_' + q.id) : ('idx_' + idx);
         const ans = REVIEW.answers[key] || {};
@@ -183,7 +306,7 @@
       }
 
       if (!examId){ document.getElementById('questionText').textContent = 'Exame inválido.'; }
-      else { loadResult(); }
+      else { loadResult(); setupDeleteHistoryButton(); }
 
       // Exit button handler
       const exitBtn = document.getElementById('exitReviewBtn');

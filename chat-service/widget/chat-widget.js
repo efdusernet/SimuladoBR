@@ -164,6 +164,9 @@
   var visitorIdKey = storagePrefix + 'visitorId';
   var conversationIdKey = storagePrefix + 'conversationId';
 
+  // One-time informational notice rendered at the top of the next messages load.
+  var pendingNotice = '';
+
   function removeStored(key) {
     try { localStorage.removeItem(key); } catch (e) {}
   }
@@ -450,9 +453,10 @@
           }
 
           var sent = await sendMessage(userText, { supportTopicId: id });
-          if (ids && ids.conversationId && id) {
-            markTopicUsed(ids.conversationId, id);
-            if (autoReply) addAutoReply(ids.conversationId, id, autoReply, { afterMessageId: sent && sent.id != null ? String(sent.id) : '' });
+          var effectiveConversationId = getStored(conversationIdKey) || (ids && ids.conversationId ? String(ids.conversationId) : '');
+          if (effectiveConversationId && id) {
+            markTopicUsed(effectiveConversationId, id);
+            if (autoReply) addAutoReply(effectiveConversationId, id, autoReply, { afterMessageId: sent && sent.id != null ? String(sent.id) : '' });
           }
           await loadMessages();
         } catch (e) {
@@ -545,6 +549,16 @@
     setChatClosedState();
   }
 
+  function resetConversationSession(noticeText) {
+    try {
+      var oldConversationId = getStored(conversationIdKey);
+      try { setStored(conversationIdKey, ''); } catch (e) {}
+      try { clearUsedTopics(oldConversationId); } catch (e) {}
+      try { clearAutoReplies(oldConversationId); } catch (e) {}
+      if (noticeText) pendingNotice = String(noticeText);
+    } catch (e) {}
+  }
+
   async function closeConversation() {
     var visitorId = getStored(visitorIdKey);
     var conversationId = getStored(conversationIdKey);
@@ -568,7 +582,8 @@
     setChatClosedState();
   }
 
-  async function loadMessages() {
+  async function loadMessages(allowRetry) {
+    if (allowRetry == null) allowRetry = true;
     var ids = await ensureConversation();
     updateHeaderWithIds(ids);
     var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations/' + encodeURIComponent(ids.conversationId) + '/messages'), {
@@ -580,6 +595,10 @@
     if (!res.ok || !json || !json.ok) {
       var errMsg = (json && json.error) ? String(json.error) : ('Falha ao carregar mensagens (HTTP ' + res.status + ')');
       if (res.status === 409 || errMsg.toLowerCase().includes('encerrada')) {
+        if (allowRetry) {
+          resetConversationSession('Conversa anterior encerrada. Iniciamos uma nova conversa automaticamente.');
+          return loadMessages(false);
+        }
         handleRemoteClosed('Conversa encerrada pelo suporte. Se quiser, envie uma nova mensagem para iniciar outra.');
         return;
       }
@@ -587,6 +606,10 @@
     }
 
     messages.innerHTML = '';
+    if (pendingNotice) {
+      messages.appendChild(el('div', { text: pendingNotice }));
+      pendingNotice = '';
+    }
     var msgs = (json.messages || []);
     // Show quick topics (and keep used ones disabled).
     try {
@@ -640,7 +663,8 @@
     messages.scrollTop = messages.scrollHeight;
   }
 
-  async function sendMessage(text, meta) {
+  async function sendMessage(text, meta, allowRetry) {
+    if (allowRetry == null) allowRetry = true;
     var ids = await ensureConversation();
     setChatOpenState();
     var customerName = getHostUserName();
@@ -657,6 +681,10 @@
     if (!res.ok || !json || !json.ok) {
       var msg = (json && json.error) ? String(json.error) : 'Falha ao enviar';
       if (res.status === 409 || msg.toLowerCase().includes('encerrada')) {
+        if (allowRetry) {
+          resetConversationSession('Conversa anterior encerrada. Iniciamos uma nova conversa automaticamente.');
+          return sendMessage(text, meta, false);
+        }
         handleRemoteClosed('Conversa encerrada pelo suporte. Se quiser, envie uma nova mensagem para iniciar outra.');
       }
       throw new Error(msg);

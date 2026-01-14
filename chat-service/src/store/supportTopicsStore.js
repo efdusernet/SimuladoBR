@@ -42,6 +42,14 @@ const supportTopicsStore = {
     return r.rows;
   },
 
+  async getById(id) {
+    const r = await query(
+      'SELECT id, title, message_text, auto_reply_text, active, sort_order, created_at, updated_at FROM support_topics WHERE id = $1',
+      [String(id)]
+    );
+    return r.rows[0] || null;
+  },
+
   async create({ title, messageText, autoReplyText = null, active = true, sortOrder = 0 }) {
     const finalTitle = normalizeTitle(title);
     const finalMessage = normalizeMessageText(messageText, finalTitle);

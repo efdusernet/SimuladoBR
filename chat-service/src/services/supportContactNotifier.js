@@ -1,6 +1,6 @@
 const { isSmtpConfigured } = require('./mailer');
 const { sendSupportContactEmail } = require('./supportMailer');
-const { communicationQuery } = require('../db/communicationPool');
+const { communicationQuery, getCommunicationDbInfo } = require('../db/communicationPool');
 
 function normalizeTitle(s) {
   return String(s || '').trim().toLowerCase();
@@ -31,7 +31,17 @@ async function listCommunicationRecipients() {
     const msg = e && e.message ? String(e.message) : '';
     const missing = code === '42P01' || /relation .* does not exist/i.test(msg);
     if (missing) {
-      try { console.warn('[supportContactNotifier] communication tables missing; skipping emails'); } catch (_) {}
+      try {
+        const info = getCommunicationDbInfo();
+        const where = [info.host, info.database].filter(Boolean).join('/');
+        const suffix = where ? ` (db=${where})` : '';
+        console.warn(
+          `[supportContactNotifier] communication tables missing; skipping emails (using ${info.source}${suffix}). ` +
+          `Fix: point COMMUNICATION_DATABASE_URL to the SimuladosBR DB (where public.communication_recipient + Usuario exist) and ensure SQL migration 043_create_communication_recipient.sql was applied.`
+        );
+      } catch (_) {
+        try { console.warn('[supportContactNotifier] communication tables missing; skipping emails'); } catch (_) {}
+      }
       return [];
     }
     throw e;

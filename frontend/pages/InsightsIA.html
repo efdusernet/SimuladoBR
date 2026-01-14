@@ -211,7 +211,7 @@
     </button>
     <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
       <a href="/" rel="noopener">Início (Menu)</a>
-      <a href="/pages/Indicadores.html" rel="noopener">Indicadores</a>
+      <a id="menuIndicadoresLink" href="/index.html" rel="noopener">Indicadores</a>
       <a href="/pages/progressoGeral.html" rel="noopener">Progresso Geral</a>
       <a href="#" class="page-logout">Sair</a>
     </nav>
@@ -287,12 +287,26 @@
     (function(){
       const menuToggle = document.getElementById('menuToggle');
       const pageMenu = document.getElementById('pageMenu');
+      const indicadoresLink = document.getElementById('menuIndicadoresLink');
       function setOpen(open){
         pageMenu.classList.toggle('open', open);
         pageMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
         menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       }
       menuToggle.addEventListener('click', () => setOpen(!pageMenu.classList.contains('open')));
+
+      if (indicadoresLink) {
+        indicadoresLink.addEventListener('click', (e) => {
+          try { e.preventDefault(); } catch(_){ }
+          try {
+            sessionStorage.setItem('currentSection', 'indicadores');
+            sessionStorage.setItem('currentSubsection', 'geral');
+          } catch(_){ }
+          try { setOpen(false); } catch(_){ }
+          (window.top || window).location.assign('/index.html');
+        });
+      }
+
       document.addEventListener('click', (e) => {
         if (!pageMenu.classList.contains('open')) return;
         if (pageMenu.contains(e.target) || menuToggle.contains(e.target)) return;

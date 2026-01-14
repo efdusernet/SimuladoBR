@@ -7,20 +7,22 @@
   <!-- Support chat widget (served via backend /chat proxy) -->
   <link rel="stylesheet" href="../dist/styles.css" />
   <link rel="stylesheet" href="../styles.css" />
+  <script src="../components/gridReview.js"></script>
   <style>
     .ans-correct{ border:1px solid #16a34a; background:#ecfdf5; }
     .ans-wrong{ border:1px solid #dc2626; background:#fef2f2; }
     .ans-selected{ box-shadow:0 0 0 2px rgba(99,102,241,0.4) inset; }
     .ans-correct.ans-selected{ box-shadow:0 0 0 2px rgba(63,156,49,0.65) inset; }
     .review-note{ color:#334155; font-size:13px; margin-top:8px; }
-    .opt-expl{ margin-top:6px; font-size:12px; color:#475569; line-height:1.35; padding:6px 8px; background:#ffffff; border-left:3px solid #cbd5e1; border-radius:6px; }
+    .opt-expl{ margin-top:6px; font-size:14px; color:#475569; line-height:1.4; padding:6px 8px; background:#ffffff; border-left:3px solid #cbd5e1; border-radius:6px; }
     .opt-expl strong{ font-weight:600; color:#334155; }
   </style>
 </head>
 <body>
-  <div style="position:fixed; top:8px; right:8px; z-index:1000;">
-    <button id="deleteHistoryBtn" class="primary-btn" type="button" style="display:none; margin-right:8px; background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Excluir histórico</button>
+  <div style="position:fixed; top:8px; right:8px; z-index:1000; display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
     <button id="exitReviewBtn" class="primary-btn" style="background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Encerrar revisão</button>
+    <button id="deleteHistoryBtn" class="primary-btn" type="button" style="display:none; background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Excluir histórico</button>
+    <button id="openGridReviewBtn" type="button" class="primary-btn" style="padding:8px 14px; border-radius:6px; font-size:13px;">Navegar questões</button>
   </div>
   <main class="exam-container" role="main" style="margin-top:8px;">
     <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
@@ -89,6 +91,17 @@
         </div>
         <div id="fbStatus" style="font-size:.7rem; color:#475569; min-height:14px;"></div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Navegar questões (Grid Review) -->
+  <div id="gridReviewModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2100; align-items:center; justify-content:center;">
+    <div style="background:#ffffff; width:94%; max-width:980px; max-height:85vh; border-radius:12px; padding:14px; box-shadow:0 10px 28px rgba(0,0,0,0.35); display:flex; flex-direction:column;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+        <h2 style="margin:0; font-size:1.05rem;">Navegar questões</h2>
+        <button id="closeGridReviewModal" class="secondary-btn" type="button">Fechar</button>
+      </div>
+      <div id="gridReviewModalHost" style="overflow:auto; padding:4px;"></div>
     </div>
   </div>
 
@@ -182,8 +195,42 @@
           REVIEW.questions = Array.isArray(data.questions) ? data.questions : [];
           REVIEW.answers = (data.answers && typeof data.answers === 'object') ? data.answers : {};
           const totalEl = document.getElementById('totalQuestions'); if (totalEl) totalEl.textContent = String(REVIEW.questions.length);
+
+          // Prepare grid review (mounted in modal)
+          try {
+            const host = document.getElementById('gridReviewModalHost');
+            if (host && window.gridReview && typeof window.gridReview.mount === 'function') {
+              window.gridReview.mount({
+                host,
+                questions: REVIEW.questions,
+                answers: REVIEW.answers,
+                onSelect: (i) => {
+                  render(i);
+                  try { closeGridReviewModal(); } catch(_){ }
+                },
+              });
+            }
+          } catch(_){ }
+
           render(0);
         } catch(e){ document.getElementById('questionText').textContent = 'Erro ao carregar resultado.'; }
+      }
+
+      function openGridReviewModal(){
+        try {
+          const m = document.getElementById('gridReviewModal');
+          if (!m) return;
+          m.style.display = 'flex';
+          m.setAttribute('aria-hidden','false');
+        } catch(_){ }
+      }
+      function closeGridReviewModal(){
+        try {
+          const m = document.getElementById('gridReviewModal');
+          if (!m) return;
+          m.style.display = 'none';
+          m.setAttribute('aria-hidden','true');
+        } catch(_){ }
       }
 
       function render(idx){
@@ -305,6 +352,15 @@
 
       if (!examId){ document.getElementById('questionText').textContent = 'Exame inválido.'; }
       else { loadResult(); setupDeleteHistoryButton(); }
+
+      // Grid review modal handlers
+      try {
+        const openBtn = document.getElementById('openGridReviewBtn');
+        if (openBtn) openBtn.addEventListener('click', openGridReviewModal);
+        const closeBtn = document.getElementById('closeGridReviewModal');
+        if (closeBtn) closeBtn.addEventListener('click', closeGridReviewModal);
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGridReviewModal(); });
+      } catch(_){ }
 
       const exitBtn = document.getElementById('exitReviewBtn');
       if (exitBtn){

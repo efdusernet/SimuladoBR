@@ -1078,22 +1078,14 @@
     try {
       const indicadoresSection = document.getElementById('indicadores');
       if (!indicadoresSection) {
-        // This is not index.html (standalone page)
+        // This is not index.html (standalone page). Always go back to index.html and
+        // let the Indicadores section render inside <main class="content">.
         const key = String(tab || 'geral').toLowerCase();
-
-        // "Visão Geral" deve abrir no dashboard (index.html), não em Indicadores.html
-        if (key === 'geral') {
-          try {
-            sessionStorage.setItem('currentSection', 'indicadores');
-            sessionStorage.setItem('currentSubsection', 'geral');
-          } catch(_){ }
-          (window.top || window).location.assign('/index.html');
-          return;
-        }
-
-        // Outras abas continuam indo para a página dedicada de Indicadores
-        const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
-        (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+        try {
+          sessionStorage.setItem('currentSection', 'indicadores');
+          sessionStorage.setItem('currentSubsection', key || 'geral');
+        } catch(_){ }
+        (window.top || window).location.assign('/index.html');
         return;
       }
       const key = String(tab || 'geral').toLowerCase();
@@ -2703,13 +2695,14 @@
       'indicadores': (tab) => {
         logger.info('[Sidebar] Indicadores clicked, tab:', tab);
         const layout = document.body.getAttribute('data-layout');
-        const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
         const canEmbedHere = !!document.getElementById('indicadores');
         if (layout === 'desktop' && canEmbedHere) {
           loadIndicadoresIntoSection(tab || 'geral');
           return;
         }
-        (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+        // When we're not in index.html, redirect to index and let it render into main.content
+        // (navigation state is already persisted by navigateToSection()).
+        (window.top || window).location.assign('/index.html');
       },
       'progresso-geral': () => {
         logger.info('[Sidebar] Progresso-geral clicked');

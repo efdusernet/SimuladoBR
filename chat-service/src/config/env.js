@@ -67,6 +67,11 @@ const env = {
   DATABASE_URL: getEnv('DATABASE_URL', ''),
   PGSSLMODE: getEnv('PGSSLMODE', 'disable'),
 
+  // Optional: separate DB for SimuladosBR (to read communication_recipient + Usuario)
+  // If omitted, falls back to DATABASE_URL.
+  COMMUNICATION_DATABASE_URL: getEnv('COMMUNICATION_DATABASE_URL', ''),
+  COMMUNICATION_PGSSLMODE: getEnv('COMMUNICATION_PGSSLMODE', ''),
+
   // SMTP (optional, used for /v1/admin/invites)
   SMTP_HOST: getEnv('SMTP_HOST', ''),
   SMTP_PORT: getEnvInt('SMTP_PORT', 587, { min: 1, max: 65535 }),

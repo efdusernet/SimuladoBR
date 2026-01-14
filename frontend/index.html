@@ -1807,7 +1807,7 @@
             </div>
             
             <!-- Accordion: Outras Ferramentas -->
-            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div id="adminAccordionTools" class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
                 <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
                     <span style="font-size:1rem;font-weight:600;color:var(--text)">🛠️ Outras Ferramentas</span>
                     <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
@@ -1815,7 +1815,22 @@
                     </svg>
                 </button>
                 <div class="admin-accordion-content" style="display:none;padding:16px">
-                    <p style="font-size:0.85rem;color:var(--muted);margin:0">Em breve: gestão de usuários, purga de dados, relatórios avançados.</p>
+                    <div style="display:grid;gap:10px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                            <div style="font-size:0.95rem;font-weight:700;color:var(--text)">📣 Comunicação</div>
+                            <button id="commRefreshRecipientsBtn" type="button" style="padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer">Atualizar</button>
+                        </div>
+                        <p style="font-size:0.85rem;color:var(--muted);margin:0;line-height:1.4">Cadastre os admins que recebem comunicados por e-mail. Você pode selecionar mais de 1.</p>
+
+                        <select id="commAdminSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+                            <option value="">Carregando admins...</option>
+                        </select>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button id="commAddRecipientBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'" disabled>Adicionar</button>
+                        </div>
+                        <div id="commRecipientsStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+                        <div id="commRecipientsList" style="display:grid;gap:8px"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2104,6 +2119,13 @@
             const adminUserSearchSelect = document.getElementById('adminUserSearchSelect');
             const adminUserSearchStatus = document.getElementById('adminUserSearchStatus');
 
+            // Communication recipients (admin communications)
+            const commAdminSelect = document.getElementById('commAdminSelect');
+            const commAddRecipientBtn = document.getElementById('commAddRecipientBtn');
+            const commRecipientsList = document.getElementById('commRecipientsList');
+            const commRecipientsStatus = document.getElementById('commRecipientsStatus');
+            const commRefreshRecipientsBtn = document.getElementById('commRefreshRecipientsBtn');
+
             // Unified modal open/close to avoid click-through caused by lingering `inert`.
             function openAdminModal(){
                 const m = document.getElementById('adminModal');
@@ -2210,6 +2232,241 @@
                     }
                 });
             }
+
+            // Comunicação: manage recipient admins
+            (function initAdminCommunication(){
+                const toolsAccordion = document.getElementById('adminAccordionTools');
+                if (!commRecipientsStatus) return;
+
+                function getCookie(name){
+                    try {
+                        const v = String(document.cookie || '');
+                        const parts = v.split(';').map(s => s.trim());
+                        for (const p of parts){
+                            if (!p) continue;
+                            const idx = p.indexOf('=');
+                            const k = idx >= 0 ? p.slice(0, idx) : p;
+                            const val = idx >= 0 ? p.slice(idx + 1) : '';
+                            if (k === name) return decodeURIComponent(val || '');
+                        }
+                    } catch(_){ }
+                    return '';
+                }
+
+                function getSessionIdentity(){
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+                    return nomeUsuario || sessionToken;
+                }
+
+                async function adminFetch(path, opts){
+                    const options = opts || {};
+                    const method = (options.method || 'GET').toUpperCase();
+                    const identity = getSessionIdentity();
+
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+
+                    const headers = Object.assign({}, options.headers || {});
+                    if (identity) headers['X-Session-Token'] = identity;
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                    // CSRF: ensure we have a csrfToken cookie for state-changing requests
+                    if (!['GET','HEAD','OPTIONS'].includes(method)) {
+                        let csrf = getCookie('csrfToken');
+                        if (!csrf) {
+                            try { await fetch(base + '/api/csrf-token', { method: 'GET', credentials: 'include' }); } catch(_){ }
+                            csrf = getCookie('csrfToken');
+                        }
+                        if (csrf) headers['X-CSRF-Token'] = csrf;
+                    }
+
+                    const url = base + path + (identity ? ((path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity)) : '');
+
+                    const resp = await fetch(url, {
+                        method,
+                        headers,
+                        credentials: 'include',
+                        body: options.body
+                    });
+                    const data = await resp.json().catch(()=>({}));
+                    return { ok: resp.ok, status: resp.status, data };
+                }
+
+                function setStatus(msg){
+                    if (!commRecipientsStatus) return;
+                    commRecipientsStatus.textContent = msg || '';
+                }
+
+                function renderRecipients(items){
+                    if (!commRecipientsList) return;
+                    commRecipientsList.innerHTML = '';
+                    const list = Array.isArray(items) ? items : [];
+
+                    if (!list.length){
+                        const empty = document.createElement('div');
+                        empty.style.fontSize = '0.85rem';
+                        empty.style.color = 'var(--muted)';
+                        empty.textContent = 'Nenhum destinatário cadastrado.';
+                        commRecipientsList.appendChild(empty);
+                        return;
+                    }
+
+                    list.forEach(item => {
+                        const row = document.createElement('div');
+                        row.style.display = 'flex';
+                        row.style.alignItems = 'center';
+                        row.style.justifyContent = 'space-between';
+                        row.style.gap = '10px';
+                        row.style.padding = '10px';
+                        row.style.border = '1px solid var(--border)';
+                        row.style.borderRadius = '8px';
+                        row.style.background = 'var(--bg)';
+
+                        const left = document.createElement('div');
+                        left.style.display = 'grid';
+                        left.style.gap = '2px';
+
+                        const name = document.createElement('div');
+                        name.style.fontSize = '0.9rem';
+                        name.style.fontWeight = '600';
+                        name.style.color = 'var(--text)';
+                        name.textContent = (item && item.Nome) ? String(item.Nome) : `User ${item && item.UserId ? item.UserId : ''}`;
+
+                        const email = document.createElement('div');
+                        email.style.fontSize = '0.8rem';
+                        email.style.color = 'var(--muted)';
+                        email.textContent = (item && item.Email) ? String(item.Email) : '';
+
+                        left.appendChild(name);
+                        left.appendChild(email);
+
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.textContent = 'Remover';
+                        btn.style.padding = '8px 10px';
+                        btn.style.background = 'var(--bg)';
+                        btn.style.color = 'var(--text)';
+                        btn.style.border = '1px solid var(--border)';
+                        btn.style.borderRadius = '6px';
+                        btn.style.fontSize = '0.85rem';
+                        btn.style.fontWeight = '600';
+                        btn.style.cursor = 'pointer';
+
+                        const uid = Number(item && item.UserId);
+                        btn.addEventListener('click', async ()=>{
+                            if (!uid) return;
+                            btn.disabled = true;
+                            setStatus('Removendo...');
+                            const r = await adminFetch(`/api/admin/communication/recipients/${encodeURIComponent(uid)}`, { method: 'DELETE' });
+                            if (!r.ok) {
+                                setStatus(r.data && r.data.error ? r.data.error : `Falha ao remover (${r.status}).`);
+                                btn.disabled = false;
+                                return;
+                            }
+                            await loadRecipients();
+                        });
+
+                        row.appendChild(left);
+                        row.appendChild(btn);
+                        commRecipientsList.appendChild(row);
+                    });
+                }
+
+                async function loadRecipients(){
+                    setStatus('Carregando destinatários...');
+                    const r = await adminFetch('/api/admin/communication/recipients', { method: 'GET' });
+                    if (!r.ok){
+                        setStatus(r.data && r.data.error ? r.data.error : `Falha ao carregar (${r.status}).`);
+                        renderRecipients([]);
+                        return;
+                    }
+                    renderRecipients((r.data && r.data.items) || []);
+                    setStatus('');
+                }
+
+                async function loadAdmins(){
+                    if (!commAdminSelect) return;
+                    commAdminSelect.disabled = true;
+                    commAdminSelect.innerHTML = '<option value="">Carregando admins...</option>';
+                    if (commAddRecipientBtn) commAddRecipientBtn.disabled = true;
+
+                    const r = await adminFetch('/api/admin/communication/admins', { method: 'GET' });
+                    if (!r.ok){
+                        commAdminSelect.innerHTML = `<option value="">Falha (${r.status})</option>`;
+                        setStatus(r.data && r.data.error ? r.data.error : 'Falha ao carregar admins.');
+                        return;
+                    }
+
+                    const items = (r.data && r.data.items) || [];
+                    if (!items.length){
+                        commAdminSelect.innerHTML = '<option value="">Nenhum admin encontrado</option>';
+                        return;
+                    }
+
+                    commAdminSelect.innerHTML = '<option value="" selected>Selecione um admin...</option>';
+                    items.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = String(u.Id);
+                        const nome = (u.Nome || u.NomeUsuario || `User ${u.Id}`);
+                        const email = (u.Email || '');
+                        opt.textContent = `${nome} — ${email}`;
+                        commAdminSelect.appendChild(opt);
+                    });
+                    commAdminSelect.disabled = false;
+                    setStatus('');
+                }
+
+                async function addSelectedRecipient(){
+                    if (!commAdminSelect) return;
+                    const userId = Number(commAdminSelect.value);
+                    if (!Number.isFinite(userId) || userId <= 0) return;
+                    if (commAddRecipientBtn) commAddRecipientBtn.disabled = true;
+                    setStatus('Adicionando...');
+
+                    const r = await adminFetch('/api/admin/communication/recipients', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId })
+                    });
+
+                    if (!r.ok){
+                        setStatus(r.data && r.data.error ? r.data.error : `Falha ao adicionar (${r.status}).`);
+                        if (commAddRecipientBtn) commAddRecipientBtn.disabled = false;
+                        return;
+                    }
+
+                    await loadRecipients();
+                    setStatus('');
+                    if (commAddRecipientBtn) commAddRecipientBtn.disabled = !String(commAdminSelect.value || '');
+                }
+
+                if (commAdminSelect) commAdminSelect.addEventListener('change', ()=>{
+                    const v = String(commAdminSelect.value || '');
+                    if (commAddRecipientBtn) commAddRecipientBtn.disabled = !v;
+                });
+                if (commAddRecipientBtn) commAddRecipientBtn.addEventListener('click', addSelectedRecipient);
+                if (commRefreshRecipientsBtn) commRefreshRecipientsBtn.addEventListener('click', loadRecipients);
+
+                // Lazy-load recipients when the tools accordion is opened
+                if (toolsAccordion) {
+                    const header = toolsAccordion.querySelector('.admin-accordion-header');
+                    if (header) {
+                        header.addEventListener('click', ()=>{
+                            setTimeout(()=>{
+                                try {
+                                    const content = toolsAccordion.querySelector('.admin-accordion-content');
+                                    if (content && content.style.display === 'block') {
+                                        loadAdmins();
+                                        loadRecipients();
+                                    }
+                                } catch(_){ }
+                            }, 0);
+                        });
+                    }
+                }
+            })();
             
             if (reconcileBtn) {
                 reconcileBtn.addEventListener('click', async () => {

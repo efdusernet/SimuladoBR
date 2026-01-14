@@ -6,6 +6,7 @@ const { conversationsStore } = require('../store/conversationsStore');
 const { messagesStore } = require('../store/messagesStore');
 const { supportTopicsStore } = require('../store/supportTopicsStore');
 const { emitAdminRefresh } = require('../realtime/adminEvents');
+const { notifySupportContact } = require('../services/supportContactNotifier');
 
 const conversationsRouter = express.Router();
 
@@ -131,6 +132,31 @@ conversationsRouter.post('/conversations/:conversationId/messages', async (req, 
     });
 
     emitAdminRefresh({ reason: 'user_message', conversationId });
+
+    // Fire-and-forget: notify recipients when user clicks "Falar com Suporte".
+    // We only trigger when the widget sends a supportTopicId that resolves to that exact title.
+    try {
+      const supportTopicId = req.body && (req.body.supportTopicId ?? req.body.support_topic_id);
+      if (role === 'user' && supportTopicId != null) {
+        const topic = await supportTopicsStore.getById(String(supportTopicId));
+        const title = topic && topic.title != null ? String(topic.title) : '';
+        if (title && title.trim().toLowerCase() === 'falar com suporte') {
+          const effectiveUserName = (conversation && conversation.customer_name) ? String(conversation.customer_name) : (customerName ? String(customerName) : '');
+          setTimeout(() => {
+            notifySupportContact({
+              supportTopicTitle: title,
+              userName: effectiveUserName,
+              messageCreatedAt: createdAt,
+            }).catch((e) => {
+              try { console.warn('[supportContactNotifier] failed:', e && e.message ? e.message : e); } catch (_) {}
+            });
+          }, 0);
+        }
+      }
+    } catch (e) {
+      // Never fail the user message flow.
+      try { console.warn('[supportContactNotifier] skipped due to error:', e && e.message ? e.message : e); } catch (_) {}
+    }
 
     res.json({ ok: true, message: { id: messageId, conversationId, createdAt, role, text } });
   } catch (err) {

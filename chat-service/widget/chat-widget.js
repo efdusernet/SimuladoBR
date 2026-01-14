@@ -449,7 +449,7 @@
             userText = title ? ('Tenho dúvida sobre ' + title) : 'Preciso de ajuda.';
           }
 
-          var sent = await sendMessage(userText);
+          var sent = await sendMessage(userText, { supportTopicId: id });
           if (ids && ids.conversationId && id) {
             markTopicUsed(ids.conversationId, id);
             if (autoReply) addAutoReply(ids.conversationId, id, autoReply, { afterMessageId: sent && sent.id != null ? String(sent.id) : '' });
@@ -640,17 +640,18 @@
     messages.scrollTop = messages.scrollHeight;
   }
 
-  async function sendMessage(text) {
+  async function sendMessage(text, meta) {
     var ids = await ensureConversation();
     setChatOpenState();
     var customerName = getHostUserName();
+    var supportTopicId = meta && meta.supportTopicId != null ? String(meta.supportTopicId) : undefined;
     var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations/' + encodeURIComponent(ids.conversationId) + '/messages'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Chat-Visitor-Id': ids.visitorId,
       },
-      body: JSON.stringify({ role: 'user', text: text, customerName: customerName || undefined }),
+      body: JSON.stringify({ role: 'user', text: text, customerName: customerName || undefined, supportTopicId: supportTopicId }),
     });
     var json = await res.json();
     if (!res.ok || !json || !json.ok) {

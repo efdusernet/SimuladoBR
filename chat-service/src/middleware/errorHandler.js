@@ -6,8 +6,11 @@ function errorHandler() {
     const status = Number(err && err.status) || 500;
     const msg = (err && err.message) ? String(err.message) : 'Erro interno';
 
+    const isClosedConversation = status === 409 && msg.toLowerCase().includes('conversa encerrada');
+    const level = status >= 500 ? 'error' : (isClosedConversation ? 'info' : 'warn');
+
     // eslint-disable-next-line no-console
-    console.error('[chat-service] error', {
+    (console[level] || console.error)('[chat-service] error', {
       requestId: req && req.id,
       status,
       message: msg,

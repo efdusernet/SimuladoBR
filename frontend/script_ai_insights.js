@@ -146,7 +146,6 @@
       const primary = cssVar(colorCssVar, cssVar('--primary', '#0b5ed7'));
       const bg = '#f1f5f9';
       const stroke = '#e2e8f0';
-      const labelColor = '#000';
 
       const rows = (items || []).slice(0, 5);
       const bars = rows.map((it, idx) => {
@@ -157,6 +156,9 @@
         const w0 = W - pad * 2;
         const w1 = Math.max(0, Math.round(w0 * pct));
         const label = formatBarValue(v, valueSuffix);
+        // Keep value label readable: white when the bar reaches the label area,
+        // otherwise dark text on the unfilled (light) remainder.
+        const labelColor = (pct >= 0.92) ? '#fff' : '#0f172a';
         const tx = x0 + w0 - 2;
         const ty = y0 + barH - 2;
         return `

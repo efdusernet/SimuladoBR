@@ -228,11 +228,6 @@ exports.createQuestion = async (req, res, next) => {
 					let seen = false;
 					normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
 				}
-				let correctOptIndex = -1;
-				normalized.forEach((o, idx) => { if (o.correta && correctOptIndex === -1) correctOptIndex = idx; });
-				if (correctOptIndex >= 0 && (!normalized[correctOptIndex].explicacao || !normalized[correctOptIndex].explicacao.trim()) && explicacao) {
-					normalized[correctOptIndex].explicacao = explicacao;
-				}
 				for (const opt of normalized) {
 					const ins = await sequelize.query(
 						'INSERT INTO public.respostaopcao (idquestao, descricao, iscorreta, excluido, criadousuario, alteradousuario, datacadastro, dataalteracao) VALUES (:qid,:descricao,:correta,false,:uid,:uid,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id',
@@ -246,7 +241,7 @@ exports.createQuestion = async (req, res, next) => {
 					await _upsertExplicacaoGuiaForOption({ optionId: optId, questionId: createdId, descricao: opt.explicacao || '', userId: createdByUserId, transaction: t });
 				}
 			}
-			// Note: legacy question-level explicacao is now handled as a fallback for the correct option.
+			// Note: questao.explicacao é explicação geral e não deve ser copiada para explicacaoguia.
 		});
 
 		return res.status(201).json({ id: createdId });
@@ -341,20 +336,7 @@ exports.getQuestionById = async (req, res, next) => {
 		if (hasQuestaoExp && base.explicacao != null) {
 			explicacao = String(base.explicacao);
 		}
-		// Backward-compat fallback: if questao.explicacao is empty/null, derive from explicacaoguia.
-		if (!explicacao) {
-			try {
-				const esql = `SELECT descricao FROM public.explicacaoguia
-						WHERE idquestao = :id AND idrespostaopcao IS NULL AND (excluido = FALSE OR excluido IS NULL)
-						ORDER BY dataalteracao DESC LIMIT 1`;
-				const erow = await sequelize.query(esql, { replacements: { id }, type: sequelize.QueryTypes.SELECT });
-				if (erow && erow[0] && erow[0].descricao != null) explicacao = String(erow[0].descricao);
-			} catch(_) {}
-		}
-		if (!explicacao && Array.isArray(opts)) {
-			const correct = opts.find(o => o && o.correta);
-			if (correct && correct.explicacao != null) explicacao = String(correct.explicacao);
-		}
+		// NOTE: Não derivar explicação geral da questão a partir de explicações de alternativas.
 
 		return res.json({
 			id: base.id,
@@ -508,11 +490,6 @@ exports.updateQuestion = async (req, res, next) => {
 						let seen = false;
 						normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
 					}
-					let correctOptIndex = -1;
-					normalized.forEach((o, idx) => { if (o.correta && correctOptIndex === -1) correctOptIndex = idx; });
-					if (correctOptIndex >= 0 && (!normalized[correctOptIndex].explicacao || !normalized[correctOptIndex].explicacao.trim()) && explicacao) {
-						normalized[correctOptIndex].explicacao = String(explicacao).trim();
-					}
 
 					const existing = await sequelize.query(
 						'SELECT id FROM public.respostaopcao WHERE idquestao = :qid AND (excluido = FALSE OR excluido IS NULL)',
@@ -568,7 +545,7 @@ exports.updateQuestion = async (req, res, next) => {
 				}
 			}
 
-			// Note: legacy question-level explicacao is now treated as a fallback for the correct option.
+			// Note: questao.explicacao é explicação geral e não deve ser copiada para explicacaoguia.
 		});
 
 		logQuestionSubmission({ route: 'updateQuestion:done', id, descricao, optionsCount: Array.isArray(b.options) ? b.options.length : 0 });

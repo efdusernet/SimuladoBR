@@ -1184,18 +1184,32 @@
                             mount.style.cursor = 'pointer';
                             mount.addEventListener('click', function(){
                                 try {
-                                    var examTypeId = (localStorage.getItem('examTypeId')||'').trim();
-                                    var examType = (localStorage.getItem('examType')||'').trim();
-                                    var qp = 'tab=prob';
-                                    var n = Number(examTypeId || examType);
-                                    if (Number.isFinite(n) && n > 0) {
-                                        qp += '&examTypeId=' + encodeURIComponent(String(Math.floor(n)));
-                                    } else if (examType) {
-                                        qp += '&examType=' + encodeURIComponent(examType.toUpperCase());
+                                    // Prefer using the existing sidebar navigation (loads into main.content)
+                                    try {
+                                        var link = document.querySelector('#sidebarIndicadoresAccordion a[href*="tab=prob"]');
+                                        if (link && typeof link.click === 'function') { link.click(); return; }
+                                    } catch(_){ }
+
+                                    // Fallback: persist nav state + load directly if available
+                                    try {
+                                        sessionStorage.setItem('currentSection', 'indicadores');
+                                        sessionStorage.setItem('currentSubsection', 'prob');
+                                    } catch(_){ }
+
+                                    if (typeof window.loadIndicadoresIntoSection === 'function' && document.getElementById('indicadores')) {
+                                        window.loadIndicadoresIntoSection('prob');
+                                        try { document.getElementById('indicadores').scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){ }
+                                        return;
                                     }
-                                    (window.top || window).location.assign('/pages/Indicadores.html?' + qp);
+
+                                    // Last-resort: stay in index (do not redirect to Indicadores.html)
+                                    (window.top || window).location.assign('/index.html');
                                 } catch(_) {
-                                    (window.top || window).location.assign('/pages/Indicadores.html?tab=prob');
+                                    try {
+                                        sessionStorage.setItem('currentSection', 'indicadores');
+                                        sessionStorage.setItem('currentSubsection', 'prob');
+                                    } catch(_){ }
+                                    (window.top || window).location.assign('/index.html');
                                 }
                             });
                         } catch(_){ }
@@ -1905,8 +1919,32 @@
                         } catch(_) {}
                         
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
-                        logger.info('[index.html] Navegando para Indicadores.html');
-                        window.location.assign('/pages/Indicadores.html');
+                        logger.info('[index.html] Abrindo Indicadores embutido (index)');
+                        try {
+                            // Preferir o mesmo caminho do sidebar (mantém comportamento consistente)
+                            const link = document.querySelector('a.sidebar-link[href="/pages/Indicadores.html"], a.sidebar-link[href^="/pages/Indicadores.html?"]');
+                            if (link) {
+                                link.click();
+                                return;
+                            }
+                        } catch(_){ }
+
+                        try {
+                            sessionStorage.setItem('currentSection', 'indicadores');
+                            sessionStorage.removeItem('currentSubsection');
+                        } catch(_){ }
+
+                        try {
+                            const section = document.getElementById('indicadores');
+                            if (section && typeof window.loadIndicadoresIntoSection === 'function') {
+                                window.loadIndicadoresIntoSection();
+                                try { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){ }
+                                return;
+                            }
+                        } catch(_){ }
+
+                        // Último recurso: manter no index e deixar o restore via sessionStorage acontecer
+                        window.location.assign('/index.html');
                         return;
                     }
                     // Insights da IA: abre página dedicada

@@ -59,8 +59,25 @@
       const card = document.querySelector('.pass-probability');
       if (card) {
         card.style.cursor = 'pointer';
-        card.addEventListener('click', () => {
-          window.location.assign('/pages/Indicadores.html?tab=prob');
+        card.addEventListener('click', (e) => {
+          try { if (e) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } } catch(_){ }
+
+          // Prefer embedded Indicadores inside index.html when available
+          try {
+            const section = document.getElementById('indicadores');
+            if (section && typeof window.loadIndicadoresIntoSection === 'function') {
+              window.loadIndicadoresIntoSection('prob');
+              try { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){ }
+              return;
+            }
+          } catch(_){ }
+
+          // Fallback: persist state and go to index (do not go to standalone Indicadores.html)
+          try {
+            sessionStorage.setItem('currentSection', 'indicadores');
+            sessionStorage.setItem('currentSubsection', 'prob');
+          } catch(_){ }
+          window.location.assign('/index.html');
         });
       }
     } catch(_){}

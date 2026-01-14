@@ -70,6 +70,11 @@ db.CategoriaFeedback = require('./CategoriaFeedback')(sequelize, DataTypes);
 db.Feedback = require('./Feedback')(sequelize, DataTypes);
 db.RetornoFeedback = require('./RetornoFeedback')(sequelize, DataTypes);
 
+// Admin communications recipients
+db.CommunicationRecipient = require('./CommunicationRecipient')(sequelize, DataTypes);
+// Communication recipients (admin communications)
+db.CommunicationRecipient = require('./CommunicationRecipient')(sequelize, DataTypes);
+
 
 // Associations
 if (db.User && db.EmailVerification) {
@@ -103,6 +108,12 @@ if (db.Notification && db.UserNotification) {
 if (db.User && db.UserNotification) {
   db.User.hasMany(db.UserNotification, { foreignKey: 'userId' });
   db.UserNotification.belongsTo(db.User, { foreignKey: 'userId' });
+}
+
+// Associations for communication recipients
+if (db.User && db.CommunicationRecipient) {
+  db.User.hasMany(db.CommunicationRecipient, { foreignKey: 'UserId' });
+  db.CommunicationRecipient.belongsTo(db.User, { foreignKey: 'UserId' });
 }
 
 

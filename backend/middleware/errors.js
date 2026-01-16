@@ -24,6 +24,9 @@ const tooManyRequests = (message = 'Muitas requisições', code = 'TOO_MANY_REQU
 const internalError = (message = 'Erro interno do servidor', code = 'INTERNAL_ERROR', details) =>
   new AppError(message, 500, code, details);
 
+const serviceUnavailable = (message = 'Serviço indisponível', code = 'SERVICE_UNAVAILABLE', details) =>
+  new AppError(message, 503, code, details);
+
 module.exports = {
   badRequest,
   unauthorized,
@@ -32,5 +35,6 @@ module.exports = {
   conflict,
   unprocessable,
   tooManyRequests,
-  internalError
+  internalError,
+  serviceUnavailable
 };

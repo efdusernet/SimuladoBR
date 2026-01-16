@@ -290,7 +290,7 @@ router.post('/fixture-attempt', requireAdmin, async (req, res, next) => {
         const anyProvided = domVals.some(v => v != null);
         const allProvided = domVals.every(v => v != null);
         if(anyProvided && !allProvided){
-            return res.status(400).json({ error: 'Forneça todos os percentuais de domínio (people, process, business) ou nenhum.' });
+            return next(badRequest('Forneça todos os percentuais de domínio (people, process, business) ou nenhum.', 'DOMAIN_PERCENTS_INCOMPLETE'));
         }
         if(allProvided){
             const meanDom = (peopleVal + processVal + businessVal) / 3;

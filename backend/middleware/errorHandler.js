@@ -13,7 +13,18 @@ class AppError extends Error {
 function errorHandler(err, req, res, next) {
   const isOperational = err.isOperational === true;
   const statusCode = err.statusCode && Number.isInteger(err.statusCode) ? err.statusCode : 500;
-  const code = err.code || (statusCode === 500 ? 'INTERNAL_ERROR' : 'ERROR');
+  const code = err.code || (
+    statusCode === 400 ? 'BAD_REQUEST' :
+    statusCode === 401 ? 'UNAUTHORIZED' :
+    statusCode === 403 ? 'FORBIDDEN' :
+    statusCode === 404 ? 'NOT_FOUND' :
+    statusCode === 409 ? 'CONFLICT' :
+    statusCode === 422 ? 'UNPROCESSABLE_ENTITY' :
+    statusCode === 429 ? 'TOO_MANY_REQUESTS' :
+    statusCode === 503 ? 'SERVICE_UNAVAILABLE' :
+    statusCode === 500 ? 'INTERNAL_ERROR' :
+    'ERROR'
+  );
   const message = err.message || 'Erro interno do servidor';
 
   if (isOperational) {
@@ -34,6 +45,8 @@ function errorHandler(err, req, res, next) {
     success: false,
     code,
     message,
+    // Backward compatibility: many callers historically looked for `error`.
+    error: message,
     requestId: req.id,
     timestamp: new Date().toISOString()
   };
@@ -42,10 +55,16 @@ function errorHandler(err, req, res, next) {
     body.stack = err.stack;
   }
 
-  // In development, expose operational error details to speed up debugging.
-  // (Production keeps responses minimal.)
-  if (process.env.NODE_ENV === 'development' && err && err.details !== undefined) {
-    body.details = err.details;
+  // Always include validation-ish details (safe to expose), and expose all details in dev.
+  if (err && err.details !== undefined) {
+    const exposeAlways = statusCode === 400 || statusCode === 422;
+    if (exposeAlways || process.env.NODE_ENV === 'development') {
+      body.details = err.details;
+      // For legacy clients expecting `errors` at top-level (validation middleware).
+      if (err.details && err.details.errors && Array.isArray(err.details.errors)) {
+        body.errors = err.details.errors;
+      }
+    }
   }
 
   res.status(statusCode).json(body);

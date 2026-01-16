@@ -119,6 +119,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const pathNow = window.location.pathname || '';
     const onLoginPage = pathNow.replace(/\/+$/, '') === '/login' || pathNow.replace(/\/+$/, '') === '/login.html';
 
+    function authReasonToUi(reasonRaw) {
+        const r = String(reasonRaw || '').trim().toUpperCase();
+        if (!r) return { message: '', color: '' };
+
+        if (r === 'SESSION_REVOKED') {
+            return {
+                message: 'Sua sessão foi encerrada porque houve um novo login em outro dispositivo/navegador.',
+                color: '#f59e0b'
+            };
+        }
+
+        if (
+            r === 'SESSION_NOT_FOUND' ||
+            r === 'SESSION_SID_MISSING' ||
+            r === 'JWT_REQUIRED' ||
+            r === 'SESSION_TOKEN_REQUIRED' ||
+            r === 'SESSION_TOKEN_OR_AUTH_REQUIRED' ||
+            r === 'TOKEN_EXPIRED' ||
+            r === 'INVALID_TOKEN' ||
+            r === 'INVALID_TOKEN_PAYLOAD' ||
+            r === 'USER_NOT_FOUND' ||
+            r === 'UNAUTHORIZED' ||
+            r === 'FORBIDDEN'
+        ) {
+            return { message: 'Sua sessão expirou. Faça login novamente.', color: '' };
+        }
+
+        return { message: 'Faça login novamente para continuar.', color: '' };
+    }
+
+    // If we arrived here due to a forced logout redirect, allow future redirects again.
+    try {
+        if (onLoginPage) sessionStorage.removeItem('forceLogoutInProgress');
+    } catch(_){ }
+
     // Accessible modal helpers to avoid aria-hidden focus issues
     const ModalA11y = (() => {
         let lastTrigger = null;
@@ -164,12 +199,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (onLoginPage && modal) {
             setModalMode('login');
             ModalA11y.open(modal);
-            // Clean cache-buster or other query params from URL for aesthetics
+
+            // Show a friendly message when redirected to login (e.g., after session revoke)
+            try {
+                const params = new URLSearchParams(window.location.search || '');
+                const reason = (params.get('reason') || '').trim();
+                if (reason && modalError) {
+                    const ui = authReasonToUi(reason);
+                    if (ui && ui.message) {
+                        modalError.textContent = ui.message;
+                        modalError.style.display = 'block';
+                        modalError.style.color = ui.color || '';
+                    }
+                }
+            } catch(_){ }
+
+            // Clean cache-buster (and the one-time reason) from URL for aesthetics
             try {
                 const loc = window.location;
-                if (loc.search && /([?&])_ts=/.test(loc.search)) {
-                    const url = loc.origin + (loc.pathname || '/login');
-                    window.history.replaceState(null, '', url);
+                if (loc.search) {
+                    const params = new URLSearchParams(loc.search);
+                    const hadTs = params.has('_ts');
+                    const hadReason = params.has('reason');
+                    if (hadTs || hadReason) {
+                        params.delete('_ts');
+                        // reason is only used to show a one-time message
+                        params.delete('reason');
+                        const qs = params.toString();
+                        const url = (loc.pathname || '/login') + (qs ? ('?' + qs) : '') + (loc.hash || '');
+                        window.history.replaceState(null, '', url);
+                    }
                 }
             } catch(_){ }
         }
@@ -382,6 +441,176 @@ document.addEventListener('DOMContentLoaded', () => {
         return `guest_${rnd}#`;
     }
 
+    // Fast single-session logout handling
+    // If the user logs in elsewhere, the backend will start returning 401 with codes like SESSION_REVOKED.
+    // Many pages are mostly static, so we also do a quick /api/auth/me ping on page load.
+    (function installSingleSessionGuard(){
+        try {
+            if (window.__singleSessionGuardInstalled) return;
+            window.__singleSessionGuardInstalled = true;
+
+            function safeClearAuthStorage(){
+                try { sessionStorage.clear(); } catch(_) {}
+                try {
+                    // Keep non-auth preferences as-is; clear only auth-ish keys.
+                    const keys = ['sessionToken','jwtToken','jwtTokenType','jwt','authToken','accessToken','refreshToken','token'];
+                    keys.forEach(k => { try { localStorage.removeItem(k); } catch(_) {} });
+                } catch(_) {}
+            }
+
+            function forceLoginRedirect(reason){
+                // If we're already on the login page, do NOT redirect again.
+                // Redirecting to /login?_ts=... causes a reload loop and can trigger rate-limits.
+                try {
+                    const path = (window.location.pathname || '').replace(/\/+$/, '');
+                    const isLogin = (path === '/login' || path === '/login.html');
+                    if (isLogin) {
+                        try { safeClearAuthStorage(); } catch(_) {}
+
+                        // Ensure the reason is reflected in the UI/URL without reloading.
+                        try {
+                            if (reason && modalError) {
+                                const ui = authReasonToUi(reason);
+                                if (ui && ui.message) {
+                                    modalError.textContent = ui.message;
+                                    modalError.style.display = 'block';
+                                    modalError.style.color = ui.color || '';
+                                }
+                            }
+                        } catch(_) {}
+
+                        try {
+                            const loc = window.location;
+                            const params = new URLSearchParams(loc.search || '');
+                            if (reason) params.set('reason', String(reason));
+                            // No cache-buster needed if we aren't navigating
+                            params.delete('_ts');
+                            const qs = params.toString();
+                            const url = (loc.pathname || '/login') + (qs ? ('?' + qs) : '') + (loc.hash || '');
+                            window.history.replaceState(null, '', url);
+                        } catch(_) {}
+
+                        // Allow future redirects (but without looping)
+                        try { sessionStorage.removeItem('forceLogoutInProgress'); } catch(_) {}
+                        return;
+                    }
+                } catch(_) {}
+
+                try {
+                    if (sessionStorage.getItem('forceLogoutInProgress') === '1') return;
+                    sessionStorage.setItem('forceLogoutInProgress', '1');
+                } catch(_) {}
+
+                try { safeClearAuthStorage(); } catch(_) {}
+                try {
+                    // Best-effort server logout (clears httpOnly cookie)
+                    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+                } catch(_) {}
+
+                try {
+                    const url = '/login?_ts=' + Date.now() + (reason ? ('&reason=' + encodeURIComponent(reason)) : '');
+                    (window.top || window).location.replace(url);
+                } catch(_) {
+                    try { window.location.href = '/login'; } catch(__) {}
+                }
+            }
+
+            async function handleAuthFailureForResponse(resp, url){
+                try {
+                    // Never trigger forced-logout redirects while already on the login page.
+                    const path = (window.location.pathname || '').replace(/\/+$/, '');
+                    if (path === '/login' || path === '/login.html') return;
+
+                    const isApi = typeof url === 'string' ? url.includes('/api/') : false;
+                    if (!isApi) return;
+                    if (!(resp && (resp.status === 401 || resp.status === 403))) return;
+
+                    // Skip auth endpoints to avoid loops
+                    if (typeof url === 'string' && /\/api\/auth\/(login|verify|register|forgot-password|reset-password)/i.test(url)) return;
+
+                    // Try parse JSON error code without consuming original body
+                    let code = '';
+                    let msg = '';
+                    try {
+                        const cloned = resp.clone();
+                        const ct = String(cloned.headers.get('content-type') || '');
+                        if (ct.includes('application/json')) {
+                            const data = await cloned.json();
+                            code = String((data && (data.code || data.errorCode)) || '');
+                            msg = String((data && (data.message || data.error)) || '');
+                        }
+                    } catch(_) {}
+
+                    const believedLoggedIn = (function(){
+                        try {
+                            return !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+                        } catch(_) { return true; }
+                    })();
+
+                    const normalized = String(code || '').trim().toUpperCase();
+                    const logoutCodes = new Set([
+                        'SESSION_REVOKED',
+                        'SESSION_NOT_FOUND',
+                        'SESSION_SID_MISSING',
+                        'JWT_REQUIRED',
+                        'SESSION_TOKEN_REQUIRED',
+                        'SESSION_TOKEN_OR_AUTH_REQUIRED',
+                        'INVALID_TOKEN',
+                        'INVALID_TOKEN_PAYLOAD',
+                        'USER_NOT_FOUND'
+                    ]);
+
+                    const shouldLogout = (
+                        (normalized && logoutCodes.has(normalized)) ||
+                        // Also treat generic 401/403 on API as auth loss when we believed we were logged-in
+                        (believedLoggedIn && (resp.status === 401 || resp.status === 403))
+                    );
+
+                    if (shouldLogout) {
+                        const reason = normalized || (resp.status === 403 ? 'FORBIDDEN' : 'UNAUTHORIZED');
+                        forceLoginRedirect(reason);
+                    }
+                } catch(_) {}
+            }
+
+            // Patch fetch once to detect revoked sessions immediately
+            try {
+                const originalFetch = window.fetch.bind(window);
+                window.fetch = function(input, init){
+                    const url = (typeof input === 'string') ? input : (input && input.url ? String(input.url) : '');
+                    return originalFetch(input, init).then((resp) => {
+                        // Fire-and-forget; do not block the caller
+                        handleAuthFailureForResponse(resp, url).catch(() => {});
+                        return resp;
+                    });
+                };
+            } catch(_) {}
+
+            // Page-load ping to catch logout even when navigating static pages
+            try {
+                const path = (window.location.pathname || '').replace(/\/+$/, '');
+                const isLogin = (path === '/login' || path === '/login.html');
+                if (!isLogin && (navigator.onLine !== false)) {
+                    // Only ping when we have some identity stored
+                    const hasIdentity = !!(localStorage.getItem('userId') || localStorage.getItem('nomeUsuario') || localStorage.getItem('nome'));
+                    const tok = (localStorage.getItem('sessionToken') || localStorage.getItem('jwtToken') || '').trim();
+                    const isGuest = !!(tok && tok.endsWith && tok.endsWith('#'));
+                    if (hasIdentity && tok && !isGuest) {
+                        const ac = new AbortController();
+                        const t = setTimeout(() => { try { ac.abort(); } catch(_) {} }, 2500);
+                        fetch('/api/auth/me', {
+                            method: 'GET',
+                            credentials: 'include',
+                            headers: { 'X-Session-Token': tok },
+                            signal: ac.signal,
+                            cache: 'no-store'
+                        }).then((resp) => handleAuthFailureForResponse(resp, '/api/auth/me')).catch(() => {}).finally(() => clearTimeout(t));
+                    }
+                }
+            } catch(_) {}
+        } catch(_) {}
+    })();
+
     // Helper to read/store JWT for protected APIs (e.g., indicators)
     function saveJwtFromResponse(obj){
         try {
@@ -390,6 +619,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (tok) {
                 localStorage.setItem('jwtToken', tok);
                 localStorage.setItem('jwtTokenType', typ);
+                // Keep backward compatibility with legacy code paths that still read `sessionToken`
+                // for API calls: store the JWT there as well.
+                localStorage.setItem('sessionToken', tok);
             }
         } catch(_){}
     }
@@ -405,6 +637,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Read session token (if absent, create a guest token).
     // However, if user is clearly registered (we have userId/nomeUsuario/nome) prefer that state.
     let sessionToken = localStorage.getItem('sessionToken');
+    // If we have a JWT stored, prefer it for authenticated requests.
+    try {
+        const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
+        if (jwtTok && (!sessionToken || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(String(sessionToken || '').trim()))) {
+            sessionToken = jwtTok;
+            localStorage.setItem('sessionToken', jwtTok);
+        }
+    } catch(_){ }
     const hasUserId = !!localStorage.getItem('userId');
     const hasNomeUsuario = !!localStorage.getItem('nomeUsuario');
     const hasNome = !!localStorage.getItem('nome');
@@ -428,10 +668,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     } catch (e) { console.warn('redirect check failed', e); }
 
-    // Normalize: if token looks like a guest (ends with '#') but we have a real identity stored, switch to it
+    // Normalize: if token looks like a guest (ends with '#') but we have a real identity stored, switch to JWT if available
     try {
         if (sessionToken && sessionToken.endsWith('#') && (hasUserId || hasNomeUsuario || hasNome)) {
-            const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
+            const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
+            const alt = jwtTok || (localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '');
             if (alt) { sessionToken = alt; localStorage.setItem('sessionToken', alt); }
         }
     } catch(e) { /* ignore */ }
@@ -449,13 +690,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Sync session token into a cookie so the server can authorize HTML GETs for admin pages
-    try {
-        if (sessionToken) {
-            // Write cookie for whole site; avoid Secure flag in http; SameSite=Lax for basic CSRF hardening
-            document.cookie = `sessionToken=${encodeURIComponent(sessionToken)}; Path=/; SameSite=Lax`;
-        }
-    } catch (e) { /* ignore cookie errors */ }
+    // Do NOT mirror session tokens into a JS-managed cookie.
+    // The backend issues an httpOnly `sessionToken` cookie on login; writing it from JS can create
+    // duplicate cookies and break authentication.
 
     // Try to sync BloqueioAtivado early (best-effort). This will populate localStorage for UI that reads it.
     if (sessionToken && !(sessionToken && sessionToken.endsWith('#'))) {
@@ -1250,7 +1487,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const userId = user.Id || user.id || null;
                     const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
 
-                    localStorage.setItem('sessionToken', nomeUsuarioStored);
                     if (userId) localStorage.setItem('userId', String(userId));
                     localStorage.setItem('nomeUsuario', nomeUsuarioStored);
                     if (nomeReal) localStorage.setItem('nome', nomeReal);

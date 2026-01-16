@@ -22,6 +22,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Local smoke test logs
+backend/smoke_backend_*.log
+
 # Build artifacts
 dist/
 build/

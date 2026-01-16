@@ -407,11 +407,8 @@ function validate(schema, source = 'body') {
       logger.debug('[VALIDATION ERROR] Data received:', JSON.stringify(data, null, 2));
       logger.debug('[VALIDATION ERROR] Errors:', JSON.stringify(details, null, 2));
       
-      return res.status(400).json({
-        success: false,
-        message: 'Dados inválidos',
-        errors: details
-      });
+      const { badRequest } = require('./errors');
+      return next(badRequest('Dados inválidos', 'VALIDATION_ERROR', { errors: details }));
     }
     
     // Replace request data with validated/sanitized data

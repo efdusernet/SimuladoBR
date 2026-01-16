@@ -1,10 +1,9 @@
 const db = require('../models');
 const { logger } = require('../utils/logger');
 const sequelize = require('../config/database');
-const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config/security');
 const { badRequest, unauthorized, notFound, internalError } = require('../middleware/errors');
 const { AppError } = require('../middleware/errorHandler');
+const { verifyJwtAndGetActiveUser } = require('../utils/singleSession');
 // Daily user exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
@@ -68,19 +67,19 @@ function getFullExamQuestionCount() {
   return Number.isFinite(v) && v > 0 ? v : 180;
 }
 
-exports.listExams = async (req, res) => {
+exports.listExams = async (req, res, next) => {
   try {
     const types = await loadExamTypesFromDb();
     if (types && types.length) return res.json(types);
     const disableFallback = String(process.env.EXAM_TYPES_DISABLE_FALLBACK || '').toLowerCase() === 'true';
     if (disableFallback) {
-      return res.status(404).json({ error: 'No exam types configured in DB' });
+      return next(notFound('No exam types configured in DB', 'NO_EXAM_TYPES'));
     }
     const registry = require('../services/exams/ExamRegistry');
     return res.json(registry.getTypes());
   } catch (err) {
     logger.error('Erro listExams:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'INTERNAL_ERROR_LIST_EXAMS'));
   }
 };
 
@@ -127,34 +126,9 @@ exports.selectQuestions = async (req, res, next) => {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
     if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
-    let user = null;
-    // If token looks like JWT, try to decode
-    if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-      try {
-        const decoded = jwt.verify(sessionToken, jwtSecret);
-        // Try by sub (user id) first
-        if (decoded && decoded.sub) {
-          user = await User.findByPk(Number(decoded.sub));
-        }
-        // Fallback: try by email
-        if (!user && decoded && decoded.email) {
-          user = await User.findOne({ where: { Email: decoded.email } });
-        }
-      } catch (e) {
-        // Invalid JWT, fallback to legacy lookup
-      }
-    }
-    // Legacy: if numeric, try by Id first
-    if (!user && /^\d+$/.test(sessionToken)) {
-      user = await User.findByPk(Number(sessionToken));
-    }
-    // Legacy: try by username or email
-    if (!user) {
-      const Op = db.Sequelize && db.Sequelize.Op;
-      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-      user = await User.findOne({ where });
-    }
-    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+    const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+    if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+    const user = authRes.user;
 
     const bloqueio = Boolean(user.BloqueioAtivado);
     // Enforce hard cap for blocked users
@@ -656,38 +630,9 @@ exports.submitAnswers = async (req, res, next) => {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
     if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
-    // resolve user (aceita JWT ou ID/email)
-    let user = null;
-    let tokenPayload = null;
-    // Se for JWT, decodifica
-    if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-      try {
-        tokenPayload = jwt.verify(sessionToken, jwtSecret);
-      } catch (e) {
-        return next(unauthorized('Invalid session token', 'INVALID_SESSION_TOKEN'));
-      }
-      // Tenta buscar por sub (ID), email ou nome
-      if (tokenPayload && tokenPayload.sub) {
-        user = await User.findByPk(Number(tokenPayload.sub));
-      }
-      if (!user && tokenPayload && tokenPayload.email) {
-        user = await User.findOne({ where: { Email: tokenPayload.email } });
-      }
-      if (!user && tokenPayload && tokenPayload.name) {
-        user = await User.findOne({ where: { NomeUsuario: tokenPayload.name } });
-      }
-    } else {
-      // Se não for JWT, tenta ID, nome ou email direto
-      if (/^\d+$/.test(sessionToken)) {
-        user = await User.findByPk(Number(sessionToken));
-      }
-      if (!user) {
-        const Op = db.Sequelize && db.Sequelize.Op;
-        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-        user = await User.findOne({ where });
-      }
-    }
-    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+    const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+    if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+    const user = authRes.user;
 
   const { sessionId, answers } = req.body || {};
     const partial = Boolean(req.body && req.body.partial);
@@ -1355,75 +1300,9 @@ exports.resumeSession = async (req, res, next) => {
       const sessionToken = bearerToken || legacyToken;
       if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
-      let user = null;
-      
-      // Unified JWT decode attempt (bearer first, then legacy if bearer absent)
-      async function tryResolveFromJwt(raw) {
-        if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
-        let decoded = null;
-        try { decoded = jwt.verify(raw, jwtSecret); }
-        catch(e){
-          try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
-        }
-        if (!decoded) {
-          // Manual payload decode fallback (ignore signature) if jsonwebtoken failed
-          try {
-            const parts = raw.split('.');
-            if (parts.length === 3) {
-              const payloadB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
-              // pad base64
-              const pad = payloadB64.length % 4; const padded = pad ? payloadB64 + '='.repeat(4-pad) : payloadB64;
-              const buf = Buffer.from(padded, 'base64');
-              const jsonStr = buf.toString('utf8');
-              decoded = JSON.parse(jsonStr);
-            }
-          } catch(err){ }
-        }
-        if (!decoded) { return; }
-        const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
-        for (const cid of candidateIds) {
-          if (!user && cid != null && /^\d+$/.test(String(cid))) {
-            user = await db.User.findByPk(Number(cid));
-            if (user) { }
-          }
-        }
-        if (!user && decoded.email) {
-          user = await db.User.findOne({ where: { Email: decoded.email } });
-          if (user) { }
-        }
-        const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
-        for (const uname of candidateUsernames) {
-          if (!user && uname) {
-            user = await db.User.findOne({ where: { NomeUsuario: uname } });
-            if (user) { }
-          }
-        }
-      }
-      // Try bearer token first; if not resolved and legacy differs, try legacy
-      await tryResolveFromJwt(bearerToken);
-      if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwt(legacyToken);
-      // Fallback: attempt legacy token if bearer failed
-      if (!user && legacyToken) {
-        if (/^\d+$/.test(legacyToken)) {
-          user = await db.User.findByPk(Number(legacyToken));
-          if (user) { }
-        }
-        if (!user) {
-          const Op = db.Sequelize && db.Sequelize.Op;
-          const whereLegacy = Op ? { [Op.or]: [{ NomeUsuario: legacyToken }, { Email: legacyToken }] } : { NomeUsuario: legacyToken };
-          user = await db.User.findOne({ where: whereLegacy });
-          if (user) { }
-        }
-      }
-      // Final fallback: interpret combined sessionToken (legacy-only scenario)
-      if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
-      if (!user) {
-        const Op = db.Sequelize && db.Sequelize.Op;
-        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-        user = await db.User.findOne({ where });
-      }
-      
-      if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+      const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+      if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+      const user = authRes.user;
 
       const attempt = await db.ExamAttempt.findOne({
         where: { UserId: user.Id || user.id, Status: 'finished' },
@@ -1490,74 +1369,9 @@ exports.resumeSession = async (req, res, next) => {
       const sessionToken = bearerToken || legacyToken;
       if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
-      let user = null;
-      
-      // Unified JWT decode attempt for history
-      async function tryResolveFromJwtHistory(raw) {
-        if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
-        let decoded = null;
-        try { decoded = jwt.verify(raw, jwtSecret); }
-        catch(e){
-          try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
-        }
-        if (!decoded) {
-          // Manual payload decode fallback
-            try {
-              const parts = raw.split('.');
-              if (parts.length === 3) {
-                const payloadB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
-                const pad = payloadB64.length % 4; const padded = pad ? payloadB64 + '='.repeat(4-pad) : payloadB64;
-                const buf = Buffer.from(padded, 'base64');
-                const jsonStr = buf.toString('utf8');
-                decoded = JSON.parse(jsonStr);
-                
-              }
-            } catch(err){ }
-        }
-        if (!decoded) { return; }
-        const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
-        for (const cid of candidateIds) {
-          if (!user && cid != null && /^\d+$/.test(String(cid))) {
-            user = await db.User.findByPk(Number(cid));
-            if (user) { }
-          }
-        }
-        if (!user && decoded.email) {
-          user = await db.User.findOne({ where: { Email: decoded.email } });
-          if (user) { }
-        }
-        const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
-        for (const uname of candidateUsernames) {
-          if (!user && uname) {
-            user = await db.User.findOne({ where: { NomeUsuario: uname } });
-            if (user) { }
-          }
-        }
-      }
-      await tryResolveFromJwtHistory(bearerToken);
-      if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwtHistory(legacyToken);
-      // Fallback legacy token resolution if bearer failed
-      if (!user && legacyToken) {
-        if (/^\d+$/.test(legacyToken)) {
-          user = await db.User.findByPk(Number(legacyToken));
-          if (user) { }
-        }
-        if (!user) {
-          const Op = db.Sequelize && db.Sequelize.Op;
-          const whereLegacy = Op ? { [Op.or]: [{ NomeUsuario: legacyToken }, { Email: legacyToken }] } : { NomeUsuario: legacyToken };
-          user = await db.User.findOne({ where: whereLegacy });
-          if (user) { }
-        }
-      }
-      // Final fallback: combined sessionToken (legacy-only scenario)
-      if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
-      if (!user) {
-        const Op = db.Sequelize && db.Sequelize.Op;
-        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-        user = await db.User.findOne({ where });
-      }
-      
-      if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+      const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+      if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+      const user = authRes.user;
 
       const where = { UserId: user.Id || user.id };
       if (status === 'unfinished') {
@@ -1614,7 +1428,7 @@ exports.resumeSession = async (req, res, next) => {
 
   // POST /api/admin/exams/mark-abandoned
   // Marks in-progress attempts as abandoned based on inactivity and low progress rules.
-  exports.markAbandonedAttempts = async (req, res) => {
+  exports.markAbandonedAttempts = async (req, res, next) => {
     try {
       const db = require('../models');
       const policies = require('../config/examPolicies');
@@ -1646,13 +1460,13 @@ exports.resumeSession = async (req, res, next) => {
       return res.json({ ok: true, processed, markedTimeout, markedLowProgress });
     } catch (err) {
       logger.error('Erro markAbandonedAttempts:', err);
-      return res.status(500).json({ error: 'Internal error' });
+      return next(internalError('Internal error', 'INTERNAL_ERROR_MARK_ABANDONED_ATTEMPTS'));
     }
   };
 
   // POST /api/admin/exams/purge-abandoned
   // Purges abandoned attempts older than policy age and low progress threshold.
-  exports.purgeAbandonedAttempts = async (req, res) => {
+  exports.purgeAbandonedAttempts = async (req, res, next) => {
     try {
       const db = require('../models');
       const policies = require('../config/examPolicies');
@@ -1698,7 +1512,7 @@ exports.resumeSession = async (req, res, next) => {
       return res.json({ ok: true, inspected, purged });
     } catch (err) {
       logger.error('Erro purgeAbandonedAttempts:', err);
-      return res.status(500).json({ error: 'Internal error' });
+      return next(internalError('Internal error', 'INTERNAL_ERROR_PURGE_ABANDONED_ATTEMPTS'));
     }
   };
 
@@ -1719,38 +1533,9 @@ exports.getAttemptResult = async (req, res, next) => {
     const sessionToken = bearerToken || legacyToken;
     if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
-    let user = null;
-    async function tryResolveFromJwt(raw) {
-      if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
-      let decoded = null;
-      try { decoded = jwt.verify(raw, jwtSecret); }
-      catch(e){ try { decoded = jwt.decode(raw); } catch(_) { decoded = null; } }
-      if (!decoded) return;
-      const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
-      for (const cid of candidateIds) {
-        if (!user && cid != null && /^\d+$/.test(String(cid))) {
-          user = await db.User.findByPk(Number(cid));
-        }
-      }
-      if (!user && decoded.email) {
-        user = await db.User.findOne({ where: { Email: decoded.email } });
-      }
-      const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
-      for (const uname of candidateUsernames) {
-        if (!user && uname) {
-          user = await db.User.findOne({ where: { NomeUsuario: uname } });
-        }
-      }
-    }
-    await tryResolveFromJwt(bearerToken);
-    if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwt(legacyToken);
-    if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
-    if (!user) {
-      const Op = db.Sequelize && db.Sequelize.Op;
-      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-      user = await db.User.findOne({ where });
-    }
-    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+    const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+    if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+    const user = authRes.user;
 
     // Load attempt and ensure it belongs to resolved user and is finished
     const attempt = await db.ExamAttempt.findOne({ where: { Id: attemptId, UserId: user.Id || user.id } });

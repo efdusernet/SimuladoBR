@@ -2,16 +2,17 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models');
 const requireAdmin = require('../middleware/requireAdmin');
+const { badRequest, unauthorized, notFound, conflict, internalError } = require('../middleware/errors');
 
 // Create draft notification
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAdmin, async (req, res, next) => {
   try {
     const { categoria, titulo, mensagem, targetType, targetUserId } = req.body || {};
-    if (!categoria || !titulo || !mensagem) return res.status(400).json({ error: 'Missing fields' });
+    if (!categoria || !titulo || !mensagem) return next(badRequest('Missing fields', 'MISSING_FIELDS'));
     const validCat = ['Promocoes','Avisos','Alertas'];
-    if (!validCat.includes(categoria)) return res.status(400).json({ error: 'Invalid categoria' });
+    if (!validCat.includes(categoria)) return next(badRequest('Invalid categoria', 'INVALID_CATEGORIA'));
     if (!req.user || !(req.user.Id || req.user.id)) {
-      return res.status(401).json({ error: 'Admin identity missing' });
+      return next(unauthorized('Admin identity missing', 'ADMIN_IDENTITY_MISSING'));
     }
     const nt = await db.Notification.create({
       categoria,
@@ -25,22 +26,22 @@ router.post('/', requireAdmin, async (req, res) => {
     res.status(201).json(nt);
   } catch(e){
     console.error('[admin_notifications][CREATE] error:', e && e.message);
-    res.status(500).json({ error: 'Internal error' });
+    return next(internalError('Internal error', 'ADMIN_NOTIFICATIONS_CREATE_ERROR', { error: e && e.message }));
   }
 });
 
 // Send notification (generate UserNotification rows)
-router.post('/:id/send', requireAdmin, async (req, res) => {
+router.post('/:id/send', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const n = await db.Notification.findByPk(id);
-    if (!n) return res.status(404).json({ error: 'Not found' });
-    if (n.status === 'sent') return res.status(409).json({ error: 'Already sent' });
+    if (!n) return next(notFound('Not found', 'NOTIFICATION_NOT_FOUND'));
+    if (n.status === 'sent') return next(conflict('Already sent', 'NOTIFICATION_ALREADY_SENT'));
 
     let targets = [];
     if (n.targetType === 'user' && n.targetUserId) {
       const u = await db.User.findByPk(n.targetUserId);
-      if (!u) return res.status(400).json({ error: 'Target user not found' });
+      if (!u) return next(badRequest('Target user not found', 'TARGET_USER_NOT_FOUND'));
       targets = [u];
     } else {
       targets = await db.User.findAll({ attributes: ['Id'] });
@@ -53,12 +54,12 @@ router.post('/:id/send', requireAdmin, async (req, res) => {
     const msg = e && (e.message || e.toString());
     const code = e && e.original && (e.original.code || e.original.errno);
     console.error('[admin_notifications][SEND] error:', code, msg);
-    res.status(500).json({ error: 'Internal error', code, message: msg });
+    return next(internalError('Internal error', 'ADMIN_NOTIFICATIONS_SEND_ERROR', { upstreamCode: code, upstreamMessage: msg }));
   }
 });
 
 // Admin list notifications
-router.get('/', requireAdmin, async (req, res) => {
+router.get('/', requireAdmin, async (req, res, next) => {
   try {
     // Ordena por id DESC para evitar dependência de alias createdAt (coluna é createdat no schema)
     const list = await db.Notification.findAll({ order: [['id','DESC']], limit: 100 });
@@ -96,16 +97,16 @@ router.get('/', requireAdmin, async (req, res) => {
     const msg = e && (e.message || e.toString());
     const code = e && e.original && (e.original.code || e.original.errno);
     console.error('[admin_notifications][LIST] error:', code, msg);
-    res.status(500).json({ error: 'Internal error', code, message: msg });
+    return next(internalError('Internal error', 'ADMIN_NOTIFICATIONS_LIST_ERROR', { upstreamCode: code, upstreamMessage: msg }));
   }
 });
 
 // Detail with stats
-router.get('/:id', requireAdmin, async (req, res) => {
+router.get('/:id', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const n = await db.Notification.findByPk(id);
-    if (!n) return res.status(404).json({ error: 'Not found' });
+    if (!n) return next(notFound('Not found', 'NOTIFICATION_NOT_FOUND'));
     const total = await db.UserNotification.count({ where: { notificationId: id } });
     const read = await db.UserNotification.count({ where: { notificationId: id, readAt: { [db.Sequelize.Op.ne]: null } } });
     res.json({ notification: n, stats: { total, read } });
@@ -113,7 +114,7 @@ router.get('/:id', requireAdmin, async (req, res) => {
     const msg = e && (e.message || e.toString());
     const code = e && e.original && (e.original.code || e.original.errno);
     console.error('[admin_notifications][DETAIL] error:', code, msg);
-    res.status(500).json({ error: 'Internal error', code, message: msg });
+    return next(internalError('Internal error', 'ADMIN_NOTIFICATIONS_DETAIL_ERROR', { upstreamCode: code, upstreamMessage: msg }));
   }
 });
 

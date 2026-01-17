@@ -193,4 +193,4 @@ O sistema está pronto para uso em desenvolvimento e produção.
 
 **Issue #19 Status:** ✅ **RESOLVIDO**
 
-Não faça commit ainda (conforme solicitado). Aguardando próxima issue do IMPROVEMENT_PROPOSAL.md.
+Nota: este documento é um registro histórico da migração Console→Logger (já aplicada no repositório). Para próximos passos, use `IMPROVEMENT_PROPOSAL.md`.

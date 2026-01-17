@@ -5,13 +5,17 @@
 Este documento resume os endpoints principais sob `/api/exams`, com propósito, payloads e onde são chamados no frontend.
 
 Observações gerais
-- Autorização por token de sessão do app: header `X-Session-Token: <sessionToken>` quando indicado.
+- Base paths:
+  - Preferencial: `/api/v1` (rotas versionadas)
+  - Legado/compatibilidade: `/api` (deprecated)
+- Autorização por token de sessão do app: JWT via cookie httpOnly `sessionToken` (browser) ou header `Authorization: Bearer <token>`.
+- Header legado suportado: `X-Session-Token: <token>` (conteúdo é **JWT**, não e-mail/id).
 - Responses em JSON; erros comuns: 400 (payload inválido), 404 (não encontrado), 500 (erro interno).
 
 ## GET /api/ai/insights?days=30
 Retorna um “dashboard” de insights: KPIs agregados do período + série diária + recomendações geradas (Ollama quando habilitado; fallback por regras quando não).
 
-- Auth: `X-Session-Token` (resolução via middleware `requireUserSession`)
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
 - Query:
   - `days` (1–180; default 30)
 - Response (sucesso):
@@ -49,13 +53,13 @@ Observação: os dicionários retornados por `/api/ai/masterdata/question-classi
 ## GET /api/users/me
 Retorna dados básicos do usuário autenticado.
 
-- Auth: `X-Session-Token`
+- Auth: JWT
 - Response (sucesso): inclui `DataExame` quando disponível.
 
 ## PUT /api/users/me/exam-date
 Atualiza a data prevista do exame real do próprio usuário.
 
-- Auth: `X-Session-Token`
+- Auth: JWT
 - CSRF: obrigatório (header `X-CSRF-Token`) por ser método state-changing.
 - Body: `{ data_exame: "dd/mm/yyyy" }` (aceita também `DataExame` / `dataExame`)
 - Validações:
@@ -67,7 +71,7 @@ Atualiza a data prevista do exame real do próprio usuário.
 ## POST /api/admin/exams/fixture-attempt
 Cria uma tentativa finalizada artificial ("fixture") para testes e estatísticas sem processo de resposta manual.
 
-- Auth: `X-Session-Token` (usuário admin — ver middleware `requireAdmin`)
+- Auth: JWT (usuário admin — ver middleware `requireAdmin`)
 - Body campos principais:
   - `userId: number` (obrigatório)
   - `overallPct: number` (% geral desejada; default 65)
@@ -156,8 +160,9 @@ Lista de tipos para UI (similar ao endpoint acima; interface estável).
 ## POST /api/exams/select
 Seleciona e retorna um conjunto de questões (com opções) e cria uma tentativa (`exam_attempt`).
 - Usado por: `frontend/pages/examSetup.html` (contar/selecionar), wrappers em `exam.html`/`examFull.html`.
-- Headers:
-  - `X-Session-Token: <sessionToken>` (obrigatório)
+- Headers (uma das opções):
+  - `Authorization: Bearer <token>` (recomendado)
+  - `X-Session-Token: <token>` (legado)
   - `X-Exam-Mode: quiz | full` (opcional; se ausente o backend infere: `full` quando `count` >= número total de questões do tipo (ex.: 180), `quiz` quando `count` <= 50)
 - Body:
   - `count: number` (obrigatório)
@@ -169,7 +174,7 @@ Seleciona e retorna um conjunto de questões (com opções) e cria uma tentativa
 ## POST /api/exams/start-on-demand
 Inicia sessão persistindo perguntas, sem retornar o conteúdo completo de cada questão (fluxo alternativo).
 - Usado por: reservado (não há chamada ativa no frontend no momento).
-- Headers: `X-Session-Token`
+- Headers: JWT (`Authorization` ou `X-Session-Token`)
 - Body: `{ count, examType?, dominios?, areas?, grupos? }`
 - Headers opcionais: `X-Exam-Mode: quiz | full` (mesma inferência quando ausente)
 - Response: `{ sessionId, total, attemptId, examMode, exam }`
@@ -182,7 +187,7 @@ Busca uma questão específica da sessão (útil no fluxo on-demand).
 ## POST /api/exams/submit
 Registra respostas (parciais ou finais), computa nota na submissão final e encerra a tentativa.
 - Usado por: `frontend/assets/build/script_exam.js` e `frontend/script_exam.js` ao salvar/encerrar.
-- Headers: `X-Session-Token`
+- Headers: JWT (`Authorization` ou `X-Session-Token`)
 - Body:
   - `sessionId: string`
   - `answers: Array<{ questionId: number, optionId?: number, optionIds?: number[], response?: any }>`
@@ -213,14 +218,14 @@ Estado atual de pausa e política configurada.
 ## POST /api/exams/resume
 Reconstrói a sessão em memória a partir do banco (após restart do servidor).
 - Usado por: `frontend/pages/exam.html` e `frontend/pages/examFull.html` (auto-resume).
-- Headers: `X-Session-Token`
+- Headers: JWT (`Authorization` ou `X-Session-Token`)
 - Body: `{ sessionId?: string, attemptId?: number }`
 - Response: `{ ok: true, sessionId, attemptId, total, examType }`
 
 ## GET /api/exams/last
 Resumo da última tentativa finalizada do usuário (para o gauge da Home).
 - Usado por: `frontend/index.html` (componente `lastExamResults`).
-- Headers: `X-Session-Token`
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
 - Response:
   ```json
   {
@@ -236,7 +241,7 @@ Resumo da última tentativa finalizada do usuário (para o gauge da Home).
 
 ## GET /api/exams/history?limit=3
 Histórico das últimas N tentativas finalizadas do usuário (default 3).
-- Headers: `X-Session-Token`
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
 - Query: `limit` (1–10, default 3)
 - Response: `[{ correct, total, scorePercent, approved, startedAt, finishedAt, examTypeId, durationSeconds, examMode }]`
 
@@ -268,6 +273,21 @@ Exemplo:
 ]
 ```
 
+## GET /api/exams/result/:attemptId
+Retorna dados completos de uma tentativa **finalizada** para páginas de review.
+
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
+- Path:
+  - `attemptId` (inteiro > 0)
+- Response (sucesso):
+  - `total`: total de questões na tentativa
+  - `questions[]`: lista ordenada com `{ id, descricao/texto, tiposlug/type, options[]?, interacao?, correctPairs?, explicacao?, referencia?, dominio?, tarefa?, abordagemGestao? }`
+  - `answers`: mapa `q_<questionId>` com `{ optionId? , optionIds? , response? }`
+
+Observações:
+- Só permite visualizar tentativas com `Status='finished'`.
+- Para `match_columns`, o backend retorna `interacao`/`correctPairs` e zera `options` para evitar renderização indevida como múltipla escolha.
+
 ---
 
 ### Modelos usados (resumo)
@@ -279,7 +299,9 @@ Exemplo:
 - `questao`: base de questões (relacionada via QuestionId)
 
 ### Notas
-- Token de sessão: o app utiliza `localStorage.sessionToken`; o backend o resolve como user id, nome de usuário ou e-mail.
+- Token de sessão: JWT emitido em `/api/auth/login`.
+  - Fluxo browser: cookie httpOnly `sessionToken`.
+  - Fluxo API/Postman: `Authorization: Bearer <token>` (recomendado) ou `X-Session-Token: <token>` (legado).
 - Usuário com bloqueio: limites aplicados (ex.: máximo de 25 questões na seleção).
 - Exame completo: 180 questões, pausas conforme `ExamType` (se configurado).
 - Campo novo: `exam_attempt.exam_mode` armazena `quiz` ou `full` para cada tentativa. Persistência:
@@ -288,6 +310,22 @@ Exemplo:
   - Retornado nos endpoints: `POST /api/exams/select`, `POST /api/exams/start-on-demand`, `GET /api/exams/last`, `GET /api/exams/history`.
 
 ---
+
+## Feedback
+
+### GET /api/feedback/categories
+Lista categorias para o modal “Reportar questão”.
+
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
+- Response: `[{ id, descricao }]`
+
+### POST /api/feedback
+Cria feedback de uma questão.
+
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
+- CSRF: obrigatório (header `X-CSRF-Token`) por ser state-changing.
+- Body: `{ texto: string, idcategoria: number, idquestao: number, userId?: number }`
+- Response (201): `{ id, idcategoria, idquestao, reportadopor?: number|null }`
 
 ## Indicadores
 

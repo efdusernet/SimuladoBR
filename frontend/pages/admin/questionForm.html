@@ -140,6 +140,7 @@
         <select id="tipo">
           <option value="single">Opção única (rádio)</option>
           <option value="multi">Múltipla escolha (checkbox)</option>
+          <option value="match_columns">Associar colunas (arrastar)</option>
         </select>
       </div>
       <div>
@@ -147,6 +148,13 @@
         <div style="display:flex; gap:8px; align-items:center;">
           <input type="checkbox" id="seed" />
           <span class="hint">Disponibilizar para usuários do gratuito?</span>
+        </div>
+      </div>
+      <div>
+        <label for="isPretest">Pré-teste</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="checkbox" id="isPretest" />
+          <span class="hint">Marca como pré-teste (não conta para pontuação)</span>
         </div>
       </div>
       <div>
@@ -186,7 +194,7 @@
       <input type="text" id="dica" placeholder="Dica curta" />
     </div>
 
-    <div class="row">
+    <div class="row" id="rowAlternativas">
       <label>Alternativas</label>
       <div class="hint">Marque a correta. No tipo "Opção única" só é permitido 1 correta.</div>
       <!-- Paste helper: colar alternativas em linhas e distribuir automaticamente -->
@@ -202,6 +210,28 @@
       <div class="actions">
         <button class="btn secondary" id="addOpt">+ Adicionar alternativa</button>
         <button class="btn secondary" id="clearOpts">Limpar alternativas</button>
+      </div>
+    </div>
+
+    <div class="row" id="rowMatchColumns" style="display:none;">
+      <label>Associar colunas (match_columns)</label>
+      <div class="hint">Informe itens por linha. Mapeamento aceita "1=2" (linha esquerda = linha direita) ou "L1=R2".</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div>
+          <div class="hint" style="margin-bottom:6px;">Coluna A (esquerda)</div>
+          <textarea id="mcLeft" rows="6" placeholder="Ex.:\nIniciação\nPlanejamento\nExecução"></textarea>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:6px;">Coluna B (direita)</div>
+          <textarea id="mcRight" rows="6" placeholder="Ex.:\nTermo de abertura\nEAP\nControlar escopo"></textarea>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <div class="hint">Gabarito (answerKey)</div>
+          <button class="btn secondary" type="button" id="mcAutoMap">Auto mapear por ordem</button>
+        </div>
+        <textarea id="mcMap" rows="4" placeholder="Ex.:\n1=2\n2=1\n3=3"></textarea>
       </div>
     </div>
 
@@ -277,6 +307,7 @@
           <select id="tipoNav">
             <option value="single">Opção única (rádio)</option>
             <option value="multi">Múltipla escolha (checkbox)</option>
+            <option value="match_columns">Associar colunas (arrastar)</option>
           </select>
         </div>
         <div>
@@ -284,6 +315,13 @@
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="checkbox" id="seedNav" />
             <span class="hint">Disponibilizar para usuários do gratuito?</span>
+          </div>
+        </div>
+        <div>
+          <label for="isPretestNav">Pré-teste</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" id="isPretestNav" />
+            <span class="hint">Marca como pré-teste (não conta para pontuação)</span>
           </div>
         </div>
         <div>
@@ -323,13 +361,35 @@
         <input type="text" id="dicaNav" placeholder="Dica curta" />
       </div>
 
-      <div class="row">
+      <div class="row" id="rowAlternativasNav">
         <label>Alternativas</label>
         <div class="hint">Marque a correta. No tipo "Opção única" só é permitido 1 correta.</div>
         <div id="optsNav" class="opts"></div>
         <div class="actions">
           <button class="btn secondary" id="addOptNav">+ Adicionar alternativa</button>
           <button class="btn secondary" id="clearOptsNav">Limpar alternativas</button>
+        </div>
+      </div>
+
+      <div class="row" id="rowMatchColumnsNav" style="display:none;">
+        <label>Associar colunas (match_columns)</label>
+        <div class="hint">Informe itens por linha. Mapeamento aceita "1=2" (linha esquerda = linha direita) ou "L1=R2".</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <div class="hint" style="margin-bottom:6px;">Coluna A (esquerda)</div>
+            <textarea id="mcLeftNav" rows="6" placeholder="Ex.:\nIniciação\nPlanejamento\nExecução"></textarea>
+          </div>
+          <div>
+            <div class="hint" style="margin-bottom:6px;">Coluna B (direita)</div>
+            <textarea id="mcRightNav" rows="6" placeholder="Ex.:\nTermo de abertura\nEAP\nControlar escopo"></textarea>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <div class="hint">Gabarito (answerKey)</div>
+            <button class="btn secondary" type="button" id="mcAutoMapNav">Auto mapear por ordem</button>
+          </div>
+          <textarea id="mcMapNav" rows="4" placeholder="Ex.:\n1=2\n2=1\n3=3"></textarea>
         </div>
       </div>
 
@@ -509,6 +569,8 @@
     $('addOpt').onclick = function(e){ e.preventDefault(); $('opts').appendChild(makeOptRow()); };
     $('clearOpts').onclick = function(e){ e.preventDefault(); $('opts').innerHTML=''; ensureAtLeastTwo(); setTimeout(()=>{ if (window.initAlternativesDistribution) window.initAlternativesDistribution(); },0); };
     $('tipo').addEventListener('change', ()=>{
+      try { applyTipoVisibility(''); } catch(_){ }
+      if ($('tipo').value === 'match_columns') return;
       // Rebuild checks to correct control type
       const list = $('opts');
       const current = Array.from(list.children).map(row => ({
@@ -551,6 +613,113 @@
       }
       return out;
     }
+
+    function isMatchColumnsType(v){
+      try { return String(v || '').trim().toLowerCase() === 'match_columns'; } catch(_){ return false; }
+    }
+
+    function applyTipoVisibility(suffix){
+      try {
+        const suf = suffix || '';
+        const sel = $(suf ? ('tipo' + suf) : 'tipo');
+        const isMatch = isMatchColumnsType(sel && sel.value);
+        const rowAlt = $(suf ? ('rowAlternativas' + suf) : 'rowAlternativas');
+        const rowMC = $(suf ? ('rowMatchColumns' + suf) : 'rowMatchColumns');
+        if (rowAlt) rowAlt.style.display = isMatch ? 'none' : '';
+        if (rowMC) rowMC.style.display = isMatch ? '' : 'none';
+      } catch(_){ }
+    }
+
+    function mcParseLines(raw){
+      try {
+        return String(raw || '')
+          .split(/\r?\n/)
+          .map(s => String(s || '').trim())
+          .filter(Boolean);
+      } catch(_){ return []; }
+    }
+
+    function mcBuildSpecFromInputs(suffix){
+      const suf = suffix || '';
+      const leftLines = mcParseLines($(suf ? ('mcLeft' + suf) : 'mcLeft')?.value || '');
+      const rightLines = mcParseLines($(suf ? ('mcRight' + suf) : 'mcRight')?.value || '');
+      const mapRaw = String($(suf ? ('mcMap' + suf) : 'mcMap')?.value || '').trim();
+
+      if (leftLines.length < 2) return { ok: false, message: 'Coluna A deve ter pelo menos 2 itens.' };
+      if (rightLines.length < 2) return { ok: false, message: 'Coluna B deve ter pelo menos 2 itens.' };
+
+      const left = leftLines.map((text, i) => ({ id: 'L' + String(i + 1), text }));
+      const right = rightLines.map((text, i) => ({ id: 'R' + String(i + 1), text }));
+      const rightIds = new Set(right.map(r => String(r.id)));
+
+      function parseSideRef(token, sidePrefix){
+        const t = String(token || '').trim();
+        if (!t) return null;
+        if (/^\d+$/.test(t)) return sidePrefix + t;
+        const m = t.match(/^([LR])(\d+)$/i);
+        if (m) return (String(m[1]).toUpperCase() + m[2]);
+        return null;
+      }
+
+      const answerKey = {};
+
+      if (mapRaw) {
+        const lines = mapRaw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        for (const line of lines) {
+          const parts = line.split(/\s*=\s*/);
+          if (parts.length !== 2) continue;
+          const l = parseSideRef(parts[0], 'L');
+          const r = parseSideRef(parts[1], 'R');
+          if (!l || !r) continue;
+          answerKey[l] = r;
+        }
+      }
+
+      // If mapping is empty, default to order mapping (1->1, 2->2...)
+      if (Object.keys(answerKey).length === 0) {
+        const n = Math.min(left.length, right.length);
+        for (let i = 0; i < n; i++) answerKey['L' + String(i + 1)] = 'R' + String(i + 1);
+      }
+
+      // Validate completeness + one-to-one
+      const usedRight = new Set();
+      for (const l of left) {
+        const lid = String(l.id);
+        const rid = answerKey[lid];
+        if (!rid) return { ok: false, message: 'Gabarito incompleto: falta mapeamento para ' + lid + '.' };
+        if (!rightIds.has(String(rid))) return { ok: false, message: 'Gabarito inválido: ' + lid + ' aponta para ' + rid + ' que não existe.' };
+        if (usedRight.has(String(rid))) return { ok: false, message: 'Gabarito inválido: um item da Coluna B foi usado mais de uma vez.' };
+        usedRight.add(String(rid));
+      }
+
+      return {
+        ok: true,
+        spec: {
+          kind: 'match_columns',
+          left,
+          right,
+          answerKey,
+          shuffleRight: true,
+          oneToOne: true,
+        }
+      };
+    }
+
+    function mcAutoMapByOrder(suffix){
+      try {
+        const suf = suffix || '';
+        const leftLines = mcParseLines($(suf ? ('mcLeft' + suf) : 'mcLeft')?.value || '');
+        const rightLines = mcParseLines($(suf ? ('mcRight' + suf) : 'mcRight')?.value || '');
+        const n = Math.min(leftLines.length, rightLines.length);
+        const lines = [];
+        for (let i = 1; i <= n; i++) lines.push(String(i) + '=' + String(i));
+        const ta = $(suf ? ('mcMap' + suf) : 'mcMap');
+        if (ta) ta.value = lines.join('\n');
+      } catch(_){ }
+    }
+
+    try { $('mcAutoMap').addEventListener('click', ()=> mcAutoMapByOrder('')); } catch(_){ }
+    try { $('mcAutoMapNav').addEventListener('click', ()=> mcAutoMapByOrder('Nav')); } catch(_){ }
 
     function getSelectLabel(selectId, value){
       try {
@@ -1215,44 +1384,53 @@
       // Checagem duplicata (usa função compartilhada; aborta se existir)
       const dupId = await checkDuplicate(true);
       if (dupId) { $('status').textContent = 'Duplicada: já existe (ID ' + dupId + ')'; return; }
-      // Sanitiza alternativas diretamente antes de ler (remove numeração, rótulos A/B/C, pontos). Também interpreta prefixo * para marcar correta.
-      (function(){
-        try {
-          const tipoAtual = $('tipo').value;
-          const rows = Array.from(document.querySelectorAll('#opts .opt'));
-          let firstMarkedSeen = false;
-          rows.forEach(r => {
-            const inp = r.querySelector('input[type=text]');
-            const check = r.querySelector('input[type="checkbox"],input[type="radio"]');
-            if (!inp) return;
-            let val = String(inp.value||'').trim();
-            if (!val) return;
-            let mark = false;
-            if (val.startsWith('*')) { mark = true; val = val.replace(/^\*+\s*/, '').trim(); }
-            val = val.replace(/^(\(?\s*\d+\)?\s*[\.\)\-:])\s*/, '');
-            val = val.replace(/^\s*\d+\s+/, '');
-            val = val.replace(/^(\(?\s*[A-Za-z]\)?\s*[\.\)\-:])\s*/, '');
-            val = val.replace(/^\s*[A-Za-z]\s+/, '');
-            val = val.replace(/^\s*\.+\s*/, '');
-            val = val.replace(/\s{2,}/g, ' ').trim();
-            inp.value = val;
-            if (check){
-              if (tipoAtual === 'multi') {
-                if (mark) check.checked = true; // mantém múltiplas
-              } else {
-                if (mark && !firstMarkedSeen){
-                  firstMarkedSeen = true;
-                  check.checked = true;
-                  try { document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(radio=>{ if (radio!==check) radio.checked=false; }); } catch(_){ }
+      const isMatch = isMatchColumnsType(tiposlug);
+      let options = [];
+      let interacao = undefined;
+      if (isMatch) {
+        const built = mcBuildSpecFromInputs('');
+        if (!built.ok) { alert(built.message || 'Interação inválida'); return; }
+        interacao = built.spec;
+      } else {
+        // Sanitiza alternativas diretamente antes de ler (remove numeração, rótulos A/B/C, pontos). Também interpreta prefixo * para marcar correta.
+        (function(){
+          try {
+            const tipoAtual = $('tipo').value;
+            const rows = Array.from(document.querySelectorAll('#opts .opt'));
+            let firstMarkedSeen = false;
+            rows.forEach(r => {
+              const inp = r.querySelector('input[type=text]');
+              const check = r.querySelector('input[type="checkbox"],input[type="radio"]');
+              if (!inp) return;
+              let val = String(inp.value||'').trim();
+              if (!val) return;
+              let mark = false;
+              if (val.startsWith('*')) { mark = true; val = val.replace(/^\*+\s*/, '').trim(); }
+              val = val.replace(/^(\(?\s*\d+\)?\s*[\.\)\-:])\s*/, '');
+              val = val.replace(/^\s*\d+\s+/, '');
+              val = val.replace(/^(\(?\s*[A-Za-z]\)?\s*[\.\)\-:])\s*/, '');
+              val = val.replace(/^\s*[A-Za-z]\s+/, '');
+              val = val.replace(/^\s*\.+\s*/, '');
+              val = val.replace(/\s{2,}/g, ' ').trim();
+              inp.value = val;
+              if (check){
+                if (tipoAtual === 'multi') {
+                  if (mark) check.checked = true; // mantém múltiplas
+                } else {
+                  if (mark && !firstMarkedSeen){
+                    firstMarkedSeen = true;
+                    check.checked = true;
+                    try { document.querySelectorAll('#opts input[type=radio][name=correta]').forEach(radio=>{ if (radio!==check) radio.checked=false; }); } catch(_){ }
+                  }
                 }
               }
-            }
-          });
-        } catch(_){ }
-      })();
-      const options = readOptions();
-      if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
-      if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+            });
+          } catch(_){ }
+        })();
+        options = readOptions();
+        if (options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
+        if (tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+      }
 
       const sessionUserId = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
       if (!sessionUserId){ alert('Sessão sem userId. Faça login novamente.'); return; }
@@ -1260,6 +1438,7 @@
         descricao,
         tiposlug,
         seed: !!$('seed').checked,
+        is_pretest: !!$('isPretest').checked,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
@@ -1274,6 +1453,7 @@
         explicacao: explicacao || undefined,
         referencia: referencia || undefined,
         options,
+        interacao: interacao,
         // Audit: backend should use this to set respostaopcao.CriadoUsuario
         createdByUserId: sessionUserId
       };
@@ -1296,6 +1476,7 @@
       $('explicacao').value = '';
       try { $('referencia').value = ''; } catch(_){ }
       try { $('seed').checked = false; } catch{}
+      try { $('isPretest').checked = false; } catch{}
       // limpar selects e tipo
       try { $('examType').value = ''; } catch{}
       try { $('versaoExame').value = ''; } catch{}
@@ -1389,6 +1570,7 @@
         'versaoExameNav',
         'tipoNav',
         'seedNav',
+        'isPretestNav',
         'iddominiogeralNav',
         'iddominioNav',
         'grupoNav',
@@ -1509,7 +1691,9 @@
 
         $('descricaoNav').value = q.descricao || '';
         $('tipoNav').value = (q.tiposlug || 'single');
+        try { applyTipoVisibility('Nav'); } catch(_){ }
         try { $('seedNav').checked = !!q.seed; } catch(_){ }
+        try { $('isPretestNav').checked = !!(q.is_pretest ?? q.isPretest); } catch(_){ }
         
         // Wait for selects to be populated before setting values
         await Promise.all([
@@ -1540,13 +1724,41 @@
           $('examTypeNav').value = String(q.examType.id); 
         }
 
-        // Build options
+        // Populate match_columns editor if applicable
+        try {
+          if (isMatchColumnsType(q.tiposlug)) {
+            const inter = (q && (q.interacao || q.interacaospec)) ? (q.interacao || q.interacaospec) : null;
+            const left = Array.isArray(inter && inter.left) ? inter.left : [];
+            const right = Array.isArray(inter && inter.right) ? inter.right : [];
+            const ak = (inter && inter.answerKey && typeof inter.answerKey === 'object') ? inter.answerKey : {};
+            try { $('mcLeftNav').value = left.map(it => (it && (it.text || it.descricao) ? String(it.text || it.descricao) : '')).filter(Boolean).join('\n'); } catch(_){ }
+            try { $('mcRightNav').value = right.map(it => (it && (it.text || it.descricao) ? String(it.text || it.descricao) : '')).filter(Boolean).join('\n'); } catch(_){ }
+            try {
+              const rightIndex = new Map(right.map((it, idx) => [String(it && it.id), idx + 1]));
+              const mapLines = [];
+              for (let i = 0; i < left.length; i++) {
+                const lid = String(left[i] && left[i].id);
+                const rid = ak ? ak[lid] : null;
+                const rPos = rightIndex.has(String(rid)) ? rightIndex.get(String(rid)) : null;
+                if (rPos != null) mapLines.push(String(i + 1) + '=' + String(rPos));
+                else if (rid != null) mapLines.push(lid + '=' + String(rid));
+              }
+              $('mcMapNav').value = mapLines.join('\n');
+            } catch(_){ }
+          } else {
+            try { $('mcLeftNav').value = ''; $('mcRightNav').value = ''; $('mcMapNav').value = ''; } catch(_){ }
+          }
+        } catch(_){ }
+
+        // Build options (only for basic types)
         const list = $('optsNav');
         list.innerHTML = '';
-        const arr = Array.isArray(q.options) ? q.options : [];
-        if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta, o.explicacao || '', o.id)));
+        if (!isMatchColumnsType(q.tiposlug)) {
+          const arr = Array.isArray(q.options) ? q.options : [];
+          if (arr.length){ arr.forEach(o => list.appendChild(makeOptRowNav(o.descricao || '', !!o.correta, o.explicacao || '', o.id)));
+          }
+          ensureAtLeastTwoNav();
         }
-        ensureAtLeastTwoNav();
 
         // Default: lock editing until the user explicitly enables it.
         navSetEditing(false);
@@ -1680,6 +1892,12 @@
     $('addOptNav').onclick = function(e){ e.preventDefault(); $('optsNav').appendChild(makeOptRowNav()); };
     $('clearOptsNav').onclick = function(e){ e.preventDefault(); $('optsNav').innerHTML=''; ensureAtLeastTwoNav(); };
     $('tipoNav').addEventListener('change', ()=>{
+      try { applyTipoVisibility('Nav'); } catch(_){ }
+      if ($('tipoNav').value === 'match_columns') {
+        // Keep edit lock state applied even when alternatives UI is hidden
+        navSetEditing(!!navState.editEnabled);
+        return;
+      }
       const list = $('optsNav');
       const current = Array.from(list.children).map(row => ({
         text: row.querySelector('input[type=text]')?.value || '',
@@ -1717,11 +1935,20 @@
       const referencia = ($('referenciaNav')?.value || '').trim();
       if (!descricao){ alert('Informe o enunciado'); return; }
       // Nota: verificação de duplicata deliberadamente omitida em updates.
-      const options = readOptionsNav();
-      // Permite atualizar apenas a questão (sem mexer em opções) quando não há opções informadas.
-      // Se o usuário informou ao menos 1 alternativa, então exige pelo menos 2.
-      if (options.length > 0 && options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
-      if (options.length > 0 && tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+      const isMatch = isMatchColumnsType(tiposlug);
+      let options = [];
+      let interacao = undefined;
+      if (isMatch) {
+        const built = mcBuildSpecFromInputs('Nav');
+        if (!built.ok) { alert(built.message || 'Interação inválida'); return; }
+        interacao = built.spec;
+      } else {
+        options = readOptionsNav();
+        // Permite atualizar apenas a questão (sem mexer em opções) quando não há opções informadas.
+        // Se o usuário informou ao menos 1 alternativa, então exige pelo menos 2.
+        if (options.length > 0 && options.length < 2){ alert('Informe ao menos duas alternativas'); return; }
+        if (options.length > 0 && tiposlug === 'single' && options.filter(o=>o.correta).length !== 1){ alert('Selecione exatamente 1 alternativa correta'); return; }
+      }
 
       // Clear any stale status from previous duplicate checks
       try { navSetStatus(''); } catch(_){ }
@@ -1750,6 +1977,7 @@
         descricao,
         tiposlug,
         seed: !!$('seedNav').checked,
+        is_pretest: !!$('isPretestNav').checked,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
         iddominio: iddominio ? Number(iddominio) : undefined,
@@ -1764,6 +1992,7 @@
         explicacao: explicacao || undefined,
         referencia: referencia || undefined,
         options,
+        interacao: interacao,
         // Audit: backend should use this to set respostaopcao.AlteradoUsuario
         updatedByUserId: sessionUserIdUpdate
       };
@@ -1815,6 +2044,7 @@
     loadTasks('idtask');
     ensureAtLeastTwo();
     setupImageUpload('imagemFile', 'imagemUrl', 'imagemPreview');
+    try { applyTipoVisibility(''); } catch(_){ }
     initTabs();
 
     // init nav - prepare controls but don't load yet

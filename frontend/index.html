@@ -1805,6 +1805,33 @@
                 </form>
                 <div id="resetPasswordOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;color:var(--text);white-space:pre-wrap"></div>
             </div>
+
+            <!-- Accordion: Emular Questões por IDs -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🧪 Emular Questões (IDs)</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">
+                        Inicia um exame completo usando exatamente os IDs informados (admin-only). Aceita separadores como vírgula, espaço e quebra de linha. Máx: 200.
+                    </p>
+                    <div style="display:grid;gap:10px">
+                        <textarea id="adminEmulatorQuestionIds" rows="4" placeholder="Ex: 123, 456, 789\n1011 1213" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem;resize:vertical"></textarea>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button id="adminEmulatorStartBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">
+                                Iniciar exame com esses IDs
+                            </button>
+                            <button id="adminEmulatorClearBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer">
+                                Limpar
+                            </button>
+                        </div>
+                        <div id="adminEmulatorOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+                    </div>
+                </div>
+            </div>
             
             <!-- Accordion: Outras Ferramentas -->
             <div id="adminAccordionTools" class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
@@ -2180,6 +2207,7 @@
                     if (resp.ok) {
                         const user = await resp.json();
                         if (user && user.TipoUsuario === 'admin') {
+                            try { window.__isAdmin = true; } catch(_){ }
                             const adminCard = document.getElementById('card-admin');
                             if (adminCard) adminCard.style.display = '';
                         }
@@ -2187,6 +2215,124 @@
                 } catch(e) {
                     logger.warn('Admin check failed:', e);
                 }
+            })();
+
+            // Admin: emulator (start exam from explicit question IDs)
+            (function initAdminEmulator(){
+                const idsEl = document.getElementById('adminEmulatorQuestionIds');
+                const startBtn = document.getElementById('adminEmulatorStartBtn');
+                const clearBtn = document.getElementById('adminEmulatorClearBtn');
+                const outEl = document.getElementById('adminEmulatorOutput');
+                if (!idsEl || !startBtn || !clearBtn || !outEl) return;
+
+                function setOut(msg){
+                    outEl.style.display = 'block';
+                    outEl.textContent = msg || '';
+                }
+
+                function parseIds(text){
+                    const s = String(text || '');
+                    const m = s.match(/\d+/g) || [];
+                    const raw = m.map(x => Math.floor(Number(x))).filter(n => Number.isFinite(n) && n > 0);
+                    const seen = new Set();
+                    const uniq = [];
+                    for (const id of raw){
+                        if (!seen.has(id)) { seen.add(id); uniq.push(id); }
+                    }
+                    return uniq;
+                }
+
+                function genTempSessionId(){
+                    return 'tmp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8);
+                }
+
+                async function ensureAdmin(){
+                    try { if (window.__isAdmin === true) return true; } catch(_){ }
+
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const headers = {};
+
+                    // Prefer sending the same identity header the backend expects for auth.
+                    try {
+                        const identity = (localStorage.getItem('nomeUsuario') || localStorage.getItem('sessionToken') || '').trim();
+                        if (identity) headers['X-Session-Token'] = identity;
+                    } catch(_){ }
+
+                    // Include JWT variants used across the codebase (best-effort).
+                    try {
+                        const jwtTokA = (localStorage.getItem('jwtToken')||'').trim();
+                        const jwtTypeA = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                        if (jwtTokA) headers['Authorization'] = `${jwtTypeA} ${jwtTokA}`;
+                    } catch(_){ }
+                    try {
+                        const jwtTokB = (localStorage.getItem('jwt')||'').trim();
+                        const jwtTypeB = (localStorage.getItem('jwt_type')||'Bearer').trim()||'Bearer';
+                        if (!headers['Authorization'] && jwtTokB) headers['Authorization'] = `${jwtTypeB} ${jwtTokB}`;
+                    } catch(_){ }
+
+                    // Primary: RBAC/requireAdmin probe (aligns with backend enforcement)
+                    try {
+                        const resp = await fetch(base + '/api/admin/exams/probe', { method: 'GET', headers, credentials: 'include' });
+                        if (resp.ok || resp.status === 204) {
+                            try { window.__isAdmin = true; } catch(_){ }
+                            return true;
+                        }
+                    } catch(_){ }
+
+                    // Fallback: legacy derived flag (email/username-based)
+                    try {
+                        const resp2 = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
+                        if (!resp2.ok) return false;
+                        const user = await resp2.json().catch(()=>null);
+                        const ok = !!(user && user.TipoUsuario === 'admin');
+                        if (ok) { try { window.__isAdmin = true; } catch(_){ } }
+                        return ok;
+                    } catch(_){
+                        return false;
+                    }
+                }
+
+                startBtn.addEventListener('click', async ()=>{
+                    const isAdmin = await ensureAdmin();
+                    if (!isAdmin){
+                        alert('Somente admin pode emular exame por IDs.');
+                        return;
+                    }
+
+                    const ids = parseIds(idsEl.value);
+                    if (!ids.length){
+                        setOut('Informe pelo menos 1 ID.');
+                        return;
+                    }
+                    if (ids.length > 200){
+                        setOut(`Muitos IDs: ${ids.length}. Máximo permitido: 200.`);
+                        return;
+                    }
+
+                    try {
+                        localStorage.setItem('examEmulatorQuestionIds', JSON.stringify(ids));
+                        localStorage.setItem('examQuestionCount', String(ids.length));
+                        // Force a fresh session so cached questions won't be reused
+                        const oldSid = localStorage.getItem('currentSessionId') || '';
+                        const newSid = genTempSessionId();
+                        localStorage.setItem('tempSessionId', newSid);
+                        localStorage.setItem('currentSessionId', newSid);
+                        try { if (oldSid) localStorage.removeItem(`questions_${oldSid}`); } catch(_){ }
+                        try { sessionStorage.setItem('startExam', 'true'); } catch(_){ }
+                    } catch(e){
+                        setOut('Falha ao gravar no localStorage: ' + (e && e.message ? e.message : String(e)));
+                        return;
+                    }
+
+                    setOut(`OK. ${ids.length} ID(s) salvos. Redirecionando para o exame...`);
+                    window.location.assign('/pages/examFull.html');
+                });
+
+                clearBtn.addEventListener('click', ()=>{
+                    try { idsEl.value = ''; } catch(_){ }
+                    try { localStorage.removeItem('examEmulatorQuestionIds'); } catch(_){ }
+                    setOut('Limpo.');
+                });
             })();
             
             if (adminModalClose && adminModal) {
@@ -3125,28 +3271,52 @@
     
     <!-- Service Worker Registration -->
     <script>
-        // Register SW only in secure http/https contexts (not file://)
-        (function registerSW(){
+        // No-cache mode: do NOT register a Service Worker.
+        // Also proactively unregister any previously-installed SW and clear Cache Storage
+        // so the app never depends on stale cached assets.
+        (function disableSW(){
             try {
                 const isHttp = /^https?:$/i.test(window.location.protocol);
-                if (!('serviceWorker' in navigator) || !isHttp || !window.isSecureContext) return;
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('/sw.js')
-                        .then(registration => {
-                            logger.info('[SW] Registered successfully:', registration.scope);
-                            registration.addEventListener('updatefound', () => {
-                                const newWorker = registration.installing;
-                                logger.info('[SW] Update found');
-                                newWorker.addEventListener('statechange', () => {
-                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        logger.info('[SW] New version available, reload to update');
-                                    }
-                                });
-                            });
-                        })
-                        .catch(err => logger.error('[SW] Registration failed:', err));
+                if (!isHttp) return;
+                if (!('serviceWorker' in navigator)) return;
+                window.addEventListener('load', async () => {
+                    let wasControlled = false;
+                    try { wasControlled = !!(navigator.serviceWorker && navigator.serviceWorker.controller); } catch(_){ }
+                    try {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all((regs || []).map(r => r.unregister()));
+                        try { logger.info('[SW] Unregistered existing registrations'); } catch(_){ }
+                    } catch(e) {
+                        try { logger.warn('[SW] Failed to unregister:', e); } catch(_){ }
+                    }
+                    try {
+                        if (window.caches && typeof window.caches.keys === 'function') {
+                            const keys = await window.caches.keys();
+                            await Promise.all((keys || []).map(k => window.caches.delete(k)));
+                            try { logger.info('[SW] Cleared Cache Storage'); } catch(_){ }
+                        }
+                    } catch(e) {
+                        try { logger.warn('[SW] Failed to clear Cache Storage:', e); } catch(_){ }
+                    }
+
+                    // If this page was controlled by an old SW, reload once so it stops intercepting fetches.
+                    try {
+                        if (wasControlled) {
+                            const k = '__swKillReloadAt';
+                            const last = localStorage.getItem(k);
+                            const now = Date.now();
+                            const lastMs = last ? Date.parse(last) : NaN;
+                            const recently = Number.isFinite(lastMs) && (now - lastMs) < (10 * 60 * 1000);
+                            if (!recently) {
+                                localStorage.setItem(k, new Date(now).toISOString());
+                                setTimeout(() => {
+                                    try { window.location.reload(); } catch(_){ }
+                                }, 60);
+                            }
+                        }
+                    } catch(_){ }
                 });
-            } catch(e){ /* ignore in unsupported contexts */ }
+            } catch(e){ /* ignore */ }
         })();
     </script>
                 <!-- Dynamic load of bottom navigation component -->

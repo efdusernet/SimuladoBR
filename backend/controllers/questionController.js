@@ -1,6 +1,7 @@
 const sequelize = require('../config/database');
 const { logger } = require('../utils/logger');
 const { badRequest, conflict, notFound, unauthorized, internalError } = require('../middleware/errors');
+const matchColumns = require('../utils/matchColumns');
 const { XMLParser } = require('fast-xml-parser');
 const fs = require('fs');
 const path = require('path');
@@ -114,6 +115,32 @@ exports.createQuestion = async (req, res, next) => {
 		const b = req.body || {};
 		const descricao = (b.descricao || '').trim();
 		if (!descricao) return next(badRequest('descricao required', 'DESCRICAO_REQUIRED'));
+
+		function parseOptionalBoolean(v){
+			if (v == null) return null;
+			if (typeof v === 'boolean') return v;
+			if (typeof v === 'number') {
+				if (v === 1) return true;
+				if (v === 0) return false;
+				return null;
+			}
+			if (typeof v === 'string') {
+				const s = v.trim().toLowerCase();
+				if (s === 'true' || s === '1' || s === 't' || s === 'yes' || s === 'y') return true;
+				if (s === 'false' || s === '0' || s === 'f' || s === 'no' || s === 'n') return false;
+				return null;
+			}
+			return null;
+		}
+
+		// Optional: mark question as pretest (used by full exam selection).
+		let is_pretest = false;
+		if (Object.prototype.hasOwnProperty.call(b, 'is_pretest') || Object.prototype.hasOwnProperty.call(b, 'isPretest') || Object.prototype.hasOwnProperty.call(b, 'is_preTeste') || Object.prototype.hasOwnProperty.call(b, 'isPreTeste')) {
+			const raw = Object.prototype.hasOwnProperty.call(b, 'is_pretest') ? b.is_pretest : (Object.prototype.hasOwnProperty.call(b, 'isPretest') ? b.isPretest : (Object.prototype.hasOwnProperty.call(b, 'is_preTeste') ? b.is_preTeste : b.isPreTeste));
+			const parsed = parseOptionalBoolean(raw);
+			if (parsed == null) return next(badRequest('is_pretest invalid', 'IS_PRETEST_INVALID'));
+			is_pretest = parsed;
+		}
 		// seed is mandatory
 		let seed = null;
 		if (typeof b.seed === 'boolean') seed = b.seed;
@@ -134,6 +161,35 @@ exports.createQuestion = async (req, res, next) => {
 			if (['multi','multiple','checkbox'].includes(tiposlug)) multipla = true; else if (['single','radio'].includes(tiposlug)) multipla = false;
 		}
 		if (multipla == null) multipla = false;
+
+		// Interaction spec (advanced types). For now we support match_columns stored in questao.interacaospec (JSONB).
+		function parseMaybeJson(v){
+			if (v == null) return null;
+			if (typeof v === 'string') {
+				const s = v.trim();
+				if (!s) return null;
+				try { return JSON.parse(s); } catch(_) { return null; }
+			}
+			return v;
+		}
+		const hasInteracaoInput = Object.prototype.hasOwnProperty.call(b, 'interacao') || Object.prototype.hasOwnProperty.call(b, 'interacaospec');
+		const interacaoRaw = Object.prototype.hasOwnProperty.call(b, 'interacao') ? b.interacao : (Object.prototype.hasOwnProperty.call(b, 'interacaospec') ? b.interacaospec : null);
+		const interacaoParsed = parseMaybeJson(interacaoRaw);
+		const isBasicType = (()=>{ try { const t = String(tiposlug || '').toLowerCase(); return (t === 'single' || t === 'radio' || t === 'multi' || t === 'multiple' || t === 'checkbox'); } catch(_) { return false; } })();
+		let interacaospec = null;
+		if (tiposlug && matchColumns.isMatchColumnsSlug(tiposlug)) {
+			const v = matchColumns.validateMatchColumnsSpec(interacaoParsed);
+			if (!v.ok) return next(badRequest(v.message || 'invalid interaction spec', v.code || 'MATCH_SPEC_INVALID'));
+			interacaospec = v.spec;
+		} else if (hasInteracaoInput) {
+			interacaospec = interacaoParsed;
+		} else if (isBasicType) {
+			interacaospec = null;
+		}
+		// IMPORTANT: sequelize.query replacements cannot safely bind plain objects; serialize JSONB payloads.
+		const interacaospecParam = interacaospec != null ? JSON.stringify(interacaospec) : null;
+
+
 		// Audit: usuário criador para respostaopcao (criadousuario / alteradousuario)
 		const createdByUserId = Number.isFinite(Number(b.createdByUserId)) ? Number(b.createdByUserId) : null;
 	const iddominio = Number.isFinite(Number(b.iddominio)) ? Number(b.iddominio) : 1;
@@ -194,16 +250,18 @@ exports.createQuestion = async (req, res, next) => {
 		const qCols = await _getPublicTableColumns('questao', t);
 		const hasQuestaoExp = qCols && qCols.has('explicacao');
 		const hasQuestaoRef = qCols && qCols.has('referencia');
+		const hasQuestaoInteracao = qCols && qCols.has('interacaospec');
+		const hasQuestaoPretest = qCols && qCols.has('is_pretest');
 		const insertQ = `INSERT INTO public.questao (
 			iddominio, idstatus, descricao, datacadastro, dataalteracao,
 			criadousuario, alteradousuario, excluido, seed, nivel,
-			idprincipio, dica, multiplaescolha, codigocategoria, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame${hasQuestaoExp ? ', explicacao' : ''}${hasQuestaoRef ? ', referencia' : ''}
+			idprincipio, dica, multiplaescolha, codigocategoria, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame${hasQuestaoPretest ? ', is_pretest' : ''}${hasQuestaoInteracao ? ', interacaospec' : ''}${hasQuestaoExp ? ', explicacao' : ''}${hasQuestaoRef ? ', referencia' : ''}
 		) VALUES (
 			:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 			:createdByUserId, :createdByUserId, false, :seed, 1,
-			:idprincipio, :dica, :multipla, :codigocategoria, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame${hasQuestaoExp ? ', :explicacao' : ''}${hasQuestaoRef ? ', :referencia' : ''}
+			:idprincipio, :dica, :multipla, :codigocategoria, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame${hasQuestaoPretest ? ', :is_pretest' : ''}${hasQuestaoInteracao ? ', :interacaospec' : ''}${hasQuestaoExp ? ', :explicacao' : ''}${hasQuestaoRef ? ', :referencia' : ''}
 		) RETURNING id`;
-		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, seed, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, createdByUserId, explicacao: explicacao || null, referencia: referencia || null }, type: sequelize.QueryTypes.INSERT, transaction: t });
+		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, seed, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, is_pretest, createdByUserId, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: referencia || null }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
 			// Safer: fetch with SELECT currval... but RETURNING should give us id in r[0][0].id depending on dialect
 			const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
@@ -223,7 +281,7 @@ exports.createQuestion = async (req, res, next) => {
 					correta: !!o.correta,
 					explicacao: (o.explicacao != null) ? String(o.explicacao).trim() : ''
 				}));
-			if (normalized.length >= 2) {
+			if (normalized.length >= 2 && !(tiposlug && matchColumns.isMatchColumnsSlug(tiposlug))) {
 				if (!multipla) {
 					let seen = false;
 					normalized.forEach(o => { if (o.correta) { if (!seen) { seen = true; } else { o.correta = false; } } });
@@ -307,8 +365,10 @@ exports.getQuestionById = async (req, res, next) => {
 		const qCols = await _getPublicTableColumns('questao');
 		const hasQuestaoExp = qCols && qCols.has('explicacao');
 		const hasQuestaoRef = qCols && qCols.has('referencia');
+		const hasQuestaoInteracao = qCols && qCols.has('interacaospec');
+		const hasQuestaoPretest = qCols && qCols.has('is_pretest');
 
-	const qsql = `SELECT q.id, q.descricao, q.tiposlug, q.iddominio, NULL AS codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
+	const qsql = `SELECT q.id, q.descricao, q.tiposlug, ${hasQuestaoInteracao ? 'q.interacaospec,' : ''} ${hasQuestaoPretest ? 'q.is_pretest,' : ''} q.iddominio, NULL AS codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
 						 q.seed,
 									 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
 									 ${hasQuestaoExp ? 'q.explicacao,' : ''}
@@ -338,10 +398,21 @@ exports.getQuestionById = async (req, res, next) => {
 		}
 		// NOTE: Não derivar explicação geral da questão a partir de explicações de alternativas.
 
+		const isPublicView = (()=>{ try { return String(req.originalUrl || '').includes('/questions/view/'); } catch(_) { return false; } })();
+		let interacao = null;
+		if (hasQuestaoInteracao && base.interacaospec != null) {
+			interacao = base.interacaospec;
+			if (matchColumns.isMatchColumnsSlug(base.tiposlug)) {
+				interacao = isPublicView ? matchColumns.toPublicMatchColumnsSpec(base.interacaospec) : matchColumns.normalizeMatchColumnsSpec(base.interacaospec);
+			}
+		}
+
 		return res.json({
 			id: base.id,
 			descricao: base.descricao,
 			tiposlug: base.tiposlug,
+			interacao,
+			is_pretest: (hasQuestaoPretest ? (base.is_pretest === true || base.is_pretest === 't') : false),
 			seed: base.seed === true || base.seed === 't',
 			iddominio: base.iddominio,
 			codareaconhecimento: base.codareaconhecimento,
@@ -373,8 +444,34 @@ exports.updateQuestion = async (req, res, next) => {
 		const b = req.body || {};
 		logQuestionSubmission({ route: 'updateQuestion:start', id, body: b });
 
+		function parseOptionalBoolean(v){
+			if (v == null) return null;
+			if (typeof v === 'boolean') return v;
+			if (typeof v === 'number') {
+				if (v === 1) return true;
+				if (v === 0) return false;
+				return null;
+			}
+			if (typeof v === 'string') {
+				const s = v.trim().toLowerCase();
+				if (s === 'true' || s === '1' || s === 't' || s === 'yes' || s === 'y') return true;
+				if (s === 'false' || s === '0' || s === 'f' || s === 'no' || s === 'n') return false;
+				return null;
+			}
+			return null;
+		}
+
 		const descricao = (b.descricao || '').trim();
 		if (!descricao) return next(badRequest('descricao required', 'DESCRICAO_REQUIRED'));
+
+		// Optional on update: if provided, update; if omitted, keep current.
+		let is_pretest = null;
+		if (Object.prototype.hasOwnProperty.call(b, 'is_pretest') || Object.prototype.hasOwnProperty.call(b, 'isPretest')) {
+			const raw = Object.prototype.hasOwnProperty.call(b, 'is_pretest') ? b.is_pretest : b.isPretest;
+			const parsed = parseOptionalBoolean(raw);
+			if (parsed == null) return next(badRequest('is_pretest invalid', 'IS_PRETEST_INVALID'));
+			is_pretest = parsed;
+		}
 		// seed is mandatory
 		let seed = null;
 		if (typeof b.seed === 'boolean') seed = b.seed;
@@ -394,6 +491,33 @@ exports.updateQuestion = async (req, res, next) => {
 			if (['multi','multiple','checkbox'].includes(tiposlug)) multipla = true; else if (['single','radio'].includes(tiposlug)) multipla = false;
 		}
 		if (multipla == null) multipla = false;
+
+		// Interaction spec (advanced types). For now we support match_columns stored in questao.interacaospec (JSONB).
+		function parseMaybeJson(v){
+			if (v == null) return null;
+			if (typeof v === 'string') {
+				const s = v.trim();
+				if (!s) return null;
+				try { return JSON.parse(s); } catch(_) { return null; }
+			}
+			return v;
+		}
+		const hasInteracaoInput = Object.prototype.hasOwnProperty.call(b, 'interacao') || Object.prototype.hasOwnProperty.call(b, 'interacaospec');
+		const interacaoRaw = Object.prototype.hasOwnProperty.call(b, 'interacao') ? b.interacao : (Object.prototype.hasOwnProperty.call(b, 'interacaospec') ? b.interacaospec : null);
+		const interacaoParsed = parseMaybeJson(interacaoRaw);
+		const isBasicType = (()=>{ try { const t = String(tiposlug || '').toLowerCase(); return (t === 'single' || t === 'radio' || t === 'multi' || t === 'multiple' || t === 'checkbox'); } catch(_) { return false; } })();
+		let interacaospec = null;
+		if (tiposlug && matchColumns.isMatchColumnsSlug(tiposlug)) {
+			const v = matchColumns.validateMatchColumnsSpec(interacaoParsed);
+			if (!v.ok) return next(badRequest(v.message || 'invalid interaction spec', v.code || 'MATCH_SPEC_INVALID'));
+			interacaospec = v.spec;
+		} else if (hasInteracaoInput) {
+			interacaospec = interacaoParsed;
+		} else if (isBasicType) {
+			interacaospec = null;
+		}
+		// IMPORTANT: sequelize.query replacements cannot safely bind plain objects; serialize JSONB payloads.
+		const interacaospecParam = interacaospec != null ? JSON.stringify(interacaospec) : null;
 		const iddominio = (b.iddominio != null && b.iddominio !== '') ? Number(b.iddominio) : null;
 		const codareaconhecimento = (b.codareaconhecimento != null && b.codareaconhecimento !== '') ? Number(b.codareaconhecimento) : null;
 		const codgrupoprocesso = (b.codgrupoprocesso != null && b.codgrupoprocesso !== '') ? Number(b.codgrupoprocesso) : null;
@@ -443,8 +567,13 @@ exports.updateQuestion = async (req, res, next) => {
 			const qCols = await _getPublicTableColumns('questao', t);
 			const hasQuestaoExp = qCols && qCols.has('explicacao');
 			const hasQuestaoRef = qCols && qCols.has('referencia');
+			const hasQuestaoInteracao = qCols && qCols.has('interacaospec');
+			const hasQuestaoPretest = qCols && qCols.has('is_pretest');
+			const shouldUpdateInteracao = Boolean(hasQuestaoInteracao) && (matchColumns.isMatchColumnsSlug(tiposlug) || isBasicType || hasInteracaoInput);
 			const upQ = `UPDATE public.questao SET
 				descricao = :descricao,
+				${hasQuestaoPretest ? 'is_pretest = COALESCE(:is_pretest, is_pretest),' : ''}
+				${shouldUpdateInteracao ? 'interacaospec = :interacaospec,' : ''}
 				${hasQuestaoExp ? 'explicacao = :explicacao,' : ''}
 				${hasQuestaoRef ? 'referencia = :referencia,' : ''}
 				tiposlug = :tiposlug,
@@ -464,7 +593,7 @@ exports.updateQuestion = async (req, res, next) => {
 				alteradousuario = :updatedByUserId,
 				dataalteracao = CURRENT_TIMESTAMP
 			WHERE id = :id`;
-			await sequelize.query(upQ, { replacements: { id, descricao, explicacao: explicacao || null, referencia: (referencia != null ? String(referencia) : null), tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+			await sequelize.query(upQ, { replacements: { id, descricao, is_pretest, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: (referencia != null ? String(referencia) : null), tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
 			// Opções (respostaopcao) + explicações (explicacaoguia)
 			// Regra:
@@ -524,13 +653,13 @@ exports.updateQuestion = async (req, res, next) => {
 					const toRemove = Array.from(existingIds).filter(x => !keepIds.has(x));
 					if (toRemove.length > 0) {
 						await sequelize.query(
-							'UPDATE public.respostaopcao SET excluido = TRUE, dataalteracao = CURRENT_TIMESTAMP, alteradousuario = :uid WHERE idquestao = :qid AND id = ANY(:ids)',
+							'UPDATE public.respostaopcao SET excluido = TRUE, dataalteracao = CURRENT_TIMESTAMP, alteradousuario = :uid WHERE idquestao = :qid AND id IN (:ids)',
 							{ replacements: { qid: id, ids: toRemove, uid: updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t }
 						);
 						// Also mark linked explanations as excluded (best-effort)
 						try {
 							await sequelize.query(
-								'UPDATE public.explicacaoguia SET excluido = TRUE, dataalteracao = CURRENT_TIMESTAMP WHERE idrespostaopcao = ANY(:ids)',
+								'UPDATE public.explicacaoguia SET excluido = TRUE, dataalteracao = CURRENT_TIMESTAMP WHERE idrespostaopcao IN (:ids)',
 								{ replacements: { ids: toRemove }, type: sequelize.QueryTypes.UPDATE, transaction: t }
 							);
 						} catch(_) { /* ignore */ }

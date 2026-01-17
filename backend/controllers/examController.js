@@ -1,9 +1,10 @@
 const db = require('../models');
 const { logger } = require('../utils/logger');
 const sequelize = require('../config/database');
-const { badRequest, unauthorized, notFound, internalError } = require('../middleware/errors');
+const { badRequest, unauthorized, forbidden, notFound, internalError } = require('../middleware/errors');
 const { AppError } = require('../middleware/errorHandler');
 const { verifyJwtAndGetActiveUser } = require('../utils/singleSession');
+const matchColumns = require('../utils/matchColumns');
 // Daily user exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
@@ -130,6 +131,54 @@ exports.selectQuestions = async (req, res, next) => {
     if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
     const user = authRes.user;
 
+    // Admin emulator: allow specifying explicit questionIds to avoid random selection.
+    // This is intentionally admin-only because it can bypass distribution rules.
+    const customQuestionIdsRaw = (req.body && Array.isArray(req.body.questionIds)) ? req.body.questionIds : null;
+    let customQuestionIds = null;
+    if (customQuestionIdsRaw && customQuestionIdsRaw.length) {
+      // Verify admin role membership (same logic as requireAdmin, but only when needed).
+      try {
+        const rows = await db.sequelize.query(
+          'SELECT 1 FROM public.user_role ur JOIN public.role r ON r.id = ur.role_id WHERE ur.user_id = :uid AND r.slug = :slug AND (r.ativo = TRUE OR r.ativo IS NULL) LIMIT 1',
+          { replacements: { uid: user.Id || user.id, slug: 'admin' }, type: db.Sequelize.QueryTypes.SELECT }
+        );
+        if (!rows || !rows.length) {
+          return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
+        }
+      } catch (err) {
+        const code = (err && err.original && err.original.code) || err.code || '';
+        const msg = (err && (err.message || err.toString())) || '';
+        const missingTable = code === '42P01' || /relation .* does not exist/i.test(msg);
+        if (missingTable) {
+          logger.warn('selectQuestions emulator: RBAC tables missing; denying with 403');
+          return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
+        }
+        logger.warn('selectQuestions emulator: role check failed; denying with 403. Error:', msg);
+        return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
+      }
+
+      // Normalize and validate IDs (must be unique to avoid answer collisions).
+      const ordered = customQuestionIdsRaw
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (!ordered.length) {
+        return next(badRequest('questionIds inválido', 'QUESTION_IDS_INVALID'));
+      }
+      if (ordered.length > 200) {
+        return next(badRequest('Máximo de 200 questões por emulação', 'QUESTION_IDS_TOO_MANY'));
+      }
+      const seen = new Set();
+      for (const id of ordered) {
+        if (seen.has(id)) {
+          return next(badRequest('questionIds não pode conter IDs repetidos', 'QUESTION_IDS_DUPLICATE'));
+        }
+        seen.add(id);
+      }
+      customQuestionIds = ordered;
+      // Override count to match explicit selection.
+      count = customQuestionIds.length;
+    }
+
     const bloqueio = Boolean(user.BloqueioAtivado);
     // Enforce hard cap for blocked users
     if (bloqueio && count > 25) {
@@ -167,25 +216,25 @@ exports.selectQuestions = async (req, res, next) => {
   
   // AND semantics across tabs; OR within each list
   // Using ANY() for safe array parameter binding
-  if (dominios && dominios.length) {
+  if (!customQuestionIds && dominios && dominios.length) {
     whereClauses.push(`q.iddominio = ANY(ARRAY[:dominios])`);
     replacements.dominios = dominios;
   }
-  if (areas && areas.length) {
+  if (!customQuestionIds && areas && areas.length) {
     whereClauses.push(`q.codareaconhecimento = ANY(ARRAY[:areas])`);
     replacements.areas = areas;
   }
-  if (grupos && grupos.length) {
+  if (!customQuestionIds && grupos && grupos.length) {
     whereClauses.push(`q.codgrupoprocesso = ANY(ARRAY[:grupos])`);
     replacements.grupos = grupos;
   }
-  if (categorias && categorias.length) {
+  if (!customQuestionIds && categorias && categorias.length) {
     whereClauses.push(`q.codigocategoria = ANY(ARRAY[:categorias])`);
     replacements.categorias = categorias;
   }
   
   // Excluir questões já respondidas se onlyNew ativo (premium)
-  if (onlyNew) {
+  if (onlyNew && !customQuestionIds) {
     try {
       const answeredSql = `SELECT DISTINCT aq.question_id AS qid
         FROM exam_attempt_answer aa
@@ -227,7 +276,8 @@ exports.selectQuestions = async (req, res, next) => {
     if (available < 1) {
       return next(badRequest('Not enough questions available', 'NOT_ENOUGH_QUESTIONS', { available }));
     }
-    // New selection path for full exam mode (distribution + pretest) else legacy random selection
+    // New selection path for full exam mode (distribution + pretest) else legacy random selection.
+    // Admin emulator path: explicit ordered selection.
     let payloadQuestions = [];
     let ids = [];
     const FULL_TOTAL = count; // requested total (e.g. 180)
@@ -237,6 +287,7 @@ exports.selectQuestions = async (req, res, next) => {
     const baseQuestionSelect = (extraWhere, limit, extraReplacements = {}) => {
       const queryReplacements = { ...replacements, limit, ...extraReplacements };
       return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl",
+              q.interacaospec AS interacaospec,
               eg.descricao AS explicacao
         FROM questao q
         LEFT JOIN explicacaoguia eg
@@ -255,7 +306,81 @@ exports.selectQuestions = async (req, res, next) => {
         LIMIT :limit`, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
     };
 
-    if (examMode === 'full') {
+    if (customQuestionIds && customQuestionIds.length) {
+      // Fetch the explicitly selected questions in a single query, then reorder to match input.
+      const qRows = await sequelize.query(
+        `SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl",
+                q.interacaospec AS interacaospec,
+                eg.descricao AS explicacao
+           FROM questao q
+      LEFT JOIN explicacaoguia eg
+             ON eg.idrespostaopcao = (
+                  SELECT ro.id
+                    FROM respostaopcao ro
+                   WHERE ro.idquestao = q.id
+                     AND (ro.iscorreta = TRUE OR ro.iscorreta = 't')
+                     AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+                   ORDER BY ro.id
+                   LIMIT 1
+             )
+            AND (eg.excluido = false OR eg.excluido IS NULL)
+          WHERE ${whereSqlUsed}
+            AND q.id IN (:ids)`,
+        { replacements: { ...replacements, ids: customQuestionIds }, type: sequelize.QueryTypes.SELECT }
+      );
+
+      const byId = new Map((qRows || []).map(r => [Number(r.id), r]));
+      const missing = customQuestionIds.filter(id => !byId.has(Number(id)));
+      if (missing.length) {
+        return next(badRequest('Algumas questões não estão disponíveis para emulação', 'QUESTION_IDS_NOT_AVAILABLE', { missing }));
+      }
+
+      // Fetch options once for all selected IDs (advanced interactions keep options empty)
+      let rawOptions = [];
+      try {
+        const optsQ = `SELECT id, idquestao, descricao
+          FROM respostaopcao
+          WHERE (excluido = FALSE OR excluido IS NULL) AND idquestao IN (:ids)
+          ORDER BY idquestao, id`;
+        rawOptions = await sequelize.query(optsQ, { replacements: { ids: customQuestionIds }, type: sequelize.QueryTypes.SELECT });
+      } catch(_) { rawOptions = []; }
+      const optsByQ = {};
+      rawOptions.forEach(o => {
+        const qid = Number(o.idquestao || o.IdQuestao);
+        if (!Number.isFinite(qid)) return;
+        if (!optsByQ[qid]) optsByQ[qid] = [];
+        optsByQ[qid].push({ id: o.id || o.Id, descricao: o.descricao || o.Descricao });
+      });
+
+      payloadQuestions = customQuestionIds.map((id) => {
+        const q = byId.get(Number(id));
+        const slug = (q && q.tiposlug ? String(q.tiposlug) : '').toLowerCase();
+        let type = null;
+        if (slug) {
+          if (slug === 'multi' || slug === 'multiple' || slug === 'checkbox') type = 'checkbox';
+          else if (slug === 'single' || slug === 'radio') type = 'radio';
+          else type = slug;
+        } else {
+          type = (q && (q.multiplaescolha === true || q.multiplaescolha === 't')) ? 'checkbox' : 'radio';
+        }
+        const advanced = type != null && type !== 'radio' && type !== 'checkbox';
+        const interacao = advanced && matchColumns.isMatchColumnsSlug(type)
+          ? matchColumns.toPublicMatchColumnsSpec(q.interacaospec)
+          : null;
+        return {
+          id: q.id,
+          descricao: q.descricao,
+          explicacao: q.explicacao,
+          imagem_url: q.imagem_url || null,
+          imagemUrl: q.imagem_url || q.imagemUrl || null,
+          type,
+          interacao,
+          options: advanced ? [] : (optsByQ[q.id] || []),
+        };
+      });
+
+      ids = customQuestionIds.slice();
+    } else if (examMode === 'full') {
       // 1) Pretest questions (q.is_pretest = true)
       const pretestRows = await baseQuestionSelect(`q.is_pretest = TRUE`, PRETEST_COUNT_TARGET);
       const actualPretestCount = pretestRows.length;
@@ -463,7 +588,11 @@ exports.selectQuestions = async (req, res, next) => {
         } else {
           type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
         }
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [], _isPreTest: q._isPreTest };
+        const advanced = type != null && type !== 'radio' && type !== 'checkbox';
+        const interacao = advanced && matchColumns.isMatchColumnsSlug(type)
+          ? matchColumns.toPublicMatchColumnsSpec(q.interacaospec)
+          : null;
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, interacao, options: advanced ? [] : (optsByQ[q.id] || []), _isPreTest: q._isPreTest };
       });
       // (removed post-mapping Q266 debug)
       ids = allIds;
@@ -497,7 +626,11 @@ exports.selectQuestions = async (req, res, next) => {
         } else {
           type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
         }
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [] };
+        const advanced = type != null && type !== 'radio' && type !== 'checkbox';
+        const interacao = advanced && matchColumns.isMatchColumnsSlug(type)
+          ? matchColumns.toPublicMatchColumnsSpec(q.interacaospec)
+          : null;
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, interacao, options: advanced ? [] : (optsByQ[q.id] || []) };
       });
       // (removed legacy Q266 debug)
     }
@@ -672,6 +805,109 @@ exports.submitAnswers = async (req, res, next) => {
     }
     if (!qids.length) return next(badRequest('no valid questionIds', 'NO_VALID_QUESTION_IDS'));
 
+    // Guard: match_columns questions must include a typed response payload on final submission.
+    // Otherwise they get persisted as null markers and are graded as wrong ('incomplete').
+    try {
+      if (!partial) {
+        const matchRows = await sequelize.query(
+          `SELECT id, tiposlug
+             FROM questao
+            WHERE id IN (:ids)`
+          , { replacements: { ids: qids }, type: sequelize.QueryTypes.SELECT }
+        );
+        const matchQids = (matchRows || [])
+          .filter(r => {
+            const slug = (r && r.tiposlug != null) ? String(r.tiposlug).trim().toLowerCase() : '';
+            return slug === 'match_columns' || slug === 'match-columns' || slug === 'matchcolumns';
+          })
+          .map(r => Number(r && r.id))
+          .filter(n => Number.isFinite(n) && n > 0);
+
+        if (matchQids.length) {
+          const missing = [];
+          for (const qid of matchQids) {
+            const a = (answers || []).find(x => Number(x && x.questionId) === Number(qid)) || null;
+            const isObj = a && typeof a === 'object';
+            const hasResponse = isObj && Object.prototype.hasOwnProperty.call(a, 'response') && a.response != null;
+            const hasPairs = isObj && Object.prototype.hasOwnProperty.call(a, 'pairs') && a.pairs != null;
+            if (!hasResponse && !hasPairs) missing.push(qid);
+          }
+          if (missing.length) {
+            let clientScriptVersion = null;
+            try {
+              clientScriptVersion = (req && req.body && (req.body.clientScriptVersion || (req.body.client && req.body.client.scriptVersion))) || null;
+            } catch(_){ clientScriptVersion = null; }
+
+            let clientScriptVersionHeader = null;
+            try {
+              clientScriptVersionHeader = (req && req.headers && (req.headers['x-client-script-version'] || req.headers['x-client-version'])) || null;
+            } catch(_){ clientScriptVersionHeader = null; }
+
+            let receivedBodyKeys = [];
+            try {
+              receivedBodyKeys = (req && req.body && typeof req.body === 'object') ? Object.keys(req.body) : [];
+            } catch(_){ receivedBodyKeys = []; }
+
+            let requestContentType = null;
+            try {
+              requestContentType = (req && req.headers && req.headers['content-type']) ? String(req.headers['content-type']) : null;
+            } catch(_){ requestContentType = null; }
+
+            let requestContentLength = null;
+            try {
+              requestContentLength = (req && req.headers && req.headers['content-length']) ? String(req.headers['content-length']) : null;
+            } catch(_){ requestContentLength = null; }
+            let receivedQuestionIds = [];
+            try {
+              receivedQuestionIds = (answers || [])
+                .map(a => (a && Object.prototype.hasOwnProperty.call(a, 'questionId')) ? a.questionId : null)
+                .map(v => {
+                  const n = Number(v);
+                  return Number.isFinite(n) ? n : null;
+                })
+                .filter(v => v != null);
+            } catch(_){ receivedQuestionIds = []; }
+
+            let receivedAnswersForMissing = [];
+            try {
+              receivedAnswersForMissing = missing.map(qid => {
+                const a = (answers || []).find(x => Number(x && x.questionId) === Number(qid)) || null;
+                if (!a || typeof a !== 'object') return { questionId: qid, present: false };
+                const keys = Object.keys(a);
+                return {
+                  questionId: qid,
+                  present: true,
+                  keys,
+                  optionId: Object.prototype.hasOwnProperty.call(a, 'optionId') ? a.optionId : undefined,
+                  optionIds: Object.prototype.hasOwnProperty.call(a, 'optionIds') ? a.optionIds : undefined,
+                  hasResponse: Object.prototype.hasOwnProperty.call(a, 'response') && a.response != null,
+                  responseType: Object.prototype.hasOwnProperty.call(a, 'response') ? (a.response === null ? 'null' : typeof a.response) : 'absent',
+                  hasPairs: Object.prototype.hasOwnProperty.call(a, 'pairs') && a.pairs != null,
+                  pairsType: Object.prototype.hasOwnProperty.call(a, 'pairs') ? (a.pairs === null ? 'null' : typeof a.pairs) : 'absent'
+                };
+              });
+            } catch(_){ receivedAnswersForMissing = []; }
+            return next(badRequest(
+              'Resposta de associação ausente (match_columns). Atualize a página e tente novamente.',
+              'MATCH_COLUMNS_RESPONSE_REQUIRED',
+              {
+                missing,
+                receivedQuestionIds,
+                receivedAnswersForMissing,
+                clientScriptVersion,
+                clientScriptVersionHeader,
+                receivedBodyKeys,
+                requestContentType,
+                requestContentLength
+              }
+            ));
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn('match_columns guard warning:', e);
+    }
+
     // Fetch IsPreTest flags for questions to exclude from scoring
     let pretestQids = new Set();
     if (attemptId) {
@@ -702,8 +938,14 @@ exports.submitAnswers = async (req, res, next) => {
     (answers || []).forEach(a => {
       const qid = Number(a && a.questionId);
       if (!Number.isFinite(qid)) return;
-      if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
+      const isObj = a && typeof a === 'object';
+      const hasResponse = isObj && Object.prototype.hasOwnProperty.call(a, 'response');
+      const hasPairs = isObj && !hasResponse && Object.prototype.hasOwnProperty.call(a, 'pairs');
+      if (hasResponse) {
         byQ.set(qid, { typed: true, response: a.response });
+      } else if (hasPairs) {
+        // Backward-compat: some clients send match_columns as { questionId, pairs: {...} }
+        byQ.set(qid, { typed: true, response: { pairs: a.pairs } });
       } else if (Array.isArray(a.optionIds)) {
         const ids = a.optionIds.map(Number).filter(n => Number.isFinite(n));
         byQ.set(qid, { multi: true, optionIds: ids });
@@ -713,12 +955,41 @@ exports.submitAnswers = async (req, res, next) => {
       }
     });
 
+    // Preload interaction specs for typed answers (e.g., match_columns)
+    const typedQids = Array.from(byQ.entries())
+      .filter(([, v]) => v && v.typed)
+      .map(([qid]) => Number(qid))
+      .filter(n => Number.isFinite(n) && n > 0);
+    const typedSpecByQ = new Map();
+    if (typedQids.length) {
+      try {
+        const rows = await sequelize.query(
+          'SELECT id, tiposlug, interacaospec FROM questao WHERE id IN (:ids)',
+          { replacements: { ids: typedQids }, type: sequelize.QueryTypes.SELECT }
+        );
+        (rows || []).forEach(r => {
+          const qid = Number(r && r.id);
+          if (!Number.isFinite(qid)) return;
+          typedSpecByQ.set(qid, { tiposlug: r.tiposlug, interacaospec: r.interacaospec });
+        });
+      } catch (e) {
+        logger.warn('typed spec preload warning:', e);
+      }
+    }
+
     const details = qids.map(qid => {
       const rec = byQ.get(Number(qid));
       const isPretest = pretestQids.has(Number(qid));
       let ok = false;
       if (rec && rec.typed) {
-        ok = false; // typed grading engine TBD
+        const specRec = typedSpecByQ.get(Number(qid)) || null;
+        const slug = specRec && specRec.tiposlug != null ? String(specRec.tiposlug).trim().toLowerCase() : null;
+        if (slug && matchColumns.isMatchColumnsSlug(slug)) {
+          const graded = matchColumns.gradeMatchColumns(specRec.interacaospec, rec.response);
+          ok = graded.ok ? !!graded.isCorrect : false;
+        } else {
+          ok = false;
+        }
       } else if (rec && rec.multi) {
         const chosenSet = new Set((rec.optionIds || []).map(Number));
         const correctSet = new Set([correctByQ[qid]].filter(Boolean));
@@ -763,8 +1034,12 @@ exports.submitAnswers = async (req, res, next) => {
             const qid = Number(a.questionId);
             const aqid = aqMap.get(qid);
             if (!aqid) continue;
-            if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
-              const payload = a.response == null ? null : a.response;
+            const isObj = a && typeof a === 'object';
+            const hasResponse = isObj && Object.prototype.hasOwnProperty.call(a, 'response');
+            const hasPairs = isObj && !hasResponse && Object.prototype.hasOwnProperty.call(a, 'pairs');
+            if (hasResponse || hasPairs) {
+              const raw = hasResponse ? a.response : { pairs: a.pairs };
+              const payload = raw == null ? null : raw;
               toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: payload, Selecionada: payload != null });
             } else if (Array.isArray(a.optionIds)) {
               const arr = a.optionIds.map(Number).filter(n => Number.isFinite(n));
@@ -777,12 +1052,26 @@ exports.submitAnswers = async (req, res, next) => {
           if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert);
         } else {
           // Final submission: include null markers for unanswered
+          // Replace any existing persisted answers for these attempt questions.
+          // This prevents earlier partial submissions (or stale clients) from leaving null markers
+          // that would otherwise block updates due to unique constraints.
+          try {
+            const aqIdsAll = (aqRows || []).map(r => Number(r && r.Id)).filter(n => Number.isFinite(n) && n > 0);
+            if (aqIdsAll.length) {
+              await db.ExamAttemptAnswer.destroy({ where: { AttemptQuestionId: aqIdsAll } });
+            }
+          } catch (e) { logger.warn('final submit replace warning:', e); }
+
           for (const a of (answers || [])) {
             const qid = Number(a.questionId);
             const aqid = aqMap.get(qid);
             if (!aqid) continue;
-            if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
-              const payload = a.response == null ? null : a.response;
+            const isObj = a && typeof a === 'object';
+            const hasResponse = isObj && Object.prototype.hasOwnProperty.call(a, 'response');
+            const hasPairs = isObj && !hasResponse && Object.prototype.hasOwnProperty.call(a, 'pairs');
+            if (hasResponse || hasPairs) {
+              const raw = hasResponse ? a.response : { pairs: a.pairs };
+              const payload = raw == null ? null : raw;
               toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: payload, Selecionada: payload != null });
             } else if (Array.isArray(a.optionIds)) {
               const arr = a.optionIds.map(Number).filter(n => Number.isFinite(n));
@@ -806,7 +1095,7 @@ exports.submitAnswers = async (req, res, next) => {
               if (aqid) toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: null, Selecionada: false });
             }
           }
-          if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert, { ignoreDuplicates: true });
+          if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert);
         }
 
         // Score and finish attempt only if not partial
@@ -1028,7 +1317,8 @@ exports.getQuestion = async (req, res, next) => {
     if (q.tiposlug) {
       const basic = (()=>{ try { const t = String(q.tiposlug).toLowerCase(); return (t === 'single' || t === 'radio' || t === 'multi' || t === 'multiple' || t === 'checkbox'); } catch(_) { return false; } })();
       if (!basic) {
-        const interacao = q.interacaospec || null;
+        let interacao = q.interacaospec || null;
+        if (matchColumns.isMatchColumnsSlug(q.tiposlug)) interacao = matchColumns.toPublicMatchColumnsSpec(q.interacaospec);
         return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: {
           id: q.id,
           type: q.tiposlug,
@@ -1127,6 +1417,41 @@ exports.checkAnswer = async (req, res, next) => {
   try {
     const questionId = Number(req.body && req.body.questionId);
     if (!Number.isFinite(questionId) || questionId <= 0) return next(badRequest('invalid questionId', 'INVALID_QUESTION_ID'));
+
+    // Interaction-style answers (e.g., match_columns) use the JSONB response field.
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'response')) {
+      const qrow = await sequelize.query(
+        'SELECT tiposlug, interacaospec FROM questao WHERE id = :qid LIMIT 1',
+        { replacements: { qid: questionId }, type: sequelize.QueryTypes.SELECT }
+      );
+      if (!qrow || !qrow[0]) return next(notFound('question not found', 'QUESTION_NOT_FOUND'));
+      const slug = qrow[0].tiposlug != null ? String(qrow[0].tiposlug).trim().toLowerCase() : null;
+
+      if (slug && matchColumns.isMatchColumnsSlug(slug)) {
+        const spec = matchColumns.normalizeMatchColumnsSpec(qrow[0].interacaospec);
+        if (!spec) return next(badRequest('invalid interaction spec', 'MATCH_SPEC_INVALID'));
+
+        const graded = matchColumns.gradeMatchColumns(spec, req.body.response);
+        const userPairs = matchColumns.normalizeMatchColumnsResponse(req.body.response).pairs;
+
+        return res.json({
+          questionId,
+          type: 'match_columns',
+          isCorrect: graded.ok ? !!graded.isCorrect : false,
+          gradeOk: !!graded.ok,
+          gradeReason: graded && graded.reason ? String(graded.reason) : null,
+          gradeCode: graded && graded.code ? String(graded.code) : null,
+          gradeMessage: graded && graded.message ? String(graded.message) : null,
+          correctPairs: spec.answerKey || {},
+          userPairs: userPairs || {},
+          // Back-compat fields so old UI paths don't crash
+          correctOptionIds: [],
+          explanations: {},
+        });
+      }
+
+      return next(badRequest('unsupported question type for response', 'UNSUPPORTED_TYPED_QUESTION'));
+    }
 
     const selectedSingle = req.body && req.body.optionId != null ? Number(req.body.optionId) : null;
     const selectedMulti = Array.isArray(req.body && req.body.optionIds)
@@ -1600,14 +1925,32 @@ exports.getAttemptResult = async (req, res, next) => {
       } catch(_) { ansRows = []; }
     }
     const selectedByAq = new Map();
+    const typedResponseByAq = new Map();
     ansRows.forEach(a => {
       const aqid = Number(a.AttemptQuestionId);
       const list = selectedByAq.get(aqid) || [];
-      if (a.OptionId != null && (a.Selecionada === true || a.Selecionada === 't')) list.push(Number(a.OptionId));
+      const selected = (a.Selecionada === true || a.Selecionada === 't');
+      if (a.OptionId != null && selected) list.push(Number(a.OptionId));
+      // For interaction-style questions, we store the JSON answer in Resposta with OptionId=null.
+      if (a.OptionId == null && selected && a.Resposta != null) typedResponseByAq.set(aqid, a.Resposta);
       selectedByAq.set(aqid, list);
     });
 
-    const questions = questionIds.map((qid) => ({ id: qid, descricao: null, texto: null, explicacao: null, referencia: null, dominio: null, tarefa: null, abordagemGestao: null, options: optsByQ.get(qid) || [] }));
+    const questions = questionIds.map((qid) => ({
+      id: qid,
+      type: null,
+      tiposlug: null,
+      interacao: null,
+      correctPairs: null,
+      descricao: null,
+      texto: null,
+      explicacao: null,
+      referencia: null,
+      dominio: null,
+      tarefa: null,
+      abordagemGestao: null,
+      options: optsByQ.get(qid) || []
+    }));
 
     // Populate question text/descricao + fields from questao (explicacao, referencia) + metadados (dominio/tarefa/categoria)
     try {
@@ -1622,10 +1965,14 @@ exports.getAttemptResult = async (req, res, next) => {
         const hasDomGeral = names.has('iddominiogeral');
         const hasTask = names.has('id_task');
         const hasCategoria = names.has('codigocategoria');
+        const hasTipoSlug = names.has('tiposlug');
+        const hasInteracao = names.has('interacaospec');
 
         const select = [
           'q.id AS id',
           'q.descricao AS descricao',
+          hasTipoSlug ? 'q.tiposlug AS tiposlug' : 'NULL::text AS tiposlug',
+          hasInteracao ? 'q.interacaospec AS interacaospec' : 'NULL::jsonb AS interacaospec',
           hasExp ? 'q.explicacao AS explicacao' : 'NULL::text AS explicacao',
           hasRef ? 'q.referencia AS referencia' : 'NULL::text AS referencia',
           hasDomGeral ? 'q.iddominiogeral AS iddominiogeral' : 'NULL::int AS iddominiogeral',
@@ -1655,8 +2002,21 @@ exports.getAttemptResult = async (req, res, next) => {
           const txt = row.descricao != null ? String(row.descricao) : '';
           q.descricao = txt;
           q.texto = txt;
+          q.tiposlug = row.tiposlug != null ? String(row.tiposlug) : null;
+          q.type = q.tiposlug;
           q.explicacao = row.explicacao != null ? String(row.explicacao) : null;
           q.referencia = row.referencia != null ? String(row.referencia) : null;
+
+          // Advanced review support: match_columns
+          try {
+            if (q.tiposlug && matchColumns.isMatchColumnsSlug(q.tiposlug)) {
+              q.interacao = matchColumns.toPublicMatchColumnsSpec(row.interacaospec);
+              const normalized = matchColumns.normalizeMatchColumnsSpec(row.interacaospec);
+              q.correctPairs = (normalized && normalized.answerKey) ? normalized.answerKey : {};
+              // Ensure review UI doesn't try to render MCQ options
+              q.options = [];
+            }
+          } catch(_){ /* ignore */ }
 
           if (row.iddominiogeral != null || row.dominio_descricao != null) {
             q.dominio = {
@@ -1686,7 +2046,10 @@ exports.getAttemptResult = async (req, res, next) => {
       const aqid = aqIdByQ.get(Number(qid));
       const selected = (aqid != null) ? (selectedByAq.get(Number(aqid)) || []) : [];
       const key = 'q_' + String(qid);
-      if (selected.length > 1) answers[key] = { optionIds: selected };
+      const typed = (aqid != null && typedResponseByAq.has(Number(aqid))) ? typedResponseByAq.get(Number(aqid)) : null;
+      if (typed != null) {
+        answers[key] = { response: typed, optionIds: selected };
+      } else if (selected.length > 1) answers[key] = { optionIds: selected };
       else if (selected.length === 1) answers[key] = { optionId: selected[0] };
       else answers[key] = { optionIds: [] };
     }

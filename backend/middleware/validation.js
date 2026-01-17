@@ -222,6 +222,17 @@ const examSchemas = {
       .messages({
         'number.min': 'Quantidade de questões deve ser pelo menos 1',
         'number.max': 'Quantidade máxima é 200 questões'
+      }),
+
+    // Admin-only emulator: explicit question IDs to start an exam with
+    questionIds: Joi.array()
+      .items(Joi.number().integer().positive())
+      .min(1)
+      .max(200)
+      .optional()
+      .messages({
+        'array.min': 'Informe pelo menos 1 questão',
+        'array.max': 'Máximo de 200 questões por emulação'
       })
   }),
   
@@ -233,8 +244,12 @@ const examSchemas = {
     // Accept either sessionToken (preferred) or legacy sessionId
     sessionToken: commonSchemas.sessionToken.optional(),
     sessionId: Joi.string().optional(),
+
+    // Optional client diagnostics / behavior flags
+    clientScriptVersion: Joi.alternatives().try(Joi.string().max(100), Joi.number()).optional(),
+    partial: Joi.boolean().optional(),
     
-    // Accept two answer formats: new (selectedOption index) or legacy (optionId/optionIds)
+    // Accept multiple answer formats: new (selectedOption index), legacy (optionId/optionIds), and typed (e.g., match_columns)
     answers: Joi.array()
       .items(
         Joi.alternatives().try(
@@ -260,6 +275,40 @@ const examSchemas = {
                 'number.max': 'Tempo máximo por questão é 300 segundos'
               })
           }),
+          // Typed responses (advanced interactions)
+          Joi.object({
+            questionId: commonSchemas.questionId,
+            // Canonical shape: { response: { pairs: { [leftId]: rightId } } }
+            response: Joi.alternatives().try(
+              Joi.object({
+                pairs: Joi.object()
+                  .pattern(
+                    Joi.string().max(64),
+                    Joi.alternatives().try(
+                      Joi.number().integer().positive(),
+                      Joi.string().max(64).allow(''),
+                      Joi.valid(null)
+                    )
+                  )
+                  .optional()
+              }),
+              // Backward-compatible: allow response to be a JSON string; backend normalizes.
+              Joi.string().max(20000)
+            ).optional(),
+            // Backward-compatible alias: { pairs: { ... } }
+            pairs: Joi.object()
+              .pattern(
+                Joi.string().max(64),
+                Joi.alternatives().try(
+                  Joi.number().integer().positive(),
+                  Joi.string().max(64).allow(''),
+                  Joi.valid(null)
+                )
+              )
+              .optional(),
+            timeTaken: Joi.number().integer().min(0).max(300).optional()
+          }).or('response', 'pairs'),
+          // Legacy format (optionId/optionIds). Keep this last because it's intentionally permissive.
           Joi.object({
             questionId: commonSchemas.questionId,
             optionId: Joi.number().integer().positive().optional(),

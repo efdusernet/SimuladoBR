@@ -5,15 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Revisão de Exame (Quiz)</title>
   <!-- Support chat widget (served via backend /chat proxy) -->
-  <link rel="stylesheet" href="../dist/styles.css" />
   <link rel="stylesheet" href="../styles.css" />
   <script src="../components/gridReview.js"></script>
+  <script src="../utils/matchColumns.js"></script>
   <style>
     .ans-correct{ border:1px solid #16a34a; background:#ecfdf5; }
     .ans-wrong{ border:1px solid #dc2626; background:#fef2f2; }
     .ans-selected{ box-shadow:0 0 0 2px rgba(99,102,241,0.4) inset; }
     .ans-correct.ans-selected{ box-shadow:0 0 0 2px rgba(63,156,49,0.65) inset; }
-    .review-note{ color:#334155; font-size:13px; margin-top:8px; }
+    .review-note{ color:#334155; font-size:16px; font-weight:700; margin-top:8px; }
+    .review-note.review-note--ok{ color:#14532d; }
+    .review-note.review-note--bad{ color:#991b1b; }
     .opt-expl{ margin-top:6px; font-size:14px; color:#475569; line-height:1.4; padding:6px 8px; background:#ffffff; border-left:3px solid #cbd5e1; border-radius:6px; }
     .opt-expl strong{ font-weight:600; color:#334155; }
   </style>
@@ -24,17 +26,20 @@
     <button id="deleteHistoryBtn" class="primary-btn" type="button" style="display:none; background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Excluir histórico</button>
     <button id="openGridReviewBtn" type="button" class="primary-btn" style="padding:8px 14px; border-radius:6px; font-size:13px;">Navegar questões</button>
   </div>
+
   <main class="exam-container" role="main" style="margin-top:8px;">
     <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
+      <div class="header-left"></div>
       <div class="header-center" id="centerHeader">
         <div class="knowledge-area" id="knowledgeArea" aria-live="polite">Revisão</div>
       </div>
+      <div class="header-right controls"></div>
     </header>
 
     <section class="question-panel" aria-labelledby="questionNumber">
-      <div class="meta-row">
-        <div id="qStatus" class="q-status">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">0</span></div>
-        <div style="margin-left:auto; font-size:14px; color:#555;" id="questionIdDisplay"></div>
+      <div class="meta-row" style="display:flex; align-items:center;">
+        <div id="qStatus" class="q-status" style="font-size:17px; font-family: Arial, Helvetica, sans-serif;">Questão <span id="questionNumber">1</span> / <span id="totalQuestions">0</span></div>
+        <span id="questionIdDisplay" style="margin-left:auto; font-size:14px; color:#555;"></span>
       </div>
 
       <article class="question-content" id="questionContent">
@@ -107,11 +112,38 @@
 
   <script>
     (function(){
-      // Read examId and mode from query
       const params = new URLSearchParams(window.location.search);
       const examId = params.get('examId');
-      const mode = (params.get('mode') || 'quiz').toLowerCase();
       let REVIEW = { questions: [], answers: {} };
+
+      function letterFromIndex(i){ return ['A','B','C','D','E','F'][i] || String(i); }
+
+      function isMatchColumnsType(v){
+        try { return String(v || '').trim().toLowerCase() === 'match_columns'; } catch(_){ return false; }
+      }
+
+      function getPairsFromAnswer(ans){
+        try {
+          if (!ans || typeof ans !== 'object') return {};
+          const r = ans.response;
+          if (!r) return {};
+          if (typeof r === 'string') {
+            const s = r.trim();
+            if (!s) return {};
+            try {
+              const parsed = JSON.parse(s);
+              if (parsed && typeof parsed === 'object' && parsed.pairs && typeof parsed.pairs === 'object') return parsed.pairs;
+              if (parsed && typeof parsed === 'object') return parsed;
+              return {};
+            } catch(_){
+              return {};
+            }
+          }
+          if (r && typeof r === 'object' && r.pairs && typeof r.pairs === 'object') return r.pairs;
+          if (r && typeof r === 'object') return r;
+          return {};
+        } catch(_){ return {}; }
+      }
 
       async function isAdmin(){
         try {
@@ -129,6 +161,21 @@
           return r && r.ok;
         } catch(_){
           return false;
+        }
+      }
+
+      let cachedCsrfToken = null;
+      async function ensureCsrfToken() {
+        if (cachedCsrfToken) return cachedCsrfToken;
+        try {
+          const r = await fetch('/api/csrf-token', { credentials: 'include' });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => null);
+          const t = j && j.csrfToken ? String(j.csrfToken) : '';
+          cachedCsrfToken = t ? t : null;
+          return cachedCsrfToken;
+        } catch (_) {
+          return null;
         }
       }
 
@@ -177,45 +224,6 @@
         });
       }
 
-      function letterFromIndex(i){ return ['A','B','C','D','E','F'][i] || String(i); }
-
-      async function loadResult(){
-        try {
-          const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
-          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-          const url = `/api/exams/result/${encodeURIComponent(examId)}`;
-          const headers = {};
-          if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
-          if (sessionTok) headers['X-Session-Token'] = sessionTok;
-          const r = await fetch(url, { headers });
-          if (!r.ok) throw new Error('Falha ao carregar resultado');
-          const data = await r.json();
-          // Expected shape: { questions: [...], answers: { q_<id>: { optionId|optionIds } }, total }
-          REVIEW.questions = Array.isArray(data.questions) ? data.questions : [];
-          REVIEW.answers = (data.answers && typeof data.answers === 'object') ? data.answers : {};
-          const totalEl = document.getElementById('totalQuestions'); if (totalEl) totalEl.textContent = String(REVIEW.questions.length);
-
-          // Prepare grid review (mounted in modal)
-          try {
-            const host = document.getElementById('gridReviewModalHost');
-            if (host && window.gridReview && typeof window.gridReview.mount === 'function') {
-              window.gridReview.mount({
-                host,
-                questions: REVIEW.questions,
-                answers: REVIEW.answers,
-                onSelect: (i) => {
-                  render(i);
-                  try { closeGridReviewModal(); } catch(_){ }
-                },
-              });
-            }
-          } catch(_){ }
-
-          render(0);
-        } catch(e){ document.getElementById('questionText').textContent = 'Erro ao carregar resultado.'; }
-      }
-
       function openGridReviewModal(){
         try {
           const m = document.getElementById('gridReviewModal');
@@ -238,12 +246,42 @@
         if (!qs.length){ return; }
         if (idx < 0 || idx >= qs.length) idx = 0;
         const q = qs[idx];
-        const label = document.getElementById('questionNumber'); if (label) label.textContent = String(idx+1);
-        const idSpan = document.getElementById('questionIdDisplay'); if (idSpan) idSpan.textContent = q && q.id != null ? ('ID: ' + q.id) : '';
-        const textEl = document.getElementById('questionText'); if (textEl) textEl.innerHTML = q && (q.descricao || q.text || '');
-        const cont = document.getElementById('answersContainer'); if (cont) cont.innerHTML = '';
 
-        // New: questao.explicacao/referencia + domínio/tarefa/abordagem
+        const label = document.getElementById('questionNumber');
+        if (label) label.textContent = String(idx+1);
+        const totalEl = document.getElementById('totalQuestions');
+        if (totalEl) totalEl.textContent = String(qs.length);
+        const idSpan = document.getElementById('questionIdDisplay');
+        if (idSpan) idSpan.textContent = q && q.id != null ? ('ID: ' + q.id) : '';
+
+        const textEl = document.getElementById('questionText');
+        if (textEl) textEl.innerHTML = q && (q.descricao || q.text || '') ? String(q.descricao || q.text) : '';
+
+        const cont = document.getElementById('answersContainer');
+        if (cont) cont.innerHTML = '';
+
+        // Image (optional)
+        try {
+          const w = document.getElementById('questionImageWrapper');
+          if (w) {
+            w.innerHTML = '';
+            const url = (q && (q.imagemUrl || q.imagem_url || q.image_url || q.imageUrl)) ? String(q.imagemUrl || q.imagem_url || q.image_url || q.imageUrl) : '';
+            if (url && url.trim()) {
+              const img = document.createElement('img');
+              img.alt = 'Imagem da questão';
+              img.src = url;
+              img.style.maxWidth = '100%';
+              img.style.borderRadius = '10px';
+              img.style.border = '1px solid #e2e8f0';
+              w.style.display = '';
+              w.appendChild(img);
+            } else {
+              w.style.display = 'none';
+            }
+          }
+        } catch(_){ }
+
+        // Details section (explanation/reference/meta)
         try {
           const sectionEl = document.getElementById('questionDetails');
           const expWrap = document.getElementById('questaoExplicacaoWrap');
@@ -269,75 +307,29 @@
             const parts = [];
             if (dom && dom.id != null && dom.descricao) parts.push(`Domínio: ${dom.id} - ${dom.descricao}`);
             else if (q && q.iddominiogeral != null && q.dominioDescricao) parts.push(`Domínio: ${q.iddominiogeral} - ${q.dominioDescricao}`);
-
-            if (tar && tar.id_dominio != null && tar.numero != null && tar.descricao) {
-              parts.push(`Tarefa: ${tar.id_dominio}.${tar.numero} - ${tar.descricao}`);
-            }
-
+            if (tar && tar.id_dominio != null && tar.numero != null && tar.descricao) parts.push(`Tarefa: ${tar.id_dominio}.${tar.numero} - ${tar.descricao}`);
             if (cat && cat.descricao) parts.push(`Abordagem de gestão: ${cat.descricao}`);
             metaEl.textContent = parts.join(', ');
           }
 
-          // Hide entire section if nothing to show
-          try {
-            const metaText = metaEl ? String(metaEl.textContent || '').trim() : '';
-            const hasAny = hasExp || hasRef || !!metaText;
-            if (sectionEl) sectionEl.style.display = hasAny ? '' : 'none';
-          } catch(_){ }
+          const metaText = metaEl ? String(metaEl.textContent || '').trim() : '';
+          const hasAny = hasExp || hasRef || !!metaText;
+          if (sectionEl) sectionEl.style.display = hasAny ? '' : 'none';
         } catch(_){ }
 
         const key = q && q.id != null ? ('q_' + q.id) : ('idx_' + idx);
         const ans = REVIEW.answers[key] || {};
         const selectedIds = Array.isArray(ans.optionIds) ? ans.optionIds : (ans.optionId!=null ? [ans.optionId] : []);
 
-        const options = Array.isArray(q.opcoes || q.options) ? (q.opcoes || q.options) : [];
-        let correctLetter = null; let selectedLetterList = [];
-        options.forEach((opt, i)=>{
-          const isCorrect = !!(opt.correta || opt.isCorrect);
-          const isSelected = selectedIds.includes(opt.id);
-          const wrap = document.createElement('div');
-          wrap.className = 'answer-option';
-          wrap.style.cssText = 'padding:10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;';
-          if (isCorrect) wrap.classList.add('ans-correct');
-          if (!isCorrect && isSelected) wrap.classList.add('ans-wrong');
-          if (isSelected) wrap.classList.add('ans-selected');
-
-          const letter = opt.letra || opt.letter || letterFromIndex(i);
-          if (isCorrect) correctLetter = letter;
-          if (isSelected) selectedLetterList.push(letter);
-
-          // Main option text
-          const main = document.createElement('div');
-          main.innerHTML = `<strong>${letter}.</strong> ${opt.texto || opt.text || ''}`;
-          wrap.appendChild(main);
-
-          // Per-option explanation from explicacaoguia.descricao (when present)
-          const exp = (opt && (opt.explicacao || opt.explanation)) ? String(opt.explicacao || opt.explanation) : '';
-          if (exp && exp.trim()) {
-            const expEl = document.createElement('div');
-            expEl.className = 'opt-expl';
-            expEl.innerHTML = `<strong>Explicação:</strong> ${exp}`;
-            wrap.appendChild(expEl);
-          }
-          cont.appendChild(wrap);
-        });
-
-        const note = document.getElementById('reviewNote');
-        if (note){
-          if (selectedLetterList.length === 0) note.textContent = 'Você não marcou esta questão.';
-          else if (correctLetter && selectedLetterList.includes(correctLetter)) note.textContent = 'Parabéns! Você acertou.';
-          else if (correctLetter) note.textContent = `Você selecionou ${selectedLetterList.join(', ')}; correta: ${correctLetter}.`;
-          else note.textContent = `Você selecionou ${selectedLetterList.join(', ')}.`;
-        }
-
-        // nav handlers
-        const back = document.getElementById('backBtn');
-        const fwd = document.getElementById('continueBtn');
-        const reportBtn = document.getElementById('reportQuestionBtn');
-        back.onclick = ()=>{ render(Math.max(0, idx-1)); };
-        fwd.onclick = ()=>{ render(Math.min(qs.length-1, idx+1)); };
-        if (reportBtn){
-          reportBtn.onclick = ()=>{
+        // Navigation handlers must be wired for all question types (including interactions)
+        const back = document.querySelector('#questionContent .actions-row #backBtn');
+        const fwd = document.querySelector('#questionContent .actions-row #continueBtn');
+        const reportBtn = document.querySelector('#questionContent .actions-row #reportQuestionBtn');
+        if (back) back.onclick = (ev)=>{ try { ev && ev.preventDefault && ev.preventDefault(); } catch(_){ } render(Math.max(0, idx-1)); };
+        if (fwd) fwd.onclick = (ev)=>{ try { ev && ev.preventDefault && ev.preventDefault(); } catch(_){ } render(Math.min(qs.length-1, idx+1)); };
+        if (reportBtn) {
+          reportBtn.onclick = (ev)=>{
+            try { ev && ev.preventDefault && ev.preventDefault(); } catch(_){ }
             try {
               const modal = document.getElementById('feedbackModal');
               const qIdSpan = document.getElementById('fbQuestionId');
@@ -348,41 +340,133 @@
             } catch(_){ }
           };
         }
-      }
 
-      if (!examId){ document.getElementById('questionText').textContent = 'Exame inválido.'; }
-      else { loadResult(); setupDeleteHistoryButton(); }
-
-      // Grid review modal handlers
-      try {
-        const openBtn = document.getElementById('openGridReviewBtn');
-        if (openBtn) openBtn.addEventListener('click', openGridReviewModal);
-        const closeBtn = document.getElementById('closeGridReviewModal');
-        if (closeBtn) closeBtn.addEventListener('click', closeGridReviewModal);
-        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGridReviewModal(); });
-      } catch(_){ }
-
-      const exitBtn = document.getElementById('exitReviewBtn');
-      if (exitBtn){
-        exitBtn.addEventListener('click', ()=>{
-          try { sessionStorage.removeItem('currentReviewAttemptId'); } catch(_){ }
-          window.location.href = '/';
-        });
-      }
-
-      // Feedback form logic
-      let cachedCsrfToken = null;
-      async function ensureCsrfToken() {
-        if (cachedCsrfToken) return cachedCsrfToken;
+        // match_columns review
+        let handledInteraction = false;
         try {
-          const r = await fetch('/api/csrf-token', { credentials: 'include' });
-          if (!r.ok) return null;
-          const j = await r.json().catch(() => null);
-          const t = j && j.csrfToken ? String(j.csrfToken) : '';
-          cachedCsrfToken = t ? t : null;
-          return cachedCsrfToken;
-        } catch (_) {
-          return null;
+          const qType = (q && (q.type || q.tiposlug)) ? String(q.type || q.tiposlug).trim().toLowerCase() : '';
+          if (isMatchColumnsType(qType)) {
+            const spec = q && (q.interacao || q.interaction || q.interacaospec) ? (q.interacao || q.interaction || q.interacaospec) : null;
+            const correctPairs = (q && q.correctPairs && typeof q.correctPairs === 'object') ? q.correctPairs : {};
+            const userPairs = getPairsFromAnswer(ans);
+
+            const host = document.createElement('div');
+            if (!spec || !window.MatchColumns || typeof window.MatchColumns.create !== 'function') {
+              host.textContent = 'Interação indisponível.';
+              cont.appendChild(host);
+            } else {
+              window.MatchColumns.create(host, spec, { mode: 'review', valuePairs: userPairs });
+              cont.appendChild(host);
+
+              const left = Array.isArray(spec.left) ? spec.left : [];
+              const right = Array.isArray(spec.right) ? spec.right : [];
+              const rightById = new Map(right.map(r => [String(r.id), r]));
+
+              let allOk = true;
+              const panel = document.createElement('div');
+              panel.style.marginTop = '12px';
+              panel.style.padding = '10px';
+              panel.style.border = '1px solid #e2e8f0';
+              panel.style.borderRadius = '10px';
+              panel.style.background = '#fff';
+
+              const title = document.createElement('div');
+              title.style.fontWeight = '800';
+              title.style.marginBottom = '6px';
+              title.textContent = 'Conferência';
+              panel.appendChild(title);
+
+              left.forEach(item => {
+                const lid = String(item && item.id);
+                const ltxt = String(item && (item.text || item.descricao) || '');
+                const uRid = userPairs ? userPairs[lid] : null;
+                const cRid = correctPairs ? correctPairs[lid] : null;
+                const uTxt = uRid ? String((rightById.get(String(uRid)) || {}).text || '') : '';
+                const cTxt = cRid ? String((rightById.get(String(cRid)) || {}).text || '') : '';
+                const ok = (uRid != null && cRid != null && String(uRid) === String(cRid));
+                if (!ok) allOk = false;
+
+                const row = document.createElement('div');
+                row.style.display = 'grid';
+                row.style.gridTemplateColumns = '1fr 1fr';
+                row.style.gap = '10px';
+                row.style.padding = '6px 0';
+                row.style.borderTop = '1px solid #f1f5f9';
+
+                const a = document.createElement('div');
+                a.textContent = ltxt;
+
+                const b = document.createElement('div');
+                b.textContent = ok ? uTxt : (uTxt ? (uTxt + ' (correta: ' + cTxt + ')') : ('(vazio) (correta: ' + cTxt + ')'));
+                b.style.color = ok ? '#16a34a' : '#b91c1c';
+
+                row.appendChild(a);
+                row.appendChild(b);
+                panel.appendChild(row);
+              });
+
+              cont.appendChild(panel);
+
+              const note = document.getElementById('reviewNote');
+              if (note) {
+                const okMsg = 'Parabéns! Você acertou.';
+                const msg = allOk ? okMsg : 'Você errou esta questão.';
+                note.textContent = msg;
+                note.classList.remove('review-note--ok', 'review-note--bad');
+                note.classList.add(allOk ? 'review-note--ok' : 'review-note--bad');
+              }
+            }
+
+            handledInteraction = true;
+          }
+        } catch(_){ }
+
+        if (!handledInteraction) {
+          const options = Array.isArray(q.opcoes || q.options) ? (q.opcoes || q.options) : [];
+          let correctLetter = null;
+          const selectedLetterList = [];
+
+          options.forEach((opt, i)=>{
+            const isCorrect = !!(opt.correta || opt.isCorrect);
+            const isSelected = selectedIds.includes(opt.id);
+            const wrap = document.createElement('div');
+            wrap.className = 'answer-option';
+            wrap.style.cssText = 'padding:10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;';
+            if (isCorrect) wrap.classList.add('ans-correct');
+            if (!isCorrect && isSelected) wrap.classList.add('ans-wrong');
+            if (isSelected) wrap.classList.add('ans-selected');
+
+            const letter = opt.letra || opt.letter || letterFromIndex(i);
+            if (isCorrect) correctLetter = letter;
+            if (isSelected) selectedLetterList.push(letter);
+
+            const main = document.createElement('div');
+            main.innerHTML = `<strong>${letter}.</strong> ${opt.texto || opt.text || ''}`;
+            wrap.appendChild(main);
+
+            const exp = (opt && (opt.explicacao || opt.explanation)) ? String(opt.explicacao || opt.explanation) : '';
+            if (exp && exp.trim()) {
+              const expEl = document.createElement('div');
+              expEl.className = 'opt-expl';
+              expEl.innerHTML = `<strong>Explicação:</strong> ${exp}`;
+              wrap.appendChild(expEl);
+            }
+            cont.appendChild(wrap);
+          });
+
+          const note = document.getElementById('reviewNote');
+          if (note) {
+            const okMsg = 'Parabéns! Você acertou.';
+            let msg = '';
+            if (selectedLetterList.length === 0) msg = 'Você não marcou esta questão.';
+            else if (correctLetter && selectedLetterList.includes(correctLetter)) msg = okMsg;
+            else if (correctLetter) msg = `Você selecionou ${selectedLetterList.join(', ')}; correta: ${correctLetter}.`;
+            else msg = `Você selecionou ${selectedLetterList.join(', ')}.`;
+
+            note.textContent = msg;
+            note.classList.remove('review-note--ok', 'review-note--bad');
+            note.classList.add(msg === okMsg ? 'review-note--ok' : 'review-note--bad');
+          }
         }
       }
 
@@ -401,7 +485,7 @@
           if (r.ok){
             const list = await r.json();
             const frag = document.createDocumentFragment();
-            list.forEach(item => {
+            (list || []).forEach(item => {
               const opt = document.createElement('option');
               opt.value = item.id;
               opt.textContent = item.descricao;
@@ -412,10 +496,85 @@
           } else {
             sel.innerHTML = '<option disabled>Falha ao carregar</option>';
           }
-        } catch(e){ sel.innerHTML = '<option disabled>Erro</option>'; }
+        } catch(e){
+          sel.innerHTML = '<option disabled>Erro</option>';
+        }
       }
+
+      async function loadResult(){
+        try {
+          const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const url = `/api/exams/result/${encodeURIComponent(examId)}`;
+          const headers = {};
+          if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+          if (sessionTok) headers['X-Session-Token'] = sessionTok;
+          const r = await fetch(url, { headers });
+          if (!r.ok) throw new Error('Falha ao carregar resultado');
+          const data = await r.json();
+          REVIEW.questions = Array.isArray(data.questions) ? data.questions : [];
+          REVIEW.answers = (data.answers && typeof data.answers === 'object') ? data.answers : {};
+
+          try {
+            const host = document.getElementById('gridReviewModalHost');
+            if (host && window.gridReview && typeof window.gridReview.mount === 'function') {
+              window.gridReview.mount({
+                host,
+                questions: REVIEW.questions,
+                answers: REVIEW.answers,
+                onSelect: (i) => {
+                  render(i);
+                  try { closeGridReviewModal(); } catch(_){ }
+                },
+              });
+            }
+          } catch(_){ }
+
+          render(0);
+        } catch(e){
+          const t = document.getElementById('questionText');
+          if (t) t.textContent = 'Erro ao carregar resultado.';
+        }
+      }
+
+      if (!examId) {
+        const t = document.getElementById('questionText');
+        if (t) t.textContent = 'Exame inválido.';
+      } else {
+        loadResult();
+        setupDeleteHistoryButton();
+      }
+
+      // Grid review modal handlers
+      try {
+        const openBtn = document.getElementById('openGridReviewBtn');
+        if (openBtn) openBtn.addEventListener('click', openGridReviewModal);
+        const closeBtn = document.getElementById('closeGridReviewModal');
+        if (closeBtn) closeBtn.addEventListener('click', closeGridReviewModal);
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGridReviewModal(); });
+      } catch(_){ }
+
+      // Exit button handler
+      try {
+        const exitBtn = document.getElementById('exitReviewBtn');
+        if (exitBtn) {
+          exitBtn.addEventListener('click', ()=>{
+            try { sessionStorage.removeItem('currentReviewAttemptId'); } catch(_){ }
+            window.location.assign('/');
+          });
+        }
+      } catch(_){ }
+
+      // Feedback modal handlers
       const fbCancelar = document.getElementById('fbCancelar');
-      if (fbCancelar){ fbCancelar.onclick = ()=>{ const m=document.getElementById('feedbackModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } }; }
+      if (fbCancelar){
+        fbCancelar.onclick = ()=>{
+          const m = document.getElementById('feedbackModal');
+          if (m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); }
+        };
+      }
+
       const fbForm = document.getElementById('feedbackForm');
       if (fbForm){
         fbForm.addEventListener('submit', async (e)=>{
@@ -423,10 +582,11 @@
           const statusEl = document.getElementById('fbStatus');
           if (statusEl) statusEl.textContent = 'Enviando...';
           try {
-            const qId = document.getElementById('fbQuestionId').textContent.trim();
-            const catId = document.getElementById('fbCategoria').value;
-            const texto = document.getElementById('fbTexto').value.trim();
-            if (!catId || !texto){ if(statusEl) statusEl.textContent='Preencha todos os campos.'; return; }
+            const qId = String(document.getElementById('fbQuestionId').textContent || '').trim();
+            const catId = String(document.getElementById('fbCategoria').value || '').trim();
+            const texto = String(document.getElementById('fbTexto').value || '').trim();
+            if (!catId || !texto){ if (statusEl) statusEl.textContent = 'Preencha todos os campos.'; return; }
+
             const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
             const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
             const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
@@ -441,16 +601,23 @@
             const body = { texto, idcategoria: Number(catId) };
             if (/^\d+$/.test(qId)) body.idquestao = Number(qId);
             if (sessionUserId != null) body.userId = sessionUserId;
+
             const resp = await fetch('/api/feedback', { method:'POST', headers, credentials: 'include', body: JSON.stringify(body) });
             if (resp.ok){
               if (statusEl) statusEl.textContent = 'Feedback enviado. Obrigado!';
               fbForm.reset();
-              setTimeout(()=>{ const m=document.getElementById('feedbackModal'); if(m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); } if(statusEl) statusEl.textContent=''; }, 1400);
+              setTimeout(()=>{
+                const m = document.getElementById('feedbackModal');
+                if (m){ m.style.display='none'; m.setAttribute('aria-hidden','true'); }
+                if (statusEl) statusEl.textContent='';
+              }, 1400);
             } else {
               const data = await resp.json().catch(()=>({}));
               if (statusEl) statusEl.textContent = data.error || 'Falha ao enviar';
             }
-          } catch(err){ if(statusEl) statusEl.textContent='Erro de rede'; }
+          } catch(_){
+            if (statusEl) statusEl.textContent = 'Erro de rede';
+          }
         });
       }
     })();

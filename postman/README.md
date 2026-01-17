@@ -1,7 +1,7 @@
 SimuladosBR - Postman collection
 
 Arquivos:
-- `SimuladosBR.postman_collection.json` - Coleção com requests: send-test-email, register, login, verify, fluxos de Exames e grupo Admin — Roles.
+- `SimuladosBR.postman_collection.json` - Coleção com requests: send-test-email, register, login, verify, fluxos de Exames e requests admin.
 - `SimuladosBR.postman_environment.json` - Environment com variáveis pré-populadas (BACKEND_BASE, testEmail, userEmail, userSenha, etc.).
 
 Novidade (IA com web context):
@@ -24,7 +24,9 @@ Como usar:
    - Finalmente use `Login` para testar login.
 
 7. Fluxo de Exames (multi-exames):
-   - Em `Environment`, ajuste `sessionToken` (pode ser o e-mail do usuário logado) e `examType` (ex.: `pmp`).
+   - Em `Environment`, ajuste `sessionToken` (JWT retornado no login) e `examType` (ex.: `pmp`).
+     - Recomendado: enviar `Authorization: Bearer {{sessionToken}}`.
+     - Alternativa legada (se a coleção usar): `X-Session-Token: {{sessionToken}}`.
    - Use `Exams / List Types (DB)` para ver os tipos disponíveis no banco. Dica: defina `EXAM_TYPES_DISABLE_FALLBACK=true` no backend para forçar leitura do DB.
    - Para uma seleção simples (retorna perguntas e um `sessionId` temporário): `Exams / Select (count=1)`. O teste já salva `lastSessionId`, `lastQuestionId` e `lastOptionId`.
    - Para sessão on-demand com persistência (cria `exam_attempt`): `Exams / Start On Demand (count=3)`. O teste salva `lastOnDemandSessionId` e `lastAttemptId`.
@@ -41,11 +43,16 @@ Como usar:
 
 Observação: a coleção pressupõe que a API está disponível em `{{BACKEND_BASE}}` (ex: `http://localhost:3000`).
 
-Admin — Roles:
-- As requisições no grupo "Admin — Roles" exigem o cabeçalho `X-Session-Token` de um usuário que possua o papel `admin`.
-- Use o script CLI para conceder admin a um usuário (por id/e‑mail/nome de usuário):
-   - `cd backend`
-   - `npm run role:grant-admin -- --email "email@exemplo.com"`
+CSRF:
+- Para métodos state-changing (`POST/PUT/PATCH/DELETE`) em `/api/*`, o backend exige `X-CSRF-Token` compatível com o cookie `csrfToken`.
+- Fluxo recomendado no Postman:
+   1) chamar `GET /api/csrf-token` (ou `/api/v1/csrf-token`) para setar o cookie e obter `{ csrfToken }`.
+   2) usar o valor em `X-CSRF-Token` nas próximas requests state-changing.
+
+Admin:
+- As requisições admin exigem JWT de um usuário com papel `admin` (RBAC via tabelas `role`/`user_role`).
+- Use o script CLI para conceder admin a um usuário:
+   - `npm --prefix backend run role:grant-admin -- --email "email@exemplo.com"`
 
 IA — Web Context (Admin):
 - Configure no backend:

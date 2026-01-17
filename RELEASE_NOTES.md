@@ -126,3 +126,35 @@ Date: 2025-12-03
 ## Links
 - Tag: v1.1.3
 - Compare: v1.1.2..v1.1.3
+
+---
+
+# v1.2.0
+
+Date: 2026-01-17
+
+## Highlights
+- Auth: JWT com **sessão única por usuário** (re-login revoga sessão anterior) via `UserActiveSession`.
+- API: rotas versionadas em `/api/v1/*` (mantém `/api/*` como legado por compatibilidade).
+- Chat: integração do chat-service via reverse-proxy em `/chat/*` (inclui WebSocket admin em `/chat/v1/admin/ws`).
+- Review: páginas `examReviewFull.html` e `examReviewQuiz.html` revisadas/reconstruídas e alinhadas ao runner:
+	- renderização correta de múltipla escolha (checkbox)
+	- suporte a `match_columns` em modo review
+	- navegação por grid e painel de detalhes (explicação/referência/meta)
+
+## Endpoints
+- Review de tentativas finalizadas:
+	- `GET /api/exams/result/:attemptId` (auth via cookie `sessionToken` ou `Authorization: Bearer`/`X-Session-Token` com JWT)
+- Admin (exames):
+	- `GET /api/admin/exams/probe` (retorna 204 quando admin)
+	- `DELETE /api/admin/exams/attempts/:attemptId` (remove histórico de tentativa)
+	- ECO/content versioning: `GET /api/admin/exams/content-versions`, `PUT /api/admin/exams/content-current`, `GET/PUT/DELETE /api/admin/exams/user-content-version`
+
+## Developer Notes
+- `X-Session-Token` agora deve ser um **JWT** (não mais e-mail/id). Alternativas recomendadas:
+	- cookie httpOnly `sessionToken` (fluxo browser)
+	- `Authorization: Bearer <token>` (Postman/clients)
+- CSRF continua obrigatório para métodos state-changing em `/api/*` (header `X-CSRF-Token` compatível com cookie `csrfToken`).
+
+## Links
+- Tag: v1.2.0 (pending tagging)

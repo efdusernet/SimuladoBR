@@ -2,6 +2,8 @@
 
 Este documento consolida o que foi implementado recentemente (multi-exames), como aplicar migrações, iniciar o backend, endpoints principais (incluindo filtros por exam_type), formatos aceitos no bulk de questões e links de páginas admin. No final há uma lista de pendências e próximos passos sugeridos.
 
+Leitura rápida recomendada (onboarding): `CONTEXT.md` e `FEATURES.md`.
+
 ## Resumo das mudanças recentes
 
 - Suporte a múltiplos exames (Exam Types), com blueprint vindo do banco quando disponível.

@@ -19,8 +19,10 @@
         .mc-row{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:center; padding:8px; border-radius:10px; border:1px dashed #e5e7eb; margin-bottom:8px; }
         .mc-left{ font-weight:600; color:#111827; font-size:.95rem; }
         .mc-slot{ min-height:40px; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; border-radius:10px; border:1px solid #cbd5e1; background:#f8fafc; }
+        .mc-slot.empty{ background:#ffc0cb; border-color:#fb7185; }
         .mc-slot.drop-hover{ outline:2px solid #60a5fa; outline-offset:2px; }
         .mc-slot .mc-slot-text{ color:#0f172a; font-size:.92rem; }
+        .mc-slot.empty .mc-slot-text{ color:#475569; }
         .mc-slot .mc-clear{ border:0; background:transparent; color:#64748b; cursor:pointer; font-size:.85rem; }
         .mc-right-item{ padding:8px 10px; border-radius:10px; border:2px solid #0f172a; background:#d1fae5; cursor:grab; user-select:none; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:8px; box-shadow: 0 1px 0 rgba(15,23,42,.12); }
         .mc-right-item:hover{ filter: brightness(0.98); }
@@ -149,6 +151,9 @@
 
         const chosenRid = pairs[lid] != null ? String(pairs[lid]) : '';
         const chosen = chosenRid ? rightById.get(chosenRid) : null;
+
+        if (!chosen) slot.classList.add('empty');
+        else slot.classList.remove('empty');
 
         const slotText = document.createElement('span');
         slotText.className = 'mc-slot-text';

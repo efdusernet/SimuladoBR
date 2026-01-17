@@ -122,6 +122,21 @@
       let REVIEW = { questions: [], answers: {} };
       function letterFromIndex(i){ return ['A','B','C','D','E','F'][i] || String(i); }
 
+      function isMultiSelectQuestion(question){
+        try {
+          const raw = (question && (question.type || question.tiposlug || question.tipoSlug || question.TipoSlug)) || '';
+          const t = String(raw).trim().toLowerCase();
+          if (t === '2') return true; // question_type.slug = 2 (checkbox)
+          if (t === 'checkbox' || t === 'multi' || t === 'multiple') return true;
+        } catch(_){ }
+        try {
+          const v = (question && (question.multiplaescolha ?? question.multiplaEscolha ?? question.multiplaSelecao ?? question.multiplaSeleção));
+          if (v === true) return true;
+          if (v === false) return false;
+        } catch(_){ }
+        return false;
+      }
+
       function isMatchColumnsType(v){
         try { return String(v || '').trim().toLowerCase() === 'match_columns'; } catch(_){ return false; }
       }
@@ -425,25 +440,53 @@
 
         if (!handledInteraction) {
           const options = Array.isArray(q.opcoes || q.options) ? (q.opcoes || q.options) : [];
-          let correctLetter = null; let selectedLetterList = [];
+          const isMulti = isMultiSelectQuestion(q);
+          const inputType = isMulti ? 'checkbox' : 'radio';
+          const inputName = 'qopt_' + String((q && q.id != null) ? q.id : idx);
+
+          const correctIds = options
+            .filter(o => o && (o.correta || o.isCorrect))
+            .map(o => o.id)
+            .filter(id => id != null);
+
+          const correctLetters = [];
+          let selectedLetterList = [];
           options.forEach((opt, i)=>{
             const isCorrect = !!(opt.correta || opt.isCorrect);
             const isSelected = selectedIds.includes(opt.id);
             const wrap = document.createElement('div');
-            wrap.className = 'answer-option';
-            wrap.style.cssText = 'padding:10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;';
+            wrap.className = 'option';
             if (isCorrect) wrap.classList.add('ans-correct');
             if (!isCorrect && isSelected) wrap.classList.add('ans-wrong');
             if (isSelected) wrap.classList.add('ans-selected');
 
             const letter = opt.letra || opt.letter || letterFromIndex(i);
-            if (isCorrect) correctLetter = letter;
+            if (isCorrect) correctLetters.push(letter);
             if (isSelected) selectedLetterList.push(letter);
 
+            const label = document.createElement('label');
+            label.style.display = 'flex';
+            label.style.alignItems = 'flex-start';
+            label.style.gap = '10px';
+            label.style.cursor = 'default';
+
+            const input = document.createElement('input');
+            input.type = inputType;
+            input.name = inputName;
+            input.disabled = true;
+            input.checked = !!isSelected;
+            input.style.marginTop = '3px';
+
+            try { input.dataset.optionId = (opt && opt.id != null) ? String(opt.id) : ''; } catch(_){ }
+
             // Main option text
-            const main = document.createElement('div');
+            const main = document.createElement('span');
+            main.className = 'option-text';
             main.innerHTML = `<strong>${letter}.</strong> ${opt.texto || opt.text || ''}`;
-            wrap.appendChild(main);
+
+            label.appendChild(input);
+            label.appendChild(main);
+            wrap.appendChild(label);
 
             // Per-option explanation from explicacaoguia.descricao (when present)
             const exp = (opt && (opt.explicacao || opt.explanation)) ? String(opt.explicacao || opt.explanation) : '';
@@ -461,9 +504,25 @@
             const okMsg = 'Parabéns! Você acertou.';
             let msg = '';
             if (selectedLetterList.length === 0) msg = 'Você não marcou esta questão.';
-            else if (correctLetter && selectedLetterList.includes(correctLetter)) msg = okMsg;
-            else if (correctLetter) msg = `Você selecionou ${selectedLetterList.join(', ')}; correta: ${correctLetter}.`;
-            else msg = `Você selecionou ${selectedLetterList.join(', ')}.`;
+            else if (correctIds.length) {
+              try {
+                const selSet = new Set((selectedIds || []).map(x => String(x)));
+                const corSet = new Set((correctIds || []).map(x => String(x)));
+                const allOk = (selSet.size === corSet.size) && Array.from(selSet).every(id => corSet.has(id));
+                if (allOk) msg = okMsg;
+                else {
+                  const correctLabel = isMulti
+                    ? `corretas: ${correctLetters.join(', ')}`
+                    : `correta: ${correctLetters[0] || ''}`;
+                  msg = `Você selecionou ${selectedLetterList.join(', ')}; ${correctLabel}.`;
+                }
+              } catch(_){
+                const correctLabel = isMulti
+                  ? `corretas: ${correctLetters.join(', ')}`
+                  : `correta: ${correctLetters[0] || ''}`;
+                msg = `Você selecionou ${selectedLetterList.join(', ')}; ${correctLabel}.`;
+              }
+            } else msg = `Você selecionou ${selectedLetterList.join(', ')}.`;
 
             note.textContent = msg;
             note.classList.remove('review-note--ok', 'review-note--bad');

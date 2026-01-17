@@ -344,6 +344,8 @@ body.light-app{ background: var(--bg); }
 
 .option input[type="radio"]{ width:18px; height:18px; }
 
+.option input[type="checkbox"]{ width:18px; height:18px; }
+
 .actions-row{ display:flex; justify-content:flex-end; }
 
 .primary-btn{

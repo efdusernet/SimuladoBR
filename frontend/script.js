@@ -99,6 +99,49 @@ class SafeRedirect {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Hard no-cache mode: remove any existing Service Worker + Cache Storage.
+    // This prevents stale JS/HTML from being served even if a SW was registered in the past.
+    (async () => {
+        let wasControlled = false;
+        try { wasControlled = !!(navigator.serviceWorker && navigator.serviceWorker.controller); } catch (_) {}
+
+        try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all((regs || []).map(r => {
+                    try { return r.unregister(); } catch (_) { return Promise.resolve(false); }
+                }));
+            }
+        } catch (_) {}
+
+        try {
+            if (window.caches && caches.keys) {
+                const names = await caches.keys();
+                await Promise.all((names || []).map(n => {
+                    try { return caches.delete(n); } catch (_) { return Promise.resolve(false); }
+                }));
+            }
+        } catch (_) {}
+
+        // If an old SW was controlling this page, it may keep intercepting fetches until a reload.
+        // Do a one-time reload to ensure we are running truly SW-free.
+        try {
+            if (wasControlled) {
+                const k = '__swKillReloadAt';
+                const last = localStorage.getItem(k);
+                const now = Date.now();
+                const lastMs = last ? Date.parse(last) : NaN;
+                const recently = Number.isFinite(lastMs) && (now - lastMs) < (10 * 60 * 1000);
+                if (!recently) {
+                    localStorage.setItem(k, new Date(now).toISOString());
+                    setTimeout(() => {
+                        try { window.location.reload(); } catch (_) {}
+                    }, 60);
+                }
+            }
+        } catch (_) {}
+    })();
+
     // Initialize SafeRedirect utility
     const safeRedirect = new SafeRedirect();
 

@@ -1,4 +1,46 @@
 (function () {
+  // Hard no-cache mode: remove any existing Service Worker + Cache Storage.
+  // Review pages may not load frontend/script.js, so we enforce cleanup here too.
+  (async () => {
+    let wasControlled = false;
+    try { wasControlled = !!(navigator.serviceWorker && navigator.serviceWorker.controller); } catch (_) {}
+
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all((regs || []).map((r) => {
+          try { return r.unregister(); } catch (_) { return Promise.resolve(false); }
+        }));
+      }
+    } catch (_) {}
+
+    try {
+      if (window.caches && caches.keys) {
+        const names = await caches.keys();
+        await Promise.all((names || []).map((n) => {
+          try { return caches.delete(n); } catch (_) { return Promise.resolve(false); }
+        }));
+      }
+    } catch (_) {}
+
+    // If the page was under SW control, reload once to drop interception.
+    try {
+      if (wasControlled) {
+        const k = '__swKillReloadAt';
+        const last = localStorage.getItem(k);
+        const now = Date.now();
+        const lastMs = last ? Date.parse(last) : NaN;
+        const recently = Number.isFinite(lastMs) && (now - lastMs) < (10 * 60 * 1000);
+        if (!recently) {
+          localStorage.setItem(k, new Date(now).toISOString());
+          setTimeout(() => {
+            try { window.location.reload(); } catch (_) {}
+          }, 60);
+        }
+      }
+    } catch (_) {}
+  })();
+
   function ensureStyles() {
     if (document.getElementById('gridReviewStyles')) return;
     const style = document.createElement('style');
@@ -51,10 +93,83 @@
     if (!ans || typeof ans !== 'object') return [];
     if (Array.isArray(ans.optionIds)) return ans.optionIds;
     if (ans.optionId != null) return [ans.optionId];
+    // Typed/interaction answers: treat as answered for filter purposes.
+    if (ans.response != null) return ['__typed__'];
     return [];
   }
 
-  function computeCorrectness(question, selectedIds) {
+  function isMatchColumns(question) {
+    try {
+      const t = (question && (question.type || question.tiposlug)) ? String(question.type || question.tiposlug).trim().toLowerCase() : '';
+      return t === 'match_columns';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function pairsFromAnswer(ans) {
+    try {
+      if (!ans || typeof ans !== 'object') return null;
+      const r = ans.response;
+      if (!r) return null;
+      if (typeof r === 'string') {
+        const s = r.trim();
+        if (!s) return null;
+        try {
+          const parsed = JSON.parse(s);
+          if (parsed && typeof parsed === 'object' && parsed.pairs && typeof parsed.pairs === 'object') return parsed.pairs;
+          if (parsed && typeof parsed === 'object') return parsed;
+          return null;
+        } catch (_) {
+          return null;
+        }
+      }
+      if (r && typeof r === 'object' && r.pairs && typeof r.pairs === 'object') return r.pairs;
+      if (r && typeof r === 'object') return r;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function computeMatchColumnsCorrectness(question, ans) {
+    try {
+      const correctPairs = (question && question.correctPairs && typeof question.correctPairs === 'object') ? question.correctPairs : null;
+      const userPairs = pairsFromAnswer(ans);
+      if (!correctPairs || !Object.keys(correctPairs).length) return null;
+      if (!userPairs || !Object.keys(userPairs).length) return null;
+
+      // Must match all left keys present in correctPairs
+      for (const lid of Object.keys(correctPairs)) {
+        const ur = userPairs[lid];
+        const cr = correctPairs[lid];
+        if (ur == null || String(ur).trim() === '') return false;
+        if (String(ur) !== String(cr)) return false;
+      }
+
+      // one-to-one by default unless explicitly false in interacao
+      const oneToOne = !((question && question.interacao && question.interacao.oneToOne) === false);
+      if (oneToOne) {
+        const seen = new Set();
+        for (const lid of Object.keys(correctPairs)) {
+          const rid = String(userPairs[lid]);
+          if (seen.has(rid)) return false;
+          seen.add(rid);
+        }
+      }
+      return true;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function computeCorrectness(question, selectedIds, ans) {
+    if (isMatchColumns(question)) {
+      const v = computeMatchColumnsCorrectness(question, ans);
+      if (v === true || v === false) return v;
+      // If answered but cannot compute, keep neutral
+      return null;
+    }
     const opts = normalizeOptions(question);
     const correctIds = opts
       .filter((o) => o && (o.correta || o.isCorrect))
@@ -217,7 +332,7 @@
           const ans = answers[key] || {};
           const selectedIds = selectedIdsFromAnswer(ans);
           const isAnswered = !!(selectedIds && selectedIds.length);
-          const correctness = computeCorrectness(q, selectedIds);
+          const correctness = computeCorrectness(q, selectedIds, ans);
 
           // Filtro 1
           if (statusVal === 'answered' && !isAnswered) return;

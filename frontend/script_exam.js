@@ -1352,6 +1352,15 @@
                 }
                 const data = await resp.json();
 
+                // If backend provides attemptId, persist it for review navigation.
+                try {
+                  const attemptId = Number(data && (data.attemptId || data.examAttemptId || data.id || data.Id));
+                  if (Number.isFinite(attemptId) && attemptId > 0) {
+                    try { sessionStorage.setItem('currentReviewAttemptId', String(attemptId)); } catch(_){ }
+                    try { localStorage.setItem('lastExamAttemptId', String(attemptId)); } catch(_){ }
+                  }
+                } catch(_){ }
+
                 // show results in #status area
                 try {
                   const status = $('status');
@@ -1435,11 +1444,25 @@
                   return data;
                 }
                 
-                // Após envio no modo quiz (exam.html), limpar dados e redirecionar para a página inicial
+                // Após envio no modo quiz (exam.html), limpar dados e redirecionar para a revisão do exame submetido
                 try {
                   if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
                   else if (typeof clearExamData === 'function') { clearExamData(); }
                 } catch(_){ }
+
+                try {
+                  const path = (window.location && window.location.pathname) ? String(window.location.pathname) : '';
+                  const isQuizPage = /\/pages\/exam\.html$/i.test(path);
+                  if (isQuizPage) {
+                    const attemptId = Number(data && (data.attemptId || data.examAttemptId || data.id || data.Id));
+                    if (Number.isFinite(attemptId) && attemptId > 0) {
+                      const url = '/pages/examReviewQuiz.html?examId=' + encodeURIComponent(String(attemptId));
+                      (window.top || window).location.assign(url);
+                      return data;
+                    }
+                  }
+                } catch(_){ }
+
                 try { (window.top || window).location.assign('/'); } catch(_){ (window.top || window).location.href = '/'; }
 
                 return data;

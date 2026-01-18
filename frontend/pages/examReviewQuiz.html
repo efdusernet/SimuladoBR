@@ -224,7 +224,7 @@
             const csrfTok = await ensureCsrfToken();
             if (csrfTok) headers['X-CSRF-Token'] = csrfTok;
 
-            const url = `/api/admin/exams/attempts/${encodeURIComponent(String(attemptId))}?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+            const url = `/api/admin/exams/attempts/${encodeURIComponent(String(attemptId))}`;
             btn.disabled = true;
             const resp = await fetch(url, { method: 'DELETE', headers, credentials: 'include' });
             const txt = await resp.text().catch(()=> '');

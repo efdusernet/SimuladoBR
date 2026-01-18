@@ -24,7 +24,7 @@
 <body>
   <div style="position:fixed; top:8px; right:8px; z-index:1000; display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
     <button id="exitReviewBtn" class="primary-btn" style="background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Encerrar revisão</button>
-    <button id="deleteHistoryBtn" class="primary-btn" type="button" style="display:none; background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Excluir histórico</button>
+    <button id="deleteHistoryBtn" class="primary-btn" type="button" hidden style="display:none !important; background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Excluir histórico</button>
     <button id="openGridReviewBtn" type="button" class="primary-btn" style="padding:8px 14px; border-radius:6px; font-size:13px;">Navegar questões</button>
   </div>
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
@@ -186,13 +186,17 @@
       async function setupDeleteHistoryButton(){
         const btn = document.getElementById('deleteHistoryBtn');
         if (!btn) return;
+        // Always hidden by default; only admins can see it (defense in depth against CSS overrides)
+        try { btn.hidden = true; } catch(_){ }
+        try { btn.style.setProperty('display','none','important'); } catch(_){ }
         const attemptId = Number(examId);
         if (!Number.isFinite(attemptId) || attemptId <= 0) return;
 
         const okAdmin = await isAdmin();
         if (!okAdmin) return;
 
-        btn.style.display = 'inline-block';
+        try { btn.hidden = false; } catch(_){ }
+        try { btn.style.setProperty('display','inline-block','important'); } catch(_){ btn.style.display = 'inline-block'; }
         btn.addEventListener('click', async ()=>{
           const ok = confirm(`Excluir histórico (tentativa ID ${attemptId})?\n\nEsta ação apaga definitivamente respostas e registros da tentativa.`);
           if (!ok) return;

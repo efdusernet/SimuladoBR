@@ -743,39 +743,40 @@
         const btn = document.getElementById('adminMenuBtn');
         const panel = document.getElementById('adminMenuPanel');
         if (!btn || !panel) return;
+        // Hidden by default; only admins can see it.
+        try { btn.style.display = 'none'; } catch(_){ }
         const token = (localStorage.getItem('sessionToken') || '').trim();
         const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
         const sessionForHeader = nomeUsuario || token; // prefer NomeUsuario for admin middleware
-        if (!token) return; // no session => skip
-        // Helper: append ?sessionToken= fallback if cookies not set
-        function applyTokenFallback(){
-            try {
-                const q = encodeURIComponent(sessionForHeader || token);
-                ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp','lnkAdminNotifications','lnkAdminChatHost','lnkAdminChatHostModal'].forEach(id => {
-                    const a = document.getElementById(id); if (!a) return;
-                    const href = a.getAttribute('href') || '';
-                    if (href.includes('sessionToken=')) return;
-                    const sep = href.includes('?') ? '&' : '?';
-                    a.setAttribute('href', href + sep + 'sessionToken=' + q);
-                });
-            } catch(_){}
-        }
-        // Probe a lightweight admin-only endpoint to confirm role (GET /api/admin/exams/probe => 204 if admin)
-        // Include sessionToken as query fallback for servers expecting it in URL
-        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
-        // Build headers using both Session Token and JWT (if present)
-        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-        const probeHeaders = { };
-        if (sessionForHeader) probeHeaders['X-Session-Token'] = sessionForHeader;
-        if (jwtTok) probeHeaders['Authorization'] = `${jwtType} ${jwtTok}`;
-        fetch(probeUrl, { headers: probeHeaders, method: 'GET', credentials: 'include' })
-          .then(r => {
-              if (!r.ok) return Promise.reject('Not admin'); // not admin
-              // Success => show menu
-              btn.style.display = 'inline-flex';
-              // Provide fallback token if cookies absent
-              applyTokenFallback();
+        if (!sessionForHeader) return; // no session => skip
+                const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                const headers = { };
+                if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+                if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                // Primary: RBAC probe.
+                const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+                fetch(probeUrl, { headers, method: 'GET', credentials: 'include' })
+                    .then(async (r) => {
+                        let isAdmin = !!(r && (r.ok || r.status === 204));
+
+                        if (!isAdmin) {
+                            // Fallback: legacy /api/users/me.
+                            try {
+                                const r2 = await fetch('/api/users/me', { headers, method: 'GET', credentials: 'include' });
+                                if (r2.ok) {
+                                    const user = await r2.json().catch(()=>null);
+                                    isAdmin = !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
+                                }
+                            } catch(_){ }
+                        }
+
+                        if (!isAdmin) return;
+                        try { window.__isAdmin = true; } catch(_){ }
+
+                        // Success => show menu
+                        btn.style.display = 'inline-flex';
               function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
               function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
               btn.addEventListener('click', e => {
@@ -812,21 +813,25 @@
                   reconcileBtn.addEventListener('click', ()=>{
                       close(); // Fecha o menu admin
                       const adminModal = document.getElementById('adminModal');
-                      if (adminModal) {
+                      if (typeof window.openAdminModal === 'function') {
+                          window.openAdminModal();
+                      } else if (adminModal) {
                           adminModal.classList.add('active');
                           adminModal.setAttribute('aria-hidden', 'false');
                           const nav = document.querySelector('.bottom-nav');
                           if (nav) nav.style.display = 'none';
-                          // scroll to reconcile section (first panel)
-                          try { adminModal.querySelector('h3')?.scrollIntoView({behavior:'smooth'}); } catch(_){}
                       }
+                      // scroll to reconcile section (first panel)
+                      try { adminModal?.querySelector('h3')?.scrollIntoView({behavior:'smooth'}); } catch(_){ }
                   });
               }
               if (fixtureBtn){
                   fixtureBtn.addEventListener('click', ()=>{
                       close();
                       const adminModal = document.getElementById('adminModal');
-                      if (adminModal){
+                      if (typeof window.openAdminModal === 'function') {
+                          window.openAdminModal();
+                      } else if (adminModal){
                           adminModal.classList.add('active');
                           adminModal.setAttribute('aria-hidden','false');
                           const nav = document.querySelector('.bottom-nav'); if (nav) nav.style.display='none';
@@ -1118,15 +1123,53 @@
                         return true;
                     } catch(_){ return false; }
                 };
-                // Simple toast helper
-                window.showToast = function(msg){
+                // Toast helper (supports centered positioning)
+                // Usage:
+                //  - showToast('Mensagem')
+                //  - showToast('Mensagem', 2000)
+                //  - showToast('Mensagem', 2000, true) // center
+                //  - showToast('Mensagem', 2000, { center:true })
+                //  - showToast('Mensagem', 2000, { position:'center' })
+                window.showToast = function(msg, ms, opts){
                     try {
                         const el = document.getElementById('toast');
                         if (!el) return;
+                        const duration = (typeof ms === 'number' && ms > 0) ? ms : 2600;
+                        const center = (opts === true) || (opts && (opts.center === true || opts.position === 'center'));
+
+                        // cache original positioning once
+                        if (!el.__posCached) {
+                            el.__posCached = true;
+                            el.__origRight = el.style.right;
+                            el.__origBottom = el.style.bottom;
+                            el.__origLeft = el.style.left;
+                            el.__origTop = el.style.top;
+                            el.__origTransform = el.style.transform;
+                            el.__origMaxWidth = el.style.maxWidth;
+                        }
+
+                        if (center) {
+                            el.style.left = '50%';
+                            el.style.top = '50%';
+                            el.style.right = 'auto';
+                            el.style.bottom = 'auto';
+                            el.style.transform = 'translate(-50%, -50%)';
+                            el.style.maxWidth = '80vw';
+                            el.style.textAlign = 'center';
+                        } else {
+                            el.style.right = el.__origRight || '14px';
+                            el.style.bottom = el.__origBottom || '14px';
+                            el.style.left = el.__origLeft || '';
+                            el.style.top = el.__origTop || '';
+                            el.style.transform = el.__origTransform || '';
+                            el.style.maxWidth = el.__origMaxWidth || '240px';
+                            el.style.textAlign = '';
+                        }
+
                         el.textContent = msg || '';
                         el.style.display = 'block';
                         clearTimeout(window.__toastTimer);
-                        window.__toastTimer = setTimeout(()=>{ try{ el.style.display='none'; }catch(_){ } }, 2600);
+                        window.__toastTimer = setTimeout(()=>{ try{ el.style.display='none'; }catch(_){ } }, duration);
                     } catch(_){ }
                 };
             })();
@@ -1179,10 +1222,50 @@
                                 old.remove();
                             }
                         } catch(_){ }
+                        async function isPremiumUser(){
+                            try {
+                                // Fast path: localStorage BloqueioAtivado already synced by script.js
+                                const lsVal = (localStorage.getItem('BloqueioAtivado') || '').trim();
+                                if (lsVal === 'true') return false;
+                                if (lsVal === 'false') return true;
+
+                                const token = (localStorage.getItem('sessionToken') || '').trim();
+                                const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                                const identity = (nomeUsuario || token).trim();
+                                if (!identity) return false;
+
+                                const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                                const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                                const headers = { 'Accept':'application/json' };
+                                headers['X-Session-Token'] = identity;
+                                if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                                const r = await fetch('/api/users/me', { method:'GET', headers, credentials:'include' });
+                                if (!r.ok) return false;
+                                const data = await r.json().catch(()=>null);
+                                const isPremium = !!(data && data.BloqueioAtivado === false);
+                                try { localStorage.setItem('BloqueioAtivado', String(Boolean(data && data.BloqueioAtivado))); } catch(_){ }
+                                return isPremium;
+                            } catch(_){
+                                return false;
+                            }
+                        }
+
                         // Make the whole component clickable to open Indicadores -> Probabilidade de Sucesso
                         try {
                             mount.style.cursor = 'pointer';
-                            mount.addEventListener('click', function(){
+                            mount.addEventListener('click', async function(e){
+                                try { if (e) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } } catch(_){ }
+                                try {
+                                    const okPremium = await isPremiumUser();
+                                    if (!okPremium) {
+                                        try { window.showToast && window.showToast('Somente para usuário premium', 2400, { center: true }); } catch(_){ }
+                                        return;
+                                    }
+                                } catch(_){
+                                    try { window.showToast && window.showToast('Somente para usuário premium', 2400, { center: true }); } catch(_){ }
+                                    return;
+                                }
                                 try {
                                     // Prefer using the existing sidebar navigation (loads into main.content)
                                     try {
@@ -1806,6 +1889,97 @@
                 <div id="resetPasswordOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;color:var(--text);white-space:pre-wrap"></div>
             </div>
 
+            <!-- Accordion: Snapshots diários (Insights) -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🕒 Snapshots de Insights (pagantes)</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">
+                        Mostra os registros da tabela <span style="font-family:monospace">user_daily_snapshot</span> (gravados 1x/dia quando o usuário é pagante: <span style="font-family:monospace">BloqueioAtivado=false</span>).
+                    </p>
+                    <div style="display:grid;gap:10px;margin-bottom:10px">
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <div style="flex:1;min-width:160px;display:flex;flex-direction:column;gap:4px">
+                                <label for="adminSnapshotUserId" style="font-size:0.75rem;color:var(--muted)">User ID *</label>
+                                <input id="adminSnapshotUserId" type="number" min="1" placeholder="ex: 123" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                            </div>
+                            <div style="width:140px;display:flex;flex-direction:column;gap:4px">
+                                <label for="adminSnapshotDays" style="font-size:0.75rem;color:var(--muted)">Dias</label>
+                                <input id="adminSnapshotDays" type="number" min="1" max="365" value="90" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <input type="checkbox" id="adminSnapshotIncludePayload" style="width:18px;height:18px;cursor:pointer" />
+                            <label for="adminSnapshotIncludePayload" style="font-size:0.9rem;color:var(--text);cursor:pointer">Incluir payload JSON (mais pesado)</label>
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button id="adminLoadSnapshotsBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Carregar snapshots</button>
+                            <button id="adminUseOverrideUserIdBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer">Usar User ID do Override</button>
+                        </div>
+                        <div id="adminSnapshotsStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+                    </div>
+                    <div id="adminSnapshotsTable" style="display:none;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:420px"></div>
+                </div>
+            </div>
+
+            <!-- Accordion: Limpeza de DB (não-masterdata) -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🧹 Limpeza do Banco (não-masterdata)</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">
+                        Remove dados transacionais (tentativas, stats, snapshots, etc.) preservando tabelas de masterdata/conteúdo.
+                        Use <b>Simular</b> para ver exatamente o que será truncado. <b>Atenção:</b> operação destrutiva.
+                    </p>
+
+                    <div style="display:grid;gap:10px;margin-bottom:10px">
+                        <div style="display:flex;flex-wrap:wrap;gap:10px">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepUsers" checked style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter usuários (se desmarcar, preserva Usuario.id=21)</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepRbac" checked style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter RBAC (roles/admin)</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepEntitlements" checked style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter compras/entitlements</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepComm" checked style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter comunicação (recipients)</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepNotif" style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter notificações (draft/sent)</span>
+                            </label>
+                        </div>
+
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+                            <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:4px">
+                                <label for="adminDbConfirmText" style="font-size:0.75rem;color:var(--muted)">Confirmação (para executar)</label>
+                                <input id="adminDbConfirmText" type="text" placeholder="Digite: LIMPAR_NAO_MASTERDATA" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                            </div>
+                            <button id="adminDbDryRunBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer">Simular (dry-run)</button>
+                            <button id="adminDbExecuteBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:#b91c1c;color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:700;cursor:pointer">Executar limpeza</button>
+                        </div>
+
+                        <div id="adminDbCleanupStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+                    </div>
+
+                    <div id="adminDbCleanupOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:260px;overflow-y:auto;white-space:pre-wrap"></div>
+                </div>
+            </div>
+
             <!-- Accordion: Emular Questões por IDs -->
             <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
                 <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
@@ -2081,15 +2255,18 @@
                     if (typeof window.openAdminModal === 'function') {
                         window.openAdminModal();
                     } else {
-                        const adminModal = document.getElementById('adminModal');
-                        if (adminModal) {
-                            try { adminModal.removeAttribute('inert'); } catch(_){ }
-                            adminModal.classList.add('active');
-                            adminModal.setAttribute('aria-hidden', 'false');
-                            adminModal.style.display = 'flex';
-                            const navHide = document.querySelector('.bottom-nav');
-                            if (navHide) navHide.style.display='none';
-                        }
+                        ensureAdminAccess().then((ok) => {
+                            if (!ok) { denyAdminUi(); return; }
+                            const adminModal = document.getElementById('adminModal');
+                            if (adminModal) {
+                                try { adminModal.removeAttribute('inert'); } catch(_){ }
+                                adminModal.classList.add('active');
+                                adminModal.setAttribute('aria-hidden', 'false');
+                                adminModal.style.display = 'flex';
+                                const navHide = document.querySelector('.bottom-nav');
+                                if (navHide) navHide.style.display='none';
+                            }
+                        });
                     }
                     return;
                 }
@@ -2146,6 +2323,15 @@
             const adminUserSearchSelect = document.getElementById('adminUserSearchSelect');
             const adminUserSearchStatus = document.getElementById('adminUserSearchStatus');
 
+            // Insights snapshots (temporal model groundwork)
+            const adminSnapshotUserId = document.getElementById('adminSnapshotUserId');
+            const adminSnapshotDays = document.getElementById('adminSnapshotDays');
+            const adminSnapshotIncludePayload = document.getElementById('adminSnapshotIncludePayload');
+            const adminLoadSnapshotsBtn = document.getElementById('adminLoadSnapshotsBtn');
+            const adminUseOverrideUserIdBtn = document.getElementById('adminUseOverrideUserIdBtn');
+            const adminSnapshotsStatus = document.getElementById('adminSnapshotsStatus');
+            const adminSnapshotsTable = document.getElementById('adminSnapshotsTable');
+
             // Communication recipients (admin communications)
             const commAdminSelect = document.getElementById('commAdminSelect');
             const commAddRecipientBtn = document.getElementById('commAddRecipientBtn');
@@ -2153,20 +2339,93 @@
             const commRecipientsStatus = document.getElementById('commRecipientsStatus');
             const commRefreshRecipientsBtn = document.getElementById('commRefreshRecipientsBtn');
 
+            async function ensureAdminAccess(){
+                try { if (window.__isAdmin === true) return true; } catch(_){ }
+
+                try {
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const sessionForHeader = nomeUsuario || token;
+
+                    const headers = {};
+                    if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+                    try {
+                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                    } catch(_){ }
+                    try {
+                        const jwtTokB = (localStorage.getItem('jwt')||'').trim();
+                        const jwtTypeB = (localStorage.getItem('jwt_type')||'Bearer').trim()||'Bearer';
+                        if (!headers['Authorization'] && jwtTokB) headers['Authorization'] = `${jwtTypeB} ${jwtTokB}`;
+                    } catch(_){ }
+
+                    // Primary: probe admin-only endpoint (aligns with backend RBAC).
+                    try {
+                        const probeUrl = base + '/api/admin/exams/probe?sessionToken=' + encodeURIComponent(sessionForHeader || '');
+                        const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include' });
+                        if (probeResp.ok || probeResp.status === 204) {
+                            try { window.__isAdmin = true; } catch(_){ }
+                            try {
+                                const adminCard = document.getElementById('card-admin');
+                                if (adminCard) adminCard.style.display = '';
+                            } catch(_){ }
+                            return true;
+                        }
+                    } catch(_){ }
+
+                    // Fallback: /api/users/me for legacy setups.
+                    const resp = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
+                    if (!resp.ok) return false;
+                    const user = await resp.json().catch(()=>null);
+                    const ok = !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
+                    if (ok) { try { window.__isAdmin = true; } catch(_){ } }
+
+                    // Keep admin entry hidden unless confirmed.
+                    try {
+                        const adminCard = document.getElementById('card-admin');
+                        if (adminCard) adminCard.style.display = ok ? '' : 'none';
+                    } catch(_){ }
+
+                    return ok;
+                } catch(_){
+                    return false;
+                }
+            }
+
+            function denyAdminUi(){
+                try { if (window.showToast) { window.showToast('Acesso restrito: somente admin.'); return; } } catch(_){ }
+                try { alert('Acesso restrito: somente admin.'); } catch(_){ }
+            }
+
             // Unified modal open/close to avoid click-through caused by lingering `inert`.
             function openAdminModal(){
                 const m = document.getElementById('adminModal');
                 if (!m) return null;
-                try { m.removeAttribute('inert'); } catch(_){ }
-                m.classList.add('active');
-                m.setAttribute('aria-hidden', 'false');
-                // Ensure visible even if an earlier close set inline display:none
-                m.style.display = 'flex';
-                // Ensure it captures clicks
-                m.style.pointerEvents = 'auto';
-                const navHide = document.querySelector('.bottom-nav');
-                if (navHide) navHide.style.display = 'none';
-                return m;
+
+                const proceed = () => {
+                    try { m.removeAttribute('inert'); } catch(_){ }
+                    m.classList.add('active');
+                    m.setAttribute('aria-hidden', 'false');
+                    // Ensure visible even if an earlier close set inline display:none
+                    m.style.display = 'flex';
+                    // Ensure it captures clicks
+                    m.style.pointerEvents = 'auto';
+                    const navHide = document.querySelector('.bottom-nav');
+                    if (navHide) navHide.style.display = 'none';
+                    return m;
+                };
+
+                try { if (window.__isAdmin === true) return proceed(); } catch(_){ }
+
+                // Verify admin before opening.
+                ensureAdminAccess().then((ok) => {
+                    if (ok) return proceed();
+                    denyAdminUi();
+                    return null;
+                });
+                return null;
             }
             function closeAdminModal(){
                 const m = document.getElementById('adminModal');
@@ -2182,6 +2441,22 @@
             // Expose for sidebar component / other scripts
             window.openAdminModal = openAdminModal;
             window.closeAdminModal = closeAdminModal;
+
+            // Global safety: block any admin UI triggers for non-admins (defense-in-depth).
+            // This also protects against fallback/bundled handlers that might open the modal directly.
+            document.addEventListener('click', (e) => {
+                try {
+                    const trigger = e && e.target && e.target.closest
+                        ? e.target.closest('#card-admin,[data-card="admin"],#adminModalOpen,#adminMenuBtn,[data-admin-action]')
+                        : null;
+                    if (!trigger) return;
+                    if (window.__isAdmin === true) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+                    denyAdminUi();
+                } catch(_){ }
+            }, true);
             
             // Set default dates (last 30 days)
             if (reconcileFromDate && reconcileToDate) {
@@ -2195,26 +2470,260 @@
             // Check if user is admin on page load
             (async function checkAdmin() {
                 try {
-                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
-                    // Auth via httpOnly cookie, no localStorage token needed
-                    // Include Authorization JWT if available for robustness
-                    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                    const headers = {};
-                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-                    const resp = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
-                    
-                    if (resp.ok) {
-                        const user = await resp.json();
-                        if (user && user.TipoUsuario === 'admin') {
-                            try { window.__isAdmin = true; } catch(_){ }
-                            const adminCard = document.getElementById('card-admin');
-                            if (adminCard) adminCard.style.display = '';
-                        }
-                    }
+                    await ensureAdminAccess();
                 } catch(e) {
                     logger.warn('Admin check failed:', e);
                 }
+            })();
+
+            // Admin: view daily snapshots recorded from /api/ai/insights
+            (function initAdminSnapshots(){
+                if (!adminLoadSnapshotsBtn || !adminSnapshotsTable) return;
+
+                function setStatus(msg){
+                    if (!adminSnapshotsStatus) return;
+                    adminSnapshotsStatus.textContent = msg || '';
+                }
+
+                function fmtNum(v, digits){
+                    const n = Number(v);
+                    if (!isFinite(n)) return '';
+                    if (digits == null) return String(n);
+                    return n.toFixed(digits);
+                }
+
+                function escapeHtml(s){
+                    return String(s == null ? '' : s)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                }
+
+                function render(items, includePayload){
+                    if (!adminSnapshotsTable) return;
+                    const list = Array.isArray(items) ? items : [];
+                    if (!list.length){
+                        adminSnapshotsTable.style.display = 'block';
+                        adminSnapshotsTable.innerHTML = '<div style="font-size:.85rem;color:var(--muted)">Nenhum snapshot encontrado para este usuário (ou não é pagante / ainda não gerou insights hoje).</div>';
+                        return;
+                    }
+
+                    const headStyle = 'padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;font-size:.78rem;color:var(--muted);white-space:nowrap;';
+                    const cellStyle = 'padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.2);font-size:.85rem;color:var(--text);vertical-align:top;white-space:nowrap;';
+
+                    let html = '';
+                    html += '<table style="width:100%;border-collapse:collapse">';
+                    html += '<thead><tr>';
+                    html += `<th style="${headStyle}">Data</th>`;
+                    html += `<th style="${headStyle}">DaysToExam</th>`;
+                    html += `<th style="${headStyle}">Readiness</th>`;
+                    html += `<th style="${headStyle}">Consistência</th>`;
+                    html += `<th style="${headStyle}">Avg%</th>`;
+                    html += `<th style="${headStyle}">Prob%</th>`;
+                    html += `<th style="${headStyle}">Overall%</th>`;
+                    html += `<th style="${headStyle}">TrendΔ</th>`;
+                    html += `<th style="${headStyle}">CompRate</th>`;
+                    html += `<th style="${headStyle}">Abandon</th>`;
+                    html += '</tr></thead><tbody>';
+
+                    for (let i = 0; i < list.length; i++){
+                        const r = list[i] || {};
+                        const date = r.snapshot_date || r.snapshotDate || '';
+                        const daysToExam = r.days_to_exam != null ? r.days_to_exam : r.daysToExam;
+                        const readiness = r.readiness_score != null ? r.readiness_score : r.readinessScore;
+                        const consistency = r.consistency_score != null ? r.consistency_score : r.consistencyScore;
+                        const avg = r.avg_score_percent != null ? r.avg_score_percent : r.avgScorePercent;
+                        const prob = r.pass_probability_percent != null ? r.pass_probability_percent : r.passProbabilityPercent;
+                        const overall = r.pass_probability_overall_percent != null ? r.pass_probability_overall_percent : r.passProbabilityOverallPercent;
+                        const trend = r.trend_delta_score7d != null ? r.trend_delta_score7d : r.trendDeltaScore7d;
+                        const comp = r.completion_rate != null ? r.completion_rate : r.completionRate;
+                        const abd = r.abandon_rate != null ? r.abandon_rate : r.abandonRate;
+
+                        html += '<tr>';
+                        html += `<td style="${cellStyle}">${escapeHtml(date)}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(daysToExam == null ? '' : String(daysToExam))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(readiness == null ? '' : String(readiness))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(consistency == null ? '' : String(consistency))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(avg == null ? '' : fmtNum(avg, 2))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(prob == null ? '' : fmtNum(prob, 2))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(overall == null ? '' : fmtNum(overall, 2))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(trend == null ? '' : fmtNum(trend, 2))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(comp == null ? '' : fmtNum(comp, 4))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(abd == null ? '' : fmtNum(abd, 4))}</td>`;
+                        html += '</tr>';
+
+                        if (includePayload && r.payload != null){
+                            const payloadId = 'snapPayload_' + i;
+                            html += `<tr><td colspan="10" style="padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.2)">`;
+                            html += `<details id="${payloadId}"><summary style="cursor:pointer;color:var(--muted);font-size:.82rem">payload JSON</summary>`;
+                            html += `<pre style="white-space:pre-wrap;word-break:break-word;margin:8px 0 0;font-size:.75rem">${escapeHtml(JSON.stringify(r.payload, null, 2))}</pre>`;
+                            html += `</details>`;
+                            html += `</td></tr>`;
+                        }
+                    }
+
+                    html += '</tbody></table>';
+                    adminSnapshotsTable.style.display = 'block';
+                    adminSnapshotsTable.innerHTML = html;
+                }
+
+                async function load(){
+                    const uid = adminSnapshotUserId ? Number(adminSnapshotUserId.value) : null;
+                    const days = adminSnapshotDays ? Number(adminSnapshotDays.value) : 90;
+                    const includePayload = !!(adminSnapshotIncludePayload && adminSnapshotIncludePayload.checked);
+
+                    if (!uid || !isFinite(uid) || uid <= 0){
+                        alert('Preencha User ID.');
+                        return;
+                    }
+
+                    setStatus('Carregando...');
+                    adminLoadSnapshotsBtn.disabled = true;
+                    const oldTxt = adminLoadSnapshotsBtn.textContent;
+                    adminLoadSnapshotsBtn.textContent = 'Carregando...';
+
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const url = base + '/api/admin/users/' + encodeURIComponent(String(uid)) + '/insights-snapshots'
+                          + '?days=' + encodeURIComponent(String(isFinite(days) && days > 0 ? Math.min(Math.max(Math.floor(days), 1), 365) : 90))
+                          + '&includePayload=' + (includePayload ? '1' : '0');
+
+                        const resp = await fetch(url, { cache: 'no-store', credentials: 'include' });
+                        const raw = await resp.text();
+                        let data = null;
+                        try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                        if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+
+                        const items = data && Array.isArray(data.items) ? data.items : [];
+                        setStatus(`OK — ${items.length} registro(s).`);
+                        render(items, includePayload);
+                    } catch (e) {
+                        setStatus((e && e.message) ? e.message : String(e));
+                        adminSnapshotsTable.style.display = 'block';
+                        adminSnapshotsTable.innerHTML = '<div style="font-family:monospace;font-size:.8rem;color:var(--text)">Erro ao carregar snapshots.</div>';
+                    } finally {
+                        adminLoadSnapshotsBtn.disabled = false;
+                        adminLoadSnapshotsBtn.textContent = oldTxt;
+                    }
+                }
+
+                adminLoadSnapshotsBtn.addEventListener('click', () => { load(); });
+
+                if (adminUseOverrideUserIdBtn) {
+                    adminUseOverrideUserIdBtn.addEventListener('click', () => {
+                        const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+                        if (adminSnapshotUserId && uid && isFinite(uid) && uid > 0) {
+                            adminSnapshotUserId.value = String(uid);
+                            setStatus('User ID preenchido a partir do Override.');
+                        } else {
+                            alert('Preencha User ID no accordion de Override (ou digite manualmente).');
+                        }
+                    });
+                }
+            })();
+
+            // Admin: DB cleanup (truncate non-masterdata tables)
+            (function initAdminDbCleanup(){
+                const dryBtn = document.getElementById('adminDbDryRunBtn');
+                const execBtn = document.getElementById('adminDbExecuteBtn');
+                const outEl = document.getElementById('adminDbCleanupOutput');
+                const statusEl = document.getElementById('adminDbCleanupStatus');
+                const confirmEl = document.getElementById('adminDbConfirmText');
+
+                const keepUsersEl = document.getElementById('adminDbKeepUsers');
+                const keepRbacEl = document.getElementById('adminDbKeepRbac');
+                const keepEntitlementsEl = document.getElementById('adminDbKeepEntitlements');
+                const keepCommEl = document.getElementById('adminDbKeepComm');
+                const keepNotifEl = document.getElementById('adminDbKeepNotif');
+
+                if (!dryBtn || !execBtn || !outEl) return;
+
+                function setStatus(msg){ if (statusEl) statusEl.textContent = msg || ''; }
+
+                function showOut(obj){
+                    outEl.style.display = 'block';
+                    outEl.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+                }
+
+                async function callApi(dryRun){
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const url = base + '/api/admin/db/cleanup/non-masterdata';
+
+                    const options = {
+                        keepUsers: keepUsersEl ? !!keepUsersEl.checked : true,
+                        keepRbac: keepRbacEl ? !!keepRbacEl.checked : true,
+                        keepEntitlements: keepEntitlementsEl ? !!keepEntitlementsEl.checked : true,
+                        keepCommunication: keepCommEl ? !!keepCommEl.checked : true,
+                        keepNotifications: keepNotifEl ? !!keepNotifEl.checked : false,
+                    };
+
+                    const payload = {
+                        dryRun: !!dryRun,
+                        confirm: confirmEl ? String(confirmEl.value || '').trim() : '',
+                        options,
+                    };
+
+                    const resp = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                        credentials: 'include',
+                    });
+
+                    const raw = await resp.text();
+                    let data = null;
+                    try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                    if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+                    return data;
+                }
+
+                async function runDry(){
+                    setStatus('Simulando...');
+                    dryBtn.disabled = true;
+                    execBtn.disabled = true;
+                    try {
+                        const data = await callApi(true);
+                        setStatus(`OK — ${data && data.truncate ? data.truncate.length : 0} tabela(s) para truncar.`);
+                        showOut(data);
+                    } catch(e){
+                        setStatus((e && e.message) ? e.message : String(e));
+                        showOut((e && e.message) ? e.message : String(e));
+                    } finally {
+                        dryBtn.disabled = false;
+                        execBtn.disabled = false;
+                    }
+                }
+
+                async function runExec(){
+                    const conf = confirmEl ? String(confirmEl.value || '').trim() : '';
+                    if (conf !== 'LIMPAR_NAO_MASTERDATA') {
+                        alert('Para executar, digite exatamente: LIMPAR_NAO_MASTERDATA');
+                        return;
+                    }
+
+                    const ok = confirm('Esta operação TRUNCA tabelas (dados serão perdidos). Deseja continuar?');
+                    if (!ok) return;
+
+                    setStatus('Executando limpeza...');
+                    dryBtn.disabled = true;
+                    execBtn.disabled = true;
+                    try {
+                        const data = await callApi(false);
+                        setStatus(`OK — truncadas ${data && data.truncated != null ? data.truncated : '?'} tabela(s).`);
+                        showOut(data);
+                    } catch(e){
+                        setStatus((e && e.message) ? e.message : String(e));
+                        showOut((e && e.message) ? e.message : String(e));
+                    } finally {
+                        dryBtn.disabled = false;
+                        execBtn.disabled = false;
+                    }
+                }
+
+                dryBtn.addEventListener('click', runDry);
+                execBtn.addEventListener('click', runExec);
             })();
 
             // Admin: emulator (start exam from explicit question IDs)

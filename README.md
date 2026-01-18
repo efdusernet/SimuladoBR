@@ -20,6 +20,10 @@ Leitura rápida recomendada (onboarding): `CONTEXT.md` e `FEATURES.md`.
 - Review de tentativas finalizadas:
 	- Endpoint `GET /api/exams/result/:attemptId` e páginas `frontend/pages/examReviewFull.html` / `frontend/pages/examReviewQuiz.html`.
 - Chat-service integrado via reverse-proxy em `/chat/*`.
+- Insights da IA:
+	- Endpoint `GET /api/ai/insights` expandido com `ai.explainability` (rastreabilidade do porquê dos alertas) e plano 7 dias.
+	- Base para modelo temporal: grava snapshots diários em `public.user_daily_snapshot` (upsert 1x/dia), somente para pagantes (`BloqueioAtivado=false`).
+	- Admin UI: seção no modal Admin para consultar snapshots via `GET /api/admin/users/:id/insights-snapshots`.
 
 ## Esquema (foco em exam_type)
 

@@ -367,6 +367,9 @@ body.light-app{ background: var(--bg); }
 }
 .primary-btn:active{ transform: translateY(1px); }
 
+/* Admin-only control (review pages): hidden by default; shown only when JS explicitly enables it. */
+#deleteHistoryBtn{ display:none !important; }
+
 /* visual cue for missing selection: red border + subtle shake */
 .input-error {
 	animation: shake 0.36s ease-in-out;

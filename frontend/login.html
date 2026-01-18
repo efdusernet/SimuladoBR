@@ -136,21 +136,21 @@
   </main>
 
   <!-- Modal de Login / Registro -->
-  <div id="emailModal" class="modal" aria-hidden="true" style="display:block;">
+  <div id="emailModal" class="modal" aria-hidden="true" style="display:block;" data-mode="login">
     <div class="modal-content">
-      <h2>Registro obrigatório</h2>
-      <p>Por favor, informe seu e-mail para registrar o aplicativo.</p>
-      <input id="nameInput" type="text" placeholder="Seu nome completo" />
+      <h2>Entrar</h2>
+      <p>Informe seu e-mail e senha para entrar.</p>
+      <input id="nameInput" type="text" placeholder="Seu nome completo" style="display:none;" />
       <input id="emailInput" type="email" placeholder="seu@exemplo.com" />
       <input id="passwordInput" type="password" placeholder="Senha (mínimo 6 caracteres)" />
       <input id="verifyTokenInput" type="text" placeholder="Código de verificação (se recebeu por e-mail)" style="display:none;" />
       <input id="newPasswordInput" type="password" placeholder="Nova senha (mínimo 6 caracteres)" style="display:none;" />
       <input id="confirmPasswordInput" type="password" placeholder="Confirmar nova senha" style="display:none;" />
       <div class="modal-actions">
-        <button id="submitEmail">Registrar</button>
-        <button id="toggleModeBtn" class="secondary-btn" type="button">Já tenho conta</button>
+        <button id="submitEmail">Entrar</button>
+        <button id="toggleModeBtn" class="secondary-btn" type="button">Criar conta</button>
       </div>
-      <a id="forgotPasswordLink" href="#" style="display:none;text-align:center;margin-top:8px;font-size:0.875rem;color:#4f46e5;text-decoration:none;">Esqueci minha senha</a>
+      <a id="forgotPasswordLink" href="#" style="display:block;text-align:center;margin-top:8px;font-size:0.875rem;color:#4f46e5;text-decoration:none;">Esqueci minha senha</a>
       <p id="modalError" style="color:crimson;display:none;"></p>
     </div>
   </div>

@@ -70,6 +70,66 @@ router.get('/search', requireAdmin, async (req, res, next) => {
   }
 });
 
+// GET /api/admin/users/:id/insights-snapshots?days=90&includePayload=0
+// Lista snapshots diários gravados a partir do /api/ai/insights (somente para usuários pagantes).
+router.get('/:id/insights-snapshots', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params && req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return next(badRequest('User id inválido', 'INVALID_USER_ID'));
+
+    const daysRaw = parseInt(req.query.days, 10);
+    const days = Number.isFinite(daysRaw) ? Math.min(Math.max(daysRaw, 1), 365) : 90;
+
+    const includePayload = String(req.query.includePayload || '0').trim() === '1';
+
+    // Compute start date in JS to keep SQL simple.
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    start.setDate(start.getDate() - (days - 1));
+    const startYmd = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+
+    const cols = [
+      'snapshot_date',
+      'period_days',
+      'exam_date_raw',
+      'days_to_exam',
+      'readiness_score',
+      'consistency_score',
+      'avg_score_percent',
+      'completion_rate',
+      'abandon_rate',
+      'trend_delta_score7d',
+      'pass_probability_percent',
+      'pass_probability_overall_percent',
+      'pass_probability_threshold_percent',
+      'ind13_dominio_id',
+      'ind13_min_total',
+      'created_at',
+      'updated_at',
+    ];
+    if (includePayload) cols.push('payload');
+
+    const rows = await db.sequelize.query(
+      `
+        SELECT ${cols.join(', ')}
+        FROM public.user_daily_snapshot
+        WHERE user_id = :uid
+          AND snapshot_date >= :startDate::date
+        ORDER BY snapshot_date DESC
+      `,
+      {
+        replacements: { uid: id, startDate: startYmd },
+        type: db.Sequelize.QueryTypes.SELECT,
+      }
+    );
+
+    return res.json({ userId: id, days, count: rows.length, items: rows });
+  } catch (e) {
+    console.error('[admin_users][INSIGHTS_SNAPSHOTS] error:', e && e.message);
+    return next(internalError('Internal error', 'ADMIN_USERS_INSIGHTS_SNAPSHOTS_ERROR', { error: e && e.message }));
+  }
+});
+
 // GET /api/admin/users/:id
 // Lookup a single user for admin UIs (Id + Nome + NomeUsuario + Email)
 // Note: do not use regex params here because the current router/path-to-regexp version rejects them.

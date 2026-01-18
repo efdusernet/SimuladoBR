@@ -19,18 +19,43 @@ Retorna um “dashboard” de insights: KPIs agregados do período + série diá
 - Query:
   - `days` (1–180; default 30)
 - Response (sucesso):
-  - `kpis`: `{ readinessScore, consistencyScore, avgScorePercent, completionRate, abandonRate, trendDeltaScore7d }`
+  - `success`: `true`
+  - `meta`: `{ generatedAt, usedOllama, usedLlm, llmProvider?, model? }` *(campos extras podem existir em `development`)*
+  - `kpis`: `{ readinessScore, consistencyScore, avgScorePercent, completionRate, abandonRate, trendDeltaScore7d, passProbabilityPercent?, passProbabilityOverallPercent?, passProbabilityThresholdPercent? }`
   - `timeseries`: lista diária com `{ date, avgScorePercent, completionRate, abandonRate, started, finished }`
-  - `ai`: `{ headline, insights[], risks[], actions7d[], focusAreas[] }`
+  - `ai`: `{ headline, insights[], risks[], actions7d[], focusAreas[], explainability? }`
+    - `ai.explainability`: `{ rules, alerts[] }`
+      - `alerts[]`: `{ message, severity, basedOn[] }`
+      - `basedOn[]`: `{ source, metric?, label?, value?, threshold?, unit?, details? }`
+  - `studyPlan`: plano 7 dias baseado em IND13 (tarefas com maior impacto), quando disponível
 - Observações:
   - Não envia texto de questões ao modelo (apenas métricas agregadas)
   - Pode ser usado diretamente pela página `frontend/pages/InsightsIA.html`
+  - Explicabilidade e rastreabilidade: a UI exibe “Por que a IA está dizendo isso?” com links para KPIs/INDs relevantes.
+  - Snapshot diário (base para modelo temporal): ao chamar este endpoint, o backend faz **upsert 1x/dia** em `public.user_daily_snapshot`.
+    - **Somente usuários pagantes**: regra atual `Usuario.BloqueioAtivado = false`.
+    - Falhas ao gravar snapshot **não quebram** o retorno do endpoint (erro é apenas logado).
   - Regras adicionais (server-side, além do que a IA possa retornar):
     - Sempre adiciona um comentário contextual sobre KPIs (ex.: o que significa a **taxa de conclusão** no contexto).
     - Se `kpis.completionRate < 0.60`, garante um alerta em `ai.risks` para **baixa taxa de conclusão**.
     - Se o usuário tiver `Usuario.data_exame` preenchido (formato `dd/mm/yyyy`) e o exame estiver em **menos de 75 dias**, adiciona um alerta de **prazo curto** que prioriza os riscos.
     - Se o exame estiver em **menos de 75 dias** e `kpis.completionRate < 0.30`, adiciona `ai.risks` com **risco de prazo**.
     - Inclui em `ai.actions7d` uma ação do tipo: **"Aumentar taxa de conclusão para X% (próximos 7 dias)"**.
+
+## GET /api/admin/users/:id/insights-snapshots?days=90&includePayload=0
+Lista snapshots diários gravados a partir do `/api/ai/insights`.
+
+Detalhes do armazenamento (tabela, campos e regras): ver `docs/insights-snapshots.md`.
+
+- Auth: Admin (JWT + middleware `requireAdmin`)
+- Path:
+  - `:id` (User ID)
+- Query:
+  - `days` (1–365; default 90)
+  - `includePayload` (`0|1`; default `0`) — quando `1`, inclui o JSONB `payload` (maior)
+- Response (sucesso):
+  - `{ userId, days, count, items }`
+  - `items[]` inclui colunas como: `snapshot_date`, `period_days`, `days_to_exam`, KPIs, probabilidades e (opcional) `payload`.
 
 ## Endpoints IA com contexto da Web (Admin)
 

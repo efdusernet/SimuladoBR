@@ -1183,26 +1183,20 @@
       const days = daysSel ? Number(daysSel.value) : 30;
       dashSetLoading(true); dashSetError(false);
       try {
-        // Derivar session token esperado pelo endpoint (X-Session-Token)
-        let sessionToken = '';
-        try {
-          sessionToken = (localStorage.getItem('sessionToken')
-            || localStorage.getItem('nomeUsuario')
-            || localStorage.getItem('nome')
-            || '').trim();
-        } catch(_){ sessionToken=''; }
-        if (!sessionToken) {
-          dashSetLoading(false);
+        const headers = buildAuthHeadersLocal();
+        const opts = { headers, credentials: 'include' };
+        const [summaryResp,dailyResp,avgTimeResp] = await Promise.all([
+          fetch(`/api/users/me/stats/summary?days=${days}`, opts),
+          fetch(`/api/users/me/stats/daily?days=${days}`, opts),
+          fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, opts)
+        ]);
+
+        if (summaryResp.status === 401 || summaryResp.status === 403 || dailyResp.status === 401 || dailyResp.status === 403) {
           const wrap = document.getElementById('dashSummary');
           if (wrap) wrap.innerHTML = '<div style="grid-column:1/-1; padding:12px; font-size:0.7rem; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">Sessão não identificada. Faça login para ver estatísticas agregadas.</div>';
+          dashSetLoading(false);
           return;
         }
-        const headers = { 'Accept':'application/json', 'X-Session-Token': sessionToken, ...getAuthHeadersLocal() };
-        const [summaryResp,dailyResp,avgTimeResp] = await Promise.all([
-          fetch(`/api/users/me/stats/summary?days=${days}`, { headers }),
-          fetch(`/api/users/me/stats/daily?days=${days}`, { headers }),
-          fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, { headers })
-        ]);
         if (!summaryResp.ok || !dailyResp.ok){ throw new Error('Resp inválida'); }
         const summary = await summaryResp.json();
         const dailyWrap = await dailyResp.json();

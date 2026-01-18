@@ -239,6 +239,60 @@ if (fs.existsSync(FRONTEND_DIST) && SERVE_DIST) {
 		setHeaders: (res) => setNoCacheHeaders(res)
 	}));
 }
+
+// If a navigation request arrives with ?sessionToken=..., convert it to the httpOnly cookie
+// and redirect to a clean URL (prevents token leakage + avoids broken flows after cache clears).
+app.use((req, res, next) => {
+	try {
+		if (req.method !== 'GET') return next();
+		if (req.path.startsWith('/api/')) return next();
+		const raw = (req.query && req.query.sessionToken) ? String(req.query.sessionToken).trim() : '';
+		if (!raw) return next();
+
+		// Build clean URL without the sessionToken parameter
+		let cleanPath = req.path;
+		let cleanSearch = '';
+		try {
+			const u = new URL(req.originalUrl, `${req.protocol || 'http'}://${req.get('host')}`);
+			u.searchParams.delete('sessionToken');
+			cleanPath = u.pathname;
+			cleanSearch = u.search || '';
+		} catch (_) {
+			// Fallback: remove sessionToken=... from query string best-effort
+			try {
+				const qs = String(req.originalUrl || '').split('?')[1] || '';
+				if (qs) {
+					const params = new URLSearchParams(qs);
+					params.delete('sessionToken');
+					const s = params.toString();
+					cleanSearch = s ? ('?' + s) : '';
+				}
+			} catch (_e) {}
+		}
+
+		const looksJwt = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw);
+		if (looksJwt) {
+			const cookieOptions = {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'strict',
+				maxAge: 12 * 60 * 60 * 1000,
+				path: '/',
+			};
+			try { res.cookie('sessionToken', raw, cookieOptions); } catch (_) {}
+		}
+
+		const target = cleanPath + cleanSearch;
+		// Avoid redirect loops if for any reason the URL couldn't be cleaned.
+		if (target && target !== req.originalUrl) {
+			return res.redirect(302, target);
+		}
+		return next();
+	} catch (e) {
+		return next();
+	}
+});
+
 // Enforce authentication for non-API navigation: redirect unauthenticated users to /login
 app.use((req, res, next) => {
 	try {
@@ -317,6 +371,7 @@ app.use(`${API_V1}/admin/feedback`, require('./routes/admin_feedback'));
 app.use(`${API_V1}/admin/notifications`, require('./routes/admin_notifications'));
 app.use(`${API_V1}/admin/users`, require('./routes/admin_users'));
 app.use(`${API_V1}/admin/communication`, require('./routes/admin_communication'));
+app.use(`${API_V1}/admin/db`, require('./routes/admin_db'));
 app.use(`${API_V1}/notifications`, require('./routes/notifications'));
 app.use(`${API_V1}/debug`, require('./routes/debug'));
 app.use(`${API_V1}/ai`, require('./routes/ai'));
@@ -335,6 +390,7 @@ app.use(`${API_BASE}/admin/feedback`, require('./routes/admin_feedback'));
 app.use(`${API_BASE}/admin/notifications`, require('./routes/admin_notifications'));
 app.use(`${API_BASE}/admin/users`, require('./routes/admin_users'));
 app.use(`${API_BASE}/admin/communication`, require('./routes/admin_communication'));
+app.use(`${API_BASE}/admin/db`, require('./routes/admin_db'));
 app.use(`${API_BASE}/notifications`, require('./routes/notifications'));
 app.use(`${API_BASE}/debug`, require('./routes/debug'));
 app.use(`${API_BASE}/ai`, require('./routes/ai'));

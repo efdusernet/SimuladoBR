@@ -44,7 +44,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
-| GET | `/api/ai/insights` | JWT | Query: `days` (1-180, default 30) | `{ kpis, timeseries, ai, indicators?, indicatorsSummary?, meta }` | Dashboard de insights para `frontend/pages/InsightsIA.html`. Inclui regras server-side: comentário contextual de KPIs, alertas por baixa conclusão e priorização por prazo quando `data_exame` está <75 dias. |
+| GET | `/api/ai/insights` | JWT | Query: `days` (1-180, default 30) | `{ success, meta, kpis, timeseries, ai, indicators?, indicatorsSummary?, studyPlan? }` | Dashboard de insights para `frontend/pages/InsightsIA.html` (KPIs + série + recomendações). Inclui `ai.explainability` (rastreabilidade) e grava snapshot diário para pagantes (`BloqueioAtivado=false`). |
 
 ### IA + Web Context (Admin)
 
@@ -93,6 +93,17 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | GET | `/api/admin/exams/user-content-version` | Admin | Query: `userId`, `examTypeId` | `{ userId, examTypeId, override? }` | Consulta override ativo por usuário (janela de vigência opcional).
 | PUT | `/api/admin/exams/user-content-version` | Admin | Body: `{ userId, examTypeId, examContentVersionId, ... }` | `{ ok, userId, examTypeId, override, version }` | Define/atualiza override de conteúdo ECO por usuário.
 | DELETE | `/api/admin/exams/user-content-version` | Admin | Query: `userId`, `examTypeId` | `{ ok, userId, examTypeId }` | Desativa override ativo (fallback para versão default).
+
+---
+
+## Admin — Usuários (`/api/admin/users`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/users` | Admin | Query: `limit`, `offset` | `[{ Id, Nome, NomeUsuario }]` | Lista usuários para seleção administrativa.
+| GET | `/api/admin/users/search` | Admin | Query: `q` (obrigatório), `limit?` | `{ q, count, items: [{ Id, Nome, NomeUsuario, Email }] }` | Busca usuários por Nome/NomeUsuario/Email (e Id se numérico).
+| GET | `/api/admin/users/:id` | Admin | Path: `id` | `{ Id, Nome, NomeUsuario, Email }` | Busca usuário único para UIs administrativas.
+| GET | `/api/admin/users/:id/insights-snapshots` | Admin | Path: `id` Query: `days` (1-365, default 90), `includePayload` (0/1) | `{ userId, days, count, items }` | Lista snapshots diários gravados pelo `/api/ai/insights` (base para modelo temporal). |
 
 ---
 
@@ -258,5 +269,5 @@ A partir da versão 1.1.0, fixtures incluem em `ExamAttempt.Meta`:
 
 ---
 
-**Última atualização:** 2026-01-17  
+**Última atualização:** 2026-01-18  
 **Versão:** 1.2.0

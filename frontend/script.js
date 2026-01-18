@@ -162,6 +162,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const pathNow = window.location.pathname || '';
     const onLoginPage = pathNow.replace(/\/+$/, '') === '/login' || pathNow.replace(/\/+$/, '') === '/login.html';
 
+    // Ensure login/register UI remains usable even if later init fails.
+    try {
+        if (onLoginPage && modal && !modal.getAttribute('data-mode')) {
+            modal.setAttribute('data-mode', 'login');
+        }
+    } catch(_) {}
+
+    try {
+        // Event listener para "Esqueci minha senha"
+        if (forgotPasswordLink) {
+            forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                setModalMode('forgot-password');
+            });
+        }
+
+        // Event listener para toggle mode (agora inclui reset de senha)
+        if (toggleModeBtn) {
+            toggleModeBtn.addEventListener('click', () => {
+                const currentMode = (modal && modal.getAttribute('data-mode')) || 'register';
+                if (currentMode === 'forgot-password' || currentMode === 'reset-password') {
+                    setModalMode('login');
+                } else if (currentMode === 'login') {
+                    setModalMode('register');
+                } else {
+                    setModalMode('login');
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('login modal basic bindings failed', e);
+    }
+
     function authReasonToUi(reasonRaw) {
         const r = String(reasonRaw || '').trim().toUpperCase();
         if (!r) return { message: '', color: '' };
@@ -314,10 +347,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminModal = document.getElementById('adminModal');
     const adminModalOpen = document.getElementById('adminModalOpen');
     const adminModalClose = document.getElementById('adminModalClose');
+
+    async function ensureAdminAccess(){
+        try { if (window.__isAdmin === true) return true; } catch(_){ }
+        try {
+            const token = (localStorage.getItem('sessionToken') || '').trim();
+            const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+            const sessionForHeader = nomeUsuario || token;
+            const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
+            const jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+            const headers = {};
+            if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+            if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+            const resp = await fetch('/api/users/me', { headers, credentials: 'include' });
+            if (!resp.ok) return false;
+            const user = await resp.json().catch(() => null);
+            const ok = !!(user && user.TipoUsuario === 'admin');
+            if (ok) { try { window.__isAdmin = true; } catch(_){ } }
+            return ok;
+        } catch (_e) {
+            return false;
+        }
+    }
     if (adminModal && adminModalOpen) {
         adminModalOpen.addEventListener('click', (e) => {
             e.preventDefault();
-            ModalA11y.open(adminModal);
+            // Never open admin UI unless confirmed admin.
+            ensureAdminAccess().then((ok) => {
+                if (!ok) {
+                    try { if (window.showToast) { window.showToast('Acesso restrito: somente admin.'); return; } } catch(_){ }
+                    alert('Acesso restrito: somente admin.');
+                    return;
+                }
+                ModalA11y.open(adminModal);
+            });
         });
     }
     if (adminModal && adminModalClose) {
@@ -605,8 +668,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const shouldLogout = (
                         (normalized && logoutCodes.has(normalized)) ||
-                        // Also treat generic 401/403 on API as auth loss when we believed we were logged-in
-                        (believedLoggedIn && (resp.status === 401 || resp.status === 403))
+                        // Treat generic 401 on API as auth loss when we believed we were logged-in.
+                        // Do NOT treat generic 403 as auth loss (it can be RBAC / email-not-verified / feature gating).
+                        (believedLoggedIn && (resp.status === 401))
                     );
 
                     if (shouldLogout) {
@@ -1232,28 +1296,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('lockoutUntil');
             }
         } catch(e) { console.warn('resumeLockoutIfAny error', e); }
-    }
-
-    // Event listener para "Esqueci minha senha"
-    if (forgotPasswordLink) {
-        forgotPasswordLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            setModalMode('forgot-password');
-        });
-    }
-
-    // Event listener para toggle mode (agora inclui reset de senha)
-    if (toggleModeBtn) {
-        toggleModeBtn.addEventListener('click', () => {
-            const currentMode = modal.getAttribute('data-mode') || 'register';
-            if (currentMode === 'forgot-password' || currentMode === 'reset-password') {
-                setModalMode('login');
-            } else if (currentMode === 'login') {
-                setModalMode('register');
-            } else {
-                setModalMode('login');
-            }
-        });
     }
 
     if (modal && submitBtn && emailInput) submitBtn.addEventListener('click', async () => {

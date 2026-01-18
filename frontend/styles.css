@@ -342,9 +342,17 @@ body.light-app{ background: var(--bg); }
 
 .option label{ display:flex; align-items:center; gap:12px; cursor:pointer; }
 
-.option input[type="radio"]{ width:18px; height:18px; }
-
-.option input[type="checkbox"]{ width:18px; height:18px; }
+.option label > input[type="radio"],
+.option label > input[type="checkbox"]{
+	width:18px;
+	height:18px;
+	min-width:18px;
+	min-height:18px;
+	flex:0 0 18px;
+	transform: scale(1);
+	transform-origin:center;
+	accent-color: var(--primary);
+}
 
 .actions-row{ display:flex; justify-content:flex-end; }
 

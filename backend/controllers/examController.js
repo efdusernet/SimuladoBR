@@ -1006,7 +1006,15 @@ exports.submitAnswers = async (req, res, next) => {
 
     // Calculate scorable questions (exclude pretest)
     const scorableQids = qids.filter(qid => !pretestQids.has(Number(qid)));
-    const result = { sessionId, totalQuestions: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect, details };
+    const result = {
+      sessionId,
+      attemptId: attemptId || null,
+      examAttemptId: attemptId || null,
+      totalQuestions: qids.length,
+      totalScorableQuestions: scorableQids.length,
+      totalCorrect,
+      details,
+    };
 
     // Persist answers if we have an attempt
     try {
@@ -2063,6 +2071,10 @@ exports.getAttemptResult = async (req, res, next) => {
 
 // DELETE /api/admin/exams/attempts/:attemptId
 // Admin-only hard delete of an attempt history (attempt + children rows)
+// "Purge total" semantics:
+// - Deletes attempt rows (exam_attempt + exam_attempt_question + exam_attempt_answer)
+// - Deletes any related purge-log rows (exam_attempt_purge_log) for the attempt
+// - Recomputes daily aggregation row (exam_attempt_user_stats) for that user/day (and deletes it if it becomes all-zero)
 exports.deleteAttemptHistoryAdmin = async (req, res, next) => {
   try {
     const attemptId = Number(req.params.attemptId);
@@ -2071,7 +2083,23 @@ exports.deleteAttemptHistoryAdmin = async (req, res, next) => {
     const attempt = await db.ExamAttempt.findByPk(attemptId);
     if (!attempt) return next(notFound('attempt not found', 'ATTEMPT_NOT_FOUND'));
 
+    const userId = attempt.UserId != null ? Number(attempt.UserId) : null;
+    let startedDateStr = null;
+    try {
+      const d = attempt.StartedAt || attempt.CreatedAt || attempt.FinishedAt;
+      if (d) startedDateStr = new Date(d).toISOString().slice(0, 10);
+    } catch (_) {
+      startedDateStr = null;
+    }
+
     await db.sequelize.transaction(async (t) => {
+      // Remove any purge-log rows for this attempt (if it was previously purged by policy/scripts)
+      try {
+        if (db.ExamAttemptPurgeLog) {
+          await db.ExamAttemptPurgeLog.destroy({ where: { AttemptId: attemptId }, transaction: t });
+        }
+      } catch (_) { /* best-effort */ }
+
       const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId }, attributes: ['Id'], transaction: t });
       const aqIds = (aqRows || []).map(r => r && r.Id != null ? Number(r.Id) : null).filter(n => Number.isFinite(n));
       if (aqIds.length) {
@@ -2079,9 +2107,87 @@ exports.deleteAttemptHistoryAdmin = async (req, res, next) => {
       }
       await db.ExamAttemptQuestion.destroy({ where: { AttemptId: attemptId }, transaction: t });
       await db.ExamAttempt.destroy({ where: { Id: attemptId }, transaction: t });
+
+      // Recompute daily stats for the attempt's user/day to avoid leaving aggregation traces.
+      try {
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const canRecompute = Op && db.ExamAttempt && db.ExamAttemptUserStats && userId && Number.isFinite(userId) && userId > 0 && startedDateStr;
+        if (canRecompute) {
+          const dayStart = new Date(startedDateStr + 'T00:00:00.000Z');
+          const dayEnd = new Date(dayStart.getTime() + 86400000);
+
+          const attemptsSameDay = await db.ExamAttempt.findAll({
+            where: {
+              UserId: userId,
+              StartedAt: { [Op.gte]: dayStart, [Op.lt]: dayEnd },
+            },
+            attributes: ['Id', 'UserId', 'StartedAt', 'FinishedAt', 'Status', 'StatusReason', 'ScorePercent'],
+            transaction: t,
+          });
+
+          let started = 0;
+          let finished = 0;
+          let abandoned = 0;
+          let timeout = 0;
+          let lowProgress = 0;
+          let scoreSum = 0;
+          let scoreCount = 0;
+
+          for (const at of attemptsSameDay || []) {
+            if (!at || !at.StartedAt) continue;
+            started++;
+            if (at.Status === 'finished' || at.FinishedAt) {
+              finished++;
+              if (at.ScorePercent != null) {
+                const sc = Number(at.ScorePercent);
+                if (Number.isFinite(sc)) { scoreSum += sc; scoreCount += 1; }
+              }
+            } else if (at.Status === 'abandoned') {
+              abandoned++;
+              if (at.StatusReason === 'timeout_inactivity') timeout++;
+              else if (at.StatusReason === 'abandoned_low_progress') lowProgress++;
+            }
+          }
+
+          let purged = 0;
+          try {
+            if (db.ExamAttemptPurgeLog) {
+              purged = await db.ExamAttemptPurgeLog.count({
+                where: { UserId: userId, PurgedAt: { [Op.gte]: dayStart, [Op.lt]: dayEnd } },
+                transaction: t,
+              });
+            }
+          } catch (_) {
+            purged = 0;
+          }
+
+          const avgScore = scoreCount > 0 ? Number((scoreSum / scoreCount).toFixed(3)) : null;
+          const allZero = (started === 0 && finished === 0 && abandoned === 0 && timeout === 0 && lowProgress === 0 && purged === 0 && avgScore == null);
+
+          if (allZero) {
+            await db.ExamAttemptUserStats.destroy({ where: { UserId: userId, Date: startedDateStr }, transaction: t });
+          } else {
+            const upsertSql = `INSERT INTO exam_attempt_user_stats (user_id, date, started_count, finished_count, abandoned_count, timeout_count, low_progress_count, purged_count, avg_score_percent, updated_at)
+              VALUES (:uid, :date, :started, :finished, :abandoned, :timeout, :lowProgress, :purged, :avgScore, NOW())
+              ON CONFLICT (user_id, date) DO UPDATE SET
+                started_count = EXCLUDED.started_count,
+                finished_count = EXCLUDED.finished_count,
+                abandoned_count = EXCLUDED.abandoned_count,
+                timeout_count = EXCLUDED.timeout_count,
+                low_progress_count = EXCLUDED.low_progress_count,
+                purged_count = EXCLUDED.purged_count,
+                avg_score_percent = EXCLUDED.avg_score_percent,
+                updated_at = NOW();`;
+            await db.sequelize.query(upsertSql, {
+              replacements: { uid: userId, date: startedDateStr, started, finished, abandoned, timeout, lowProgress, purged, avgScore },
+              transaction: t,
+            });
+          }
+        }
+      } catch (_) { /* best-effort; do not block the purge */ }
     });
 
-    return res.json({ ok: true, attemptId });
+    return res.json({ ok: true, attemptId, purgeTotal: true });
   } catch (err) {
     logger.error('deleteAttemptHistoryAdmin error:', err);
     return next(internalError('Internal error', 'DELETE_ATTEMPT_HISTORY_ERROR', err));

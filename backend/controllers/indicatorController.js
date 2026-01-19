@@ -131,7 +131,7 @@ async function getAreaConhecimentoStats(req, res, next){
   }
 }
 
-// IND9 - % Acertos/Erros por Abordagem (categoriaquestao)
+// IND9 - % Acertos/Erros por Abordagem (abordagem)
 async function getAbordagemStats(req, res, next){
   try {
     const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
@@ -171,7 +171,7 @@ async function getAbordagemStats(req, res, next){
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
-        LEFT JOIN categoriaquestao cq ON cq.id = q.codigocategoria
+        LEFT JOIN public.abordagem cq ON cq.id = q.codigocategoria
         LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
         LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
         JOIN exam_attempt a ON a.id = aq.attempt_id

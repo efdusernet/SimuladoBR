@@ -271,7 +271,7 @@ Arquivos modificados:
 
 Nova aba "Abordagem" para filtrar por categoria de questão:
 - **UI**: Checklist multi-seleção (consistente com abas Domínios/Grupos/Áreas).
-- **Backend**: Endpoint `/api/meta/categorias` reutilizado para listar categorias.
+- **Backend**: Endpoint `/api/meta/abordagens` lista as abordagens (com alias legado em `/api/meta/categorias`).
 - **Persistência**: Seleções salvas em `localStorage.examFilters.categorias`.
 - **Integração Completa**:
   - Contagem dinâmica de questões disponíveis.

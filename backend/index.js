@@ -372,9 +372,11 @@ app.use(`${API_V1}/admin/notifications`, require('./routes/admin_notifications')
 app.use(`${API_V1}/admin/users`, require('./routes/admin_users'));
 app.use(`${API_V1}/admin/communication`, require('./routes/admin_communication'));
 app.use(`${API_V1}/admin/db`, require('./routes/admin_db'));
+app.use(`${API_V1}/admin/flashcards`, require('./routes/admin_flashcards'));
 app.use(`${API_V1}/notifications`, require('./routes/notifications'));
 app.use(`${API_V1}/debug`, require('./routes/debug'));
 app.use(`${API_V1}/ai`, require('./routes/ai'));
+app.use(`${API_V1}/flashcards`, require('./routes/flashcards'));
 
 // Legacy (unversioned) routes kept for backward compatibility (deprecated)
 app.use(`${API_BASE}/users`, require('./routes/users'));
@@ -391,9 +393,11 @@ app.use(`${API_BASE}/admin/notifications`, require('./routes/admin_notifications
 app.use(`${API_BASE}/admin/users`, require('./routes/admin_users'));
 app.use(`${API_BASE}/admin/communication`, require('./routes/admin_communication'));
 app.use(`${API_BASE}/admin/db`, require('./routes/admin_db'));
+app.use(`${API_BASE}/admin/flashcards`, require('./routes/admin_flashcards'));
 app.use(`${API_BASE}/notifications`, require('./routes/notifications'));
 app.use(`${API_BASE}/debug`, require('./routes/debug'));
 app.use(`${API_BASE}/ai`, require('./routes/ai'));
+app.use(`${API_BASE}/flashcards`, require('./routes/flashcards'));
 
 // Para rotas não-API, devolve index.html (SPA fallback)
 // NOTE: avoid using app.get('*') which can trigger path-to-regexp errors in some setups.

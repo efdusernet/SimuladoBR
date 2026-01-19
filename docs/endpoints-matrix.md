@@ -147,7 +147,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | GET | `/api/meta/dominios` | None | — | `[{ IdDominio, Descricao }]` | Lista domínios (área técnica). |
 | GET | `/api/meta/dominios-geral` | None | — | `[{ IdDominioGeral, Descricao }]` | Lista domínios gerais (Pessoas, Processos, Negócios). |
 | GET | `/api/meta/principios` | None | — | `[{ IdPrincipio, Descricao }]` | Lista princípios. |
-| GET | `/api/meta/categorias` | None | — | `[{ CodigoCategoria, Descricao }]` | Lista categorias/abordagens de questão. |
+| GET | `/api/meta/abordagens` | None | — | `[{ CodigoCategoria, Descricao }]` | Lista abordagens de questão (alias legado: `/api/meta/categorias`). |
 | GET | `/api/meta/niveis-dificuldade` | None | — | `[{ IdNivel, Descricao }]` | Lista níveis de dificuldade. |
 | GET | `/api/meta/tasks` | None | — | `[{ IdTask, Descricao }]` | Lista tarefas. |
 | GET | `/api/meta/config` | None | — | `{ ... }` | Configurações gerais da aplicação. |

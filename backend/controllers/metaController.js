@@ -61,10 +61,11 @@ exports.listGruposProcesso = async (req, res, next) => {
     }
   }
 };
-exports.listDominios = (req, res, next) => listSimple(req, res, next, 'dominio');
+exports.listDominios = (req, res, next) => listSimple(req, res, next, 'dominio_desempenho');
 exports.listDominiosGeral = (req, res, next) => listSimple(req, res, next, 'dominiogeral');
 exports.listPrincipios = (req, res, next) => listSimple(req, res, next, 'principios');
-exports.listCategorias = (req, res, next) => listSimple(req, res, next, 'categoriaquestao');
+exports.listCategorias = (req, res, next) => listSimple(req, res, next, 'abordagem');
+exports.listAbordagens = exports.listCategorias;
 // List difficulty levels from niveldificuldade table
 exports.listNiveisDificuldade = async (req, res, next) => {
   try {

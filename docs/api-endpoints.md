@@ -499,7 +499,7 @@ Entradas semeadas na tabela `indicator` (idempotentes por código):
 
 - **IND9** - `% Acertos/Erros por Abordagem`
   - Endpoint: `GET /api/indicators/approach-stats`
-  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada abordagem (categoriaquestao) no último exame completo (exam_mode=full) do usuário.`
+  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada abordagem (abordagem) no último exame completo (exam_mode=full) do usuário.`
   - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
   - Fórmula (descr.): Para cada abordagem: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
   - Resultado: array de `{abordagem, acertos, erros, total, percentAcertos, percentErros}` ordenado por id

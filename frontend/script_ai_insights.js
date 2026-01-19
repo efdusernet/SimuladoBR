@@ -26,6 +26,8 @@
   const indicatorsBoxEl = document.getElementById('indicatorsBox');
   const indicatorsErrorsEl = document.getElementById('indicatorsErrors');
 
+  const flashcardsBoxEl = document.getElementById('flashcardsBox');
+
   const filterDomainEl = document.getElementById('filterDomain');
   const filterMinTotalEl = document.getElementById('filterMinTotal');
 
@@ -318,6 +320,149 @@
 
     aiExplainBoxEl.classList.remove('muted');
     aiExplainBoxEl.innerHTML = ruleNote + rows;
+  }
+
+  function renderFlashcards(data){
+    if (!flashcardsBoxEl) return;
+    const fc = data && data.flashcards ? data.flashcards : null;
+    if (!fc) {
+      flashcardsBoxEl.innerHTML = '<div class="empty">Sem dados de flashcards para exibir.</div>';
+      flashcardsBoxEl.classList.add('muted');
+      return;
+    }
+
+    function fmtPctMaybe(p){
+      if (p == null) return '—';
+      const n = Number(p);
+      return Number.isFinite(n) ? `${n.toFixed(1)}%` : '—';
+    }
+
+    function fmtRateMaybe(r){
+      if (r == null) return '—';
+      const n = Number(r);
+      return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : '—';
+    }
+
+    function perfRow(p){
+      const obj = p || {};
+      const label = obj.days == null ? 'All-time' : `${obj.days}d`;
+      const total = obj.totalAnswers != null ? int(obj.totalAnswers) : '—';
+      const distinct = obj.distinctCards != null ? int(obj.distinctCards) : '—';
+      const acerto = fmtPctMaybe(obj.correctPct);
+      const erro = fmtPctMaybe(obj.errorPct);
+      return `<li><span class="k">${escapeHtml(label)}:</span> <span class="v">respondidas=${escapeHtml(total)}, distintas=${escapeHtml(distinct)}, acerto=${escapeHtml(acerto)}, erro=${escapeHtml(erro)}</span></li>`;
+    }
+
+    function attemptRow(a){
+      const obj = a || {};
+      const label = obj.days == null ? 'All-time' : `${obj.days}d`;
+      const total = obj.totalAttempts != null ? int(obj.totalAttempts) : '—';
+      const by = obj.byStatus || {};
+      const active = by.active != null ? int(by.active) : '—';
+      const finished = by.finished != null ? int(by.finished) : '—';
+      const abandoned = by.abandoned == null ? '—' : int(by.abandoned);
+      const abandonRate = fmtRateMaybe(obj.abandonRate);
+      const note = obj.note ? ` <span class="muted">(${escapeHtml(String(obj.note))})</span>` : '';
+      return `<li><span class="k">${escapeHtml(label)}:</span> <span class="v">attempts=${escapeHtml(total)}, active=${escapeHtml(active)}, finished=${escapeHtml(finished)}, abandoned=${escapeHtml(abandoned)}, abandonRate=${escapeHtml(abandonRate)}</span>${note}</li>`;
+    }
+
+    function renderTopList(items, emptyText){
+      const arr = Array.isArray(items) ? items : [];
+      if (!arr.length) return `<div class="empty">${escapeHtml(emptyText)}</div>`;
+      const lis = arr.map(it => {
+        const desc = it && it.descricao != null ? String(it.descricao) : '—';
+        const total = it && it.total != null ? int(it.total) : '—';
+        const erros = it && it.erros != null ? int(it.erros) : '—';
+        const taxa = it && it.taxaErroPct != null ? `${Number(it.taxaErroPct).toFixed(1)}%` : '—';
+        return `<li>${escapeHtml(desc)} <span class="muted">(erro=${escapeHtml(taxa)}, erros=${escapeHtml(erros)}/${escapeHtml(total)})</span></li>`;
+      }).join('');
+      return `<ul>${lis}</ul>`;
+    }
+
+    function renderBasics(items){
+      const arr = Array.isArray(items) ? items : [];
+      if (!arr.length) return `<div class="empty">Sem respostas suficientes.</div>`;
+      const lis = arr.map(it => {
+        const label = it && it.basics ? 'Fundamentos' : 'Não-fundamentos';
+        const total = it && it.total != null ? int(it.total) : '—';
+        const erros = it && it.erros != null ? int(it.erros) : '—';
+        const acerto = it && it.acertoPct != null ? `${Number(it.acertoPct).toFixed(1)}%` : '—';
+        const taxaErro = it && it.taxaErroPct != null ? `${Number(it.taxaErroPct).toFixed(1)}%` : '—';
+        return `<li>${escapeHtml(label)} <span class="muted">(acerto=${escapeHtml(acerto)}, erro=${escapeHtml(taxaErro)}, erros=${escapeHtml(erros)}/${escapeHtml(total)})</span></li>`;
+      }).join('');
+      return `<ul>${lis}</ul>`;
+    }
+
+    function renderTopCards(items){
+      const arr = Array.isArray(items) ? items : [];
+      if (!arr.length) return `<div class="empty">Sem cards com amostra mínima.</div>`;
+      const lis = arr.map(it => {
+        const id = it && it.id != null ? String(it.id) : '—';
+        const q = it && it.pergunta != null ? String(it.pergunta) : '';
+        const total = it && it.total != null ? int(it.total) : '—';
+        const erros = it && it.erros != null ? int(it.erros) : '—';
+        const taxa = it && it.taxaErroPct != null ? `${Number(it.taxaErroPct).toFixed(1)}%` : '—';
+        const basics = it && it.basics ? 'Fundamentos' : '—';
+        return `<li><strong>#${escapeHtml(id)}</strong> ${escapeHtml(q)} <span class="muted">(erro=${escapeHtml(taxa)}, erros=${escapeHtml(erros)}/${escapeHtml(total)}${basics !== '—' ? ', ' + escapeHtml(basics) : ''})</span></li>`;
+      }).join('');
+      return `<ul>${lis}</ul>`;
+    }
+
+    const perf = fc.performance || {};
+    const attempts = fc.attempts || {};
+
+    const metaNote = fc.meta && fc.meta.note ? String(fc.meta.note) : '';
+    const metaInfo = fc.meta ? `<div class="muted" style="margin-bottom:8px;">Amostra mínima: ${escapeHtml(String(fc.meta.minTotal))} • TopN: ${escapeHtml(String(fc.meta.topN))}${metaNote ? ' • ' + escapeHtml(metaNote) : ''}</div>` : '';
+
+    flashcardsBoxEl.classList.remove('muted');
+    flashcardsBoxEl.innerHTML = `
+      ${metaInfo}
+      <div class="split">
+        <div class="card" style="margin:0;">
+          <h3>Performance (respostas)</h3>
+          <ul>
+            ${perfRow(perf.last7)}
+            ${perfRow(perf.last30)}
+            ${perfRow(perf.allTime)}
+          </ul>
+        </div>
+        <div class="card" style="margin:0;">
+          <h3>Engajamento (attempts)</h3>
+          <ul>
+            ${attemptRow(attempts.last7)}
+            ${attemptRow(attempts.last30)}
+            ${attemptRow(attempts.allTime)}
+          </ul>
+        </div>
+      </div>
+
+      <div class="split" style="margin-top:10px;">
+        <div class="card" style="margin:0;">
+          <h3>Onde focar: Princípios (30d)</h3>
+          ${renderTopList(fc.byPrincipio && fc.byPrincipio.last30, 'Sem dados com amostra mínima.')}
+        </div>
+        <div class="card" style="margin:0;">
+          <h3>Onde focar: Domínios de desempenho (30d)</h3>
+          ${renderTopList(fc.byDominioDesempenho && fc.byDominioDesempenho.last30, 'Sem dados com amostra mínima.')}
+        </div>
+      </div>
+
+      <div class="split" style="margin-top:10px;">
+        <div class="card" style="margin:0;">
+          <h3>Onde focar: Abordagens (30d)</h3>
+          ${renderTopList(fc.byAbordagem && fc.byAbordagem.last30, 'Sem dados com amostra mínima.')}
+        </div>
+        <div class="card" style="margin:0;">
+          <h3>Fundamentos vs não (30d)</h3>
+          ${renderBasics(fc.byBasics && fc.byBasics.last30)}
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px;">
+        <h3>Top flashcards problemáticos (30d)</h3>
+        ${renderTopCards(fc.topCards && fc.topCards.last30)}
+      </div>
+    `;
   }
 
   function fmtPct(v){
@@ -676,6 +821,7 @@
     renderScoreChart(data.timeseries || []);
     renderRatesChart(data.timeseries || []);
     renderIndicators(data);
+    renderFlashcards(data);
 
     // Used Ollama badge
     const badge = document.getElementById('ollamaBadge');

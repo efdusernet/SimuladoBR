@@ -29,6 +29,18 @@ This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 ### Notes
 - Tokens de sessão agora são JWT (via cookie `sessionToken`, header `Authorization: Bearer <token>` ou header `X-Session-Token: <token>`).
 
+## [1.2.1] - 2026-01-18
+
+### Added
+- Submit de exame passa a retornar `attemptId`/`examAttemptId` em `POST /api/exams/submit` para navegação de review.
+
+### Changed
+- Quiz (`exam.html`): após submit final, redireciona para `examReviewQuiz.html` para revisão imediata do exame submetido.
+- Admin: "Excluir histórico" agora executa **purge total** (remove tentativa e filhos, limpa `exam_attempt_purge_log` do attempt e recompõe/remover o agregado diário em `exam_attempt_user_stats`).
+
+### Security
+- Removido uso de `sessionToken` na querystring ao deletar histórico (ações usam headers/cookies).
+
 ## [1.1.3] - 2025-12-03
 
 ### Fixed

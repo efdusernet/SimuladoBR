@@ -217,8 +217,9 @@ Registra respostas (parciais ou finais), computa nota na submissão final e ence
   - `sessionId: string`
   - `answers: Array<{ questionId: number, optionId?: number, optionIds?: number[], response?: any }>`
   - `partial?: boolean` (default false; quando true, não encerra tentativa)
-- Response (final): `{ sessionId, totalQuestions, totalCorrect, details }`
+- Response (final): `{ sessionId, attemptId, examAttemptId, totalQuestions, totalCorrect, details }`
 - Efeitos colaterais (final): atualiza `exam_attempt` com `Corretas`, `Total`, `ScorePercent`, `Aprovado`, `FinishedAt`, `Status='finished'`.
+- Observação (UX): no quiz (`frontend/pages/exam.html`), após submit final a UI pode redirecionar automaticamente para `frontend/pages/examReviewQuiz.html?examId=<attemptId>` para revisão imediata.
 - **Validação de completude (frontend)**: Ao finalizar exame completo (`examFull.html`), valida-se se pelo menos 95% das questões foram respondidas:
   - Se ≥ 95%: prossegue com submit normal
   - Se < 95%: exibe modal de aviso; usuário pode sair sem salvar (não chama submit) ou continuar respondendo

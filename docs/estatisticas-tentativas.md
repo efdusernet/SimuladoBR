@@ -324,6 +324,8 @@ if (!sessionToken) {
 
 Persistimos contagens diárias por usuário em `exam_attempt_user_stats` usando upsert atômico. Eventos de ciclo de vida das tentativas disparam incrementos. Dois endpoints (`/stats/daily` e `/stats/summary`) expõem série temporal e agregados. A aba "Estatísticas" consome esses endpoints via `X-Session-Token` e exibe taxas (abandono, conclusão, expurgo) e média de score ponderada. Purga de tentativas não apaga métricas históricas.
 
+Nota (Admin): a ação "Excluir histórico" nas páginas de revisão executa um **purge total** da tentativa e também recompõe/remover o agregado diário (`exam_attempt_user_stats`) do usuário naquele dia (e limpa `exam_attempt_purge_log` do `attemptId`), com o objetivo de não deixar rastros na base.
+
 ---
 
 ## 16. Referências Cruzadas

@@ -3432,6 +3432,19 @@
   function restoreNavigationState() {
     const layout = document.body.getAttribute('data-layout');
     if (layout !== 'desktop') return; // Only restore in desktop mode
+
+    // IMPORTANT: restoring "currentSection" is meant for index.html (embedded sections).
+    // On dedicated pages (e.g. /pages/flashcards.html), restoring indicadores would trigger
+    // loadIndicadoresIntoSection() which redirects back to /index.html.
+    const isIndexPage = (() => {
+      try {
+        const p = (window.location.pathname || '').toLowerCase();
+        return p === '/' || p.endsWith('/index.html');
+      } catch(_){
+        return false;
+      }
+    })();
+    if (!isIndexPage) return;
     
     try {
       const savedSection = sessionStorage.getItem('currentSection');

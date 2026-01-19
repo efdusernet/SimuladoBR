@@ -11,7 +11,8 @@ const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/security');
 const { authSchemas, validate } = require('../middleware/validation');
 const { security, audit } = require('../utils/logger');
-const { badRequest, unauthorized, forbidden, notFound, internalError } = require('../middleware/errors');
+const { badRequest, unauthorized, forbidden, notFound, tooManyRequests, internalError } = require('../middleware/errors');
+const { generateSessionId, upsertActiveSession, verifyJwtAndGetActiveUser, extractTokenFromRequest } = require('../utils/singleSession');
 
 // Explicitly set bcrypt rounds for password hashing security
 const BCRYPT_ROUNDS = 12;
@@ -24,9 +25,9 @@ const loginLimiter = rateLimit({
   message: 'Muitas tentativas de login. Aguarde 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
+    handler: (req, res, next) => {
     security.rateLimitExceeded(req);
-    res.status(429).json({ message: 'Muitas tentativas de login. Aguarde 15 minutos.' });
+        return next(tooManyRequests('Muitas tentativas de login. Aguarde 15 minutos.'));
   }
 });
 
@@ -37,9 +38,9 @@ const resetLimiter = rateLimit({
   message: 'Muitas tentativas de recuperação de senha. Aguarde 1 hora.',
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
+    handler: (req, res, next) => {
     security.rateLimitExceeded(req);
-    res.status(429).json({ message: 'Muitas tentativas de recuperação de senha. Aguarde 1 hora.' });
+        return next(tooManyRequests('Muitas tentativas de recuperação de senha. Aguarde 1 hora.'));
   }
 });
 
@@ -50,9 +51,9 @@ const registerLimiter = rateLimit({
   message: 'Muitas tentativas de registro. Aguarde 1 hora.',
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
+    handler: (req, res, next) => {
     security.rateLimitExceeded(req);
-    res.status(429).json({ message: 'Muitas tentativas de registro. Aguarde 1 hora.' });
+        return next(tooManyRequests('Muitas tentativas de registro. Aguarde 1 hora.'));
   }
 });
 
@@ -177,7 +178,10 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
         // Issue JWT for protected endpoints (e.g., indicators)
         let token = null;
         try {
-            const payload = { sub: user.Id, email: user.Email, name: user.NomeUsuario };
+            const sid = generateSessionId();
+            await upsertActiveSession(user.Id, sid);
+
+            const payload = { sub: user.Id, sid, email: user.Email, name: user.NomeUsuario };
             const expiresIn = process.env.JWT_EXPIRES_IN || '12h';
             token = jwt.sign(payload, jwtSecret, { expiresIn });
             
@@ -395,38 +399,14 @@ module.exports = router;
 // GET /api/auth/me - resolve user by cookie sessionToken, X-Session-Token header or query parameter
 router.get('/me', async (req, res, next) => {
     try {
-        // Read token from cookie (preferred), header, or query parameter (legacy)
-        const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
-
-        let user = null;
-        // If token looks like JWT, try to decode
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                // Try by sub (user id) first
-                if (decoded && decoded.sub) {
-                    user = await User.findByPk(Number(decoded.sub));
-                }
-                // Fallback: try by email
-                if (!user && decoded && decoded.email) {
-                    user = await User.findOne({ where: { Email: decoded.email } });
-                }
-            } catch (e) {
-                // Invalid JWT, fallback to legacy lookup
-            }
+        const token = extractTokenFromRequest(req);
+        const result = await verifyJwtAndGetActiveUser(token);
+        if (!result.ok) {
+            if (result.status === 401) return next(unauthorized(result.message, result.code));
+            if (result.status === 403) return next(forbidden(result.message, result.code));
+            return next(unauthorized(result.message, result.code));
         }
-        // Legacy: if numeric, try by Id first
-        if (!user && /^\d+$/.test(sessionToken)) {
-            user = await User.findByPk(Number(sessionToken));
-        }
-        // Legacy: try by username or email
-        if (!user) {
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+        const user = result.user;
 
         return res.json({
             Id: user.Id,
@@ -443,8 +423,18 @@ router.get('/me', async (req, res, next) => {
 });
 
 // POST /api/auth/logout - Clear httpOnly cookie and cleanup session
-router.post('/logout', (req, res, next) => {
+router.post('/logout', async (req, res, next) => {
     try {
+        // Best-effort: clear active session entry for this token (if present)
+        try {
+            const token = extractTokenFromRequest(req);
+            const result = await verifyJwtAndGetActiveUser(token);
+            if (result && result.ok && result.decoded && result.decoded.sub) {
+                const { clearActiveSession } = require('../utils/singleSession');
+                await clearActiveSession(Number(result.decoded.sub), String(result.decoded.sid || ''));
+            }
+        } catch (_) { /* ignore */ }
+
         // Clear the httpOnly cookie
         res.clearCookie('sessionToken', {
             httpOnly: true,

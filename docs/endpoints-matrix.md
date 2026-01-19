@@ -2,11 +2,15 @@
 
 Este documento consolida **todos** os endpoints do backend em formato de referência rápida, incluindo método HTTP, autenticação, permissões (roles), parâmetros principais e tipo de resposta.
 
+**Base paths:**
+- Preferencial: `/api/v1` (rotas versionadas)
+- Legado/compatibilidade: `/api` (mesmas rotas, porém **deprecated**)
+
 **Legenda:**
 - **Auth**: tipo de autenticação exigida
-  - `X-Session-Token`: header com id/nome/email do usuário
-  - `JWT`: header `Authorization: Bearer <token>`
-  - `Admin`: requer papel admin (via `X-Session-Token` validado por middleware `requireAdmin`)
+  - `JWT`: cookie httpOnly `sessionToken` (browser) **ou** header `Authorization: Bearer <token>`
+  - `X-Session-Token (JWT)`: header legado aceito como alternativa ao `Authorization` (conteúdo é **JWT**, não e-mail/id)
+  - `Admin`: requer papel admin (via JWT validado por middleware `requireAdmin`)
   - `None`: endpoint público
 - **Params**: principais parâmetros (query, body, path)
 - **Response**: formato de retorno simplificado
@@ -17,9 +21,9 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
-| POST | `/api/auth/login` | None | Body: `{ Email, SenhaHash }` | `{ Id, NomeUsuario, Nome, Email, EmailConfirmado, BloqueioAtivado, token, tokenType }` | Login com email e senha (SHA256 client-side → bcrypt server). Retorna JWT. |
+| POST | `/api/auth/login` | None | Body: `{ Email, SenhaHash }` | `{ Id, NomeUsuario, Nome, Email, EmailConfirmado, BloqueioAtivado, token, tokenType }` | Login com email e senha (SHA256 client-side → bcrypt server). Emite JWT e define cookie httpOnly `sessionToken`. |
 | POST | `/api/auth/verify` | None | Body/Query: `{ token }` | `{ message, userId }` | Verifica token de email (6 chars). Marca email como confirmado. |
-| GET | `/api/auth/me` | X-Session-Token | Header: `X-Session-Token` | `{ Id, NomeUsuario, Nome, Email, EmailConfirmado, BloqueioAtivado }` | Retorna dados básicos do usuário autenticado. |
+| GET | `/api/auth/me` | JWT | — | `{ Id, NomeUsuario, Nome, Email, EmailConfirmado, BloqueioAtivado }` | Retorna dados do usuário autenticado (cookie `sessionToken` ou `Authorization`). |
 
 ---
 
@@ -29,10 +33,10 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 |--------|----------|------|--------|----------|-----------|
 | POST | `/api/users` | None | Body: `{ Nome, Email, NomeUsuario?, SenhaHash?, ... }` | `{ Id, NomeUsuario, Email, EmailConfirmado, BloqueioAtivado, DataCadastro, DataAlteracao }` | Cria novo usuário. Envia token de verificação por email. |
 | GET | `/api/users` | None (dev only) | Query: `limit`, `offset` | `[{ Id, NomeUsuario, Email, ... }]` | Lista usuários (bloqueado em produção). |
-| GET | `/api/users/me` | X-Session-Token | Header: `X-Session-Token` | `{ Id, NomeUsuario, Email, EmailConfirmado, BloqueioAtivado, DataCadastro, DataAlteracao, DataExame?, TipoUsuario }` | Dados do usuário autenticado + `DataExame` (se preenchido) + flag `TipoUsuario` (admin/user). |
-| PUT | `/api/users/me/exam-date` | X-Session-Token + CSRF | Body: `{ data_exame: "dd/mm/yyyy" }` | `{ success, DataExame }` | Define/atualiza data prevista do exame real (campo `Usuario.data_exame`). Valida formato e **bloqueia datas no passado**. |
-| GET | `/api/users/me/stats/daily` | X-Session-Token | Query: `days` (1-180, default 30) | `{ days, data: [{ date, started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent, abandonRate, completionRate, purgeRate }] }` | Série diária de estatísticas de tentativas. |
-| GET | `/api/users/me/stats/summary` | X-Session-Token | Query: `days` (1-180, default 30) | `{ periodDays, started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent, abandonRate, completionRate, purgeRate }` | Resumo agregado do período. |
+| GET | `/api/users/me` | JWT | — | `{ Id, NomeUsuario, Email, EmailConfirmado, BloqueioAtivado, DataCadastro, DataAlteracao, DataExame?, TipoUsuario }` | Dados do usuário autenticado + `DataExame` (se preenchido) + flag `TipoUsuario` (admin/user). |
+| PUT | `/api/users/me/exam-date` | JWT + CSRF | Body: `{ data_exame: "dd/mm/yyyy" }` | `{ success, DataExame }` | Define/atualiza data prevista do exame real (campo `Usuario.data_exame`). Valida formato e **bloqueia datas no passado**. |
+| GET | `/api/users/me/stats/daily` | JWT | Query: `days` (1-180, default 30) | `{ days, data: [{ date, started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent, abandonRate, completionRate, purgeRate }] }` | Série diária de estatísticas de tentativas. |
+| GET | `/api/users/me/stats/summary` | JWT | Query: `days` (1-180, default 30) | `{ periodDays, started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent, abandonRate, completionRate, purgeRate }` | Resumo agregado do período. |
 
 ---
 
@@ -40,7 +44,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
-| GET | `/api/ai/insights` | X-Session-Token | Query: `days` (1-180, default 30) | `{ kpis, timeseries, ai, indicators?, indicatorsSummary?, meta }` | Dashboard de insights para `frontend/pages/InsightsIA.html`. Inclui regras server-side: comentário contextual de KPIs, alertas por baixa conclusão e priorização por prazo quando `data_exame` está <75 dias. |
+| GET | `/api/ai/insights` | JWT | Query: `days` (1-180, default 30) | `{ success, meta, kpis, timeseries, ai, indicators?, indicatorsSummary?, studyPlan? }` | Dashboard de insights para `frontend/pages/InsightsIA.html` (KPIs + série + recomendações). Inclui `ai.explainability` (rastreabilidade) e grava snapshot diário para pagantes (`BloqueioAtivado=false`). |
 
 ### IA + Web Context (Admin)
 
@@ -60,17 +64,18 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 |--------|----------|------|--------|----------|-----------|
 | GET | `/api/exams` | None | — | `[{ id, nome, numeroQuestoes, duracaoMinutos, ... }]` | Lista tipos de exame disponíveis. |
 | GET | `/api/exams/types` | None | — | `[{ id, nome, numeroQuestoes, duracaoMinutos, ... }]` | Alias para UI de tipos de exame. |
-| POST | `/api/exams/:id/start` | X-Session-Token | Path: `id` (exam type) | `{ sessionId, exam }` | Inicia sessão de exame (legacy, uso mínimo). |
-| POST | `/api/exams/select` | X-Session-Token | Body: `{ count, examType?, dominios?, areas?, grupos?, categorias?, onlyCount? }` Header: `X-Exam-Mode?` (quiz/full) | `{ sessionId, total, attemptId, examMode, exam, questions }` | Seleciona questões e cria tentativa. Retorna sessão + questões inline. |
-| POST | `/api/exams/start-on-demand` | X-Session-Token | Body: `{ count, examType?, dominios?, areas?, grupos?, categorias? }` Header: `X-Exam-Mode?` | `{ sessionId, total, attemptId, examMode, exam }` | Cria sessão persistindo ordem (fetch questões depois). |
-| GET | `/api/exams/:sessionId/question/:index` | X-Session-Token | Path: `sessionId`, `index` | `{ index, total, examType, question: { id, type, descricao, options, ... } }` | Busca questão por índice da sessão. |
-| POST | `/api/exams/:sessionId/pause/start` | X-Session-Token | Path: `sessionId` Body: `{ index }` | `{ ok, pauseUntil }` | Inicia pausa no checkpoint. |
-| POST | `/api/exams/:sessionId/pause/skip` | X-Session-Token | Path: `sessionId` Body: `{ index }` | `{ ok }` | Pula pausa do checkpoint. |
-| GET | `/api/exams/:sessionId/pause/status` | X-Session-Token | Path: `sessionId` | `{ pauses, policy, examType }` | Status de pausas configuradas. |
-| POST | `/api/exams/submit` | X-Session-Token | Body: `{ sessionId, answers: [{ questionId, optionId?, optionIds?, response? }], partial? }` | `{ sessionId, totalQuestions, totalCorrect, totalScorableQuestions?, scorePercent, details: [{ questionId, isCorrect, isPretest? }] }` | Submete respostas (parcial ou final). Calcula score excluindo pré-teste. |
-| POST | `/api/exams/resume` | X-Session-Token | Body: `{ sessionId?, attemptId? }` | `{ ok, sessionId, attemptId, total, examType }` | Reconstrói sessão em memória após restart. |
-| GET | `/api/exams/last` | X-Session-Token | — | `{ correct, total, scorePercent, approved, finishedAt, examTypeId, examMode }` | Último exame finalizado (para gauge Home). |
-| GET | `/api/exams/history` | X-Session-Token | Query: `limit` (1-10, default 3) | `[{ correct, total, scorePercent, approved, startedAt, finishedAt, examTypeId, durationSeconds, examMode }]` | Histórico últimas N tentativas. |
+| POST | `/api/exams/:id/start` | JWT | Path: `id` (exam type) | `{ sessionId, exam }` | Inicia sessão de exame (legacy, uso mínimo). |
+| POST | `/api/exams/select` | JWT | Body: `{ count, examType?, dominios?, areas?, grupos?, categorias?, onlyCount? }` Header: `X-Exam-Mode?` (quiz/full) | `{ sessionId, total, attemptId, examMode, exam, questions }` | Seleciona questões e cria tentativa. Retorna sessão + questões inline. |
+| POST | `/api/exams/start-on-demand` | JWT | Body: `{ count, examType?, dominios?, areas?, grupos?, categorias? }` Header: `X-Exam-Mode?` | `{ sessionId, total, attemptId, examMode, exam }` | Cria sessão persistindo ordem (fetch questões depois). |
+| GET | `/api/exams/:sessionId/question/:index` | JWT | Path: `sessionId`, `index` | `{ index, total, examType, question: { id, type, descricao, options, ... } }` | Busca questão por índice da sessão. |
+| POST | `/api/exams/:sessionId/pause/start` | JWT | Path: `sessionId` Body: `{ index }` | `{ ok, pauseUntil }` | Inicia pausa no checkpoint. |
+| POST | `/api/exams/:sessionId/pause/skip` | JWT | Path: `sessionId` Body: `{ index }` | `{ ok }` | Pula pausa do checkpoint. |
+| GET | `/api/exams/:sessionId/pause/status` | JWT | Path: `sessionId` | `{ pauses, policy, examType }` | Status de pausas configuradas. |
+| POST | `/api/exams/submit` | JWT | Body: `{ sessionId, answers: [{ questionId, optionId?, optionIds?, response? }], partial? }` | `{ sessionId, attemptId, examAttemptId, totalQuestions, totalCorrect, totalScorableQuestions?, scorePercent, details: [{ questionId, isCorrect, isPretest? }] }` | Submete respostas (parcial ou final). Calcula score excluindo pré-teste. |
+| POST | `/api/exams/resume` | JWT | Body: `{ sessionId?, attemptId? }` | `{ ok, sessionId, attemptId, total, examType }` | Reconstrói sessão em memória após restart. |
+| GET | `/api/exams/last` | JWT | — | `{ correct, total, scorePercent, approved, finishedAt, examTypeId, examMode }` | Último exame finalizado (para gauge Home). |
+| GET | `/api/exams/history` | JWT | Query: `limit` (1-10, default 3) | `[{ correct, total, scorePercent, approved, startedAt, finishedAt, examTypeId, durationSeconds, examMode }]` | Histórico últimas N tentativas. |
+| GET | `/api/exams/result/:attemptId` | JWT | Path: `attemptId` | `{ total, questions: [...], answers: { q_<id>: { optionId? , optionIds?, response? } } }` | Retorna dados de uma tentativa **finalizada** para páginas de review (inclui alternativas com `iscorreta` + explicação por alternativa quando disponível). |
 
 ---
 
@@ -78,9 +83,45 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/exams/probe` | Admin | — | *(204 No Content)* | Probe leve para detectar permissão admin (útil para menu/admin UI). |
 | POST | `/api/admin/exams/mark-abandoned` | Admin | Body: (vazio ou filtros opcionais) | `{ marked, details }` | Marca tentativas inativas como abandonadas. |
 | POST | `/api/admin/exams/purge-abandoned` | Admin | Body: (vazio ou filtros opcionais) | `{ purged, details }` | Remove tentativas abandonadas antigas do banco. |
 | POST | `/api/admin/exams/fixture-attempt` | Admin | Body: `{ userId, overallPct?, totalQuestions?, examTypeSlug?, peoplePct?, processPct?, businessPct? }` Query: `tolerance?` (default 2) | `{ attemptId, userId, totalQuestions, corretas, scorePercent, domainCounts, domainCorrects }` | Gera tentativa finalizada artificial (fixture) com distribuição por domínio. |
+| DELETE | `/api/admin/exams/attempts/:attemptId` | Admin | Path: `attemptId` | `{ ok, attemptId, purgeTotal }` | Purge total: remove tentativa (attempt + questions + answers), limpa logs de purga da tentativa e recompõe/remover agregação diária (`exam_attempt_user_stats`) para não deixar rastros. |
+| GET | `/api/admin/exams/content-versions` | Admin | Query: `examTypeId` | `{ examTypeId, currentVersionId, versions: [...] }` | Lista versões de conteúdo ECO conhecidas e o default atual do tipo de exame.
+| PUT | `/api/admin/exams/content-current` | Admin | Body: `{ examTypeId, examContentVersionId }` | `{ ok, examTypeId, currentVersionId, version }` | Define a versão default (current) do conteúdo ECO para um exam type.
+| GET | `/api/admin/exams/user-content-version` | Admin | Query: `userId`, `examTypeId` | `{ userId, examTypeId, override? }` | Consulta override ativo por usuário (janela de vigência opcional).
+| PUT | `/api/admin/exams/user-content-version` | Admin | Body: `{ userId, examTypeId, examContentVersionId, ... }` | `{ ok, userId, examTypeId, override, version }` | Define/atualiza override de conteúdo ECO por usuário.
+| DELETE | `/api/admin/exams/user-content-version` | Admin | Query: `userId`, `examTypeId` | `{ ok, userId, examTypeId }` | Desativa override ativo (fallback para versão default).
+
+---
+
+## Admin — Usuários (`/api/admin/users`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/users` | Admin | Query: `limit`, `offset` | `[{ Id, Nome, NomeUsuario }]` | Lista usuários para seleção administrativa.
+| GET | `/api/admin/users/search` | Admin | Query: `q` (obrigatório), `limit?` | `{ q, count, items: [{ Id, Nome, NomeUsuario, Email }] }` | Busca usuários por Nome/NomeUsuario/Email (e Id se numérico).
+| GET | `/api/admin/users/:id` | Admin | Path: `id` | `{ Id, Nome, NomeUsuario, Email }` | Busca usuário único para UIs administrativas.
+| GET | `/api/admin/users/:id/insights-snapshots` | Admin | Path: `id` Query: `days` (1-365, default 90), `includePayload` (0/1) | `{ userId, days, count, items }` | Lista snapshots diários gravados pelo `/api/ai/insights` (base para modelo temporal). |
+
+---
+
+## Feedback (`/api/feedback`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/feedback/categories` | JWT | — | `[{ id, descricao }]` | Lista categorias para o modal “Reportar questão”. |
+| POST | `/api/feedback` | JWT | Body: `{ texto, idcategoria, idquestao, userId? }` | `{ id, idcategoria, idquestao, reportadopor? }` | Cria feedback para uma questão (valida categoria e idquestao). |
+
+---
+
+## Chat Proxy (`/chat`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/chat/` | None | — | `{ ok, proxy, mountedAt }` | Health/probe do reverse-proxy do chat-service. |
+| WS | `/chat/v1/admin/ws` | Admin | — | *(upgrade websocket)* | Proxy de WebSocket do painel admin do chat-service.
 
 ---
 
@@ -91,7 +132,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | POST | `/api/questions` | Admin | Body: `{ descricao, tiposlug?, multiplaescolha?, examTypeSlug?, examTypeId?, iddominio?, codareaconhecimento?, codgrupoprocesso?, dica?, options?: [{ descricao, correta?, explicacao? }], explicacao?, imagem_url? }` | `{ questionId, message, optionsCreated }` | Cria questão unitária com alternativas (explicação por alternativa via `options[].explicacao`; `explicacao` é legado/fallback). |
 | GET | `/api/questions` | Admin | Query: `limit`, `offset` | `[{ Id, Descricao, TipoSlug, ExamTypeId, ... }]` | Lista questões (admin). |
 | GET | `/api/questions/:id` | Admin | Path: `id` | `{ Id, Descricao, TipoSlug, ExamTypeId, Options: [...], ... }` | Busca questão por ID (admin). |
-| GET | `/api/questions/view/:id` | X-Session-Token | Path: `id` | `{ Id, Descricao, TipoSlug, Options: [...], ... }` | Busca questão por ID (usuário autenticado, sem admin). |
+| GET | `/api/questions/view/:id` | JWT | Path: `id` | `{ Id, Descricao, TipoSlug, Options: [...], ... }` | Busca questão por ID (usuário autenticado, sem admin). |
 | PUT | `/api/questions/:id` | Admin | Path: `id` Body: `{ descricao?, tiposlug?, examTypeId?, options?: [{ descricao, correta?, explicacao? }], explicacao?, imagem_url?, ... }` | `{ message, questionId, optionsCreated?, optionsUpdated?, optionsDeleted? }` | Atualiza questão e alternativas (explicação por alternativa via `options[].explicacao`; `explicacao` é legado/fallback). |
 | POST | `/api/questions/bulk` | Admin | Body (JSON): array ou `{ examTypeSlug?, questions: [...] }` ou Multipart: `file` (JSON/XML) | `{ inserted, skipped, errors: [...] }` | Carga em massa de questões (JSON/XML). |
 
@@ -106,7 +147,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | GET | `/api/meta/dominios` | None | — | `[{ IdDominio, Descricao }]` | Lista domínios (área técnica). |
 | GET | `/api/meta/dominios-geral` | None | — | `[{ IdDominioGeral, Descricao }]` | Lista domínios gerais (Pessoas, Processos, Negócios). |
 | GET | `/api/meta/principios` | None | — | `[{ IdPrincipio, Descricao }]` | Lista princípios. |
-| GET | `/api/meta/categorias` | None | — | `[{ CodigoCategoria, Descricao }]` | Lista categorias/abordagens de questão. |
+| GET | `/api/meta/abordagens` | None | — | `[{ CodigoCategoria, Descricao }]` | Lista abordagens de questão (alias legado: `/api/meta/categorias`). |
 | GET | `/api/meta/niveis-dificuldade` | None | — | `[{ IdNivel, Descricao }]` | Lista níveis de dificuldade. |
 | GET | `/api/meta/tasks` | None | — | `[{ IdTask, Descricao }]` | Lista tarefas. |
 | GET | `/api/meta/config` | None | — | `{ ... }` | Configurações gerais da aplicação. |
@@ -131,7 +172,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | GET | `/api/indicators/area-knowledge-stats` | JWT | Query: `exam_mode?`, `idUsuario?`, `idExame?` | `{ userId, examMode, idExame, areas: [{ area, acertos, erros, total, percentAcertos, percentErros }] }` | Acertos/erros por área de conhecimento (último exame). |
 | GET | `/api/indicators/approach-stats` | JWT | Query: `exam_mode?`, `idUsuario?`, `idExame?` | `{ userId, examMode, idExame, abordagens: [{ abordagem, acertos, erros, total, percentAcertos, percentErros }] }` | Acertos/erros por abordagem/categoria (último exame). |
 | GET | `/api/indicators/details-last` | JWT | Query: `exam_mode?`, `idUsuario?` | `{ userId, examMode, attempt: { ... }, questions: [...] }` | Detalhes completos do último exame. |
-| GET | `/api/indicators/IND10` | X-Session-Token | Query: `examMode` (`last`/`best`), `idUsuario?` Header: `X-Session-Token` | `{ userId, examMode, examAttemptId, examDate, domains: [{ id, name, corretas, total, percentage }] }` | Performance por domínio geral (último ou melhor exame). Usado pelo radar. |
+| GET | `/api/indicators/IND10` | JWT | Query: `examMode` (`last`/`best`), `idUsuario?` | `{ userId, examMode, examAttemptId, examDate, domains: [{ id, name, corretas, total, percentage }] }` | Performance por domínio geral (último ou melhor exame). Usado pelo radar. |
 | GET | `/api/indicators/avg-time-per-question` | JWT | Query: `exam_mode?`, `idUsuario?` | `{ userId, examMode, avgSeconds, avgMinutes }` | Tempo médio por questão. |
 | GET | `/api/indicators/attempts-history-extended` | JWT | Query: `limit?`, `offset?`, `status?` | `{ total, attempts: [{ id, examTypeId, startedAt, finishedAt, total, corretas, scorePercent, status, ... }] }` | Histórico detalhado de tentativas com paginação e filtros. |
 
@@ -180,9 +221,10 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 ## Observações Gerais
 
 ### Autenticação
-- **`X-Session-Token`**: aceita ID numérico, `NomeUsuario` ou `Email` do usuário. Resolvido no backend via lookup em `Usuario`.
-- **JWT**: gerado no login (`/api/auth/login`), usado por endpoints de indicadores via header `Authorization: Bearer <token>`.
-- **Admin**: validado por middleware `requireAdmin` que verifica email na lista `ADMIN_EMAILS` (.env) ou nome de usuário começando com `admin`.
+- **JWT**: gerado no login (`/api/auth/login`), armazenado em cookie httpOnly `sessionToken` (browser) e pode ser enviado em `Authorization: Bearer <token>`.
+- **`X-Session-Token` (legado)**: quando usado, o valor deve ser um **JWT**.
+- **Sessão única**: o JWT contém um `sid` e o backend compara com `UserActiveSession.SessionId`; novo login revoga o anterior.
+- **Admin**: validado por middleware `requireAdmin` usando JWT válido + política de admin do projeto.
 
 ### Códigos de Status HTTP
 - **200**: sucesso
@@ -227,5 +269,5 @@ A partir da versão 1.1.0, fixtures incluem em `ExamAttempt.Meta`:
 
 ---
 
-**Última atualização:** 2025-11-24  
-**Versão:** 1.1.0
+**Última atualização:** 2026-01-18  
+**Versão:** 1.2.0

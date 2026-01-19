@@ -19,6 +19,15 @@ if (dotenvResult && dotenvResult.parsed) {
 		if (key && key.startsWith('OLLAMA_')) {
 			process.env[key] = String(value);
 		}
+		// dotenv does not override existing env vars by default; on Windows it's common
+		// to have a variable defined but empty, which would incorrectly disable features.
+		// For chat proxy, prefer backend/.env value when the current env value is blank.
+		if (key === 'CHAT_SERVICE_BASE_URL' || key === 'CHAT_SERVICE_URL') {
+			const current = process.env[key];
+			if (current == null || String(current).trim() === '') {
+				process.env[key] = String(value);
+			}
+		}
 	}
 }
 
@@ -165,22 +174,125 @@ const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const fs = require('fs');
 
+function setNoCacheHeaders(res) {
+	try {
+		res.setHeader('Cache-Control', 'no-store');
+		res.setHeader('Pragma', 'no-cache');
+		res.setHeader('Expires', '0');
+	} catch (_) {}
+}
+
+// IMPORTANT: when dist exists, it can contain stale copies of critical exam scripts/pages.
+// Always serve these from the source frontend/ folder to avoid mismatched client logic.
+// (This also makes debugging and hotfixes reliable.)
+app.get('/script_exam.js', (req, res) => {
+	setNoCacheHeaders(res);
+	try { res.setHeader('X-Served-From', 'frontend-src'); } catch(_){ }
+	return res.sendFile(path.join(FRONTEND_DIR, 'script_exam.js'));
+});
+app.get('/utils/matchColumns.js', (req, res) => {
+	setNoCacheHeaders(res);
+	try { res.setHeader('X-Served-From', 'frontend-src'); } catch(_){ }
+	return res.sendFile(path.join(FRONTEND_DIR, 'utils', 'matchColumns.js'));
+});
+app.get('/pages/exam.html', (req, res) => {
+	setNoCacheHeaders(res);
+	try { res.setHeader('X-Served-From', 'frontend-src'); } catch(_){ }
+	return res.sendFile(path.join(FRONTEND_DIR, 'pages', 'exam.html'));
+});
+app.get('/pages/examFull.html', (req, res) => {
+	setNoCacheHeaders(res);
+	try { res.setHeader('X-Served-From', 'frontend-src'); } catch(_){ }
+	return res.sendFile(path.join(FRONTEND_DIR, 'pages', 'examFull.html'));
+});
+
 // Protect admin pages before static middleware: only admins can fetch /pages/admin/* HTML files
 const requireAdmin = require('./middleware/requireAdmin');
 // Redirect /pages/admin/ to login
 app.get('/pages/admin/', (req, res) => res.redirect('/login'));
-app.use('/pages/admin', requireAdmin, express.static(path.join(FRONTEND_DIR, 'pages', 'admin')));
+app.use('/pages/admin', requireAdmin, express.static(path.join(FRONTEND_DIR, 'pages', 'admin'), {
+	etag: false,
+	lastModified: false,
+	setHeaders: (res) => setNoCacheHeaders(res)
+}));
 
 // Friendly aliases for admin pages (HTML), protected
 app.get('/admin/questions/form', requireAdmin, (req, res) => {
+	setNoCacheHeaders(res);
 	res.sendFile(path.join(FRONTEND_DIR, 'pages', 'admin', 'questionForm.html'));
 });
 app.get('/admin/questions/bulk', requireAdmin, (req, res) => {
+	setNoCacheHeaders(res);
 	res.sendFile(path.join(FRONTEND_DIR, 'pages', 'admin', 'questionBulk.html'));
 });
-if (fs.existsSync(FRONTEND_DIST)) {
-	app.use(express.static(FRONTEND_DIST));
+// Serve dist only in production by default.
+// In dev/debug, serving dist first can mask changes in frontend/ and create "stale script" surprises.
+const NODE_ENV = String(process.env.NODE_ENV || '').trim().toLowerCase();
+const SERVE_DIST = (process.env.SERVE_DIST != null)
+	? (String(process.env.SERVE_DIST).trim().toLowerCase() === 'true')
+	: (NODE_ENV === 'production');
+
+if (fs.existsSync(FRONTEND_DIST) && SERVE_DIST) {
+	app.use(express.static(FRONTEND_DIST, {
+		etag: false,
+		lastModified: false,
+		setHeaders: (res) => setNoCacheHeaders(res)
+	}));
 }
+
+// If a navigation request arrives with ?sessionToken=..., convert it to the httpOnly cookie
+// and redirect to a clean URL (prevents token leakage + avoids broken flows after cache clears).
+app.use((req, res, next) => {
+	try {
+		if (req.method !== 'GET') return next();
+		if (req.path.startsWith('/api/')) return next();
+		const raw = (req.query && req.query.sessionToken) ? String(req.query.sessionToken).trim() : '';
+		if (!raw) return next();
+
+		// Build clean URL without the sessionToken parameter
+		let cleanPath = req.path;
+		let cleanSearch = '';
+		try {
+			const u = new URL(req.originalUrl, `${req.protocol || 'http'}://${req.get('host')}`);
+			u.searchParams.delete('sessionToken');
+			cleanPath = u.pathname;
+			cleanSearch = u.search || '';
+		} catch (_) {
+			// Fallback: remove sessionToken=... from query string best-effort
+			try {
+				const qs = String(req.originalUrl || '').split('?')[1] || '';
+				if (qs) {
+					const params = new URLSearchParams(qs);
+					params.delete('sessionToken');
+					const s = params.toString();
+					cleanSearch = s ? ('?' + s) : '';
+				}
+			} catch (_e) {}
+		}
+
+		const looksJwt = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw);
+		if (looksJwt) {
+			const cookieOptions = {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'strict',
+				maxAge: 12 * 60 * 60 * 1000,
+				path: '/',
+			};
+			try { res.cookie('sessionToken', raw, cookieOptions); } catch (_) {}
+		}
+
+		const target = cleanPath + cleanSearch;
+		// Avoid redirect loops if for any reason the URL couldn't be cleaned.
+		if (target && target !== req.originalUrl) {
+			return res.redirect(302, target);
+		}
+		return next();
+	} catch (e) {
+		return next();
+	}
+});
+
 // Enforce authentication for non-API navigation: redirect unauthenticated users to /login
 app.use((req, res, next) => {
 	try {
@@ -200,15 +312,25 @@ app.use((req, res, next) => {
 		return next();
 	} catch (e) { return next(); }
 });
-app.use(express.static(FRONTEND_DIR));
+app.use(express.static(FRONTEND_DIR, {
+	etag: false,
+	lastModified: false,
+	setHeaders: (res) => setNoCacheHeaders(res)
+}));
 
 // Chat-service reverse proxy (widget + API). Must be before SPA fallback.
 app.use('/chat', require('./routes/chatProxy'));
 
 // Rota raiz: sirva a home (index.html); o script.js redireciona usuários logados para /pages/examSetup.html
-app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
+app.get('/', (req, res) => {
+	setNoCacheHeaders(res);
+	return res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+});
 // Rota de login: serve a página dedicada de login
-app.get('/login', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'login.html')));
+app.get('/login', (req, res) => {
+	setNoCacheHeaders(res);
+	return res.sendFile(path.join(FRONTEND_DIR, 'login.html'));
+});
 
 // CSRF token endpoint (versioned and legacy)
 app.get(`${API_V1}/csrf-token`, (req, res) => {
@@ -248,9 +370,13 @@ app.use(`${API_V1}/feedback`, require('./routes/feedback'));
 app.use(`${API_V1}/admin/feedback`, require('./routes/admin_feedback'));
 app.use(`${API_V1}/admin/notifications`, require('./routes/admin_notifications'));
 app.use(`${API_V1}/admin/users`, require('./routes/admin_users'));
+app.use(`${API_V1}/admin/communication`, require('./routes/admin_communication'));
+app.use(`${API_V1}/admin/db`, require('./routes/admin_db'));
+app.use(`${API_V1}/admin/flashcards`, require('./routes/admin_flashcards'));
 app.use(`${API_V1}/notifications`, require('./routes/notifications'));
 app.use(`${API_V1}/debug`, require('./routes/debug'));
 app.use(`${API_V1}/ai`, require('./routes/ai'));
+app.use(`${API_V1}/flashcards`, require('./routes/flashcards'));
 
 // Legacy (unversioned) routes kept for backward compatibility (deprecated)
 app.use(`${API_BASE}/users`, require('./routes/users'));
@@ -265,9 +391,13 @@ app.use(`${API_BASE}/feedback`, require('./routes/feedback'));
 app.use(`${API_BASE}/admin/feedback`, require('./routes/admin_feedback'));
 app.use(`${API_BASE}/admin/notifications`, require('./routes/admin_notifications'));
 app.use(`${API_BASE}/admin/users`, require('./routes/admin_users'));
+app.use(`${API_BASE}/admin/communication`, require('./routes/admin_communication'));
+app.use(`${API_BASE}/admin/db`, require('./routes/admin_db'));
+app.use(`${API_BASE}/admin/flashcards`, require('./routes/admin_flashcards'));
 app.use(`${API_BASE}/notifications`, require('./routes/notifications'));
 app.use(`${API_BASE}/debug`, require('./routes/debug'));
 app.use(`${API_BASE}/ai`, require('./routes/ai'));
+app.use(`${API_BASE}/flashcards`, require('./routes/flashcards'));
 
 // Para rotas não-API, devolve index.html (SPA fallback)
 // NOTE: avoid using app.get('*') which can trigger path-to-regexp errors in some setups.
@@ -277,6 +407,7 @@ app.use((req, res, next) => {
 	// Only serve index.html for GET navigation requests
 	if (req.method !== 'GET') return next();
 			// Use o index.html da pasta frontend (não copiamos HTMLs para dist)
+			setNoCacheHeaders(res);
 			res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 

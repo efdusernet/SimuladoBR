@@ -32,6 +32,13 @@ router.get('/:id', requireAdmin, questionController.getQuestionById);
 // Update question
 router.put('/:id', requireAdmin, questionController.updateQuestion);
 
+// Save/update explanation for a specific option (respostaopcao)
+router.put('/options/:optionId/explanation', requireAdmin, questionController.saveOptionExplanation);
+router.delete('/options/:optionId/explanation', requireAdmin, questionController.deleteOptionExplanation);
+
+// Delete (soft-delete) question
+router.delete('/:id', requireAdmin, questionController.deleteQuestion);
+
 // Bulk upload: accepts JSON body or multipart/form-data with a file field named "file"
 // JSON format:
 //  - Either an array of questions [{ descricao, tiposlug, examTypeSlug|examTypeId, options:[{descricao, correta}], ... }]

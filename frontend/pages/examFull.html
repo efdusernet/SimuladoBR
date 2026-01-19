@@ -21,6 +21,11 @@
   </header>
   
   <div id="toast" class="toast" aria-live="polite" style="display:none"></div>
+
+  <!-- Warning when full exam starts without pretest questions -->
+  <div id="pretestWarning" role="alert" style="display:none;max-width:900px;margin:10px auto 0;padding:10px 12px;border:1px solid #fecaca;background:#fff1f2;color:#b91c1c;border-radius:10px;font-weight:700;line-height:1.25">
+    Exame iniciado sem questões de Pré-teste, por não haver questões de testes marcadas na base de dados. Verifique!
+  </div>
   
 
   <main class="exam-container" role="main" style="margin-top:8px;">
@@ -381,6 +386,7 @@
     (function(){
       function openGrid(){
         try {
+          try { if (typeof window.captureCurrentAnswerSnapshot === 'function') window.captureCurrentAnswerSnapshot(); } catch(_){ }
           const modal = document.getElementById('gridModal');
           const frame = document.getElementById('gridFrame');
           if (!modal || !frame) return;
@@ -602,8 +608,10 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
   <!-- Sanitization utilities -->
   <script src="../utils/sanitize.js"></script>
+  <!-- MatchColumns (drag-and-drop question type) -->
+  <script src="../utils/matchColumns.js?v=20260116_3"></script>
   <!-- Prefer non-minified script to ensure image fields & diagnostics are active -->
-  <script src="../script_exam.js"></script>
+  <script src="../script_exam.js?v=20260116_11"></script>
   <!-- <script src="../assets/build/script_exam.js"></script> -->
 
   <!-- Ensure question ID label and Continue visibility update regardless of build/non-build script -->
@@ -636,12 +644,15 @@
               idSpan.textContent = (q && q.id != null) ? ('ID: ' + q.id) : '';
             }
           } catch(_){ }
-          // Change Continue button to "Enviar" at question 180 (1-based)
+          // Change Continue button to "Enviar" on the last question (and keep legacy behavior for 180-question exams)
           try {
             const contBtn = document.getElementById('continueBtn');
             if (contBtn){
               const labelNum = (typeof idx === 'number') ? (idx + 1) : null;
-              if (labelNum === 180) {
+              const arr = getQuestionsArray();
+              const total = Array.isArray(arr) ? arr.length : 0;
+              const isLast = (typeof idx === 'number') && total > 0 && idx === (total - 1);
+              if (isLast || labelNum === 180) {
                 contBtn.textContent = 'Enviar';
                 contBtn.style.background = '#10b981'; // Green color for submit
               } else {

@@ -131,7 +131,7 @@ async function getAreaConhecimentoStats(req, res, next){
   }
 }
 
-// IND9 - % Acertos/Erros por Abordagem (categoriaquestao)
+// IND9 - % Acertos/Erros por Abordagem (abordagem)
 async function getAbordagemStats(req, res, next){
   try {
     const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
@@ -171,7 +171,7 @@ async function getAbordagemStats(req, res, next){
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
-        LEFT JOIN categoriaquestao cq ON cq.id = q.codigocategoria
+        LEFT JOIN public.abordagem cq ON cq.id = q.codigocategoria
         LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
         LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
         JOIN exam_attempt a ON a.id = aq.attempt_id
@@ -1058,6 +1058,120 @@ async function getPerformancePorDominioAgregado(req, res, next) {
   }
 }
 
+// IND13 - Média ponderada por Task (agregado em todos os exames completos do usuário)
+async function getPerformancePorTaskAgregado(req, res, next) {
+  try {
+    const user = req.user || {};
+    // Resolve userId from middleware (`req.user.id`) or JWT-like `sub`, or `idUsuario` query fallback
+    let userId = null;
+    if (Number.isFinite(parseInt(user.id, 10))) userId = parseInt(user.id, 10);
+    else if (Number.isFinite(parseInt(user.sub, 10))) userId = parseInt(user.sub, 10);
+    else if (Number.isFinite(parseInt(req.query.idUsuario, 10))) userId = parseInt(req.query.idUsuario, 10);
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
+
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
+
+    const minTotalRaw = parseInt(req.query.min_total, 10);
+    const minTotal = Number.isFinite(minTotalRaw) ? Math.min(Math.max(minTotalRaw, 1), 200) : 5;
+
+    const dominioIdRaw = parseInt(req.query.dominio_id, 10);
+    const dominioId = Number.isFinite(dominioIdRaw) && dominioIdRaw > 0 ? dominioIdRaw : null;
+
+    const sql = `
+      WITH attempts AS (
+        SELECT a.id
+        FROM exam_attempt a
+        WHERE a.user_id = :userId
+          AND a.finished_at IS NOT NULL
+          AND (a.exam_mode = 'full' OR a.quantidade_questoes = :fullQ)
+          ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+      ),
+      per_question AS (
+        SELECT
+          aq.id AS aqid,
+          q.id_task AS task_id,
+          t.numero AS task_numero,
+          t.descricao AS task_descricao,
+          t.peso AS task_peso,
+          t.id_dominio AS dominio_id,
+          dg.descricao AS dominio_nome,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
+        FROM exam_attempt_question aq
+        JOIN attempts a ON a.id = aq.attempt_id
+        LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+        JOIN questao q ON q.id = aq.question_id
+        LEFT JOIN public."Tasks" t ON t.id = q.id_task
+        LEFT JOIN dominiogeral dg ON dg.id = t.id_dominio
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
+        WHERE q.id_task IS NOT NULL
+          ${dominioId != null ? 'AND t.id_dominio = :dominioId' : ''}
+        GROUP BY aq.id, q.id_task, t.numero, t.descricao, t.peso, t.id_dominio, dg.descricao
+      )
+      SELECT
+        task_id,
+        task_numero,
+        task_descricao,
+        task_peso,
+        dominio_id,
+        dominio_nome,
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS acertos
+      FROM per_question
+      WHERE correct_count > 0
+      GROUP BY task_id, task_numero, task_descricao, task_peso, dominio_id, dominio_nome
+      HAVING COUNT(*) >= :minTotal
+      ORDER BY dominio_nome, task_numero;
+    `;
+
+    const baseReplacements = { userId, fullQ: getFullExamQuestionCount(), minTotal, ...(dominioId != null ? { dominioId } : {}) };
+    const replacements = hasExamType
+      ? { ...baseReplacements, examTypeId }
+      : baseReplacements;
+
+    const rows = await sequelize.query(sql, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    const tasks = (rows || []).map(r => {
+      const total = Number(r.total) || 1;
+      const acertos = Number(r.acertos) || 0;
+      const percent = Number(((acertos / total) * 100).toFixed(2));
+
+      const peso = r.task_peso != null ? Number(r.task_peso) : null;
+      const pesoNum = (peso != null && Number.isFinite(peso) && peso > 0) ? peso : 0;
+      const impactScore = Number((pesoNum * (100 - percent)).toFixed(4));
+
+      const dominioNome = r.dominio_nome || (r.dominio_id != null ? `Domínio ${r.dominio_id}` : 'Sem domínio');
+      const taskNumero = r.task_numero != null ? String(r.task_numero) : (r.task_id != null ? String(r.task_id) : '?');
+      const taskDesc = r.task_descricao || '—';
+      const descricao = `${dominioNome} - Task ${taskNumero} | - ${taskDesc} (n=${total})`;
+
+      return {
+        id: Number(r.task_id) || null,
+        dominioId: r.dominio_id != null ? Number(r.dominio_id) : null,
+        descricao,
+        peso: peso != null && Number.isFinite(peso) ? peso : null,
+        impactScore,
+        total,
+        acertos,
+        percent
+      };
+    });
+
+    return res.json({
+      userId,
+      examTypeId: hasExamType ? examTypeId : null,
+      minTotal,
+      dominioId,
+      tasks
+    });
+  } catch (err) {
+    return next(internalError('Erro interno', 'IND13_TASK_AGGREGATE_ERROR', err));
+  }
+}
+
 // New: Extended history (up to 50 attempts) including full & quiz with completion status logic
 async function getAttemptsHistoryExtended(req, res, next){
   try {
@@ -1139,4 +1253,4 @@ async function getAttemptsHistoryExtended(req, res, next){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion, getPerformancePorDominioAgregado, getAttemptsHistoryExtended };
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion, getPerformancePorDominioAgregado, getPerformancePorTaskAgregado, getAttemptsHistoryExtended };

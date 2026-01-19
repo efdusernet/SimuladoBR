@@ -54,13 +54,75 @@
 <script src="/components/sb-hbar.js"></script>
 <script>
   (function initPassProbability(){
+    async function isPremiumUser(){
+      try {
+        const lsVal = (localStorage.getItem('BloqueioAtivado') || '').trim();
+        if (lsVal === 'true') return false;
+        if (lsVal === 'false') return true;
+
+        const token = (localStorage.getItem('sessionToken') || '').trim();
+        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+        const identity = (nomeUsuario || token).trim();
+        if (!identity) return false;
+
+        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+        const headers = { 'Accept':'application/json' };
+        headers['X-Session-Token'] = identity;
+        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+        const resp = await fetch('/api/users/me', { method:'GET', headers, credentials:'include' });
+        if (!resp.ok) return false;
+        const data = await resp.json().catch(()=>null);
+        const isPremium = !!(data && data.BloqueioAtivado === false);
+        try { localStorage.setItem('BloqueioAtivado', String(Boolean(data && data.BloqueioAtivado))); } catch(_){ }
+        return isPremium;
+      } catch(_){
+        return false;
+      }
+    }
+
     // Make the whole card clickable to open Indicadores -> Probabilidade de Sucesso
     try {
       const card = document.querySelector('.pass-probability');
       if (card) {
         card.style.cursor = 'pointer';
-        card.addEventListener('click', () => {
-          window.location.assign('/pages/Indicadores.html?tab=prob');
+        card.addEventListener('click', async (e) => {
+          try { if (e) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } } catch(_){ }
+
+          try {
+            const okPremium = await isPremiumUser();
+            if (!okPremium) {
+              try {
+                if (window.showToast) window.showToast('Somente para usuário premium', 2400, { center: true });
+                else alert('Somente para usuário premium');
+              } catch(_){ }
+              return;
+            }
+          } catch(_){
+            try {
+              if (window.showToast) window.showToast('Somente para usuário premium', 2400, { center: true });
+              else alert('Somente para usuário premium');
+            } catch(__){ }
+            return;
+          }
+
+          // Prefer embedded Indicadores inside index.html when available
+          try {
+            const section = document.getElementById('indicadores');
+            if (section && typeof window.loadIndicadoresIntoSection === 'function') {
+              window.loadIndicadoresIntoSection('prob');
+              try { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){ }
+              return;
+            }
+          } catch(_){ }
+
+          // Fallback: persist state and go to index (do not go to standalone Indicadores.html)
+          try {
+            sessionStorage.setItem('currentSection', 'indicadores');
+            sessionStorage.setItem('currentSubsection', 'prob');
+          } catch(_){ }
+          window.location.assign('/index.html');
         });
       }
     } catch(_){}

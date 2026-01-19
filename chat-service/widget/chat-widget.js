@@ -32,6 +32,62 @@
     }
   }
 
+  // Identify the customer in the admin host.
+  // SimuladosBR stores the real user name in storage; prefer the explicit session key "nome".
+  function getHostUserName() {
+    try {
+      var s = '';
+      try { s = (sessionStorage && sessionStorage.getItem) ? (sessionStorage.getItem('nome') || '') : ''; } catch (_) { s = ''; }
+      if (!s) {
+        try { s = (localStorage && localStorage.getItem) ? (localStorage.getItem('nome') || '') : ''; } catch (_) { s = ''; }
+      }
+      if (!s) {
+        try { s = (localStorage && localStorage.getItem) ? (localStorage.getItem('nomeUsuario') || '') : ''; } catch (_) { s = ''; }
+      }
+      if (!s) {
+        try { s = (sessionStorage && sessionStorage.getItem) ? (sessionStorage.getItem('userName') || '') : ''; } catch (_) { s = ''; }
+      }
+      s = String(s || '').trim();
+      // Keep it bounded (server also validates).
+      if (s.length > 120) s = s.slice(0, 120);
+      return s;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function getCustomerNameSyncKey(conversationId) {
+    return 'chat_customerName_synced_' + String(conversationId || '').trim();
+  }
+
+  async function syncCustomerNameIfNeeded(ids, customerName) {
+    try {
+      if (!ids || !ids.conversationId || !ids.visitorId) return;
+      var name = String(customerName || '').trim();
+      if (!name) return;
+
+      var key = getCustomerNameSyncKey(ids.conversationId);
+      var last = '';
+      try { last = String(localStorage.getItem(key) || '').trim(); } catch (e) { last = ''; }
+      if (last === name) return;
+
+      var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations/' + encodeURIComponent(ids.conversationId) + '/customer-name'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Chat-Visitor-Id': ids.visitorId,
+        },
+        body: JSON.stringify({ visitorId: ids.visitorId, customerName: name }),
+      });
+
+      if (res && res.ok) {
+        try { localStorage.setItem(key, name); } catch (e) {}
+      }
+    } catch (e) {
+      // best-effort; ignore
+    }
+  }
+
   function shouldAttachHostSessionToken() {
     // Only attach when the widget is configured to use the SimuladosBR reverse proxy.
     // This prevents leaking the host app session token to a third-party chat-service.
@@ -107,6 +163,9 @@
   var storagePrefix = 'chatService:' + apiBase + ':';
   var visitorIdKey = storagePrefix + 'visitorId';
   var conversationIdKey = storagePrefix + 'conversationId';
+
+  // One-time informational notice rendered at the top of the next messages load.
+  var pendingNotice = '';
 
   function removeStored(key) {
     try { localStorage.removeItem(key); } catch (e) {}
@@ -393,10 +452,11 @@
             userText = title ? ('Tenho dúvida sobre ' + title) : 'Preciso de ajuda.';
           }
 
-          var sent = await sendMessage(userText);
-          if (ids && ids.conversationId && id) {
-            markTopicUsed(ids.conversationId, id);
-            if (autoReply) addAutoReply(ids.conversationId, id, autoReply, { afterMessageId: sent && sent.id != null ? String(sent.id) : '' });
+          var sent = await sendMessage(userText, { supportTopicId: id });
+          var effectiveConversationId = getStored(conversationIdKey) || (ids && ids.conversationId ? String(ids.conversationId) : '');
+          if (effectiveConversationId && id) {
+            markTopicUsed(effectiveConversationId, id);
+            if (autoReply) addAutoReply(effectiveConversationId, id, autoReply, { afterMessageId: sent && sent.id != null ? String(sent.id) : '' });
           }
           await loadMessages();
         } catch (e) {
@@ -427,12 +487,18 @@
   async function ensureConversation() {
     var visitorId = getStored(visitorIdKey);
     var conversationId = getStored(conversationIdKey);
-    if (visitorId && conversationId) return { visitorId, conversationId };
+    if (visitorId && conversationId) {
+      var existing = { visitorId: visitorId, conversationId: conversationId };
+      try { await syncCustomerNameIfNeeded(existing, getHostUserName()); } catch (e) {}
+      return existing;
+    }
+
+    var customerName = getHostUserName();
 
     var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Chat-Visitor-Id': visitorId || '' },
-      body: JSON.stringify({ visitorId: visitorId || undefined }),
+      body: JSON.stringify({ visitorId: visitorId || undefined, customerName: customerName || undefined }),
     });
     var json = await res.json();
     if (!res.ok || !json || !json.ok) throw new Error((json && json.error) || 'Falha ao criar conversa');
@@ -441,6 +507,8 @@
     conversationId = json.conversationId;
     setStored(visitorIdKey, visitorId);
     setStored(conversationIdKey, conversationId);
+
+    try { await syncCustomerNameIfNeeded({ visitorId: visitorId, conversationId: conversationId }, customerName); } catch (e) {}
 
     return { visitorId, conversationId };
   }
@@ -481,6 +549,16 @@
     setChatClosedState();
   }
 
+  function resetConversationSession(noticeText) {
+    try {
+      var oldConversationId = getStored(conversationIdKey);
+      try { setStored(conversationIdKey, ''); } catch (e) {}
+      try { clearUsedTopics(oldConversationId); } catch (e) {}
+      try { clearAutoReplies(oldConversationId); } catch (e) {}
+      if (noticeText) pendingNotice = String(noticeText);
+    } catch (e) {}
+  }
+
   async function closeConversation() {
     var visitorId = getStored(visitorIdKey);
     var conversationId = getStored(conversationIdKey);
@@ -504,7 +582,8 @@
     setChatClosedState();
   }
 
-  async function loadMessages() {
+  async function loadMessages(allowRetry) {
+    if (allowRetry == null) allowRetry = true;
     var ids = await ensureConversation();
     updateHeaderWithIds(ids);
     var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations/' + encodeURIComponent(ids.conversationId) + '/messages'), {
@@ -516,6 +595,10 @@
     if (!res.ok || !json || !json.ok) {
       var errMsg = (json && json.error) ? String(json.error) : ('Falha ao carregar mensagens (HTTP ' + res.status + ')');
       if (res.status === 409 || errMsg.toLowerCase().includes('encerrada')) {
+        if (allowRetry) {
+          resetConversationSession('Conversa anterior encerrada. Iniciamos uma nova conversa automaticamente.');
+          return loadMessages(false);
+        }
         handleRemoteClosed('Conversa encerrada pelo suporte. Se quiser, envie uma nova mensagem para iniciar outra.');
         return;
       }
@@ -523,6 +606,10 @@
     }
 
     messages.innerHTML = '';
+    if (pendingNotice) {
+      messages.appendChild(el('div', { text: pendingNotice }));
+      pendingNotice = '';
+    }
     var msgs = (json.messages || []);
     // Show quick topics (and keep used ones disabled).
     try {
@@ -576,21 +663,28 @@
     messages.scrollTop = messages.scrollHeight;
   }
 
-  async function sendMessage(text) {
+  async function sendMessage(text, meta, allowRetry) {
+    if (allowRetry == null) allowRetry = true;
     var ids = await ensureConversation();
     setChatOpenState();
+    var customerName = getHostUserName();
+    var supportTopicId = meta && meta.supportTopicId != null ? String(meta.supportTopicId) : undefined;
     var res = await fetch(withHostSessionToken(apiBase + '/v1/conversations/' + encodeURIComponent(ids.conversationId) + '/messages'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Chat-Visitor-Id': ids.visitorId,
       },
-      body: JSON.stringify({ role: 'user', text: text }),
+      body: JSON.stringify({ role: 'user', text: text, customerName: customerName || undefined, supportTopicId: supportTopicId }),
     });
     var json = await res.json();
     if (!res.ok || !json || !json.ok) {
       var msg = (json && json.error) ? String(json.error) : 'Falha ao enviar';
       if (res.status === 409 || msg.toLowerCase().includes('encerrada')) {
+        if (allowRetry) {
+          resetConversationSession('Conversa anterior encerrada. Iniciamos uma nova conversa automaticamente.');
+          return sendMessage(text, meta, false);
+        }
         handleRemoteClosed('Conversa encerrada pelo suporte. Se quiser, envie uma nova mensagem para iniciar outra.');
       }
       throw new Error(msg);

@@ -42,9 +42,12 @@ const customFormat = winston.format.combine(
 );
 
 // Console format for development
+// NOTE: include metadata() so extra fields (method/url/statusCode/etc) are visible.
 const consoleFormat = winston.format.combine(
   winston.format.colorize({ all: true }),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.errors({ stack: true }),
+  winston.format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'label'] }),
   winston.format.printf(
     (info) => {
       const { timestamp, level, message, metadata } = info;

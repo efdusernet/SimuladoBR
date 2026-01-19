@@ -48,7 +48,7 @@ Implementação moderna de proteção CSRF (Cross-Site Request Forgery) usando o
 ### 1. Geração de Token (Backend)
 
 ```javascript
-// Ao acessar GET /api/csrf-token
+// Ao acessar GET /api/csrf-token (ou /api/v1/csrf-token)
 const token = crypto.randomBytes(32).toString('hex');
 
 // Token armazenado:
@@ -106,7 +106,7 @@ headers: {
 
 ```
 1. Página carrega → csrf.js inicializa
-2. GET /api/csrf-token → Recebe token + cookie
+2. GET /api/csrf-token (ou /api/v1/csrf-token) → Recebe token + cookie
 3. Token armazenado no cookie (csrfToken)
 4. Usuário faz POST /api/exams/start
 5. Wrapper fetch adiciona header X-CSRF-Token
@@ -136,7 +136,7 @@ headers: {
 
 ### ✅ Defense in Depth
 - CORS configurado (`FRONTEND_URL`)
-- httpOnly cookies para sessionToken
+- Cookie httpOnly `sessionToken` para autenticação JWT
 - SameSite=strict em todos os cookies
 - Validação de origem/referer
 

@@ -266,11 +266,17 @@
         <div id="examResultsModal" class="overlay" aria-hidden="true" style="display:none;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
             <div style="background:#fff;border-radius:12px;max-width:520px;width:92%;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.35);color:#111827">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                    <h2 style="margin:0;font-size:1.2rem;">Selecionar exame</h2>
+                    <h2 style="margin:0;font-size:1.2rem;">Histórico de exames</h2>
                     <button id="examResultsClose" type="button" aria-label="Fechar" style="background:none;border:none;font-size:1.6rem;color:#64748b;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center">×</button>
                 </div>
                 <div style="display:grid;gap:10px;">
-                    <div style="font-size:.9rem;color:#334155">Exames finalizados</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                        <div id="examHistoryListTitle" style="font-size:.9rem;color:#334155">Exames finalizados</div>
+                        <select id="examHistoryStatusFilter" aria-label="Filtrar histórico" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#111827;font-size:.9rem;">
+                            <option value="finished" selected>Finalizados</option>
+                            <option value="unfinished">Não finalizados</option>
+                        </select>
+                    </div>
                     <div id="examList" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
                 </div>
             </div>
@@ -353,6 +359,8 @@
                 const modal = document.getElementById('examResultsModal');
                 const closeBtn = document.getElementById('examResultsClose');
                 const listEl = document.getElementById('examList');
+                const filterEl = document.getElementById('examHistoryStatusFilter');
+                const titleEl = document.getElementById('examHistoryListTitle');
                 if (!modal || !closeBtn || !listEl) return;
                 function open(){
                     modal.style.display='flex';
@@ -381,10 +389,55 @@
                 closeBtn.addEventListener('click', (e)=>{ e.preventDefault(); close(); });
                 modal.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
 
+                if (filterEl) {
+                    filterEl.addEventListener('change', ()=>{ loadHistory(); });
+                }
+
+                window.loadExamHistoryModal = loadHistory;
+
+                function getHistoryStatus(){
+                    const v = String((filterEl && filterEl.value) || 'finished').trim().toLowerCase();
+                    return (v === 'unfinished' || v === 'finished') ? v : 'finished';
+                }
+
+                function updateHistoryTitle(status){
+                    if (!titleEl) return;
+                    titleEl.textContent = status === 'unfinished' ? 'Exames não finalizados' : 'Exames finalizados';
+                }
+
+                async function isAdminForHistory(){
+                    try {
+                        if (window.__historyModalIsAdmin === true) return true;
+                        if (window.__historyModalIsAdmin === false) return false;
+
+                        const token = (localStorage.getItem('sessionToken') || '').trim();
+                        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                        const identity = (nomeUsuario || token || '').trim();
+                        if (!identity) { window.__historyModalIsAdmin = false; return false; }
+
+                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+
+                        const headers = {};
+                        headers['X-Session-Token'] = identity;
+                        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(identity)}`;
+                        const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
+                        window.__historyModalIsAdmin = !!r.ok;
+                        return window.__historyModalIsAdmin;
+                    } catch(_){
+                        window.__historyModalIsAdmin = false;
+                        return false;
+                    }
+                }
+
                 async function loadHistory(){
                     try {
+                        const status = getHistoryStatus();
+                        updateHistoryTitle(status);
                         const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000').replace(/\/$/,'');
-                        const url = base + '/api/exams/history?limit=50';
+                        const url = base + '/api/exams/history?limit=50&status=' + encodeURIComponent(status);
                         const rawSession = (sessionStorage.getItem('X-Session-Token') || localStorage.getItem('sessionToken') || '').trim();
                         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
                         const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
@@ -400,19 +453,36 @@
                             // Silenced debug log for history HTTP status
                         }
                         if (!Array.isArray(list)) list = [];
-                        // Sort by finishedAt desc if present
+
+                        const isAdmin = status === 'unfinished' ? await isAdminForHistory() : false;
+
+                        // Sort according to current status
                         try {
-                            list.sort((a,b)=>{
-                                const af = a && a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
-                                const bf = b && b.finishedAt ? new Date(b.finishedAt).getTime() : 0;
-                                return bf - af;
-                            });
+                            if (status === 'unfinished') {
+                                list.sort((a,b)=>{
+                                    const af = a && a.startedAt ? new Date(a.startedAt).getTime() : 0;
+                                    const bf = b && b.startedAt ? new Date(b.startedAt).getTime() : 0;
+                                    return bf - af;
+                                });
+                            } else {
+                                list.sort((a,b)=>{
+                                    const af = a && a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
+                                    const bf = b && b.finishedAt ? new Date(b.finishedAt).getTime() : 0;
+                                    return bf - af;
+                                });
+                            }
                         } catch(_){ }
                         listEl.innerHTML = '';
                         if (!list.length){
                             const isGuest = rawSession && /^guest_/i.test(rawSession);
                             const empty = document.createElement('div');
-                            empty.textContent = rawSession ? (isGuest ? 'Sessão convidado — faça login para ver seu histórico' : 'Nenhum exame encontrado') : 'Faça login para ver seu histórico';
+                            if (!rawSession) {
+                                empty.textContent = 'Faça login para ver seu histórico';
+                            } else if (isGuest) {
+                                empty.textContent = 'Sessão convidado — faça login para ver seu histórico';
+                            } else {
+                                empty.textContent = status === 'unfinished' ? 'Nenhuma tentativa não finalizada encontrada' : 'Nenhum exame encontrado';
+                            }
                             empty.style.cssText = 'padding:8px;border:1px dashed #cbd5e1;border-radius:8px;color:#64748b;text-align:center';
                             listEl.appendChild(empty);
                             if (isGuest){
@@ -430,6 +500,8 @@
                                 if (!id) continue;
                                 const mode = String((item && (item.examMode || item.mode)) || '').toLowerCase();
                             const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
+                            const itemStatus = String((item && (item.status || item.Status)) || (status === 'unfinished' ? 'in_progress' : status) || 'finished').toLowerCase();
+                            const started = item && item.startedAt ? new Date(item.startedAt).toLocaleString('pt-BR') : '';
                             const finished = item && item.finishedAt ? new Date(item.finishedAt).toLocaleString('pt-BR') : '';
                             const pctNum = item && item.scorePercent != null ? Math.round(item.scorePercent) : null;
                             const btn = document.createElement('button');
@@ -440,14 +512,62 @@
                             const left = document.createElement('span'); left.textContent = title;
                             const right = document.createElement('span'); right.style.cssText = 'display:flex;gap:8px;color:#334155;font-size:.85rem';
                             const modeTag = document.createElement('span'); modeTag.textContent = (mode==='full'?'Full':'Quiz'); modeTag.style.cssText='padding:2px 6px;border-radius:6px;background:#eef2ff;color:#3730a3;font-weight:600'; right.appendChild(modeTag);
+                            if (itemStatus === 'abandoned' || itemStatus === 'in_progress') {
+                                const st = document.createElement('span');
+                                st.textContent = (itemStatus === 'abandoned') ? 'Abandonado' : 'Em andamento';
+                                st.style.cssText = 'padding:2px 6px;border-radius:6px;background:#eef2ff;color:#3730a3;font-weight:600';
+                                right.appendChild(st);
+                            }
                             if (pctNum != null){ const pctEl = document.createElement('span'); pctEl.textContent = pctNum + '%'; pctEl.style.cssText='color:#0f766e;font-weight:600'; right.appendChild(pctEl); }
-                            if (finished){ const dt = document.createElement('span'); dt.textContent = finished; dt.style.cssText='color:#64748b'; right.appendChild(dt); }
+                            if (itemStatus === 'abandoned' || itemStatus === 'in_progress') {
+                                if (started){ const dt = document.createElement('span'); dt.textContent = 'Início: ' + started; dt.style.cssText='color:#64748b'; right.appendChild(dt); }
+                            } else {
+                                if (finished){ const dt = document.createElement('span'); dt.textContent = finished; dt.style.cssText='color:#64748b'; right.appendChild(dt); }
+                            }
+
+                            if (isAdmin && (itemStatus === 'abandoned' || itemStatus === 'in_progress')) {
+                                const del = document.createElement('button');
+                                del.type = 'button';
+                                del.textContent = 'Excluir';
+                                del.title = 'Excluir tentativa não finalizada';
+                                del.style.cssText = 'margin-left:8px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#111827;cursor:pointer;font-size:.85rem;';
+                                del.addEventListener('click', async (ev)=>{
+                                    try { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(_){ }
+                                    const ok = window.confirm('Excluir esta tentativa não finalizada? Esta ação não pode ser desfeita.');
+                                    if (!ok) return;
+
+                                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                                    const identity = (nomeUsuario || token || '').trim();
+
+                                    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                                    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                                    const h = {};
+                                    if (identity) h['X-Session-Token'] = identity;
+                                    if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                                    const delUrl = base + '/api/admin/exams/attempts/' + encodeURIComponent(String(id)) + '?sessionToken=' + encodeURIComponent(identity);
+                                    const resp = await fetch(delUrl, { method: 'DELETE', headers: h, credentials: 'include' });
+                                    if (!resp.ok) {
+                                        const msg = await resp.text().catch(()=> '');
+                                        window.alert('Falha ao excluir. ' + (msg || ('HTTP ' + resp.status)));
+                                        return;
+                                    }
+                                    await loadHistory();
+                                });
+                                right.appendChild(del);
+                            }
+
                             btn.appendChild(left); btn.appendChild(right);
-                            btn.addEventListener('click', ()=>{
-                                const path = mode === 'full' ? '/pages/examReviewFull.html' : '/pages/examReviewQuiz.html';
-                                    const urlGo = `${path}?examId=${encodeURIComponent(String(id))}&mode=${encodeURIComponent(mode||'quiz')}`;
-                                window.location.assign(urlGo);
-                            });
+                            if (itemStatus === 'finished') {
+                                btn.addEventListener('click', ()=>{
+                                    const path = mode === 'full' ? '/pages/examReviewFull.html' : '/pages/examReviewQuiz.html';
+                                        const urlGo = `${path}?examId=${encodeURIComponent(String(id))}&mode=${encodeURIComponent(mode||'quiz')}`;
+                                    window.location.assign(urlGo);
+                                });
+                            } else {
+                                btn.style.cursor = 'default';
+                            }
                             listEl.appendChild(btn);
                         }
                     } catch(e){
@@ -623,39 +743,40 @@
         const btn = document.getElementById('adminMenuBtn');
         const panel = document.getElementById('adminMenuPanel');
         if (!btn || !panel) return;
+        // Hidden by default; only admins can see it.
+        try { btn.style.display = 'none'; } catch(_){ }
         const token = (localStorage.getItem('sessionToken') || '').trim();
         const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
         const sessionForHeader = nomeUsuario || token; // prefer NomeUsuario for admin middleware
-        if (!token) return; // no session => skip
-        // Helper: append ?sessionToken= fallback if cookies not set
-        function applyTokenFallback(){
-            try {
-                const q = encodeURIComponent(sessionForHeader || token);
-                ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp','lnkAdminNotifications','lnkAdminChatHost','lnkAdminChatHostModal'].forEach(id => {
-                    const a = document.getElementById(id); if (!a) return;
-                    const href = a.getAttribute('href') || '';
-                    if (href.includes('sessionToken=')) return;
-                    const sep = href.includes('?') ? '&' : '?';
-                    a.setAttribute('href', href + sep + 'sessionToken=' + q);
-                });
-            } catch(_){}
-        }
-        // Probe a lightweight admin-only endpoint to confirm role (GET /api/admin/exams/probe => 204 if admin)
-        // Include sessionToken as query fallback for servers expecting it in URL
-        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
-        // Build headers using both Session Token and JWT (if present)
-        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-        const probeHeaders = { };
-        if (sessionForHeader) probeHeaders['X-Session-Token'] = sessionForHeader;
-        if (jwtTok) probeHeaders['Authorization'] = `${jwtType} ${jwtTok}`;
-        fetch(probeUrl, { headers: probeHeaders, method: 'GET', credentials: 'include' })
-          .then(r => {
-              if (!r.ok) return Promise.reject('Not admin'); // not admin
-              // Success => show menu
-              btn.style.display = 'inline-flex';
-              // Provide fallback token if cookies absent
-              applyTokenFallback();
+        if (!sessionForHeader) return; // no session => skip
+                const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                const headers = { };
+                if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+                if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                // Primary: RBAC probe.
+                const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+                fetch(probeUrl, { headers, method: 'GET', credentials: 'include' })
+                    .then(async (r) => {
+                        let isAdmin = !!(r && (r.ok || r.status === 204));
+
+                        if (!isAdmin) {
+                            // Fallback: legacy /api/users/me.
+                            try {
+                                const r2 = await fetch('/api/users/me', { headers, method: 'GET', credentials: 'include' });
+                                if (r2.ok) {
+                                    const user = await r2.json().catch(()=>null);
+                                    isAdmin = !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
+                                }
+                            } catch(_){ }
+                        }
+
+                        if (!isAdmin) return;
+                        try { window.__isAdmin = true; } catch(_){ }
+
+                        // Success => show menu
+                        btn.style.display = 'inline-flex';
               function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
               function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
               btn.addEventListener('click', e => {
@@ -692,21 +813,25 @@
                   reconcileBtn.addEventListener('click', ()=>{
                       close(); // Fecha o menu admin
                       const adminModal = document.getElementById('adminModal');
-                      if (adminModal) {
+                      if (typeof window.openAdminModal === 'function') {
+                          window.openAdminModal();
+                      } else if (adminModal) {
                           adminModal.classList.add('active');
                           adminModal.setAttribute('aria-hidden', 'false');
                           const nav = document.querySelector('.bottom-nav');
                           if (nav) nav.style.display = 'none';
-                          // scroll to reconcile section (first panel)
-                          try { adminModal.querySelector('h3')?.scrollIntoView({behavior:'smooth'}); } catch(_){}
                       }
+                      // scroll to reconcile section (first panel)
+                      try { adminModal?.querySelector('h3')?.scrollIntoView({behavior:'smooth'}); } catch(_){ }
                   });
               }
               if (fixtureBtn){
                   fixtureBtn.addEventListener('click', ()=>{
                       close();
                       const adminModal = document.getElementById('adminModal');
-                      if (adminModal){
+                      if (typeof window.openAdminModal === 'function') {
+                          window.openAdminModal();
+                      } else if (adminModal){
                           adminModal.classList.add('active');
                           adminModal.setAttribute('aria-hidden','false');
                           const nav = document.querySelector('.bottom-nav'); if (nav) nav.style.display='none';
@@ -998,15 +1123,53 @@
                         return true;
                     } catch(_){ return false; }
                 };
-                // Simple toast helper
-                window.showToast = function(msg){
+                // Toast helper (supports centered positioning)
+                // Usage:
+                //  - showToast('Mensagem')
+                //  - showToast('Mensagem', 2000)
+                //  - showToast('Mensagem', 2000, true) // center
+                //  - showToast('Mensagem', 2000, { center:true })
+                //  - showToast('Mensagem', 2000, { position:'center' })
+                window.showToast = function(msg, ms, opts){
                     try {
                         const el = document.getElementById('toast');
                         if (!el) return;
+                        const duration = (typeof ms === 'number' && ms > 0) ? ms : 2600;
+                        const center = (opts === true) || (opts && (opts.center === true || opts.position === 'center'));
+
+                        // cache original positioning once
+                        if (!el.__posCached) {
+                            el.__posCached = true;
+                            el.__origRight = el.style.right;
+                            el.__origBottom = el.style.bottom;
+                            el.__origLeft = el.style.left;
+                            el.__origTop = el.style.top;
+                            el.__origTransform = el.style.transform;
+                            el.__origMaxWidth = el.style.maxWidth;
+                        }
+
+                        if (center) {
+                            el.style.left = '50%';
+                            el.style.top = '50%';
+                            el.style.right = 'auto';
+                            el.style.bottom = 'auto';
+                            el.style.transform = 'translate(-50%, -50%)';
+                            el.style.maxWidth = '80vw';
+                            el.style.textAlign = 'center';
+                        } else {
+                            el.style.right = el.__origRight || '14px';
+                            el.style.bottom = el.__origBottom || '14px';
+                            el.style.left = el.__origLeft || '';
+                            el.style.top = el.__origTop || '';
+                            el.style.transform = el.__origTransform || '';
+                            el.style.maxWidth = el.__origMaxWidth || '240px';
+                            el.style.textAlign = '';
+                        }
+
                         el.textContent = msg || '';
                         el.style.display = 'block';
                         clearTimeout(window.__toastTimer);
-                        window.__toastTimer = setTimeout(()=>{ try{ el.style.display='none'; }catch(_){ } }, 2600);
+                        window.__toastTimer = setTimeout(()=>{ try{ el.style.display='none'; }catch(_){ } }, duration);
                     } catch(_){ }
                 };
             })();
@@ -1059,23 +1222,77 @@
                                 old.remove();
                             }
                         } catch(_){ }
+                        async function isPremiumUser(){
+                            try {
+                                // Fast path: localStorage BloqueioAtivado already synced by script.js
+                                const lsVal = (localStorage.getItem('BloqueioAtivado') || '').trim();
+                                if (lsVal === 'true') return false;
+                                if (lsVal === 'false') return true;
+
+                                const token = (localStorage.getItem('sessionToken') || '').trim();
+                                const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                                const identity = (nomeUsuario || token).trim();
+                                if (!identity) return false;
+
+                                const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                                const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                                const headers = { 'Accept':'application/json' };
+                                headers['X-Session-Token'] = identity;
+                                if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                                const r = await fetch('/api/users/me', { method:'GET', headers, credentials:'include' });
+                                if (!r.ok) return false;
+                                const data = await r.json().catch(()=>null);
+                                const isPremium = !!(data && data.BloqueioAtivado === false);
+                                try { localStorage.setItem('BloqueioAtivado', String(Boolean(data && data.BloqueioAtivado))); } catch(_){ }
+                                return isPremium;
+                            } catch(_){
+                                return false;
+                            }
+                        }
+
                         // Make the whole component clickable to open Indicadores -> Probabilidade de Sucesso
                         try {
                             mount.style.cursor = 'pointer';
-                            mount.addEventListener('click', function(){
+                            mount.addEventListener('click', async function(e){
+                                try { if (e) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } } catch(_){ }
                                 try {
-                                    var examTypeId = (localStorage.getItem('examTypeId')||'').trim();
-                                    var examType = (localStorage.getItem('examType')||'').trim();
-                                    var qp = 'tab=prob';
-                                    var n = Number(examTypeId || examType);
-                                    if (Number.isFinite(n) && n > 0) {
-                                        qp += '&examTypeId=' + encodeURIComponent(String(Math.floor(n)));
-                                    } else if (examType) {
-                                        qp += '&examType=' + encodeURIComponent(examType.toUpperCase());
+                                    const okPremium = await isPremiumUser();
+                                    if (!okPremium) {
+                                        try { window.showToast && window.showToast('Somente para usuário premium', 2400, { center: true }); } catch(_){ }
+                                        return;
                                     }
-                                    (window.top || window).location.assign('/pages/Indicadores.html?' + qp);
+                                } catch(_){
+                                    try { window.showToast && window.showToast('Somente para usuário premium', 2400, { center: true }); } catch(_){ }
+                                    return;
+                                }
+                                try {
+                                    // Prefer using the existing sidebar navigation (loads into main.content)
+                                    try {
+                                        var link = document.querySelector('#sidebarIndicadoresAccordion a[href*="tab=prob"]');
+                                        if (link && typeof link.click === 'function') { link.click(); return; }
+                                    } catch(_){ }
+
+                                    // Fallback: persist nav state + load directly if available
+                                    try {
+                                        sessionStorage.setItem('currentSection', 'indicadores');
+                                        sessionStorage.setItem('currentSubsection', 'prob');
+                                    } catch(_){ }
+
+                                    if (typeof window.loadIndicadoresIntoSection === 'function' && document.getElementById('indicadores')) {
+                                        window.loadIndicadoresIntoSection('prob');
+                                        try { document.getElementById('indicadores').scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){ }
+                                        return;
+                                    }
+
+                                    // Last-resort: stay in index (do not redirect to Indicadores.html)
+                                    (window.top || window).location.assign('/index.html');
                                 } catch(_) {
-                                    (window.top || window).location.assign('/pages/Indicadores.html?tab=prob');
+                                    try {
+                                        sessionStorage.setItem('currentSection', 'indicadores');
+                                        sessionStorage.setItem('currentSubsection', 'prob');
+                                    } catch(_){ }
+                                    (window.top || window).location.assign('/index.html');
                                 }
                             });
                         } catch(_){ }
@@ -1671,9 +1888,127 @@
                 </form>
                 <div id="resetPasswordOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;color:var(--text);white-space:pre-wrap"></div>
             </div>
+
+            <!-- Accordion: Snapshots diários (Insights) -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🕒 Snapshots de Insights (pagantes)</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">
+                        Mostra os registros da tabela <span style="font-family:monospace">user_daily_snapshot</span> (gravados 1x/dia quando o usuário é pagante: <span style="font-family:monospace">BloqueioAtivado=false</span>).
+                    </p>
+                    <div style="display:grid;gap:10px;margin-bottom:10px">
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <div style="flex:1;min-width:160px;display:flex;flex-direction:column;gap:4px">
+                                <label for="adminSnapshotUserId" style="font-size:0.75rem;color:var(--muted)">User ID *</label>
+                                <input id="adminSnapshotUserId" type="number" min="1" placeholder="ex: 123" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                            </div>
+                            <div style="width:140px;display:flex;flex-direction:column;gap:4px">
+                                <label for="adminSnapshotDays" style="font-size:0.75rem;color:var(--muted)">Dias</label>
+                                <input id="adminSnapshotDays" type="number" min="1" max="365" value="90" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <input type="checkbox" id="adminSnapshotIncludePayload" style="width:18px;height:18px;cursor:pointer" />
+                            <label for="adminSnapshotIncludePayload" style="font-size:0.9rem;color:var(--text);cursor:pointer">Incluir payload JSON (mais pesado)</label>
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button id="adminLoadSnapshotsBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Carregar snapshots</button>
+                            <button id="adminUseOverrideUserIdBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer">Usar User ID do Override</button>
+                        </div>
+                        <div id="adminSnapshotsStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+                    </div>
+                    <div id="adminSnapshotsTable" style="display:none;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:420px"></div>
+                </div>
+            </div>
+
+            <!-- Accordion: Limpeza de DB (não-masterdata) -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🧹 Limpeza do Banco (não-masterdata)</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">
+                        Remove dados transacionais (tentativas, stats, snapshots, etc.) preservando tabelas de masterdata/conteúdo.
+                        Use <b>Simular</b> para ver exatamente o que será truncado. <b>Atenção:</b> operação destrutiva.
+                    </p>
+
+                    <div style="display:grid;gap:10px;margin-bottom:10px">
+                        <div style="display:flex;flex-wrap:wrap;gap:10px">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepUsers" checked style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter usuários (se desmarcar, preserva Usuario.id=21)</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepRbac" checked style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter RBAC (roles/admin)</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepEntitlements" checked style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter compras/entitlements</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepComm" checked style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter comunicação (recipients)</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                                <input type="checkbox" id="adminDbKeepNotif" style="width:18px;height:18px;cursor:pointer" />
+                                <span style="font-size:0.9rem;color:var(--text)">Manter notificações (draft/sent)</span>
+                            </label>
+                        </div>
+
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+                            <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:4px">
+                                <label for="adminDbConfirmText" style="font-size:0.75rem;color:var(--muted)">Confirmação (para executar)</label>
+                                <input id="adminDbConfirmText" type="text" placeholder="Digite: LIMPAR_NAO_MASTERDATA" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                            </div>
+                            <button id="adminDbDryRunBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer">Simular (dry-run)</button>
+                            <button id="adminDbExecuteBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:#b91c1c;color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:700;cursor:pointer">Executar limpeza</button>
+                        </div>
+
+                        <div id="adminDbCleanupStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+                    </div>
+
+                    <div id="adminDbCleanupOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:260px;overflow-y:auto;white-space:pre-wrap"></div>
+                </div>
+            </div>
+
+            <!-- Accordion: Emular Questões por IDs -->
+            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">🧪 Emular Questões (IDs)</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">
+                        Inicia um exame completo usando exatamente os IDs informados (admin-only). Aceita separadores como vírgula, espaço e quebra de linha. Máx: 200.
+                    </p>
+                    <div style="display:grid;gap:10px">
+                        <textarea id="adminEmulatorQuestionIds" rows="4" placeholder="Ex: 123, 456, 789\n1011 1213" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem;resize:vertical"></textarea>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button id="adminEmulatorStartBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">
+                                Iniciar exame com esses IDs
+                            </button>
+                            <button id="adminEmulatorClearBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer">
+                                Limpar
+                            </button>
+                        </div>
+                        <div id="adminEmulatorOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+                    </div>
+                </div>
+            </div>
             
             <!-- Accordion: Outras Ferramentas -->
-            <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div id="adminAccordionTools" class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
                 <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
                     <span style="font-size:1rem;font-weight:600;color:var(--text)">🛠️ Outras Ferramentas</span>
                     <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
@@ -1681,7 +2016,22 @@
                     </svg>
                 </button>
                 <div class="admin-accordion-content" style="display:none;padding:16px">
-                    <p style="font-size:0.85rem;color:var(--muted);margin:0">Em breve: gestão de usuários, purga de dados, relatórios avançados.</p>
+                    <div style="display:grid;gap:10px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                            <div style="font-size:0.95rem;font-weight:700;color:var(--text)">📣 Comunicação</div>
+                            <button id="commRefreshRecipientsBtn" type="button" style="padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer">Atualizar</button>
+                        </div>
+                        <p style="font-size:0.85rem;color:var(--muted);margin:0;line-height:1.4">Cadastre os admins que recebem comunicados por e-mail. Você pode selecionar mais de 1.</p>
+
+                        <select id="commAdminSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+                            <option value="">Carregando admins...</option>
+                        </select>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button id="commAddRecipientBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'" disabled>Adicionar</button>
+                        </div>
+                        <div id="commRecipientsStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+                        <div id="commRecipientsList" style="display:grid;gap:8px"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1785,8 +2135,32 @@
                         } catch(_) {}
                         
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
-                        logger.info('[index.html] Navegando para Indicadores.html');
-                        window.location.assign('/pages/Indicadores.html');
+                        logger.info('[index.html] Abrindo Indicadores embutido (index)');
+                        try {
+                            // Preferir o mesmo caminho do sidebar (mantém comportamento consistente)
+                            const link = document.querySelector('a.sidebar-link[href="/pages/Indicadores.html"], a.sidebar-link[href^="/pages/Indicadores.html?"]');
+                            if (link) {
+                                link.click();
+                                return;
+                            }
+                        } catch(_){ }
+
+                        try {
+                            sessionStorage.setItem('currentSection', 'indicadores');
+                            sessionStorage.removeItem('currentSubsection');
+                        } catch(_){ }
+
+                        try {
+                            const section = document.getElementById('indicadores');
+                            if (section && typeof window.loadIndicadoresIntoSection === 'function') {
+                                window.loadIndicadoresIntoSection();
+                                try { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){ }
+                                return;
+                            }
+                        } catch(_){ }
+
+                        // Último recurso: manter no index e deixar o restore via sessionStorage acontecer
+                        window.location.assign('/index.html');
                         return;
                     }
                     // Insights da IA: abre página dedicada
@@ -1803,69 +2177,12 @@
                         try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
                         try {
                             const modal = document.getElementById('examResultsModal');
-                            const listEl = document.getElementById('examList');
                             if (modal) {
                                 modal.style.display = 'flex';
                                 modal.setAttribute('aria-hidden','false');
-                                (async function loadHistory(){
-                                    try {
-                                        const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000').replace(/\/$/,'');
-                                        const url = base + '/api/exams/history?limit=50';
-                                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                                        const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
-                                        const headers = {};
-                                        if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
-                                        if (sessionTok) headers['X-Session-Token'] = sessionTok;
-                                        const r = await fetch(url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now(), { headers, cache: 'no-store', credentials: 'include' });
-                                        let list = [];
-                                        if (r.ok) list = await r.json();
-                                        if (!Array.isArray(list)) list = [];
-                                        if (listEl) {
-                                            listEl.innerHTML = '';
-                                            if (!list.length){
-                                                const empty = document.createElement('div');
-                                                empty.textContent = 'Nenhum exame encontrado';
-                                                empty.style.cssText = 'padding:8px;border:1px dashed #cbd5e1;border-radius:8px;color:#64748b;text-align:center';
-                                                listEl.appendChild(empty);
-                                                return;
-                                            }
-                                            for (const item of list){
-                                                const id = item && (item.examAttemptId || item.attemptId || item.id || item.Id || item._id || item.sessionId || item.examId);
-                                                if (!id) continue;
-                                                const mode = String((item && (item.examMode || item.mode)) || '').toLowerCase();
-                                                const title = item && (item.title || item.name) || (mode==='full' ? 'Exame Completo' : 'Quiz');
-                                                const finished = item && item.finishedAt ? new Date(item.finishedAt).toLocaleString('pt-BR') : '';
-                                                const pctNum = item && item.scorePercent != null ? Math.round(item.scorePercent) : null;
-                                                const btn = document.createElement('button');
-                                                btn.type = 'button';
-                                                btn.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#111827;font-size:.92rem;cursor:pointer';
-                                                btn.dataset.id = String(id);
-                                                btn.dataset.mode = mode || 'quiz';
-                                                const left = document.createElement('span'); left.textContent = title;
-                                                const right = document.createElement('span'); right.style.cssText = 'display:flex;gap:8px;color:#334155;font-size:.85rem';
-                                                const modeTag = document.createElement('span'); modeTag.textContent = (mode==='full'?'Full':'Quiz'); modeTag.style.cssText='padding:2px 6px;border-radius:6px;background:#eef2ff;color:#3730a3;font-weight:600'; right.appendChild(modeTag);
-                                                if (pctNum != null){ const pctEl = document.createElement('span'); pctEl.textContent = pctNum + '%'; pctEl.style.cssText='color:#0f766e;font-weight:600'; right.appendChild(pctEl); }
-                                                if (finished){ const dt = document.createElement('span'); dt.textContent = finished; dt.style.cssText='color:#64748b'; right.appendChild(dt); }
-                                                btn.appendChild(left); btn.appendChild(right);
-                                                btn.addEventListener('click', ()=>{
-                                                    const path = mode === 'full' ? '/pages/examReviewFull.html' : '/pages/examReviewQuiz.html';
-                                                    const urlGo = `${path}?examId=${encodeURIComponent(String(id))}&mode=${encodeURIComponent(mode||'quiz')}`;
-                                                    window.location.assign(urlGo);
-                                                });
-                                                listEl.appendChild(btn);
-                                            }
-                                        }
-                                    } catch(_) { 
-                                        if (listEl) {
-                                            listEl.innerHTML = '';
-                                            const err = document.createElement('div');
-                                            err.textContent = 'Falha ao carregar';
-                                            err.style.cssText = 'padding:8px;border:1px solid #fecaca;border-radius:8px;background:#fee2e2;color:#991b1b;text-align:center';
-                                            listEl.appendChild(err);
-                                        }
-                                    }
-                                })();
+                                if (typeof window.loadExamHistoryModal === 'function') {
+                                    window.loadExamHistoryModal();
+                                }
                             }
                         } catch(_){ }
                         return;
@@ -1938,15 +2255,18 @@
                     if (typeof window.openAdminModal === 'function') {
                         window.openAdminModal();
                     } else {
-                        const adminModal = document.getElementById('adminModal');
-                        if (adminModal) {
-                            try { adminModal.removeAttribute('inert'); } catch(_){ }
-                            adminModal.classList.add('active');
-                            adminModal.setAttribute('aria-hidden', 'false');
-                            adminModal.style.display = 'flex';
-                            const navHide = document.querySelector('.bottom-nav');
-                            if (navHide) navHide.style.display='none';
-                        }
+                        ensureAdminAccess().then((ok) => {
+                            if (!ok) { denyAdminUi(); return; }
+                            const adminModal = document.getElementById('adminModal');
+                            if (adminModal) {
+                                try { adminModal.removeAttribute('inert'); } catch(_){ }
+                                adminModal.classList.add('active');
+                                adminModal.setAttribute('aria-hidden', 'false');
+                                adminModal.style.display = 'flex';
+                                const navHide = document.querySelector('.bottom-nav');
+                                if (navHide) navHide.style.display='none';
+                            }
+                        });
                     }
                     return;
                 }
@@ -2003,20 +2323,109 @@
             const adminUserSearchSelect = document.getElementById('adminUserSearchSelect');
             const adminUserSearchStatus = document.getElementById('adminUserSearchStatus');
 
+            // Insights snapshots (temporal model groundwork)
+            const adminSnapshotUserId = document.getElementById('adminSnapshotUserId');
+            const adminSnapshotDays = document.getElementById('adminSnapshotDays');
+            const adminSnapshotIncludePayload = document.getElementById('adminSnapshotIncludePayload');
+            const adminLoadSnapshotsBtn = document.getElementById('adminLoadSnapshotsBtn');
+            const adminUseOverrideUserIdBtn = document.getElementById('adminUseOverrideUserIdBtn');
+            const adminSnapshotsStatus = document.getElementById('adminSnapshotsStatus');
+            const adminSnapshotsTable = document.getElementById('adminSnapshotsTable');
+
+            // Communication recipients (admin communications)
+            const commAdminSelect = document.getElementById('commAdminSelect');
+            const commAddRecipientBtn = document.getElementById('commAddRecipientBtn');
+            const commRecipientsList = document.getElementById('commRecipientsList');
+            const commRecipientsStatus = document.getElementById('commRecipientsStatus');
+            const commRefreshRecipientsBtn = document.getElementById('commRefreshRecipientsBtn');
+
+            async function ensureAdminAccess(){
+                try { if (window.__isAdmin === true) return true; } catch(_){ }
+
+                try {
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const sessionForHeader = nomeUsuario || token;
+
+                    const headers = {};
+                    if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+                    try {
+                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                    } catch(_){ }
+                    try {
+                        const jwtTokB = (localStorage.getItem('jwt')||'').trim();
+                        const jwtTypeB = (localStorage.getItem('jwt_type')||'Bearer').trim()||'Bearer';
+                        if (!headers['Authorization'] && jwtTokB) headers['Authorization'] = `${jwtTypeB} ${jwtTokB}`;
+                    } catch(_){ }
+
+                    // Primary: probe admin-only endpoint (aligns with backend RBAC).
+                    try {
+                        const probeUrl = base + '/api/admin/exams/probe?sessionToken=' + encodeURIComponent(sessionForHeader || '');
+                        const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include' });
+                        if (probeResp.ok || probeResp.status === 204) {
+                            try { window.__isAdmin = true; } catch(_){ }
+                            try {
+                                const adminCard = document.getElementById('card-admin');
+                                if (adminCard) adminCard.style.display = '';
+                            } catch(_){ }
+                            return true;
+                        }
+                    } catch(_){ }
+
+                    // Fallback: /api/users/me for legacy setups.
+                    const resp = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
+                    if (!resp.ok) return false;
+                    const user = await resp.json().catch(()=>null);
+                    const ok = !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
+                    if (ok) { try { window.__isAdmin = true; } catch(_){ } }
+
+                    // Keep admin entry hidden unless confirmed.
+                    try {
+                        const adminCard = document.getElementById('card-admin');
+                        if (adminCard) adminCard.style.display = ok ? '' : 'none';
+                    } catch(_){ }
+
+                    return ok;
+                } catch(_){
+                    return false;
+                }
+            }
+
+            function denyAdminUi(){
+                try { if (window.showToast) { window.showToast('Acesso restrito: somente admin.'); return; } } catch(_){ }
+                try { alert('Acesso restrito: somente admin.'); } catch(_){ }
+            }
+
             // Unified modal open/close to avoid click-through caused by lingering `inert`.
             function openAdminModal(){
                 const m = document.getElementById('adminModal');
                 if (!m) return null;
-                try { m.removeAttribute('inert'); } catch(_){ }
-                m.classList.add('active');
-                m.setAttribute('aria-hidden', 'false');
-                // Ensure visible even if an earlier close set inline display:none
-                m.style.display = 'flex';
-                // Ensure it captures clicks
-                m.style.pointerEvents = 'auto';
-                const navHide = document.querySelector('.bottom-nav');
-                if (navHide) navHide.style.display = 'none';
-                return m;
+
+                const proceed = () => {
+                    try { m.removeAttribute('inert'); } catch(_){ }
+                    m.classList.add('active');
+                    m.setAttribute('aria-hidden', 'false');
+                    // Ensure visible even if an earlier close set inline display:none
+                    m.style.display = 'flex';
+                    // Ensure it captures clicks
+                    m.style.pointerEvents = 'auto';
+                    const navHide = document.querySelector('.bottom-nav');
+                    if (navHide) navHide.style.display = 'none';
+                    return m;
+                };
+
+                try { if (window.__isAdmin === true) return proceed(); } catch(_){ }
+
+                // Verify admin before opening.
+                ensureAdminAccess().then((ok) => {
+                    if (ok) return proceed();
+                    denyAdminUi();
+                    return null;
+                });
+                return null;
             }
             function closeAdminModal(){
                 const m = document.getElementById('adminModal');
@@ -2032,6 +2441,22 @@
             // Expose for sidebar component / other scripts
             window.openAdminModal = openAdminModal;
             window.closeAdminModal = closeAdminModal;
+
+            // Global safety: block any admin UI triggers for non-admins (defense-in-depth).
+            // This also protects against fallback/bundled handlers that might open the modal directly.
+            document.addEventListener('click', (e) => {
+                try {
+                    const trigger = e && e.target && e.target.closest
+                        ? e.target.closest('#card-admin,[data-card="admin"],#adminModalOpen,#adminMenuBtn,[data-admin-action]')
+                        : null;
+                    if (!trigger) return;
+                    if (window.__isAdmin === true) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+                    denyAdminUi();
+                } catch(_){ }
+            }, true);
             
             // Set default dates (last 30 days)
             if (reconcileFromDate && reconcileToDate) {
@@ -2045,25 +2470,378 @@
             // Check if user is admin on page load
             (async function checkAdmin() {
                 try {
-                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
-                    // Auth via httpOnly cookie, no localStorage token needed
-                    // Include Authorization JWT if available for robustness
-                    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                    const headers = {};
-                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-                    const resp = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
-                    
-                    if (resp.ok) {
-                        const user = await resp.json();
-                        if (user && user.TipoUsuario === 'admin') {
-                            const adminCard = document.getElementById('card-admin');
-                            if (adminCard) adminCard.style.display = '';
-                        }
-                    }
+                    await ensureAdminAccess();
                 } catch(e) {
                     logger.warn('Admin check failed:', e);
                 }
+            })();
+
+            // Admin: view daily snapshots recorded from /api/ai/insights
+            (function initAdminSnapshots(){
+                if (!adminLoadSnapshotsBtn || !adminSnapshotsTable) return;
+
+                function setStatus(msg){
+                    if (!adminSnapshotsStatus) return;
+                    adminSnapshotsStatus.textContent = msg || '';
+                }
+
+                function fmtNum(v, digits){
+                    const n = Number(v);
+                    if (!isFinite(n)) return '';
+                    if (digits == null) return String(n);
+                    return n.toFixed(digits);
+                }
+
+                function escapeHtml(s){
+                    return String(s == null ? '' : s)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                }
+
+                function render(items, includePayload){
+                    if (!adminSnapshotsTable) return;
+                    const list = Array.isArray(items) ? items : [];
+                    if (!list.length){
+                        adminSnapshotsTable.style.display = 'block';
+                        adminSnapshotsTable.innerHTML = '<div style="font-size:.85rem;color:var(--muted)">Nenhum snapshot encontrado para este usuário (ou não é pagante / ainda não gerou insights hoje).</div>';
+                        return;
+                    }
+
+                    const headStyle = 'padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;font-size:.78rem;color:var(--muted);white-space:nowrap;';
+                    const cellStyle = 'padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.2);font-size:.85rem;color:var(--text);vertical-align:top;white-space:nowrap;';
+
+                    let html = '';
+                    html += '<table style="width:100%;border-collapse:collapse">';
+                    html += '<thead><tr>';
+                    html += `<th style="${headStyle}">Data</th>`;
+                    html += `<th style="${headStyle}">DaysToExam</th>`;
+                    html += `<th style="${headStyle}">Readiness</th>`;
+                    html += `<th style="${headStyle}">Consistência</th>`;
+                    html += `<th style="${headStyle}">Avg%</th>`;
+                    html += `<th style="${headStyle}">Prob%</th>`;
+                    html += `<th style="${headStyle}">Overall%</th>`;
+                    html += `<th style="${headStyle}">TrendΔ</th>`;
+                    html += `<th style="${headStyle}">CompRate</th>`;
+                    html += `<th style="${headStyle}">Abandon</th>`;
+                    html += '</tr></thead><tbody>';
+
+                    for (let i = 0; i < list.length; i++){
+                        const r = list[i] || {};
+                        const date = r.snapshot_date || r.snapshotDate || '';
+                        const daysToExam = r.days_to_exam != null ? r.days_to_exam : r.daysToExam;
+                        const readiness = r.readiness_score != null ? r.readiness_score : r.readinessScore;
+                        const consistency = r.consistency_score != null ? r.consistency_score : r.consistencyScore;
+                        const avg = r.avg_score_percent != null ? r.avg_score_percent : r.avgScorePercent;
+                        const prob = r.pass_probability_percent != null ? r.pass_probability_percent : r.passProbabilityPercent;
+                        const overall = r.pass_probability_overall_percent != null ? r.pass_probability_overall_percent : r.passProbabilityOverallPercent;
+                        const trend = r.trend_delta_score7d != null ? r.trend_delta_score7d : r.trendDeltaScore7d;
+                        const comp = r.completion_rate != null ? r.completion_rate : r.completionRate;
+                        const abd = r.abandon_rate != null ? r.abandon_rate : r.abandonRate;
+
+                        html += '<tr>';
+                        html += `<td style="${cellStyle}">${escapeHtml(date)}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(daysToExam == null ? '' : String(daysToExam))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(readiness == null ? '' : String(readiness))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(consistency == null ? '' : String(consistency))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(avg == null ? '' : fmtNum(avg, 2))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(prob == null ? '' : fmtNum(prob, 2))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(overall == null ? '' : fmtNum(overall, 2))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(trend == null ? '' : fmtNum(trend, 2))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(comp == null ? '' : fmtNum(comp, 4))}</td>`;
+                        html += `<td style="${cellStyle}">${escapeHtml(abd == null ? '' : fmtNum(abd, 4))}</td>`;
+                        html += '</tr>';
+
+                        if (includePayload && r.payload != null){
+                            const payloadId = 'snapPayload_' + i;
+                            html += `<tr><td colspan="10" style="padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.2)">`;
+                            html += `<details id="${payloadId}"><summary style="cursor:pointer;color:var(--muted);font-size:.82rem">payload JSON</summary>`;
+                            html += `<pre style="white-space:pre-wrap;word-break:break-word;margin:8px 0 0;font-size:.75rem">${escapeHtml(JSON.stringify(r.payload, null, 2))}</pre>`;
+                            html += `</details>`;
+                            html += `</td></tr>`;
+                        }
+                    }
+
+                    html += '</tbody></table>';
+                    adminSnapshotsTable.style.display = 'block';
+                    adminSnapshotsTable.innerHTML = html;
+                }
+
+                async function load(){
+                    const uid = adminSnapshotUserId ? Number(adminSnapshotUserId.value) : null;
+                    const days = adminSnapshotDays ? Number(adminSnapshotDays.value) : 90;
+                    const includePayload = !!(adminSnapshotIncludePayload && adminSnapshotIncludePayload.checked);
+
+                    if (!uid || !isFinite(uid) || uid <= 0){
+                        alert('Preencha User ID.');
+                        return;
+                    }
+
+                    setStatus('Carregando...');
+                    adminLoadSnapshotsBtn.disabled = true;
+                    const oldTxt = adminLoadSnapshotsBtn.textContent;
+                    adminLoadSnapshotsBtn.textContent = 'Carregando...';
+
+                    try {
+                        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                        const url = base + '/api/admin/users/' + encodeURIComponent(String(uid)) + '/insights-snapshots'
+                          + '?days=' + encodeURIComponent(String(isFinite(days) && days > 0 ? Math.min(Math.max(Math.floor(days), 1), 365) : 90))
+                          + '&includePayload=' + (includePayload ? '1' : '0');
+
+                        const resp = await fetch(url, { cache: 'no-store', credentials: 'include' });
+                        const raw = await resp.text();
+                        let data = null;
+                        try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                        if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+
+                        const items = data && Array.isArray(data.items) ? data.items : [];
+                        setStatus(`OK — ${items.length} registro(s).`);
+                        render(items, includePayload);
+                    } catch (e) {
+                        setStatus((e && e.message) ? e.message : String(e));
+                        adminSnapshotsTable.style.display = 'block';
+                        adminSnapshotsTable.innerHTML = '<div style="font-family:monospace;font-size:.8rem;color:var(--text)">Erro ao carregar snapshots.</div>';
+                    } finally {
+                        adminLoadSnapshotsBtn.disabled = false;
+                        adminLoadSnapshotsBtn.textContent = oldTxt;
+                    }
+                }
+
+                adminLoadSnapshotsBtn.addEventListener('click', () => { load(); });
+
+                if (adminUseOverrideUserIdBtn) {
+                    adminUseOverrideUserIdBtn.addEventListener('click', () => {
+                        const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+                        if (adminSnapshotUserId && uid && isFinite(uid) && uid > 0) {
+                            adminSnapshotUserId.value = String(uid);
+                            setStatus('User ID preenchido a partir do Override.');
+                        } else {
+                            alert('Preencha User ID no accordion de Override (ou digite manualmente).');
+                        }
+                    });
+                }
+            })();
+
+            // Admin: DB cleanup (truncate non-masterdata tables)
+            (function initAdminDbCleanup(){
+                const dryBtn = document.getElementById('adminDbDryRunBtn');
+                const execBtn = document.getElementById('adminDbExecuteBtn');
+                const outEl = document.getElementById('adminDbCleanupOutput');
+                const statusEl = document.getElementById('adminDbCleanupStatus');
+                const confirmEl = document.getElementById('adminDbConfirmText');
+
+                const keepUsersEl = document.getElementById('adminDbKeepUsers');
+                const keepRbacEl = document.getElementById('adminDbKeepRbac');
+                const keepEntitlementsEl = document.getElementById('adminDbKeepEntitlements');
+                const keepCommEl = document.getElementById('adminDbKeepComm');
+                const keepNotifEl = document.getElementById('adminDbKeepNotif');
+
+                if (!dryBtn || !execBtn || !outEl) return;
+
+                function setStatus(msg){ if (statusEl) statusEl.textContent = msg || ''; }
+
+                function showOut(obj){
+                    outEl.style.display = 'block';
+                    outEl.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+                }
+
+                async function callApi(dryRun){
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const url = base + '/api/admin/db/cleanup/non-masterdata';
+
+                    const options = {
+                        keepUsers: keepUsersEl ? !!keepUsersEl.checked : true,
+                        keepRbac: keepRbacEl ? !!keepRbacEl.checked : true,
+                        keepEntitlements: keepEntitlementsEl ? !!keepEntitlementsEl.checked : true,
+                        keepCommunication: keepCommEl ? !!keepCommEl.checked : true,
+                        keepNotifications: keepNotifEl ? !!keepNotifEl.checked : false,
+                    };
+
+                    const payload = {
+                        dryRun: !!dryRun,
+                        confirm: confirmEl ? String(confirmEl.value || '').trim() : '',
+                        options,
+                    };
+
+                    const resp = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                        credentials: 'include',
+                    });
+
+                    const raw = await resp.text();
+                    let data = null;
+                    try { data = raw ? JSON.parse(raw) : null; } catch(_) { data = null; }
+                    if (!resp.ok) throw new Error((data && (data.error || data.message)) || raw || (resp.status + ' ' + resp.statusText));
+                    return data;
+                }
+
+                async function runDry(){
+                    setStatus('Simulando...');
+                    dryBtn.disabled = true;
+                    execBtn.disabled = true;
+                    try {
+                        const data = await callApi(true);
+                        setStatus(`OK — ${data && data.truncate ? data.truncate.length : 0} tabela(s) para truncar.`);
+                        showOut(data);
+                    } catch(e){
+                        setStatus((e && e.message) ? e.message : String(e));
+                        showOut((e && e.message) ? e.message : String(e));
+                    } finally {
+                        dryBtn.disabled = false;
+                        execBtn.disabled = false;
+                    }
+                }
+
+                async function runExec(){
+                    const conf = confirmEl ? String(confirmEl.value || '').trim() : '';
+                    if (conf !== 'LIMPAR_NAO_MASTERDATA') {
+                        alert('Para executar, digite exatamente: LIMPAR_NAO_MASTERDATA');
+                        return;
+                    }
+
+                    const ok = confirm('Esta operação TRUNCA tabelas (dados serão perdidos). Deseja continuar?');
+                    if (!ok) return;
+
+                    setStatus('Executando limpeza...');
+                    dryBtn.disabled = true;
+                    execBtn.disabled = true;
+                    try {
+                        const data = await callApi(false);
+                        setStatus(`OK — truncadas ${data && data.truncated != null ? data.truncated : '?'} tabela(s).`);
+                        showOut(data);
+                    } catch(e){
+                        setStatus((e && e.message) ? e.message : String(e));
+                        showOut((e && e.message) ? e.message : String(e));
+                    } finally {
+                        dryBtn.disabled = false;
+                        execBtn.disabled = false;
+                    }
+                }
+
+                dryBtn.addEventListener('click', runDry);
+                execBtn.addEventListener('click', runExec);
+            })();
+
+            // Admin: emulator (start exam from explicit question IDs)
+            (function initAdminEmulator(){
+                const idsEl = document.getElementById('adminEmulatorQuestionIds');
+                const startBtn = document.getElementById('adminEmulatorStartBtn');
+                const clearBtn = document.getElementById('adminEmulatorClearBtn');
+                const outEl = document.getElementById('adminEmulatorOutput');
+                if (!idsEl || !startBtn || !clearBtn || !outEl) return;
+
+                function setOut(msg){
+                    outEl.style.display = 'block';
+                    outEl.textContent = msg || '';
+                }
+
+                function parseIds(text){
+                    const s = String(text || '');
+                    const m = s.match(/\d+/g) || [];
+                    const raw = m.map(x => Math.floor(Number(x))).filter(n => Number.isFinite(n) && n > 0);
+                    const seen = new Set();
+                    const uniq = [];
+                    for (const id of raw){
+                        if (!seen.has(id)) { seen.add(id); uniq.push(id); }
+                    }
+                    return uniq;
+                }
+
+                function genTempSessionId(){
+                    return 'tmp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8);
+                }
+
+                async function ensureAdmin(){
+                    try { if (window.__isAdmin === true) return true; } catch(_){ }
+
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const headers = {};
+
+                    // Prefer sending the same identity header the backend expects for auth.
+                    try {
+                        const identity = (localStorage.getItem('nomeUsuario') || localStorage.getItem('sessionToken') || '').trim();
+                        if (identity) headers['X-Session-Token'] = identity;
+                    } catch(_){ }
+
+                    // Include JWT variants used across the codebase (best-effort).
+                    try {
+                        const jwtTokA = (localStorage.getItem('jwtToken')||'').trim();
+                        const jwtTypeA = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                        if (jwtTokA) headers['Authorization'] = `${jwtTypeA} ${jwtTokA}`;
+                    } catch(_){ }
+                    try {
+                        const jwtTokB = (localStorage.getItem('jwt')||'').trim();
+                        const jwtTypeB = (localStorage.getItem('jwt_type')||'Bearer').trim()||'Bearer';
+                        if (!headers['Authorization'] && jwtTokB) headers['Authorization'] = `${jwtTypeB} ${jwtTokB}`;
+                    } catch(_){ }
+
+                    // Primary: RBAC/requireAdmin probe (aligns with backend enforcement)
+                    try {
+                        const resp = await fetch(base + '/api/admin/exams/probe', { method: 'GET', headers, credentials: 'include' });
+                        if (resp.ok || resp.status === 204) {
+                            try { window.__isAdmin = true; } catch(_){ }
+                            return true;
+                        }
+                    } catch(_){ }
+
+                    // Fallback: legacy derived flag (email/username-based)
+                    try {
+                        const resp2 = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
+                        if (!resp2.ok) return false;
+                        const user = await resp2.json().catch(()=>null);
+                        const ok = !!(user && user.TipoUsuario === 'admin');
+                        if (ok) { try { window.__isAdmin = true; } catch(_){ } }
+                        return ok;
+                    } catch(_){
+                        return false;
+                    }
+                }
+
+                startBtn.addEventListener('click', async ()=>{
+                    const isAdmin = await ensureAdmin();
+                    if (!isAdmin){
+                        alert('Somente admin pode emular exame por IDs.');
+                        return;
+                    }
+
+                    const ids = parseIds(idsEl.value);
+                    if (!ids.length){
+                        setOut('Informe pelo menos 1 ID.');
+                        return;
+                    }
+                    if (ids.length > 200){
+                        setOut(`Muitos IDs: ${ids.length}. Máximo permitido: 200.`);
+                        return;
+                    }
+
+                    try {
+                        localStorage.setItem('examEmulatorQuestionIds', JSON.stringify(ids));
+                        localStorage.setItem('examQuestionCount', String(ids.length));
+                        // Force a fresh session so cached questions won't be reused
+                        const oldSid = localStorage.getItem('currentSessionId') || '';
+                        const newSid = genTempSessionId();
+                        localStorage.setItem('tempSessionId', newSid);
+                        localStorage.setItem('currentSessionId', newSid);
+                        try { if (oldSid) localStorage.removeItem(`questions_${oldSid}`); } catch(_){ }
+                        try { sessionStorage.setItem('startExam', 'true'); } catch(_){ }
+                    } catch(e){
+                        setOut('Falha ao gravar no localStorage: ' + (e && e.message ? e.message : String(e)));
+                        return;
+                    }
+
+                    setOut(`OK. ${ids.length} ID(s) salvos. Redirecionando para o exame...`);
+                    window.location.assign('/pages/examFull.html');
+                });
+
+                clearBtn.addEventListener('click', ()=>{
+                    try { idsEl.value = ''; } catch(_){ }
+                    try { localStorage.removeItem('examEmulatorQuestionIds'); } catch(_){ }
+                    setOut('Limpo.');
+                });
             })();
             
             if (adminModalClose && adminModal) {
@@ -2109,6 +2887,241 @@
                     }
                 });
             }
+
+            // Comunicação: manage recipient admins
+            (function initAdminCommunication(){
+                const toolsAccordion = document.getElementById('adminAccordionTools');
+                if (!commRecipientsStatus) return;
+
+                function getCookie(name){
+                    try {
+                        const v = String(document.cookie || '');
+                        const parts = v.split(';').map(s => s.trim());
+                        for (const p of parts){
+                            if (!p) continue;
+                            const idx = p.indexOf('=');
+                            const k = idx >= 0 ? p.slice(0, idx) : p;
+                            const val = idx >= 0 ? p.slice(idx + 1) : '';
+                            if (k === name) return decodeURIComponent(val || '');
+                        }
+                    } catch(_){ }
+                    return '';
+                }
+
+                function getSessionIdentity(){
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+                    return nomeUsuario || sessionToken;
+                }
+
+                async function adminFetch(path, opts){
+                    const options = opts || {};
+                    const method = (options.method || 'GET').toUpperCase();
+                    const identity = getSessionIdentity();
+
+                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+
+                    const headers = Object.assign({}, options.headers || {});
+                    if (identity) headers['X-Session-Token'] = identity;
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+                    // CSRF: ensure we have a csrfToken cookie for state-changing requests
+                    if (!['GET','HEAD','OPTIONS'].includes(method)) {
+                        let csrf = getCookie('csrfToken');
+                        if (!csrf) {
+                            try { await fetch(base + '/api/csrf-token', { method: 'GET', credentials: 'include' }); } catch(_){ }
+                            csrf = getCookie('csrfToken');
+                        }
+                        if (csrf) headers['X-CSRF-Token'] = csrf;
+                    }
+
+                    const url = base + path + (identity ? ((path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity)) : '');
+
+                    const resp = await fetch(url, {
+                        method,
+                        headers,
+                        credentials: 'include',
+                        body: options.body
+                    });
+                    const data = await resp.json().catch(()=>({}));
+                    return { ok: resp.ok, status: resp.status, data };
+                }
+
+                function setStatus(msg){
+                    if (!commRecipientsStatus) return;
+                    commRecipientsStatus.textContent = msg || '';
+                }
+
+                function renderRecipients(items){
+                    if (!commRecipientsList) return;
+                    commRecipientsList.innerHTML = '';
+                    const list = Array.isArray(items) ? items : [];
+
+                    if (!list.length){
+                        const empty = document.createElement('div');
+                        empty.style.fontSize = '0.85rem';
+                        empty.style.color = 'var(--muted)';
+                        empty.textContent = 'Nenhum destinatário cadastrado.';
+                        commRecipientsList.appendChild(empty);
+                        return;
+                    }
+
+                    list.forEach(item => {
+                        const row = document.createElement('div');
+                        row.style.display = 'flex';
+                        row.style.alignItems = 'center';
+                        row.style.justifyContent = 'space-between';
+                        row.style.gap = '10px';
+                        row.style.padding = '10px';
+                        row.style.border = '1px solid var(--border)';
+                        row.style.borderRadius = '8px';
+                        row.style.background = 'var(--bg)';
+
+                        const left = document.createElement('div');
+                        left.style.display = 'grid';
+                        left.style.gap = '2px';
+
+                        const name = document.createElement('div');
+                        name.style.fontSize = '0.9rem';
+                        name.style.fontWeight = '600';
+                        name.style.color = 'var(--text)';
+                        name.textContent = (item && item.Nome) ? String(item.Nome) : `User ${item && item.UserId ? item.UserId : ''}`;
+
+                        const email = document.createElement('div');
+                        email.style.fontSize = '0.8rem';
+                        email.style.color = 'var(--muted)';
+                        email.textContent = (item && item.Email) ? String(item.Email) : '';
+
+                        left.appendChild(name);
+                        left.appendChild(email);
+
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.textContent = 'Remover';
+                        btn.style.padding = '8px 10px';
+                        btn.style.background = 'var(--bg)';
+                        btn.style.color = 'var(--text)';
+                        btn.style.border = '1px solid var(--border)';
+                        btn.style.borderRadius = '6px';
+                        btn.style.fontSize = '0.85rem';
+                        btn.style.fontWeight = '600';
+                        btn.style.cursor = 'pointer';
+
+                        const uid = Number(item && item.UserId);
+                        btn.addEventListener('click', async ()=>{
+                            if (!uid) return;
+                            btn.disabled = true;
+                            setStatus('Removendo...');
+                            const r = await adminFetch(`/api/admin/communication/recipients/${encodeURIComponent(uid)}`, { method: 'DELETE' });
+                            if (!r.ok) {
+                                setStatus(r.data && r.data.error ? r.data.error : `Falha ao remover (${r.status}).`);
+                                btn.disabled = false;
+                                return;
+                            }
+                            await loadRecipients();
+                        });
+
+                        row.appendChild(left);
+                        row.appendChild(btn);
+                        commRecipientsList.appendChild(row);
+                    });
+                }
+
+                async function loadRecipients(){
+                    setStatus('Carregando destinatários...');
+                    const r = await adminFetch('/api/admin/communication/recipients', { method: 'GET' });
+                    if (!r.ok){
+                        setStatus(r.data && r.data.error ? r.data.error : `Falha ao carregar (${r.status}).`);
+                        renderRecipients([]);
+                        return;
+                    }
+                    renderRecipients((r.data && r.data.items) || []);
+                    setStatus('');
+                }
+
+                async function loadAdmins(){
+                    if (!commAdminSelect) return;
+                    commAdminSelect.disabled = true;
+                    commAdminSelect.innerHTML = '<option value="">Carregando admins...</option>';
+                    if (commAddRecipientBtn) commAddRecipientBtn.disabled = true;
+
+                    const r = await adminFetch('/api/admin/communication/admins', { method: 'GET' });
+                    if (!r.ok){
+                        commAdminSelect.innerHTML = `<option value="">Falha (${r.status})</option>`;
+                        setStatus(r.data && r.data.error ? r.data.error : 'Falha ao carregar admins.');
+                        return;
+                    }
+
+                    const items = (r.data && r.data.items) || [];
+                    if (!items.length){
+                        commAdminSelect.innerHTML = '<option value="">Nenhum admin encontrado</option>';
+                        return;
+                    }
+
+                    commAdminSelect.innerHTML = '<option value="" selected>Selecione um admin...</option>';
+                    items.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = String(u.Id);
+                        const nome = (u.Nome || u.NomeUsuario || `User ${u.Id}`);
+                        const email = (u.Email || '');
+                        opt.textContent = `${nome} — ${email}`;
+                        commAdminSelect.appendChild(opt);
+                    });
+                    commAdminSelect.disabled = false;
+                    setStatus('');
+                }
+
+                async function addSelectedRecipient(){
+                    if (!commAdminSelect) return;
+                    const userId = Number(commAdminSelect.value);
+                    if (!Number.isFinite(userId) || userId <= 0) return;
+                    if (commAddRecipientBtn) commAddRecipientBtn.disabled = true;
+                    setStatus('Adicionando...');
+
+                    const r = await adminFetch('/api/admin/communication/recipients', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId })
+                    });
+
+                    if (!r.ok){
+                        setStatus(r.data && r.data.error ? r.data.error : `Falha ao adicionar (${r.status}).`);
+                        if (commAddRecipientBtn) commAddRecipientBtn.disabled = false;
+                        return;
+                    }
+
+                    await loadRecipients();
+                    setStatus('');
+                    if (commAddRecipientBtn) commAddRecipientBtn.disabled = !String(commAdminSelect.value || '');
+                }
+
+                if (commAdminSelect) commAdminSelect.addEventListener('change', ()=>{
+                    const v = String(commAdminSelect.value || '');
+                    if (commAddRecipientBtn) commAddRecipientBtn.disabled = !v;
+                });
+                if (commAddRecipientBtn) commAddRecipientBtn.addEventListener('click', addSelectedRecipient);
+                if (commRefreshRecipientsBtn) commRefreshRecipientsBtn.addEventListener('click', loadRecipients);
+
+                // Lazy-load recipients when the tools accordion is opened
+                if (toolsAccordion) {
+                    const header = toolsAccordion.querySelector('.admin-accordion-header');
+                    if (header) {
+                        header.addEventListener('click', ()=>{
+                            setTimeout(()=>{
+                                try {
+                                    const content = toolsAccordion.querySelector('.admin-accordion-content');
+                                    if (content && content.style.display === 'block') {
+                                        loadAdmins();
+                                        loadRecipients();
+                                    }
+                                } catch(_){ }
+                            }, 0);
+                        });
+                    }
+                }
+            })();
             
             if (reconcileBtn) {
                 reconcileBtn.addEventListener('click', async () => {
@@ -2767,28 +3780,52 @@
     
     <!-- Service Worker Registration -->
     <script>
-        // Register SW only in secure http/https contexts (not file://)
-        (function registerSW(){
+        // No-cache mode: do NOT register a Service Worker.
+        // Also proactively unregister any previously-installed SW and clear Cache Storage
+        // so the app never depends on stale cached assets.
+        (function disableSW(){
             try {
                 const isHttp = /^https?:$/i.test(window.location.protocol);
-                if (!('serviceWorker' in navigator) || !isHttp || !window.isSecureContext) return;
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('/sw.js')
-                        .then(registration => {
-                            logger.info('[SW] Registered successfully:', registration.scope);
-                            registration.addEventListener('updatefound', () => {
-                                const newWorker = registration.installing;
-                                logger.info('[SW] Update found');
-                                newWorker.addEventListener('statechange', () => {
-                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        logger.info('[SW] New version available, reload to update');
-                                    }
-                                });
-                            });
-                        })
-                        .catch(err => logger.error('[SW] Registration failed:', err));
+                if (!isHttp) return;
+                if (!('serviceWorker' in navigator)) return;
+                window.addEventListener('load', async () => {
+                    let wasControlled = false;
+                    try { wasControlled = !!(navigator.serviceWorker && navigator.serviceWorker.controller); } catch(_){ }
+                    try {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all((regs || []).map(r => r.unregister()));
+                        try { logger.info('[SW] Unregistered existing registrations'); } catch(_){ }
+                    } catch(e) {
+                        try { logger.warn('[SW] Failed to unregister:', e); } catch(_){ }
+                    }
+                    try {
+                        if (window.caches && typeof window.caches.keys === 'function') {
+                            const keys = await window.caches.keys();
+                            await Promise.all((keys || []).map(k => window.caches.delete(k)));
+                            try { logger.info('[SW] Cleared Cache Storage'); } catch(_){ }
+                        }
+                    } catch(e) {
+                        try { logger.warn('[SW] Failed to clear Cache Storage:', e); } catch(_){ }
+                    }
+
+                    // If this page was controlled by an old SW, reload once so it stops intercepting fetches.
+                    try {
+                        if (wasControlled) {
+                            const k = '__swKillReloadAt';
+                            const last = localStorage.getItem(k);
+                            const now = Date.now();
+                            const lastMs = last ? Date.parse(last) : NaN;
+                            const recently = Number.isFinite(lastMs) && (now - lastMs) < (10 * 60 * 1000);
+                            if (!recently) {
+                                localStorage.setItem(k, new Date(now).toISOString());
+                                setTimeout(() => {
+                                    try { window.location.reload(); } catch(_){ }
+                                }, 60);
+                            }
+                        }
+                    } catch(_){ }
                 });
-            } catch(e){ /* ignore in unsupported contexts */ }
+            } catch(e){ /* ignore */ }
         })();
     </script>
                 <!-- Dynamic load of bottom navigation component -->

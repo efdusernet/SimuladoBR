@@ -7,18 +7,25 @@
   <!-- Support chat widget (served via backend /chat proxy) -->
   <link rel="stylesheet" href="../dist/styles.css" />
   <link rel="stylesheet" href="../styles.css" />
+  <script src="../components/gridReview.js"></script>
+  <script src="../utils/matchColumns.js"></script>
   <style>
     .ans-correct{ border:1px solid #16a34a; background:#ecfdf5; }
     .ans-wrong{ border:1px solid #dc2626; background:#fef2f2; }
     .ans-selected{ box-shadow:0 0 0 2px rgba(99,102,241,0.4) inset; }
-    .review-note{ color:#334155; font-size:13px; margin-top:8px; }
-    .opt-expl{ margin-top:6px; font-size:12px; color:#475569; line-height:1.35; padding:6px 8px; background:#ffffff; border-left:3px solid #cbd5e1; border-radius:6px; }
+    .ans-correct.ans-selected{ box-shadow:0 0 0 2px rgba(63,156,49,0.65) inset; }
+    .review-note{ color:#334155; font-size:16px; font-weight:700; margin-top:8px; }
+    .review-note.review-note--ok{ color:#14532d; }
+    .review-note.review-note--bad{ color:#991b1b; }
+    .opt-expl{ margin-top:6px; font-size:14px; color:#475569; line-height:1.4; padding:6px 8px; background:#ffffff; border-left:3px solid #cbd5e1; border-radius:6px; }
     .opt-expl strong{ font-weight:600; color:#334155; }
   </style>
 </head>
 <body>
-  <div style="position:fixed; top:8px; right:8px; z-index:1000;">
+  <div style="position:fixed; top:8px; right:8px; z-index:1000; display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
     <button id="exitReviewBtn" class="primary-btn" style="background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Encerrar revisão</button>
+    <button id="deleteHistoryBtn" class="primary-btn" type="button" hidden style="display:none !important; background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Excluir histórico</button>
+    <button id="openGridReviewBtn" type="button" class="primary-btn" style="padding:8px 14px; border-radius:6px; font-size:13px;">Navegar questões</button>
   </div>
   <header id="userHeader" style="display:none; padding:12px; background:#f4f4f4; border-bottom:1px solid #ddd;">
     <div style="max-width:900px;margin:0 auto;">Revisão do exame</div>
@@ -46,6 +53,20 @@
         <form id="answersForm" class="answers-form" autocomplete="off" novalidate>
           <div id="answersContainer"></div>
         </form>
+
+        <section id="questionDetails" style="margin-top:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;">
+          <div style="display:grid;gap:10px;">
+            <label id="questaoExplicacaoWrap" style="display:grid;gap:6px;font-size:13px;color:#334155;">
+              <span style="font-weight:600;">Explicação</span>
+              <textarea id="questaoExplicacao" rows="10" readonly style="width:100%;resize:vertical;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#111827;line-height:1.4;"></textarea>
+            </label>
+            <label id="questaoReferenciaWrap" style="display:grid;gap:6px;font-size:13px;color:#334155;">
+              <span style="font-weight:600;">Referência</span>
+              <textarea id="questaoReferencia" rows="7" readonly style="width:100%;resize:vertical;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#111827;line-height:1.4;"></textarea>
+            </label>
+            <div id="questaoMetaLinha" style="font-size:15px;color:#0f172a;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 12px;font-weight:700;line-height:1.35;"></div>
+          </div>
+        </section>
 
         <div class="actions-row" style="display:flex; align-items:center; gap:8px;">
           <button id="backBtn" class="primary-btn" style="margin-right:auto;">Voltar</button>
@@ -82,6 +103,17 @@
     </div>
   </div>
 
+  <!-- Modal: Navegar questões (Grid Review) -->
+  <div id="gridReviewModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2100; align-items:center; justify-content:center;">
+    <div style="background:#ffffff; width:94%; max-width:980px; max-height:85vh; border-radius:12px; padding:14px; box-shadow:0 10px 28px rgba(0,0,0,0.35); display:flex; flex-direction:column;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+        <h2 style="margin:0; font-size:1.05rem;">Navegar questões</h2>
+        <button id="closeGridReviewModal" class="secondary-btn" type="button">Fechar</button>
+      </div>
+      <div id="gridReviewModalHost" style="overflow:auto; padding:4px;"></div>
+    </div>
+  </div>
+
   <script>
     (function(){
       const params = new URLSearchParams(window.location.search);
@@ -89,6 +121,116 @@
       const mode = (params.get('mode') || 'full').toLowerCase();
       let REVIEW = { questions: [], answers: {} };
       function letterFromIndex(i){ return ['A','B','C','D','E','F'][i] || String(i); }
+
+      function isMultiSelectQuestion(question){
+        try {
+          const raw = (question && (question.type || question.tiposlug || question.tipoSlug || question.TipoSlug)) || '';
+          const t = String(raw).trim().toLowerCase();
+          if (t === '2') return true; // question_type.slug = 2 (checkbox)
+          if (t === 'checkbox' || t === 'multi' || t === 'multiple') return true;
+        } catch(_){ }
+        try {
+          const v = (question && (question.multiplaescolha ?? question.multiplaEscolha ?? question.multiplaSelecao ?? question.multiplaSeleção));
+          if (v === true) return true;
+          if (v === false) return false;
+        } catch(_){ }
+        return false;
+      }
+
+      function isMatchColumnsType(v){
+        try { return String(v || '').trim().toLowerCase() === 'match_columns'; } catch(_){ return false; }
+      }
+
+      function getPairsFromAnswer(ans){
+        try {
+          if (!ans || typeof ans !== 'object') return {};
+          const r = ans.response;
+          if (!r) return {};
+          if (typeof r === 'string') {
+            const s = r.trim();
+            if (!s) return {};
+            try {
+              const parsed = JSON.parse(s);
+              if (parsed && typeof parsed === 'object' && parsed.pairs && typeof parsed.pairs === 'object') return parsed.pairs;
+              if (parsed && typeof parsed === 'object') return parsed;
+              return {};
+            } catch(_){
+              return {};
+            }
+          }
+          if (r && typeof r === 'object' && r.pairs && typeof r.pairs === 'object') return r.pairs;
+          if (r && typeof r === 'object') return r;
+          return {};
+        } catch(_){ return {}; }
+      }
+
+      async function isAdmin(){
+        try {
+          const token = (localStorage.getItem('sessionToken') || '').trim();
+          const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+          const sessionForHeader = nomeUsuario || token;
+          if (!sessionForHeader) return false;
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const headers = {};
+          if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+          const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+          const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
+          return r && r.ok;
+        } catch(_){
+          return false;
+        }
+      }
+
+      async function setupDeleteHistoryButton(){
+        const btn = document.getElementById('deleteHistoryBtn');
+        if (!btn) return;
+        // Always hidden by default; only admins can see it (defense in depth against CSS overrides)
+        try { btn.hidden = true; } catch(_){ }
+        try { btn.style.setProperty('display','none','important'); } catch(_){ }
+        const attemptId = Number(examId);
+        if (!Number.isFinite(attemptId) || attemptId <= 0) return;
+
+        const okAdmin = await isAdmin();
+        if (!okAdmin) return;
+
+        try { btn.hidden = false; } catch(_){ }
+        try { btn.style.setProperty('display','inline-block','important'); } catch(_){ btn.style.display = 'inline-block'; }
+        btn.addEventListener('click', async ()=>{
+          const ok = confirm(`Excluir histórico (tentativa ID ${attemptId})?\n\nEsta ação apaga definitivamente respostas e registros da tentativa.`);
+          if (!ok) return;
+          try {
+            const token = (localStorage.getItem('sessionToken') || '').trim();
+            const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+            const sessionForHeader = nomeUsuario || token;
+            const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+            const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+            const headers = { 'Content-Type': 'application/json' };
+            if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+            if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+            const csrfTok = await ensureCsrfToken();
+            if (csrfTok) headers['X-CSRF-Token'] = csrfTok;
+
+            const url = `/api/admin/exams/attempts/${encodeURIComponent(String(attemptId))}`;
+            btn.disabled = true;
+            const resp = await fetch(url, { method: 'DELETE', headers, credentials: 'include' });
+            const txt = await resp.text().catch(()=> '');
+            if (!resp.ok) {
+              alert('Erro ao excluir histórico: ' + (txt || resp.status));
+              return;
+            }
+            try { sessionStorage.removeItem('currentReviewAttemptId'); } catch(_){ }
+            alert('Histórico excluído com sucesso.');
+            window.location.assign('/');
+          } catch(e){
+            alert('Falha ao excluir histórico.');
+          } finally {
+            try { btn.disabled = false; } catch(_){ }
+          }
+        });
+      }
 
       async function loadResult(){
         try {
@@ -105,8 +247,42 @@
           REVIEW.questions = Array.isArray(data.questions) ? data.questions : [];
           REVIEW.answers = (data.answers && typeof data.answers === 'object') ? data.answers : {};
           const totalEl = document.getElementById('totalQuestions'); if (totalEl) totalEl.textContent = String(REVIEW.questions.length);
+
+          // Prepare grid review (mounted in modal)
+          try {
+            const host = document.getElementById('gridReviewModalHost');
+            if (host && window.gridReview && typeof window.gridReview.mount === 'function') {
+              window.gridReview.mount({
+                host,
+                questions: REVIEW.questions,
+                answers: REVIEW.answers,
+                onSelect: (i) => {
+                  render(i);
+                  try { closeGridReviewModal(); } catch(_){ }
+                },
+              });
+            }
+          } catch(_){ }
+
           render(0);
         } catch(e){ document.getElementById('questionText').textContent = 'Erro ao carregar resultado.'; }
+      }
+
+      function openGridReviewModal(){
+        try {
+          const m = document.getElementById('gridReviewModal');
+          if (!m) return;
+          m.style.display = 'flex';
+          m.setAttribute('aria-hidden','false');
+        } catch(_){ }
+      }
+      function closeGridReviewModal(){
+        try {
+          const m = document.getElementById('gridReviewModal');
+          if (!m) return;
+          m.style.display = 'none';
+          m.setAttribute('aria-hidden','true');
+        } catch(_){ }
       }
 
       function render(idx){
@@ -119,57 +295,62 @@
         const textEl = document.getElementById('questionText'); if (textEl) textEl.innerHTML = q && (q.descricao || q.text || '');
         const cont = document.getElementById('answersContainer'); if (cont) cont.innerHTML = '';
 
+        // New: questao.explicacao/referencia + domínio/tarefa/abordagem
+        try {
+          const sectionEl = document.getElementById('questionDetails');
+          const expWrap = document.getElementById('questaoExplicacaoWrap');
+          const refWrap = document.getElementById('questaoReferenciaWrap');
+          const expEl = document.getElementById('questaoExplicacao');
+          const refEl = document.getElementById('questaoReferencia');
+          const metaEl = document.getElementById('questaoMetaLinha');
+
+          const expVal = (q && q.explicacao != null) ? String(q.explicacao) : '';
+          const refVal = (q && q.referencia != null) ? String(q.referencia) : '';
+          const hasExp = !!(expVal && expVal.trim());
+          const hasRef = !!(refVal && refVal.trim());
+
+          if (expEl) expEl.value = hasExp ? expVal : '';
+          if (refEl) refEl.value = hasRef ? refVal : '';
+          if (expWrap) expWrap.style.display = hasExp ? 'grid' : 'none';
+          if (refWrap) refWrap.style.display = hasRef ? 'grid' : 'none';
+
+          if (metaEl) {
+            const dom = q && q.dominio ? q.dominio : null;
+            const tar = q && q.tarefa ? q.tarefa : null;
+            const cat = q && q.abordagemGestao ? q.abordagemGestao : null;
+            const parts = [];
+            if (dom && dom.id != null && dom.descricao) parts.push(`Domínio: ${dom.id} - ${dom.descricao}`);
+            else if (q && q.iddominiogeral != null && q.dominioDescricao) parts.push(`Domínio: ${q.iddominiogeral} - ${q.dominioDescricao}`);
+
+            if (tar && tar.id_dominio != null && tar.numero != null && tar.descricao) {
+              parts.push(`Tarefa: ${tar.id_dominio}.${tar.numero} - ${tar.descricao}`);
+            }
+
+            if (cat && cat.descricao) parts.push(`Abordagem de gestão: ${cat.descricao}`);
+            metaEl.textContent = parts.join(', ');
+          }
+
+          // Hide entire section if nothing to show
+          try {
+            const metaText = metaEl ? String(metaEl.textContent || '').trim() : '';
+            const hasAny = hasExp || hasRef || !!metaText;
+            if (sectionEl) sectionEl.style.display = hasAny ? '' : 'none';
+          } catch(_){ }
+        } catch(_){ }
+
         const key = q && q.id != null ? ('q_' + q.id) : ('idx_' + idx);
         const ans = REVIEW.answers[key] || {};
         const selectedIds = Array.isArray(ans.optionIds) ? ans.optionIds : (ans.optionId!=null ? [ans.optionId] : []);
 
-        const options = Array.isArray(q.opcoes || q.options) ? (q.opcoes || q.options) : [];
-        let correctLetter = null; let selectedLetterList = [];
-        options.forEach((opt, i)=>{
-          const isCorrect = !!(opt.correta || opt.isCorrect);
-          const isSelected = selectedIds.includes(opt.id);
-          const wrap = document.createElement('div');
-          wrap.className = 'answer-option';
-          wrap.style.cssText = 'padding:10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;';
-          if (isCorrect) wrap.classList.add('ans-correct');
-          if (!isCorrect && isSelected) wrap.classList.add('ans-wrong');
-          if (isSelected) wrap.classList.add('ans-selected');
-
-          const letter = opt.letra || opt.letter || letterFromIndex(i);
-          if (isCorrect) correctLetter = letter;
-          if (isSelected) selectedLetterList.push(letter);
-
-          // Main option text
-          const main = document.createElement('div');
-          main.innerHTML = `<strong>${letter}.</strong> ${opt.texto || opt.text || ''}`;
-          wrap.appendChild(main);
-
-          // Per-option explanation from explicacaoguia.descricao (when present)
-          const exp = (opt && (opt.explicacao || opt.explanation)) ? String(opt.explicacao || opt.explanation) : '';
-          if (exp && exp.trim()) {
-            const expEl = document.createElement('div');
-            expEl.className = 'opt-expl';
-            expEl.innerHTML = `<strong>Explicação:</strong> ${exp}`;
-            wrap.appendChild(expEl);
-          }
-          cont.appendChild(wrap);
-        });
-
-        const note = document.getElementById('reviewNote');
-        if (note){
-          if (selectedLetterList.length === 0) note.textContent = 'Você não marcou esta questão.';
-          else if (correctLetter && selectedLetterList.includes(correctLetter)) note.textContent = 'Parabéns! Você acertou.';
-          else if (correctLetter) note.textContent = `Você selecionou ${selectedLetterList.join(', ')}; correta: ${correctLetter}.`;
-          else note.textContent = `Você selecionou ${selectedLetterList.join(', ')}.`;
-        }
-
-        const back = document.getElementById('backBtn');
-        const fwd = document.getElementById('continueBtn');
-        const reportBtn = document.getElementById('reportQuestionBtn');
-        back.onclick = ()=>{ render(Math.max(0, idx-1)); };
-        fwd.onclick = ()=>{ render(Math.min(qs.length-1, idx+1)); };
+        // Navigation handlers must be wired for all question types (including interactions)
+        const back = document.querySelector('#questionContent .actions-row #backBtn');
+        const fwd = document.querySelector('#questionContent .actions-row #continueBtn');
+        const reportBtn = document.querySelector('#questionContent .actions-row #reportQuestionBtn');
+        if (back) back.onclick = (ev)=>{ try { ev && ev.preventDefault && ev.preventDefault(); } catch(_){ } render(Math.max(0, idx-1)); };
+        if (fwd) fwd.onclick = (ev)=>{ try { ev && ev.preventDefault && ev.preventDefault(); } catch(_){ } render(Math.min(qs.length-1, idx+1)); };
         if (reportBtn){
-          reportBtn.onclick = ()=>{
+          reportBtn.onclick = (ev)=>{
+            try { ev && ev.preventDefault && ev.preventDefault(); } catch(_){ }
             try {
               const modal = document.getElementById('feedbackModal');
               const qIdSpan = document.getElementById('fbQuestionId');
@@ -180,10 +361,191 @@
             } catch(_){ }
           };
         }
+
+        // match_columns review
+        let handledInteraction = false;
+        try {
+          const qType = (q && (q.type || q.tiposlug)) ? String(q.type || q.tiposlug).trim().toLowerCase() : '';
+          if (isMatchColumnsType(qType)) {
+            const spec = q && (q.interacao || q.interaction || q.interacaospec) ? (q.interacao || q.interaction || q.interacaospec) : null;
+            const correctPairs = (q && q.correctPairs && typeof q.correctPairs === 'object') ? q.correctPairs : {};
+            const userPairs = getPairsFromAnswer(ans);
+
+            const host = document.createElement('div');
+            if (!spec || !window.MatchColumns || typeof window.MatchColumns.create !== 'function') {
+              host.textContent = 'Interação indisponível.';
+              cont.appendChild(host);
+            } else {
+              window.MatchColumns.create(host, spec, { mode: 'review', valuePairs: userPairs });
+              cont.appendChild(host);
+
+              const left = Array.isArray(spec.left) ? spec.left : [];
+              const right = Array.isArray(spec.right) ? spec.right : [];
+              const rightById = new Map(right.map(r => [String(r.id), r]));
+
+              let allOk = true;
+              const panel = document.createElement('div');
+              panel.style.marginTop = '12px';
+              panel.style.padding = '10px';
+              panel.style.border = '1px solid #e2e8f0';
+              panel.style.borderRadius = '10px';
+              panel.style.background = '#fff';
+
+              const title = document.createElement('div');
+              title.style.fontWeight = '800';
+              title.style.marginBottom = '6px';
+              title.textContent = 'Conferência';
+              panel.appendChild(title);
+
+              left.forEach(item => {
+                const lid = String(item && item.id);
+                const ltxt = String(item && (item.text || item.descricao) || '');
+                const uRid = userPairs ? userPairs[lid] : null;
+                const cRid = correctPairs ? correctPairs[lid] : null;
+                const uTxt = uRid ? String((rightById.get(String(uRid)) || {}).text || '') : '';
+                const cTxt = cRid ? String((rightById.get(String(cRid)) || {}).text || '') : '';
+                const ok = (uRid != null && cRid != null && String(uRid) === String(cRid));
+                if (!ok) allOk = false;
+
+                const row = document.createElement('div');
+                row.style.display = 'grid';
+                row.style.gridTemplateColumns = '1fr 1fr';
+                row.style.gap = '10px';
+                row.style.padding = '6px 0';
+                row.style.borderTop = '1px solid #f1f5f9';
+
+                const a = document.createElement('div');
+                a.textContent = ltxt;
+
+                const b = document.createElement('div');
+                b.textContent = ok ? uTxt : (uTxt ? (uTxt + ' (correta: ' + cTxt + ')') : ('(vazio) (correta: ' + cTxt + ')'));
+                b.style.color = ok ? '#16a34a' : '#b91c1c';
+
+                row.appendChild(a);
+                row.appendChild(b);
+                panel.appendChild(row);
+              });
+
+              cont.appendChild(panel);
+
+              const note = document.getElementById('reviewNote');
+              if (note){
+                const okMsg = 'Parabéns! Você acertou.';
+                const msg = allOk ? okMsg : 'Você errou esta questão.';
+                note.textContent = msg;
+                note.classList.remove('review-note--ok', 'review-note--bad');
+                note.classList.add(allOk ? 'review-note--ok' : 'review-note--bad');
+              }
+            }
+
+            handledInteraction = true;
+          }
+        } catch(_){ }
+
+        if (!handledInteraction) {
+          const options = Array.isArray(q.opcoes || q.options) ? (q.opcoes || q.options) : [];
+          const isMulti = isMultiSelectQuestion(q);
+          const inputType = isMulti ? 'checkbox' : 'radio';
+          const inputName = 'qopt_' + String((q && q.id != null) ? q.id : idx);
+
+          const correctIds = options
+            .filter(o => o && (o.correta || o.isCorrect))
+            .map(o => o.id)
+            .filter(id => id != null);
+
+          const correctLetters = [];
+          let selectedLetterList = [];
+          options.forEach((opt, i)=>{
+            const isCorrect = !!(opt.correta || opt.isCorrect);
+            const isSelected = selectedIds.includes(opt.id);
+            const wrap = document.createElement('div');
+            wrap.className = 'option';
+            if (isCorrect) wrap.classList.add('ans-correct');
+            if (!isCorrect && isSelected) wrap.classList.add('ans-wrong');
+            if (isSelected) wrap.classList.add('ans-selected');
+
+            const letter = opt.letra || opt.letter || letterFromIndex(i);
+            if (isCorrect) correctLetters.push(letter);
+            if (isSelected) selectedLetterList.push(letter);
+
+            const label = document.createElement('label');
+            label.style.display = 'flex';
+            label.style.alignItems = 'flex-start';
+            label.style.gap = '10px';
+            label.style.cursor = 'default';
+
+            const input = document.createElement('input');
+            input.type = inputType;
+            input.name = inputName;
+            input.disabled = true;
+            input.checked = !!isSelected;
+            input.style.marginTop = '3px';
+
+            try { input.dataset.optionId = (opt && opt.id != null) ? String(opt.id) : ''; } catch(_){ }
+
+            // Main option text
+            const main = document.createElement('span');
+            main.className = 'option-text';
+            main.innerHTML = `<strong>${letter}.</strong> ${opt.texto || opt.text || ''}`;
+
+            label.appendChild(input);
+            label.appendChild(main);
+            wrap.appendChild(label);
+
+            // Per-option explanation from explicacaoguia.descricao (when present)
+            const exp = (opt && (opt.explicacao || opt.explanation)) ? String(opt.explicacao || opt.explanation) : '';
+            if (exp && exp.trim()) {
+              const expEl = document.createElement('div');
+              expEl.className = 'opt-expl';
+              expEl.innerHTML = `<strong>Explicação:</strong> ${exp}`;
+              wrap.appendChild(expEl);
+            }
+            cont.appendChild(wrap);
+          });
+
+          const note = document.getElementById('reviewNote');
+          if (note){
+            const okMsg = 'Parabéns! Você acertou.';
+            let msg = '';
+            if (selectedLetterList.length === 0) msg = 'Você não marcou esta questão.';
+            else if (correctIds.length) {
+              try {
+                const selSet = new Set((selectedIds || []).map(x => String(x)));
+                const corSet = new Set((correctIds || []).map(x => String(x)));
+                const allOk = (selSet.size === corSet.size) && Array.from(selSet).every(id => corSet.has(id));
+                if (allOk) msg = okMsg;
+                else {
+                  const correctLabel = isMulti
+                    ? `corretas: ${correctLetters.join(', ')}`
+                    : `correta: ${correctLetters[0] || ''}`;
+                  msg = `Você selecionou ${selectedLetterList.join(', ')}; ${correctLabel}.`;
+                }
+              } catch(_){
+                const correctLabel = isMulti
+                  ? `corretas: ${correctLetters.join(', ')}`
+                  : `correta: ${correctLetters[0] || ''}`;
+                msg = `Você selecionou ${selectedLetterList.join(', ')}; ${correctLabel}.`;
+              }
+            } else msg = `Você selecionou ${selectedLetterList.join(', ')}.`;
+
+            note.textContent = msg;
+            note.classList.remove('review-note--ok', 'review-note--bad');
+            note.classList.add(msg === okMsg ? 'review-note--ok' : 'review-note--bad');
+          }
+        }
       }
 
       if (!examId){ document.getElementById('questionText').textContent = 'Exame inválido.'; }
-      else { loadResult(); }
+      else { loadResult(); setupDeleteHistoryButton(); }
+
+      // Grid review modal handlers
+      try {
+        const openBtn = document.getElementById('openGridReviewBtn');
+        if (openBtn) openBtn.addEventListener('click', openGridReviewModal);
+        const closeBtn = document.getElementById('closeGridReviewModal');
+        if (closeBtn) closeBtn.addEventListener('click', closeGridReviewModal);
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGridReviewModal(); });
+      } catch(_){ }
 
       // Exit button handler
       const exitBtn = document.getElementById('exitReviewBtn');
@@ -195,6 +557,21 @@
       }
 
       // Feedback form logic
+      let cachedCsrfToken = null;
+      async function ensureCsrfToken() {
+        if (cachedCsrfToken) return cachedCsrfToken;
+        try {
+          const r = await fetch('/api/csrf-token', { credentials: 'include' });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => null);
+          const t = j && j.csrfToken ? String(j.csrfToken) : '';
+          cachedCsrfToken = t ? t : null;
+          return cachedCsrfToken;
+        } catch (_) {
+          return null;
+        }
+      }
+
       async function loadCategorias(){
         const sel = document.getElementById('fbCategoria');
         if (!sel || sel.dataset.loaded) return;
@@ -242,11 +619,15 @@
             const headers = { 'Content-Type':'application/json' };
             if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
             if (sessionTok) headers['X-Session-Token'] = sessionTok;
+
+            const csrfTok = await ensureCsrfToken();
+            if (csrfTok) headers['X-CSRF-Token'] = csrfTok;
+
             const sessionUserId = (() => { const v = Number(localStorage.getItem('userId')); return Number.isFinite(v) ? v : null; })();
             const body = { texto, idcategoria: Number(catId) };
             if (/^\d+$/.test(qId)) body.idquestao = Number(qId);
             if (sessionUserId != null) body.userId = sessionUserId;
-            const resp = await fetch('/api/feedback', { method:'POST', headers, body: JSON.stringify(body) });
+            const resp = await fetch('/api/feedback', { method:'POST', headers, credentials: 'include', body: JSON.stringify(body) });
             if (resp.ok){
               if (statusEl) statusEl.textContent = 'Feedback enviado. Obrigado!';
               fbForm.reset();

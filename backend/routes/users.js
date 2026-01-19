@@ -5,8 +5,7 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const db = require('../models');
 const { User, EmailVerification } = db;
-const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config/security');
+const { extractTokenFromRequest, verifyJwtAndGetActiveUser } = require('../utils/singleSession');
 // User daily exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const crypto = require('crypto');
@@ -153,35 +152,15 @@ router.get('/', async (req, res, next) => {
 // Inclui flag TipoUsuario derivada (admin|user) baseada em lista de e-mails configurada ou nome de usuário.
 router.get('/me', async (req, res, next) => {
     try {
-        // Read token from cookie (preferred), header, or query parameter (legacy)
-        const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
-        let user = null;
-        // If token looks like JWT, try to decode
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                // Try by sub (user id) first
-                if (decoded && decoded.sub) {
-                    user = await User.findByPk(Number(decoded.sub));
-                }
-                // Fallback: try by email
-                if (!user && decoded && decoded.email) {
-                    user = await User.findOne({ where: { Email: decoded.email } });
-                }
-            } catch (e) {
-                // Invalid JWT, fallback to legacy lookup
-            }
+        const token = extractTokenFromRequest(req);
+        const authRes = await verifyJwtAndGetActiveUser(token);
+        if (!authRes.ok) {
+            if (authRes.status === 401) return next(unauthorized(authRes.message, authRes.code));
+            if (authRes.status === 403) return next(forbidden(authRes.message, authRes.code));
+            return next(unauthorized(authRes.message, authRes.code));
         }
-        // Legacy: if numeric, try by Id first
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        // Legacy: try by username or email
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+        const user = authRes.user;
         const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
         const emailLower = String(user.Email || '').toLowerCase();
         const nomeLower = String(user.NomeUsuario || '').toLowerCase();
@@ -209,26 +188,15 @@ router.get('/me', async (req, res, next) => {
 // Formato exigido: dd/mm/yyyy (armazenado em Usuario.data_exame).
 router.put('/me/exam-date', async (req, res, next) => {
     try {
-        const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
+        const token = extractTokenFromRequest(req);
+        const authRes = await verifyJwtAndGetActiveUser(token);
+        if (!authRes.ok) {
+            if (authRes.status === 401) return next(unauthorized(authRes.message, authRes.code));
+            if (authRes.status === 403) return next(forbidden(authRes.message, authRes.code));
+            return next(unauthorized(authRes.message, authRes.code));
+        }
 
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch (_) {
-                // ignore
-            }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+        const user = authRes.user;
 
         const raw = (req.body && (req.body.data_exame ?? req.body.DataExame ?? req.body.dataExame)) ?? null;
         const value = raw == null ? null : String(raw).trim();
@@ -271,24 +239,15 @@ router.put('/me/exam-date', async (req, res, next) => {
 // Returns the effective ECO version for the logged user (override -> current -> latest).
 router.get('/me/eco-version', async (req, res, next) => {
     try {
-        const sessionToken = (req.cookies.sessionToken || req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
+        const token = extractTokenFromRequest(req);
+        const authRes = await verifyJwtAndGetActiveUser(token);
+        if (!authRes.ok) {
+            if (authRes.status === 401) return next(unauthorized(authRes.message, authRes.code));
+            if (authRes.status === 403) return next(forbidden(authRes.message, authRes.code));
+            return next(unauthorized(authRes.message, authRes.code));
+        }
 
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch (_) { /* ignore */ }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+        const user = authRes.user;
 
         const examTypeSlug = String(req.query.examTypeSlug || 'pmp').trim().toLowerCase();
         const examType = await db.ExamType.findOne({ where: { Slug: examTypeSlug } });
@@ -401,21 +360,9 @@ router.get('/me/stats/daily', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
         if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch(_) { /* ignore */ }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+        const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+        if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+        const user = authRes.user;
         let days = Number(req.query.days) || 30;
         if (!Number.isFinite(days) || days <= 0) days = 30;
         days = Math.min(Math.max(days, 1), 180); // clamp 1..180
@@ -435,21 +382,9 @@ router.get('/me/stats/summary', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
         if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch(_) { /* ignore */ }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+        const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+        if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+        const user = authRes.user;
         let days = Number(req.query.days) || 30;
         if (!Number.isFinite(days) || days <= 0) days = 30;
         days = Math.min(Math.max(days, 1), 180);
@@ -469,22 +404,10 @@ router.put('/me/profile', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
-        
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch(_) { /* ignore */ }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+        const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+        if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+        const user = authRes.user;
 
         const { Nome, NomeUsuario } = req.body || {};
         
@@ -516,22 +439,10 @@ router.post('/me/email/request-change', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
-        
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch(_) { /* ignore */ }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+        const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+        if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+        const user = authRes.user;
 
         const { newEmail } = req.body || {};
         
@@ -611,22 +522,10 @@ router.post('/me/email/verify-change', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
-        
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch(_) { /* ignore */ }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+        const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+        if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+        const user = authRes.user;
 
         const { newEmail, token } = req.body || {};
         
@@ -693,22 +592,10 @@ router.post('/me/verify-password', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
-        
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch(_) { /* ignore */ }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+        const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+        if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+        const user = authRes.user;
 
         const { password } = req.body || {};
         
@@ -746,22 +633,10 @@ router.put('/me/password', async (req, res, next) => {
     try {
         const sessionToken = (req.get('X-Session-Token') || '').trim();
         if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
-        
-        let user = null;
-        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-            try {
-                const decoded = jwt.verify(sessionToken, jwtSecret);
-                if (decoded && decoded.sub) user = await User.findByPk(Number(decoded.sub));
-                if (!user && decoded && decoded.email) user = await User.findOne({ where: { Email: decoded.email } });
-            } catch(_) { /* ignore */ }
-        }
-        if (!user && /^\d+$/.test(sessionToken)) user = await User.findByPk(Number(sessionToken));
-        if (!user) {
-            const Op = db.Sequelize && db.Sequelize.Op;
-            const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-            user = await User.findOne({ where });
-        }
-        if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+
+        const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+        if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+        const user = authRes.user;
 
         const { currentPassword, newPassword } = req.body || {};
         

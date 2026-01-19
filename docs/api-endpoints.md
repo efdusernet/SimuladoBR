@@ -5,28 +5,57 @@
 Este documento resume os endpoints principais sob `/api/exams`, com propósito, payloads e onde são chamados no frontend.
 
 Observações gerais
-- Autorização por token de sessão do app: header `X-Session-Token: <sessionToken>` quando indicado.
+- Base paths:
+  - Preferencial: `/api/v1` (rotas versionadas)
+  - Legado/compatibilidade: `/api` (deprecated)
+- Autorização por token de sessão do app: JWT via cookie httpOnly `sessionToken` (browser) ou header `Authorization: Bearer <token>`.
+- Header legado suportado: `X-Session-Token: <token>` (conteúdo é **JWT**, não e-mail/id).
 - Responses em JSON; erros comuns: 400 (payload inválido), 404 (não encontrado), 500 (erro interno).
 
 ## GET /api/ai/insights?days=30
 Retorna um “dashboard” de insights: KPIs agregados do período + série diária + recomendações geradas (Ollama quando habilitado; fallback por regras quando não).
 
-- Auth: `X-Session-Token` (resolução via middleware `requireUserSession`)
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
 - Query:
   - `days` (1–180; default 30)
 - Response (sucesso):
-  - `kpis`: `{ readinessScore, consistencyScore, avgScorePercent, completionRate, abandonRate, trendDeltaScore7d }`
+  - `success`: `true`
+  - `meta`: `{ generatedAt, usedOllama, usedLlm, llmProvider?, model? }` *(campos extras podem existir em `development`)*
+  - `kpis`: `{ readinessScore, consistencyScore, avgScorePercent, completionRate, abandonRate, trendDeltaScore7d, passProbabilityPercent?, passProbabilityOverallPercent?, passProbabilityThresholdPercent? }`
   - `timeseries`: lista diária com `{ date, avgScorePercent, completionRate, abandonRate, started, finished }`
-  - `ai`: `{ headline, insights[], risks[], actions7d[], focusAreas[] }`
+  - `ai`: `{ headline, insights[], risks[], actions7d[], focusAreas[], explainability? }`
+    - `ai.explainability`: `{ rules, alerts[] }`
+      - `alerts[]`: `{ message, severity, basedOn[] }`
+      - `basedOn[]`: `{ source, metric?, label?, value?, threshold?, unit?, details? }`
+  - `studyPlan`: plano 7 dias baseado em IND13 (tarefas com maior impacto), quando disponível
 - Observações:
   - Não envia texto de questões ao modelo (apenas métricas agregadas)
   - Pode ser usado diretamente pela página `frontend/pages/InsightsIA.html`
+  - Explicabilidade e rastreabilidade: a UI exibe “Por que a IA está dizendo isso?” com links para KPIs/INDs relevantes.
+  - Snapshot diário (base para modelo temporal): ao chamar este endpoint, o backend faz **upsert 1x/dia** em `public.user_daily_snapshot`.
+    - **Somente usuários pagantes**: regra atual `Usuario.BloqueioAtivado = false`.
+    - Falhas ao gravar snapshot **não quebram** o retorno do endpoint (erro é apenas logado).
   - Regras adicionais (server-side, além do que a IA possa retornar):
     - Sempre adiciona um comentário contextual sobre KPIs (ex.: o que significa a **taxa de conclusão** no contexto).
     - Se `kpis.completionRate < 0.60`, garante um alerta em `ai.risks` para **baixa taxa de conclusão**.
     - Se o usuário tiver `Usuario.data_exame` preenchido (formato `dd/mm/yyyy`) e o exame estiver em **menos de 75 dias**, adiciona um alerta de **prazo curto** que prioriza os riscos.
     - Se o exame estiver em **menos de 75 dias** e `kpis.completionRate < 0.30`, adiciona `ai.risks` com **risco de prazo**.
     - Inclui em `ai.actions7d` uma ação do tipo: **"Aumentar taxa de conclusão para X% (próximos 7 dias)"**.
+
+## GET /api/admin/users/:id/insights-snapshots?days=90&includePayload=0
+Lista snapshots diários gravados a partir do `/api/ai/insights`.
+
+Detalhes do armazenamento (tabela, campos e regras): ver `docs/insights-snapshots.md`.
+
+- Auth: Admin (JWT + middleware `requireAdmin`)
+- Path:
+  - `:id` (User ID)
+- Query:
+  - `days` (1–365; default 90)
+  - `includePayload` (`0|1`; default `0`) — quando `1`, inclui o JSONB `payload` (maior)
+- Response (sucesso):
+  - `{ userId, days, count, items }`
+  - `items[]` inclui colunas como: `snapshot_date`, `period_days`, `days_to_exam`, KPIs, probabilidades e (opcional) `payload`.
 
 ## Endpoints IA com contexto da Web (Admin)
 
@@ -49,13 +78,13 @@ Observação: os dicionários retornados por `/api/ai/masterdata/question-classi
 ## GET /api/users/me
 Retorna dados básicos do usuário autenticado.
 
-- Auth: `X-Session-Token`
+- Auth: JWT
 - Response (sucesso): inclui `DataExame` quando disponível.
 
 ## PUT /api/users/me/exam-date
 Atualiza a data prevista do exame real do próprio usuário.
 
-- Auth: `X-Session-Token`
+- Auth: JWT
 - CSRF: obrigatório (header `X-CSRF-Token`) por ser método state-changing.
 - Body: `{ data_exame: "dd/mm/yyyy" }` (aceita também `DataExame` / `dataExame`)
 - Validações:
@@ -67,7 +96,7 @@ Atualiza a data prevista do exame real do próprio usuário.
 ## POST /api/admin/exams/fixture-attempt
 Cria uma tentativa finalizada artificial ("fixture") para testes e estatísticas sem processo de resposta manual.
 
-- Auth: `X-Session-Token` (usuário admin — ver middleware `requireAdmin`)
+- Auth: JWT (usuário admin — ver middleware `requireAdmin`)
 - Body campos principais:
   - `userId: number` (obrigatório)
   - `overallPct: number` (% geral desejada; default 65)
@@ -156,8 +185,9 @@ Lista de tipos para UI (similar ao endpoint acima; interface estável).
 ## POST /api/exams/select
 Seleciona e retorna um conjunto de questões (com opções) e cria uma tentativa (`exam_attempt`).
 - Usado por: `frontend/pages/examSetup.html` (contar/selecionar), wrappers em `exam.html`/`examFull.html`.
-- Headers:
-  - `X-Session-Token: <sessionToken>` (obrigatório)
+- Headers (uma das opções):
+  - `Authorization: Bearer <token>` (recomendado)
+  - `X-Session-Token: <token>` (legado)
   - `X-Exam-Mode: quiz | full` (opcional; se ausente o backend infere: `full` quando `count` >= número total de questões do tipo (ex.: 180), `quiz` quando `count` <= 50)
 - Body:
   - `count: number` (obrigatório)
@@ -169,7 +199,7 @@ Seleciona e retorna um conjunto de questões (com opções) e cria uma tentativa
 ## POST /api/exams/start-on-demand
 Inicia sessão persistindo perguntas, sem retornar o conteúdo completo de cada questão (fluxo alternativo).
 - Usado por: reservado (não há chamada ativa no frontend no momento).
-- Headers: `X-Session-Token`
+- Headers: JWT (`Authorization` ou `X-Session-Token`)
 - Body: `{ count, examType?, dominios?, areas?, grupos? }`
 - Headers opcionais: `X-Exam-Mode: quiz | full` (mesma inferência quando ausente)
 - Response: `{ sessionId, total, attemptId, examMode, exam }`
@@ -182,13 +212,14 @@ Busca uma questão específica da sessão (útil no fluxo on-demand).
 ## POST /api/exams/submit
 Registra respostas (parciais ou finais), computa nota na submissão final e encerra a tentativa.
 - Usado por: `frontend/assets/build/script_exam.js` e `frontend/script_exam.js` ao salvar/encerrar.
-- Headers: `X-Session-Token`
+- Headers: JWT (`Authorization` ou `X-Session-Token`)
 - Body:
   - `sessionId: string`
   - `answers: Array<{ questionId: number, optionId?: number, optionIds?: number[], response?: any }>`
   - `partial?: boolean` (default false; quando true, não encerra tentativa)
-- Response (final): `{ sessionId, totalQuestions, totalCorrect, details }`
+- Response (final): `{ sessionId, attemptId, examAttemptId, totalQuestions, totalCorrect, details }`
 - Efeitos colaterais (final): atualiza `exam_attempt` com `Corretas`, `Total`, `ScorePercent`, `Aprovado`, `FinishedAt`, `Status='finished'`.
+- Observação (UX): no quiz (`frontend/pages/exam.html`), após submit final a UI pode redirecionar automaticamente para `frontend/pages/examReviewQuiz.html?examId=<attemptId>` para revisão imediata.
 - **Validação de completude (frontend)**: Ao finalizar exame completo (`examFull.html`), valida-se se pelo menos 95% das questões foram respondidas:
   - Se ≥ 95%: prossegue com submit normal
   - Se < 95%: exibe modal de aviso; usuário pode sair sem salvar (não chama submit) ou continuar respondendo
@@ -213,14 +244,14 @@ Estado atual de pausa e política configurada.
 ## POST /api/exams/resume
 Reconstrói a sessão em memória a partir do banco (após restart do servidor).
 - Usado por: `frontend/pages/exam.html` e `frontend/pages/examFull.html` (auto-resume).
-- Headers: `X-Session-Token`
+- Headers: JWT (`Authorization` ou `X-Session-Token`)
 - Body: `{ sessionId?: string, attemptId?: number }`
 - Response: `{ ok: true, sessionId, attemptId, total, examType }`
 
 ## GET /api/exams/last
 Resumo da última tentativa finalizada do usuário (para o gauge da Home).
 - Usado por: `frontend/index.html` (componente `lastExamResults`).
-- Headers: `X-Session-Token`
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
 - Response:
   ```json
   {
@@ -236,7 +267,7 @@ Resumo da última tentativa finalizada do usuário (para o gauge da Home).
 
 ## GET /api/exams/history?limit=3
 Histórico das últimas N tentativas finalizadas do usuário (default 3).
-- Headers: `X-Session-Token`
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
 - Query: `limit` (1–10, default 3)
 - Response: `[{ correct, total, scorePercent, approved, startedAt, finishedAt, examTypeId, durationSeconds, examMode }]`
 
@@ -268,6 +299,21 @@ Exemplo:
 ]
 ```
 
+## GET /api/exams/result/:attemptId
+Retorna dados completos de uma tentativa **finalizada** para páginas de review.
+
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
+- Path:
+  - `attemptId` (inteiro > 0)
+- Response (sucesso):
+  - `total`: total de questões na tentativa
+  - `questions[]`: lista ordenada com `{ id, descricao/texto, tiposlug/type, options[]?, interacao?, correctPairs?, explicacao?, referencia?, dominio?, tarefa?, abordagemGestao? }`
+  - `answers`: mapa `q_<questionId>` com `{ optionId? , optionIds? , response? }`
+
+Observações:
+- Só permite visualizar tentativas com `Status='finished'`.
+- Para `match_columns`, o backend retorna `interacao`/`correctPairs` e zera `options` para evitar renderização indevida como múltipla escolha.
+
 ---
 
 ### Modelos usados (resumo)
@@ -279,7 +325,9 @@ Exemplo:
 - `questao`: base de questões (relacionada via QuestionId)
 
 ### Notas
-- Token de sessão: o app utiliza `localStorage.sessionToken`; o backend o resolve como user id, nome de usuário ou e-mail.
+- Token de sessão: JWT emitido em `/api/auth/login`.
+  - Fluxo browser: cookie httpOnly `sessionToken`.
+  - Fluxo API/Postman: `Authorization: Bearer <token>` (recomendado) ou `X-Session-Token: <token>` (legado).
 - Usuário com bloqueio: limites aplicados (ex.: máximo de 25 questões na seleção).
 - Exame completo: 180 questões, pausas conforme `ExamType` (se configurado).
 - Campo novo: `exam_attempt.exam_mode` armazena `quiz` ou `full` para cada tentativa. Persistência:
@@ -288,6 +336,22 @@ Exemplo:
   - Retornado nos endpoints: `POST /api/exams/select`, `POST /api/exams/start-on-demand`, `GET /api/exams/last`, `GET /api/exams/history`.
 
 ---
+
+## Feedback
+
+### GET /api/feedback/categories
+Lista categorias para o modal “Reportar questão”.
+
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
+- Response: `[{ id, descricao }]`
+
+### POST /api/feedback
+Cria feedback de uma questão.
+
+- Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
+- CSRF: obrigatório (header `X-CSRF-Token`) por ser state-changing.
+- Body: `{ texto: string, idcategoria: number, idquestao: number, userId?: number }`
+- Response (201): `{ id, idcategoria, idquestao, reportadopor?: number|null }`
 
 ## Indicadores
 
@@ -435,7 +499,7 @@ Entradas semeadas na tabela `indicator` (idempotentes por código):
 
 - **IND9** - `% Acertos/Erros por Abordagem`
   - Endpoint: `GET /api/indicators/approach-stats`
-  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada abordagem (categoriaquestao) no último exame completo (exam_mode=full) do usuário.`
+  - Descrição: `Mostra a % de questões certas x % de questões erradas relacionada a cada abordagem (abordagem) no último exame completo (exam_mode=full) do usuário.`
   - Parâmetros: `{"idUsuario":null, "idExame":null, "examMode":"full"}`
   - Fórmula (descr.): Para cada abordagem: `acertos = COUNT(exam_attempt_question WHERE user_correct=true)`, `erros = COUNT(exam_attempt_question WHERE user_correct=false)`, `total_grupo = acertos + erros`, `% Acertos = (acertos / total_grupo) × 100`, `% Erros = (erros / total_grupo) × 100`
   - Resultado: array de `{abordagem, acertos, erros, total, percentAcertos, percentErros}` ordenado por id

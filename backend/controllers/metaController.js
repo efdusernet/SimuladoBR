@@ -7,10 +7,11 @@ async function listSimple(req, res, next, table) {
   try {
     // Discover available columns for the table to avoid referencing non-existing columns
     const cols = await sequelize.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl`,
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl`,
       { replacements: { tbl: table }, type: sequelize.QueryTypes.SELECT }
     );
     const names = new Set((cols || []).map(c => c.column_name));
+    const types = new Map((cols || []).map(c => [c.column_name, c.data_type]));
 
     // Determine id and descricao column identifiers (with proper quoting when needed)
     let idCol = null;
@@ -22,10 +23,22 @@ async function listSimple(req, res, next, table) {
       return next(internalError('Erro interno', 'TABLE_MISSING_COLUMNS', { table, columns: Array.from(names) }));
     }
 
-    // Optional soft-delete filter if present (excluido or "Excluido")
-    let where = '';
-    if (names.has('excluido')) where = 'WHERE (excluido = false OR excluido IS NULL)';
-    else if (names.has('Excluido')) where = 'WHERE ("Excluido" = false OR "Excluido" IS NULL)';
+    // Optional filters when columns exist
+    const whereClauses = [];
+    // Soft-delete filter (excluido)
+    if (names.has('excluido')) whereClauses.push('(excluido = false OR excluido IS NULL)');
+    else if (names.has('Excluido')) whereClauses.push('("Excluido" = false OR "Excluido" IS NULL)');
+
+    // Active/status filter (status) — requested for areaconhecimento; safe for other tables
+    if (names.has('status')) {
+      const t = String(types.get('status') || '').toLowerCase();
+      whereClauses.push(t === 'boolean' ? '(status = TRUE)' : '(status = 1)');
+    } else if (names.has('Status')) {
+      const t = String(types.get('Status') || '').toLowerCase();
+      whereClauses.push(t === 'boolean' ? '("Status" = TRUE)' : '("Status" = 1)');
+    }
+
+    const where = whereClauses.length ? ('WHERE ' + whereClauses.join(' AND ')) : '';
 
     const sql = `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${table} ${where}`;
     const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
@@ -48,10 +61,11 @@ exports.listGruposProcesso = async (req, res, next) => {
     }
   }
 };
-exports.listDominios = (req, res, next) => listSimple(req, res, next, 'dominio');
+exports.listDominios = (req, res, next) => listSimple(req, res, next, 'dominio_desempenho');
 exports.listDominiosGeral = (req, res, next) => listSimple(req, res, next, 'dominiogeral');
 exports.listPrincipios = (req, res, next) => listSimple(req, res, next, 'principios');
-exports.listCategorias = (req, res, next) => listSimple(req, res, next, 'categoriaquestao');
+exports.listCategorias = (req, res, next) => listSimple(req, res, next, 'abordagem');
+exports.listAbordagens = exports.listCategorias;
 // List difficulty levels from niveldificuldade table
 exports.listNiveisDificuldade = async (req, res, next) => {
   try {

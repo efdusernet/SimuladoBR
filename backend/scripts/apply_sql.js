@@ -15,18 +15,41 @@ async function main(){
     console.error('[apply-sql] SQL directory not found:', sqlDir);
     process.exit(1);
   }
+  const args = process.argv.slice(2);
   const files = fs.readdirSync(sqlDir)
     .filter(f => f.toLowerCase().endsWith('.sql'))
     .sort((a,b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-  if (!files.length) {
+
+  const selected = args.length
+    ? files.filter(f => {
+        return args.some(a => {
+          if (!a) return false;
+          const arg = String(a).trim();
+          if (!arg) return false;
+          if (arg.toLowerCase().endsWith('.sql')) return f.toLowerCase() === arg.toLowerCase();
+          if (/^\d+$/.test(arg)) {
+            const prefix = arg.padStart(3, '0');
+            return f.startsWith(prefix);
+          }
+          return f.toLowerCase().includes(arg.toLowerCase());
+        });
+      })
+    : files;
+
+  if (args.length && !selected.length) {
+    console.error('[apply-sql] No matching .sql files for args:', args.join(' '));
+    console.error('[apply-sql] Available:', files.join(', '));
+    process.exit(1);
+  }
+  if (!selected.length) {
     console.log('[apply-sql] No .sql files found in', sqlDir);
     process.exit(0);
   }
   console.log('[apply-sql] Connecting to DB...');
   await sequelize.authenticate();
-  console.log('[apply-sql] Connected. Applying', files.length, 'files...');
+  console.log('[apply-sql] Connected. Applying', selected.length, 'files...');
 
-  for (const f of files) {
+  for (const f of selected) {
     const full = path.join(sqlDir, f);
     const content = fs.readFileSync(full, 'utf8');
     if (!content || !content.trim()) { console.log(' - skip empty', f); continue; }

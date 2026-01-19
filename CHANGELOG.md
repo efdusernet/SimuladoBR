@@ -4,6 +4,67 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
+## [1.2.0] - 2026-01-17
+
+### Added
+- Autenticação por JWT com **sessão única por usuário** (tabela `UserActiveSession`) e cookie httpOnly `sessionToken`.
+- Versionamento de API: suporte a rotas `/api/v1/*` (mantendo `/api/*` como legado/compatibilidade).
+- Chat-service integrado via reverse-proxy em `/chat/*` (HTTP + WebSocket admin).
+- Review de tentativas finalizadas:
+  - `GET /api/exams/result/:attemptId` para carregar questões/opções/seleções para páginas de review.
+  - Páginas de review atualizadas com suporte a `match_columns` e renderização correta de múltipla escolha (checkbox).
+- Admin (exames):
+  - `GET /api/admin/exams/probe` (detecção rápida de permissão admin).
+  - Hard delete de histórico: `DELETE /api/admin/exams/attempts/:attemptId`.
+  - Versionamento de conteúdo ECO (default e override por usuário): `content-versions`, `content-current`, `user-content-version`.
+
+### Changed
+- PWA/service worker: ajustes para reduzir problemas de cache/stale assets em updates.
+- Fluxos de front/back para CSRF mais resilientes (principalmente ações administrativas e envio de feedback).
+
+### Fixed
+- Review: correções de renderização (checkbox vs rádio) e paridade visual com o runner.
+- Review: suporte a explicação/referência/meta e navegação por grid.
+
+### Notes
+- Tokens de sessão agora são JWT (via cookie `sessionToken`, header `Authorization: Bearer <token>` ou header `X-Session-Token: <token>`).
+
+## [1.2.1] - 2026-01-18
+
+### Added
+- Submit de exame passa a retornar `attemptId`/`examAttemptId` em `POST /api/exams/submit` para navegação de review.
+
+### Changed
+- Quiz (`exam.html`): após submit final, redireciona para `examReviewQuiz.html` para revisão imediata do exame submetido.
+- Admin: "Excluir histórico" agora executa **purge total** (remove tentativa e filhos, limpa `exam_attempt_purge_log` do attempt e recompõe/remover o agregado diário em `exam_attempt_user_stats`).
+
+### Security
+- Removido uso de `sessionToken` na querystring ao deletar histórico (ações usam headers/cookies).
+
+## [1.1.3] - 2025-12-03
+
+### Fixed
+- Quiz mode UX and flow:
+  - Última questão usa botão `Enviar` quando total=25.
+  - Percentual de conclusão na confirmação final corrigido expondo `window.ANSWERS` e `window.QUESTIONS`.
+  - Ao enviar no quiz (`exam.html`): mostra toast, limpa estado e redireciona para Home.
+
+## [1.1.2] - 2025-11-30
+
+### Added
+- Feedback de questões (Exame Completo e Quiz): botão “Reportar questão” e modal com categoria + texto.
+- Endpoints:
+  - `GET /api/feedback/categories` (autenticado)
+  - `POST /api/feedback` (autenticado)
+
+### Notes
+- Se o schema real não tiver colunas opcionais, o backend tenta fallback para não abortar o fluxo.
+
+## [1.1.1] - 2025-11-30
+
+### Changed
+- Last Exam Results gauge: robustez de estilos e classes para faixas de performance (>85, 75–85, 70–74, <70).
+
 ## [1.1.0] - 2025-11-23
 
 ### Added

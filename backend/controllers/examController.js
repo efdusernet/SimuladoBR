@@ -1,10 +1,10 @@
 const db = require('../models');
 const { logger } = require('../utils/logger');
 const sequelize = require('../config/database');
-const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config/security');
-const { badRequest, unauthorized, notFound, internalError } = require('../middleware/errors');
+const { badRequest, unauthorized, forbidden, notFound, internalError } = require('../middleware/errors');
 const { AppError } = require('../middleware/errorHandler');
+const { verifyJwtAndGetActiveUser } = require('../utils/singleSession');
+const matchColumns = require('../utils/matchColumns');
 // Daily user exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
@@ -68,19 +68,19 @@ function getFullExamQuestionCount() {
   return Number.isFinite(v) && v > 0 ? v : 180;
 }
 
-exports.listExams = async (req, res) => {
+exports.listExams = async (req, res, next) => {
   try {
     const types = await loadExamTypesFromDb();
     if (types && types.length) return res.json(types);
     const disableFallback = String(process.env.EXAM_TYPES_DISABLE_FALLBACK || '').toLowerCase() === 'true';
     if (disableFallback) {
-      return res.status(404).json({ error: 'No exam types configured in DB' });
+      return next(notFound('No exam types configured in DB', 'NO_EXAM_TYPES'));
     }
     const registry = require('../services/exams/ExamRegistry');
     return res.json(registry.getTypes());
   } catch (err) {
     logger.error('Erro listExams:', err);
-    return res.status(500).json({ message: 'Erro interno' });
+    return next(internalError('Erro interno', 'INTERNAL_ERROR_LIST_EXAMS'));
   }
 };
 
@@ -127,34 +127,57 @@ exports.selectQuestions = async (req, res, next) => {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
     if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
-    let user = null;
-    // If token looks like JWT, try to decode
-    if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
+    const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+    if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+    const user = authRes.user;
+
+    // Admin emulator: allow specifying explicit questionIds to avoid random selection.
+    // This is intentionally admin-only because it can bypass distribution rules.
+    const customQuestionIdsRaw = (req.body && Array.isArray(req.body.questionIds)) ? req.body.questionIds : null;
+    let customQuestionIds = null;
+    if (customQuestionIdsRaw && customQuestionIdsRaw.length) {
+      // Verify admin role membership (same logic as requireAdmin, but only when needed).
       try {
-        const decoded = jwt.verify(sessionToken, jwtSecret);
-        // Try by sub (user id) first
-        if (decoded && decoded.sub) {
-          user = await User.findByPk(Number(decoded.sub));
+        const rows = await db.sequelize.query(
+          'SELECT 1 FROM public.user_role ur JOIN public.role r ON r.id = ur.role_id WHERE ur.user_id = :uid AND r.slug = :slug AND (r.ativo = TRUE OR r.ativo IS NULL) LIMIT 1',
+          { replacements: { uid: user.Id || user.id, slug: 'admin' }, type: db.Sequelize.QueryTypes.SELECT }
+        );
+        if (!rows || !rows.length) {
+          return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
         }
-        // Fallback: try by email
-        if (!user && decoded && decoded.email) {
-          user = await User.findOne({ where: { Email: decoded.email } });
+      } catch (err) {
+        const code = (err && err.original && err.original.code) || err.code || '';
+        const msg = (err && (err.message || err.toString())) || '';
+        const missingTable = code === '42P01' || /relation .* does not exist/i.test(msg);
+        if (missingTable) {
+          logger.warn('selectQuestions emulator: RBAC tables missing; denying with 403');
+          return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
         }
-      } catch (e) {
-        // Invalid JWT, fallback to legacy lookup
+        logger.warn('selectQuestions emulator: role check failed; denying with 403. Error:', msg);
+        return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
       }
+
+      // Normalize and validate IDs (must be unique to avoid answer collisions).
+      const ordered = customQuestionIdsRaw
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (!ordered.length) {
+        return next(badRequest('questionIds inválido', 'QUESTION_IDS_INVALID'));
+      }
+      if (ordered.length > 200) {
+        return next(badRequest('Máximo de 200 questões por emulação', 'QUESTION_IDS_TOO_MANY'));
+      }
+      const seen = new Set();
+      for (const id of ordered) {
+        if (seen.has(id)) {
+          return next(badRequest('questionIds não pode conter IDs repetidos', 'QUESTION_IDS_DUPLICATE'));
+        }
+        seen.add(id);
+      }
+      customQuestionIds = ordered;
+      // Override count to match explicit selection.
+      count = customQuestionIds.length;
     }
-    // Legacy: if numeric, try by Id first
-    if (!user && /^\d+$/.test(sessionToken)) {
-      user = await User.findByPk(Number(sessionToken));
-    }
-    // Legacy: try by username or email
-    if (!user) {
-      const Op = db.Sequelize && db.Sequelize.Op;
-      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-      user = await User.findOne({ where });
-    }
-    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
     const bloqueio = Boolean(user.BloqueioAtivado);
     // Enforce hard cap for blocked users
@@ -193,25 +216,25 @@ exports.selectQuestions = async (req, res, next) => {
   
   // AND semantics across tabs; OR within each list
   // Using ANY() for safe array parameter binding
-  if (dominios && dominios.length) {
+  if (!customQuestionIds && dominios && dominios.length) {
     whereClauses.push(`q.iddominio = ANY(ARRAY[:dominios])`);
     replacements.dominios = dominios;
   }
-  if (areas && areas.length) {
+  if (!customQuestionIds && areas && areas.length) {
     whereClauses.push(`q.codareaconhecimento = ANY(ARRAY[:areas])`);
     replacements.areas = areas;
   }
-  if (grupos && grupos.length) {
+  if (!customQuestionIds && grupos && grupos.length) {
     whereClauses.push(`q.codgrupoprocesso = ANY(ARRAY[:grupos])`);
     replacements.grupos = grupos;
   }
-  if (categorias && categorias.length) {
+  if (!customQuestionIds && categorias && categorias.length) {
     whereClauses.push(`q.codigocategoria = ANY(ARRAY[:categorias])`);
     replacements.categorias = categorias;
   }
   
   // Excluir questões já respondidas se onlyNew ativo (premium)
-  if (onlyNew) {
+  if (onlyNew && !customQuestionIds) {
     try {
       const answeredSql = `SELECT DISTINCT aq.question_id AS qid
         FROM exam_attempt_answer aa
@@ -253,7 +276,8 @@ exports.selectQuestions = async (req, res, next) => {
     if (available < 1) {
       return next(badRequest('Not enough questions available', 'NOT_ENOUGH_QUESTIONS', { available }));
     }
-    // New selection path for full exam mode (distribution + pretest) else legacy random selection
+    // New selection path for full exam mode (distribution + pretest) else legacy random selection.
+    // Admin emulator path: explicit ordered selection.
     let payloadQuestions = [];
     let ids = [];
     const FULL_TOTAL = count; // requested total (e.g. 180)
@@ -263,6 +287,7 @@ exports.selectQuestions = async (req, res, next) => {
     const baseQuestionSelect = (extraWhere, limit, extraReplacements = {}) => {
       const queryReplacements = { ...replacements, limit, ...extraReplacements };
       return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl",
+              q.interacaospec AS interacaospec,
               eg.descricao AS explicacao
         FROM questao q
         LEFT JOIN explicacaoguia eg
@@ -281,7 +306,81 @@ exports.selectQuestions = async (req, res, next) => {
         LIMIT :limit`, { replacements: queryReplacements, type: sequelize.QueryTypes.SELECT });
     };
 
-    if (examMode === 'full') {
+    if (customQuestionIds && customQuestionIds.length) {
+      // Fetch the explicitly selected questions in a single query, then reorder to match input.
+      const qRows = await sequelize.query(
+        `SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl",
+                q.interacaospec AS interacaospec,
+                eg.descricao AS explicacao
+           FROM questao q
+      LEFT JOIN explicacaoguia eg
+             ON eg.idrespostaopcao = (
+                  SELECT ro.id
+                    FROM respostaopcao ro
+                   WHERE ro.idquestao = q.id
+                     AND (ro.iscorreta = TRUE OR ro.iscorreta = 't')
+                     AND (ro.excluido = FALSE OR ro.excluido IS NULL)
+                   ORDER BY ro.id
+                   LIMIT 1
+             )
+            AND (eg.excluido = false OR eg.excluido IS NULL)
+          WHERE ${whereSqlUsed}
+            AND q.id IN (:ids)`,
+        { replacements: { ...replacements, ids: customQuestionIds }, type: sequelize.QueryTypes.SELECT }
+      );
+
+      const byId = new Map((qRows || []).map(r => [Number(r.id), r]));
+      const missing = customQuestionIds.filter(id => !byId.has(Number(id)));
+      if (missing.length) {
+        return next(badRequest('Algumas questões não estão disponíveis para emulação', 'QUESTION_IDS_NOT_AVAILABLE', { missing }));
+      }
+
+      // Fetch options once for all selected IDs (advanced interactions keep options empty)
+      let rawOptions = [];
+      try {
+        const optsQ = `SELECT id, idquestao, descricao
+          FROM respostaopcao
+          WHERE (excluido = FALSE OR excluido IS NULL) AND idquestao IN (:ids)
+          ORDER BY idquestao, id`;
+        rawOptions = await sequelize.query(optsQ, { replacements: { ids: customQuestionIds }, type: sequelize.QueryTypes.SELECT });
+      } catch(_) { rawOptions = []; }
+      const optsByQ = {};
+      rawOptions.forEach(o => {
+        const qid = Number(o.idquestao || o.IdQuestao);
+        if (!Number.isFinite(qid)) return;
+        if (!optsByQ[qid]) optsByQ[qid] = [];
+        optsByQ[qid].push({ id: o.id || o.Id, descricao: o.descricao || o.Descricao });
+      });
+
+      payloadQuestions = customQuestionIds.map((id) => {
+        const q = byId.get(Number(id));
+        const slug = (q && q.tiposlug ? String(q.tiposlug) : '').toLowerCase();
+        let type = null;
+        if (slug) {
+          if (slug === 'multi' || slug === 'multiple' || slug === 'checkbox') type = 'checkbox';
+          else if (slug === 'single' || slug === 'radio') type = 'radio';
+          else type = slug;
+        } else {
+          type = (q && (q.multiplaescolha === true || q.multiplaescolha === 't')) ? 'checkbox' : 'radio';
+        }
+        const advanced = type != null && type !== 'radio' && type !== 'checkbox';
+        const interacao = advanced && matchColumns.isMatchColumnsSlug(type)
+          ? matchColumns.toPublicMatchColumnsSpec(q.interacaospec)
+          : null;
+        return {
+          id: q.id,
+          descricao: q.descricao,
+          explicacao: q.explicacao,
+          imagem_url: q.imagem_url || null,
+          imagemUrl: q.imagem_url || q.imagemUrl || null,
+          type,
+          interacao,
+          options: advanced ? [] : (optsByQ[q.id] || []),
+        };
+      });
+
+      ids = customQuestionIds.slice();
+    } else if (examMode === 'full') {
       // 1) Pretest questions (q.is_pretest = true)
       const pretestRows = await baseQuestionSelect(`q.is_pretest = TRUE`, PRETEST_COUNT_TARGET);
       const actualPretestCount = pretestRows.length;
@@ -294,7 +393,7 @@ exports.selectQuestions = async (req, res, next) => {
       // - Else fall back to admin/default (exam_content_current_version)
       // - Else fall back to latest known version for that exam_type
       let ecoShares = [];
-      const examTypeIdForEco = Number(examTypeId) || null;
+      const examTypeIdForEco = (examCfg && examCfg._dbId) ? Number(examCfg._dbId) : null;
       const userIdForEco = Number((user && (user.Id || user.id)) || 0) || null;
       let examContentVersionIdForEco = null;
 
@@ -489,7 +588,11 @@ exports.selectQuestions = async (req, res, next) => {
         } else {
           type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
         }
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [], _isPreTest: q._isPreTest };
+        const advanced = type != null && type !== 'radio' && type !== 'checkbox';
+        const interacao = advanced && matchColumns.isMatchColumnsSlug(type)
+          ? matchColumns.toPublicMatchColumnsSpec(q.interacaospec)
+          : null;
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, interacao, options: advanced ? [] : (optsByQ[q.id] || []), _isPreTest: q._isPreTest };
       });
       // (removed post-mapping Q266 debug)
       ids = allIds;
@@ -523,7 +626,11 @@ exports.selectQuestions = async (req, res, next) => {
         } else {
           type = (q.multiplaescolha === true || q.multiplaescolha === 't') ? 'checkbox' : 'radio';
         }
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, options: optsByQ[q.id] || [] };
+        const advanced = type != null && type !== 'radio' && type !== 'checkbox';
+        const interacao = advanced && matchColumns.isMatchColumnsSlug(type)
+          ? matchColumns.toPublicMatchColumnsSpec(q.interacaospec)
+          : null;
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, interacao, options: advanced ? [] : (optsByQ[q.id] || []) };
       });
       // (removed legacy Q266 debug)
     }
@@ -656,38 +763,9 @@ exports.submitAnswers = async (req, res, next) => {
     const sessionToken = (req.get('X-Session-Token') || req.body.sessionToken || '').trim();
     if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
 
-    // resolve user (aceita JWT ou ID/email)
-    let user = null;
-    let tokenPayload = null;
-    // Se for JWT, decodifica
-    if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(sessionToken)) {
-      try {
-        tokenPayload = jwt.verify(sessionToken, jwtSecret);
-      } catch (e) {
-        return next(unauthorized('Invalid session token', 'INVALID_SESSION_TOKEN'));
-      }
-      // Tenta buscar por sub (ID), email ou nome
-      if (tokenPayload && tokenPayload.sub) {
-        user = await User.findByPk(Number(tokenPayload.sub));
-      }
-      if (!user && tokenPayload && tokenPayload.email) {
-        user = await User.findOne({ where: { Email: tokenPayload.email } });
-      }
-      if (!user && tokenPayload && tokenPayload.name) {
-        user = await User.findOne({ where: { NomeUsuario: tokenPayload.name } });
-      }
-    } else {
-      // Se não for JWT, tenta ID, nome ou email direto
-      if (/^\d+$/.test(sessionToken)) {
-        user = await User.findByPk(Number(sessionToken));
-      }
-      if (!user) {
-        const Op = db.Sequelize && db.Sequelize.Op;
-        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-        user = await User.findOne({ where });
-      }
-    }
-    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+    const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+    if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+    const user = authRes.user;
 
   const { sessionId, answers } = req.body || {};
     const partial = Boolean(req.body && req.body.partial);
@@ -727,6 +805,109 @@ exports.submitAnswers = async (req, res, next) => {
     }
     if (!qids.length) return next(badRequest('no valid questionIds', 'NO_VALID_QUESTION_IDS'));
 
+    // Guard: match_columns questions must include a typed response payload on final submission.
+    // Otherwise they get persisted as null markers and are graded as wrong ('incomplete').
+    try {
+      if (!partial) {
+        const matchRows = await sequelize.query(
+          `SELECT id, tiposlug
+             FROM questao
+            WHERE id IN (:ids)`
+          , { replacements: { ids: qids }, type: sequelize.QueryTypes.SELECT }
+        );
+        const matchQids = (matchRows || [])
+          .filter(r => {
+            const slug = (r && r.tiposlug != null) ? String(r.tiposlug).trim().toLowerCase() : '';
+            return slug === 'match_columns' || slug === 'match-columns' || slug === 'matchcolumns';
+          })
+          .map(r => Number(r && r.id))
+          .filter(n => Number.isFinite(n) && n > 0);
+
+        if (matchQids.length) {
+          const missing = [];
+          for (const qid of matchQids) {
+            const a = (answers || []).find(x => Number(x && x.questionId) === Number(qid)) || null;
+            const isObj = a && typeof a === 'object';
+            const hasResponse = isObj && Object.prototype.hasOwnProperty.call(a, 'response') && a.response != null;
+            const hasPairs = isObj && Object.prototype.hasOwnProperty.call(a, 'pairs') && a.pairs != null;
+            if (!hasResponse && !hasPairs) missing.push(qid);
+          }
+          if (missing.length) {
+            let clientScriptVersion = null;
+            try {
+              clientScriptVersion = (req && req.body && (req.body.clientScriptVersion || (req.body.client && req.body.client.scriptVersion))) || null;
+            } catch(_){ clientScriptVersion = null; }
+
+            let clientScriptVersionHeader = null;
+            try {
+              clientScriptVersionHeader = (req && req.headers && (req.headers['x-client-script-version'] || req.headers['x-client-version'])) || null;
+            } catch(_){ clientScriptVersionHeader = null; }
+
+            let receivedBodyKeys = [];
+            try {
+              receivedBodyKeys = (req && req.body && typeof req.body === 'object') ? Object.keys(req.body) : [];
+            } catch(_){ receivedBodyKeys = []; }
+
+            let requestContentType = null;
+            try {
+              requestContentType = (req && req.headers && req.headers['content-type']) ? String(req.headers['content-type']) : null;
+            } catch(_){ requestContentType = null; }
+
+            let requestContentLength = null;
+            try {
+              requestContentLength = (req && req.headers && req.headers['content-length']) ? String(req.headers['content-length']) : null;
+            } catch(_){ requestContentLength = null; }
+            let receivedQuestionIds = [];
+            try {
+              receivedQuestionIds = (answers || [])
+                .map(a => (a && Object.prototype.hasOwnProperty.call(a, 'questionId')) ? a.questionId : null)
+                .map(v => {
+                  const n = Number(v);
+                  return Number.isFinite(n) ? n : null;
+                })
+                .filter(v => v != null);
+            } catch(_){ receivedQuestionIds = []; }
+
+            let receivedAnswersForMissing = [];
+            try {
+              receivedAnswersForMissing = missing.map(qid => {
+                const a = (answers || []).find(x => Number(x && x.questionId) === Number(qid)) || null;
+                if (!a || typeof a !== 'object') return { questionId: qid, present: false };
+                const keys = Object.keys(a);
+                return {
+                  questionId: qid,
+                  present: true,
+                  keys,
+                  optionId: Object.prototype.hasOwnProperty.call(a, 'optionId') ? a.optionId : undefined,
+                  optionIds: Object.prototype.hasOwnProperty.call(a, 'optionIds') ? a.optionIds : undefined,
+                  hasResponse: Object.prototype.hasOwnProperty.call(a, 'response') && a.response != null,
+                  responseType: Object.prototype.hasOwnProperty.call(a, 'response') ? (a.response === null ? 'null' : typeof a.response) : 'absent',
+                  hasPairs: Object.prototype.hasOwnProperty.call(a, 'pairs') && a.pairs != null,
+                  pairsType: Object.prototype.hasOwnProperty.call(a, 'pairs') ? (a.pairs === null ? 'null' : typeof a.pairs) : 'absent'
+                };
+              });
+            } catch(_){ receivedAnswersForMissing = []; }
+            return next(badRequest(
+              'Resposta de associação ausente (match_columns). Atualize a página e tente novamente.',
+              'MATCH_COLUMNS_RESPONSE_REQUIRED',
+              {
+                missing,
+                receivedQuestionIds,
+                receivedAnswersForMissing,
+                clientScriptVersion,
+                clientScriptVersionHeader,
+                receivedBodyKeys,
+                requestContentType,
+                requestContentLength
+              }
+            ));
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn('match_columns guard warning:', e);
+    }
+
     // Fetch IsPreTest flags for questions to exclude from scoring
     let pretestQids = new Set();
     if (attemptId) {
@@ -757,8 +938,14 @@ exports.submitAnswers = async (req, res, next) => {
     (answers || []).forEach(a => {
       const qid = Number(a && a.questionId);
       if (!Number.isFinite(qid)) return;
-      if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
+      const isObj = a && typeof a === 'object';
+      const hasResponse = isObj && Object.prototype.hasOwnProperty.call(a, 'response');
+      const hasPairs = isObj && !hasResponse && Object.prototype.hasOwnProperty.call(a, 'pairs');
+      if (hasResponse) {
         byQ.set(qid, { typed: true, response: a.response });
+      } else if (hasPairs) {
+        // Backward-compat: some clients send match_columns as { questionId, pairs: {...} }
+        byQ.set(qid, { typed: true, response: { pairs: a.pairs } });
       } else if (Array.isArray(a.optionIds)) {
         const ids = a.optionIds.map(Number).filter(n => Number.isFinite(n));
         byQ.set(qid, { multi: true, optionIds: ids });
@@ -768,12 +955,41 @@ exports.submitAnswers = async (req, res, next) => {
       }
     });
 
+    // Preload interaction specs for typed answers (e.g., match_columns)
+    const typedQids = Array.from(byQ.entries())
+      .filter(([, v]) => v && v.typed)
+      .map(([qid]) => Number(qid))
+      .filter(n => Number.isFinite(n) && n > 0);
+    const typedSpecByQ = new Map();
+    if (typedQids.length) {
+      try {
+        const rows = await sequelize.query(
+          'SELECT id, tiposlug, interacaospec FROM questao WHERE id IN (:ids)',
+          { replacements: { ids: typedQids }, type: sequelize.QueryTypes.SELECT }
+        );
+        (rows || []).forEach(r => {
+          const qid = Number(r && r.id);
+          if (!Number.isFinite(qid)) return;
+          typedSpecByQ.set(qid, { tiposlug: r.tiposlug, interacaospec: r.interacaospec });
+        });
+      } catch (e) {
+        logger.warn('typed spec preload warning:', e);
+      }
+    }
+
     const details = qids.map(qid => {
       const rec = byQ.get(Number(qid));
       const isPretest = pretestQids.has(Number(qid));
       let ok = false;
       if (rec && rec.typed) {
-        ok = false; // typed grading engine TBD
+        const specRec = typedSpecByQ.get(Number(qid)) || null;
+        const slug = specRec && specRec.tiposlug != null ? String(specRec.tiposlug).trim().toLowerCase() : null;
+        if (slug && matchColumns.isMatchColumnsSlug(slug)) {
+          const graded = matchColumns.gradeMatchColumns(specRec.interacaospec, rec.response);
+          ok = graded.ok ? !!graded.isCorrect : false;
+        } else {
+          ok = false;
+        }
       } else if (rec && rec.multi) {
         const chosenSet = new Set((rec.optionIds || []).map(Number));
         const correctSet = new Set([correctByQ[qid]].filter(Boolean));
@@ -790,7 +1006,15 @@ exports.submitAnswers = async (req, res, next) => {
 
     // Calculate scorable questions (exclude pretest)
     const scorableQids = qids.filter(qid => !pretestQids.has(Number(qid)));
-    const result = { sessionId, totalQuestions: qids.length, totalScorableQuestions: scorableQids.length, totalCorrect, details };
+    const result = {
+      sessionId,
+      attemptId: attemptId || null,
+      examAttemptId: attemptId || null,
+      totalQuestions: qids.length,
+      totalScorableQuestions: scorableQids.length,
+      totalCorrect,
+      details,
+    };
 
     // Persist answers if we have an attempt
     try {
@@ -818,8 +1042,12 @@ exports.submitAnswers = async (req, res, next) => {
             const qid = Number(a.questionId);
             const aqid = aqMap.get(qid);
             if (!aqid) continue;
-            if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
-              const payload = a.response == null ? null : a.response;
+            const isObj = a && typeof a === 'object';
+            const hasResponse = isObj && Object.prototype.hasOwnProperty.call(a, 'response');
+            const hasPairs = isObj && !hasResponse && Object.prototype.hasOwnProperty.call(a, 'pairs');
+            if (hasResponse || hasPairs) {
+              const raw = hasResponse ? a.response : { pairs: a.pairs };
+              const payload = raw == null ? null : raw;
               toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: payload, Selecionada: payload != null });
             } else if (Array.isArray(a.optionIds)) {
               const arr = a.optionIds.map(Number).filter(n => Number.isFinite(n));
@@ -832,12 +1060,26 @@ exports.submitAnswers = async (req, res, next) => {
           if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert);
         } else {
           // Final submission: include null markers for unanswered
+          // Replace any existing persisted answers for these attempt questions.
+          // This prevents earlier partial submissions (or stale clients) from leaving null markers
+          // that would otherwise block updates due to unique constraints.
+          try {
+            const aqIdsAll = (aqRows || []).map(r => Number(r && r.Id)).filter(n => Number.isFinite(n) && n > 0);
+            if (aqIdsAll.length) {
+              await db.ExamAttemptAnswer.destroy({ where: { AttemptQuestionId: aqIdsAll } });
+            }
+          } catch (e) { logger.warn('final submit replace warning:', e); }
+
           for (const a of (answers || [])) {
             const qid = Number(a.questionId);
             const aqid = aqMap.get(qid);
             if (!aqid) continue;
-            if (a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, 'response')) {
-              const payload = a.response == null ? null : a.response;
+            const isObj = a && typeof a === 'object';
+            const hasResponse = isObj && Object.prototype.hasOwnProperty.call(a, 'response');
+            const hasPairs = isObj && !hasResponse && Object.prototype.hasOwnProperty.call(a, 'pairs');
+            if (hasResponse || hasPairs) {
+              const raw = hasResponse ? a.response : { pairs: a.pairs };
+              const payload = raw == null ? null : raw;
               toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: payload, Selecionada: payload != null });
             } else if (Array.isArray(a.optionIds)) {
               const arr = a.optionIds.map(Number).filter(n => Number.isFinite(n));
@@ -861,7 +1103,7 @@ exports.submitAnswers = async (req, res, next) => {
               if (aqid) toInsert.push({ AttemptQuestionId: aqid, OptionId: null, Resposta: null, Selecionada: false });
             }
           }
-          if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert, { ignoreDuplicates: true });
+          if (toInsert.length) await db.ExamAttemptAnswer.bulkCreate(toInsert);
         }
 
         // Score and finish attempt only if not partial
@@ -1083,7 +1325,8 @@ exports.getQuestion = async (req, res, next) => {
     if (q.tiposlug) {
       const basic = (()=>{ try { const t = String(q.tiposlug).toLowerCase(); return (t === 'single' || t === 'radio' || t === 'multi' || t === 'multiple' || t === 'checkbox'); } catch(_) { return false; } })();
       if (!basic) {
-        const interacao = q.interacaospec || null;
+        let interacao = q.interacaospec || null;
+        if (matchColumns.isMatchColumnsSlug(q.tiposlug)) interacao = matchColumns.toPublicMatchColumnsSpec(q.interacaospec);
         return res.json({ index, total: s.questionIds.length, examType: s.examType || 'pmp', question: {
           id: q.id,
           type: q.tiposlug,
@@ -1182,6 +1425,41 @@ exports.checkAnswer = async (req, res, next) => {
   try {
     const questionId = Number(req.body && req.body.questionId);
     if (!Number.isFinite(questionId) || questionId <= 0) return next(badRequest('invalid questionId', 'INVALID_QUESTION_ID'));
+
+    // Interaction-style answers (e.g., match_columns) use the JSONB response field.
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'response')) {
+      const qrow = await sequelize.query(
+        'SELECT tiposlug, interacaospec FROM questao WHERE id = :qid LIMIT 1',
+        { replacements: { qid: questionId }, type: sequelize.QueryTypes.SELECT }
+      );
+      if (!qrow || !qrow[0]) return next(notFound('question not found', 'QUESTION_NOT_FOUND'));
+      const slug = qrow[0].tiposlug != null ? String(qrow[0].tiposlug).trim().toLowerCase() : null;
+
+      if (slug && matchColumns.isMatchColumnsSlug(slug)) {
+        const spec = matchColumns.normalizeMatchColumnsSpec(qrow[0].interacaospec);
+        if (!spec) return next(badRequest('invalid interaction spec', 'MATCH_SPEC_INVALID'));
+
+        const graded = matchColumns.gradeMatchColumns(spec, req.body.response);
+        const userPairs = matchColumns.normalizeMatchColumnsResponse(req.body.response).pairs;
+
+        return res.json({
+          questionId,
+          type: 'match_columns',
+          isCorrect: graded.ok ? !!graded.isCorrect : false,
+          gradeOk: !!graded.ok,
+          gradeReason: graded && graded.reason ? String(graded.reason) : null,
+          gradeCode: graded && graded.code ? String(graded.code) : null,
+          gradeMessage: graded && graded.message ? String(graded.message) : null,
+          correctPairs: spec.answerKey || {},
+          userPairs: userPairs || {},
+          // Back-compat fields so old UI paths don't crash
+          correctOptionIds: [],
+          explanations: {},
+        });
+      }
+
+      return next(badRequest('unsupported question type for response', 'UNSUPPORTED_TYPED_QUESTION'));
+    }
 
     const selectedSingle = req.body && req.body.optionId != null ? Number(req.body.optionId) : null;
     const selectedMulti = Array.isArray(req.body && req.body.optionIds)
@@ -1355,75 +1633,9 @@ exports.resumeSession = async (req, res, next) => {
       const sessionToken = bearerToken || legacyToken;
       if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
-      let user = null;
-      
-      // Unified JWT decode attempt (bearer first, then legacy if bearer absent)
-      async function tryResolveFromJwt(raw) {
-        if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
-        let decoded = null;
-        try { decoded = jwt.verify(raw, jwtSecret); }
-        catch(e){
-          try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
-        }
-        if (!decoded) {
-          // Manual payload decode fallback (ignore signature) if jsonwebtoken failed
-          try {
-            const parts = raw.split('.');
-            if (parts.length === 3) {
-              const payloadB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
-              // pad base64
-              const pad = payloadB64.length % 4; const padded = pad ? payloadB64 + '='.repeat(4-pad) : payloadB64;
-              const buf = Buffer.from(padded, 'base64');
-              const jsonStr = buf.toString('utf8');
-              decoded = JSON.parse(jsonStr);
-            }
-          } catch(err){ }
-        }
-        if (!decoded) { return; }
-        const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
-        for (const cid of candidateIds) {
-          if (!user && cid != null && /^\d+$/.test(String(cid))) {
-            user = await db.User.findByPk(Number(cid));
-            if (user) { }
-          }
-        }
-        if (!user && decoded.email) {
-          user = await db.User.findOne({ where: { Email: decoded.email } });
-          if (user) { }
-        }
-        const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
-        for (const uname of candidateUsernames) {
-          if (!user && uname) {
-            user = await db.User.findOne({ where: { NomeUsuario: uname } });
-            if (user) { }
-          }
-        }
-      }
-      // Try bearer token first; if not resolved and legacy differs, try legacy
-      await tryResolveFromJwt(bearerToken);
-      if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwt(legacyToken);
-      // Fallback: attempt legacy token if bearer failed
-      if (!user && legacyToken) {
-        if (/^\d+$/.test(legacyToken)) {
-          user = await db.User.findByPk(Number(legacyToken));
-          if (user) { }
-        }
-        if (!user) {
-          const Op = db.Sequelize && db.Sequelize.Op;
-          const whereLegacy = Op ? { [Op.or]: [{ NomeUsuario: legacyToken }, { Email: legacyToken }] } : { NomeUsuario: legacyToken };
-          user = await db.User.findOne({ where: whereLegacy });
-          if (user) { }
-        }
-      }
-      // Final fallback: interpret combined sessionToken (legacy-only scenario)
-      if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
-      if (!user) {
-        const Op = db.Sequelize && db.Sequelize.Op;
-        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-        user = await db.User.findOne({ where });
-      }
-      
-      if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+      const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+      if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+      const user = authRes.user;
 
       const attempt = await db.ExamAttempt.findOne({
         where: { UserId: user.Id || user.id, Status: 'finished' },
@@ -1470,8 +1682,8 @@ exports.resumeSession = async (req, res, next) => {
     }
   };
 
-  // GET /api/exams/history?limit=3
-  // Returns the last N finished attempts for the resolved user (default 3)
+  // GET /api/exams/history?limit=3&status=finished|abandoned|in_progress|unfinished
+  // Returns the last N attempts for the resolved user (default: finished)
   // Response: [{ correct,total,scorePercent,approved,startedAt,finishedAt,examTypeId,durationSeconds }]
   // Used by: frontend/index.html (loadLastExamResults) para estilizar o gauge conforme regra dos últimos 3
   exports.lastAttemptsHistory = async (req, res, next) => {
@@ -1479,6 +1691,9 @@ exports.resumeSession = async (req, res, next) => {
       // Allow up to 50 history items instead of previous cap 10
       const limitRequested = Number(req.query.limit) || 3;
       const limit = Math.max(1, Math.min(50, limitRequested));
+
+      const rawStatus = String(req.query.status || 'finished').trim().toLowerCase();
+      const status = (rawStatus === 'abandoned' || rawStatus === 'finished' || rawStatus === 'in_progress' || rawStatus === 'unfinished') ? rawStatus : 'finished';
       
       const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
       const authHeader = (req.get('Authorization') || '').trim();
@@ -1487,80 +1702,22 @@ exports.resumeSession = async (req, res, next) => {
       const sessionToken = bearerToken || legacyToken;
       if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
-      let user = null;
-      
-      // Unified JWT decode attempt for history
-      async function tryResolveFromJwtHistory(raw) {
-        if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
-        let decoded = null;
-        try { decoded = jwt.verify(raw, jwtSecret); }
-        catch(e){
-          try { decoded = jwt.decode(raw); } catch(_){ decoded = null; }
-        }
-        if (!decoded) {
-          // Manual payload decode fallback
-            try {
-              const parts = raw.split('.');
-              if (parts.length === 3) {
-                const payloadB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
-                const pad = payloadB64.length % 4; const padded = pad ? payloadB64 + '='.repeat(4-pad) : payloadB64;
-                const buf = Buffer.from(padded, 'base64');
-                const jsonStr = buf.toString('utf8');
-                decoded = JSON.parse(jsonStr);
-                
-              }
-            } catch(err){ }
-        }
-        if (!decoded) { return; }
-        const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
-        for (const cid of candidateIds) {
-          if (!user && cid != null && /^\d+$/.test(String(cid))) {
-            user = await db.User.findByPk(Number(cid));
-            if (user) { }
-          }
-        }
-        if (!user && decoded.email) {
-          user = await db.User.findOne({ where: { Email: decoded.email } });
-          if (user) { }
-        }
-        const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
-        for (const uname of candidateUsernames) {
-          if (!user && uname) {
-            user = await db.User.findOne({ where: { NomeUsuario: uname } });
-            if (user) { }
-          }
-        }
+      const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+      if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+      const user = authRes.user;
+
+      const where = { UserId: user.Id || user.id };
+      if (status === 'unfinished') {
+        where.Status = ['in_progress', 'abandoned'];
+      } else {
+        where.Status = status;
       }
-      await tryResolveFromJwtHistory(bearerToken);
-      if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwtHistory(legacyToken);
-      // Fallback legacy token resolution if bearer failed
-      if (!user && legacyToken) {
-        if (/^\d+$/.test(legacyToken)) {
-          user = await db.User.findByPk(Number(legacyToken));
-          if (user) { }
-        }
-        if (!user) {
-          const Op = db.Sequelize && db.Sequelize.Op;
-          const whereLegacy = Op ? { [Op.or]: [{ NomeUsuario: legacyToken }, { Email: legacyToken }] } : { NomeUsuario: legacyToken };
-          user = await db.User.findOne({ where: whereLegacy });
-          if (user) { }
-        }
-      }
-      // Final fallback: combined sessionToken (legacy-only scenario)
-      if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
-      if (!user) {
-        const Op = db.Sequelize && db.Sequelize.Op;
-        const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-        user = await db.User.findOne({ where });
-      }
-      
-      if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
       const attempts = await db.ExamAttempt.findAll({
-        where: { UserId: user.Id || user.id, Status: 'finished' },
-        order: [['FinishedAt', 'DESC']],
+        where,
+        order: (status === 'abandoned' || status === 'in_progress' || status === 'unfinished') ? [['StartedAt', 'DESC']] : [['FinishedAt', 'DESC']],
         limit,
-        attributes: ['Id','Corretas','Total','QuantidadeQuestoes','ScorePercent','Aprovado','StartedAt','FinishedAt','ExamTypeId','ExamMode']
+        attributes: ['Id','Corretas','Total','QuantidadeQuestoes','ScorePercent','Aprovado','StartedAt','FinishedAt','ExamTypeId','ExamMode','Status','StatusReason']
       });
       const out = (attempts || []).map(a => {
         const correct = Number(a.Corretas != null ? a.Corretas : 0);
@@ -1590,7 +1747,9 @@ exports.resumeSession = async (req, res, next) => {
           finishedAt: a.FinishedAt,
           examTypeId: a.ExamTypeId || null,
           durationSeconds,
-          examMode: a.ExamMode || null
+          examMode: a.ExamMode || null,
+          status: a.Status || status,
+          statusReason: a.StatusReason || null
         };
       });
       return res.json(out);
@@ -1602,7 +1761,7 @@ exports.resumeSession = async (req, res, next) => {
 
   // POST /api/admin/exams/mark-abandoned
   // Marks in-progress attempts as abandoned based on inactivity and low progress rules.
-  exports.markAbandonedAttempts = async (req, res) => {
+  exports.markAbandonedAttempts = async (req, res, next) => {
     try {
       const db = require('../models');
       const policies = require('../config/examPolicies');
@@ -1634,13 +1793,13 @@ exports.resumeSession = async (req, res, next) => {
       return res.json({ ok: true, processed, markedTimeout, markedLowProgress });
     } catch (err) {
       logger.error('Erro markAbandonedAttempts:', err);
-      return res.status(500).json({ error: 'Internal error' });
+      return next(internalError('Internal error', 'INTERNAL_ERROR_MARK_ABANDONED_ATTEMPTS'));
     }
   };
 
   // POST /api/admin/exams/purge-abandoned
   // Purges abandoned attempts older than policy age and low progress threshold.
-  exports.purgeAbandonedAttempts = async (req, res) => {
+  exports.purgeAbandonedAttempts = async (req, res, next) => {
     try {
       const db = require('../models');
       const policies = require('../config/examPolicies');
@@ -1686,7 +1845,7 @@ exports.resumeSession = async (req, res, next) => {
       return res.json({ ok: true, inspected, purged });
     } catch (err) {
       logger.error('Erro purgeAbandonedAttempts:', err);
-      return res.status(500).json({ error: 'Internal error' });
+      return next(internalError('Internal error', 'INTERNAL_ERROR_PURGE_ABANDONED_ATTEMPTS'));
     }
   };
 
@@ -1707,38 +1866,9 @@ exports.getAttemptResult = async (req, res, next) => {
     const sessionToken = bearerToken || legacyToken;
     if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
 
-    let user = null;
-    async function tryResolveFromJwt(raw) {
-      if (!raw || !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw)) return;
-      let decoded = null;
-      try { decoded = jwt.verify(raw, jwtSecret); }
-      catch(e){ try { decoded = jwt.decode(raw); } catch(_) { decoded = null; } }
-      if (!decoded) return;
-      const candidateIds = [decoded.id, decoded.sub, decoded.userId, decoded.uid, decoded.user && decoded.user.id];
-      for (const cid of candidateIds) {
-        if (!user && cid != null && /^\d+$/.test(String(cid))) {
-          user = await db.User.findByPk(Number(cid));
-        }
-      }
-      if (!user && decoded.email) {
-        user = await db.User.findOne({ where: { Email: decoded.email } });
-      }
-      const candidateUsernames = [decoded.name, decoded.username, decoded.nomeUsuario, decoded.user && decoded.user.username, decoded.user && decoded.user.NomeUsuario];
-      for (const uname of candidateUsernames) {
-        if (!user && uname) {
-          user = await db.User.findOne({ where: { NomeUsuario: uname } });
-        }
-      }
-    }
-    await tryResolveFromJwt(bearerToken);
-    if (!user && legacyToken && legacyToken !== bearerToken) await tryResolveFromJwt(legacyToken);
-    if (!user && /^\d+$/.test(sessionToken)) user = await db.User.findByPk(Number(sessionToken));
-    if (!user) {
-      const Op = db.Sequelize && db.Sequelize.Op;
-      const where = Op ? { [Op.or]: [{ NomeUsuario: sessionToken }, { Email: sessionToken }] } : { NomeUsuario: sessionToken };
-      user = await db.User.findOne({ where });
-    }
-    if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
+    const authRes = await verifyJwtAndGetActiveUser(sessionToken);
+    if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
+    const user = authRes.user;
 
     // Load attempt and ensure it belongs to resolved user and is finished
     const attempt = await db.ExamAttempt.findOne({ where: { Id: attemptId, UserId: user.Id || user.id } });
@@ -1803,25 +1933,120 @@ exports.getAttemptResult = async (req, res, next) => {
       } catch(_) { ansRows = []; }
     }
     const selectedByAq = new Map();
+    const typedResponseByAq = new Map();
     ansRows.forEach(a => {
       const aqid = Number(a.AttemptQuestionId);
       const list = selectedByAq.get(aqid) || [];
-      if (a.OptionId != null && (a.Selecionada === true || a.Selecionada === 't')) list.push(Number(a.OptionId));
+      const selected = (a.Selecionada === true || a.Selecionada === 't');
+      if (a.OptionId != null && selected) list.push(Number(a.OptionId));
+      // For interaction-style questions, we store the JSON answer in Resposta with OptionId=null.
+      if (a.OptionId == null && selected && a.Resposta != null) typedResponseByAq.set(aqid, a.Resposta);
       selectedByAq.set(aqid, list);
     });
 
-    const questions = questionIds.map((qid) => ({ id: qid, descricao: null, texto: null, options: optsByQ.get(qid) || [] }));
-    // Populate question text/descricao from questao table for completeness
+    const questions = questionIds.map((qid) => ({
+      id: qid,
+      type: null,
+      tiposlug: null,
+      interacao: null,
+      correctPairs: null,
+      descricao: null,
+      texto: null,
+      explicacao: null,
+      referencia: null,
+      dominio: null,
+      tarefa: null,
+      abordagemGestao: null,
+      options: optsByQ.get(qid) || []
+    }));
+
+    // Populate question text/descricao + fields from questao (explicacao, referencia) + metadados (dominio/tarefa/categoria)
     try {
       if (questionIds.length) {
+        const cols = await sequelize.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='questao'`,
+          { type: sequelize.QueryTypes.SELECT }
+        );
+        const names = new Set((cols || []).map(c => String(c.column_name)));
+        const hasExp = names.has('explicacao');
+        const hasRef = names.has('referencia');
+        const hasDomGeral = names.has('iddominiogeral');
+        const hasTask = names.has('id_task');
+        const hasCategoria = names.has('codigocategoria');
+        const hasTipoSlug = names.has('tiposlug');
+        const hasInteracao = names.has('interacaospec');
+
+        const select = [
+          'q.id AS id',
+          'q.descricao AS descricao',
+          hasTipoSlug ? 'q.tiposlug AS tiposlug' : 'NULL::text AS tiposlug',
+          hasInteracao ? 'q.interacaospec AS interacaospec' : 'NULL::jsonb AS interacaospec',
+          hasExp ? 'q.explicacao AS explicacao' : 'NULL::text AS explicacao',
+          hasRef ? 'q.referencia AS referencia' : 'NULL::text AS referencia',
+          hasDomGeral ? 'q.iddominiogeral AS iddominiogeral' : 'NULL::int AS iddominiogeral',
+          hasTask ? 'q.id_task AS id_task' : 'NULL::int AS id_task',
+          hasCategoria ? 'q.codigocategoria AS codigocategoria' : 'NULL::int AS codigocategoria',
+          'dg.descricao AS dominio_descricao',
+          't.id_dominio AS task_id_dominio',
+          't.numero AS task_numero',
+          't.descricao AS task_descricao',
+          'cq.descricao AS categoria_descricao'
+        ].join(', ');
+
         const qRows = await sequelize.query(
-          `SELECT id, descricao FROM questao WHERE id IN (:ids)`,
+          `SELECT ${select}
+             FROM questao q
+             LEFT JOIN dominiogeral dg ON dg.id = q.iddominiogeral
+             LEFT JOIN public."Tasks" t ON t.id = q.id_task
+             LEFT JOIN public.abordagem cq ON cq.id = q.codigocategoria
+            WHERE q.id IN (:ids)`,
           { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
         );
-        const txtById = new Map((qRows || []).map(r => [Number(r.id || r.Id), String(r.descricao || r.Descricao || '')]));
-        for (const q of questions) { const t = txtById.get(Number(q.id)); if (t != null) { q.descricao = t; q.texto = t; } }
+
+        const byId = new Map((qRows || []).map(r => [Number(r.id), r]));
+        for (const q of questions) {
+          const row = byId.get(Number(q.id));
+          if (!row) continue;
+          const txt = row.descricao != null ? String(row.descricao) : '';
+          q.descricao = txt;
+          q.texto = txt;
+          q.tiposlug = row.tiposlug != null ? String(row.tiposlug) : null;
+          q.type = q.tiposlug;
+          q.explicacao = row.explicacao != null ? String(row.explicacao) : null;
+          q.referencia = row.referencia != null ? String(row.referencia) : null;
+
+          // Advanced review support: match_columns
+          try {
+            if (q.tiposlug && matchColumns.isMatchColumnsSlug(q.tiposlug)) {
+              q.interacao = matchColumns.toPublicMatchColumnsSpec(row.interacaospec);
+              const normalized = matchColumns.normalizeMatchColumnsSpec(row.interacaospec);
+              q.correctPairs = (normalized && normalized.answerKey) ? normalized.answerKey : {};
+              // Ensure review UI doesn't try to render MCQ options
+              q.options = [];
+            }
+          } catch(_){ /* ignore */ }
+
+          if (row.iddominiogeral != null || row.dominio_descricao != null) {
+            q.dominio = {
+              id: row.iddominiogeral != null ? Number(row.iddominiogeral) : null,
+              descricao: row.dominio_descricao != null ? String(row.dominio_descricao) : null
+            };
+          }
+
+          if (row.task_id_dominio != null || row.task_numero != null || row.task_descricao != null) {
+            q.tarefa = {
+              id_dominio: row.task_id_dominio != null ? Number(row.task_id_dominio) : null,
+              numero: row.task_numero != null ? Number(row.task_numero) : null,
+              descricao: row.task_descricao != null ? String(row.task_descricao) : null
+            };
+          }
+
+          if (row.categoria_descricao != null) {
+            q.abordagemGestao = { descricao: String(row.categoria_descricao) };
+          }
+        }
       }
-    } catch(_) { /* ignore */ }
+    } catch (_) { /* ignore */ }
 
     // Build answers map keyed by q_<id>
     const answers = {};
@@ -1829,7 +2054,10 @@ exports.getAttemptResult = async (req, res, next) => {
       const aqid = aqIdByQ.get(Number(qid));
       const selected = (aqid != null) ? (selectedByAq.get(Number(aqid)) || []) : [];
       const key = 'q_' + String(qid);
-      if (selected.length > 1) answers[key] = { optionIds: selected };
+      const typed = (aqid != null && typedResponseByAq.has(Number(aqid))) ? typedResponseByAq.get(Number(aqid)) : null;
+      if (typed != null) {
+        answers[key] = { response: typed, optionIds: selected };
+      } else if (selected.length > 1) answers[key] = { optionIds: selected };
       else if (selected.length === 1) answers[key] = { optionId: selected[0] };
       else answers[key] = { optionIds: [] };
     }
@@ -1838,5 +2066,130 @@ exports.getAttemptResult = async (req, res, next) => {
   } catch (err) {
     logger.error('Erro getAttemptResult:', err);
     return next(internalError('Internal error', 'INTERNAL_ERROR_GET_ATTEMPT_RESULT'));
+  }
+};
+
+// DELETE /api/admin/exams/attempts/:attemptId
+// Admin-only hard delete of an attempt history (attempt + children rows)
+// "Purge total" semantics:
+// - Deletes attempt rows (exam_attempt + exam_attempt_question + exam_attempt_answer)
+// - Deletes any related purge-log rows (exam_attempt_purge_log) for the attempt
+// - Recomputes daily aggregation row (exam_attempt_user_stats) for that user/day (and deletes it if it becomes all-zero)
+exports.deleteAttemptHistoryAdmin = async (req, res, next) => {
+  try {
+    const attemptId = Number(req.params.attemptId);
+    if (!Number.isFinite(attemptId) || attemptId <= 0) return next(badRequest('invalid attemptId', 'INVALID_ATTEMPT_ID'));
+
+    const attempt = await db.ExamAttempt.findByPk(attemptId);
+    if (!attempt) return next(notFound('attempt not found', 'ATTEMPT_NOT_FOUND'));
+
+    const userId = attempt.UserId != null ? Number(attempt.UserId) : null;
+    let startedDateStr = null;
+    try {
+      const d = attempt.StartedAt || attempt.CreatedAt || attempt.FinishedAt;
+      if (d) startedDateStr = new Date(d).toISOString().slice(0, 10);
+    } catch (_) {
+      startedDateStr = null;
+    }
+
+    await db.sequelize.transaction(async (t) => {
+      // Remove any purge-log rows for this attempt (if it was previously purged by policy/scripts)
+      try {
+        if (db.ExamAttemptPurgeLog) {
+          await db.ExamAttemptPurgeLog.destroy({ where: { AttemptId: attemptId }, transaction: t });
+        }
+      } catch (_) { /* best-effort */ }
+
+      const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId }, attributes: ['Id'], transaction: t });
+      const aqIds = (aqRows || []).map(r => r && r.Id != null ? Number(r.Id) : null).filter(n => Number.isFinite(n));
+      if (aqIds.length) {
+        await db.ExamAttemptAnswer.destroy({ where: { AttemptQuestionId: aqIds }, transaction: t });
+      }
+      await db.ExamAttemptQuestion.destroy({ where: { AttemptId: attemptId }, transaction: t });
+      await db.ExamAttempt.destroy({ where: { Id: attemptId }, transaction: t });
+
+      // Recompute daily stats for the attempt's user/day to avoid leaving aggregation traces.
+      try {
+        const Op = db.Sequelize && db.Sequelize.Op;
+        const canRecompute = Op && db.ExamAttempt && db.ExamAttemptUserStats && userId && Number.isFinite(userId) && userId > 0 && startedDateStr;
+        if (canRecompute) {
+          const dayStart = new Date(startedDateStr + 'T00:00:00.000Z');
+          const dayEnd = new Date(dayStart.getTime() + 86400000);
+
+          const attemptsSameDay = await db.ExamAttempt.findAll({
+            where: {
+              UserId: userId,
+              StartedAt: { [Op.gte]: dayStart, [Op.lt]: dayEnd },
+            },
+            attributes: ['Id', 'UserId', 'StartedAt', 'FinishedAt', 'Status', 'StatusReason', 'ScorePercent'],
+            transaction: t,
+          });
+
+          let started = 0;
+          let finished = 0;
+          let abandoned = 0;
+          let timeout = 0;
+          let lowProgress = 0;
+          let scoreSum = 0;
+          let scoreCount = 0;
+
+          for (const at of attemptsSameDay || []) {
+            if (!at || !at.StartedAt) continue;
+            started++;
+            if (at.Status === 'finished' || at.FinishedAt) {
+              finished++;
+              if (at.ScorePercent != null) {
+                const sc = Number(at.ScorePercent);
+                if (Number.isFinite(sc)) { scoreSum += sc; scoreCount += 1; }
+              }
+            } else if (at.Status === 'abandoned') {
+              abandoned++;
+              if (at.StatusReason === 'timeout_inactivity') timeout++;
+              else if (at.StatusReason === 'abandoned_low_progress') lowProgress++;
+            }
+          }
+
+          let purged = 0;
+          try {
+            if (db.ExamAttemptPurgeLog) {
+              purged = await db.ExamAttemptPurgeLog.count({
+                where: { UserId: userId, PurgedAt: { [Op.gte]: dayStart, [Op.lt]: dayEnd } },
+                transaction: t,
+              });
+            }
+          } catch (_) {
+            purged = 0;
+          }
+
+          const avgScore = scoreCount > 0 ? Number((scoreSum / scoreCount).toFixed(3)) : null;
+          const allZero = (started === 0 && finished === 0 && abandoned === 0 && timeout === 0 && lowProgress === 0 && purged === 0 && avgScore == null);
+
+          if (allZero) {
+            await db.ExamAttemptUserStats.destroy({ where: { UserId: userId, Date: startedDateStr }, transaction: t });
+          } else {
+            const upsertSql = `INSERT INTO exam_attempt_user_stats (user_id, date, started_count, finished_count, abandoned_count, timeout_count, low_progress_count, purged_count, avg_score_percent, updated_at)
+              VALUES (:uid, :date, :started, :finished, :abandoned, :timeout, :lowProgress, :purged, :avgScore, NOW())
+              ON CONFLICT (user_id, date) DO UPDATE SET
+                started_count = EXCLUDED.started_count,
+                finished_count = EXCLUDED.finished_count,
+                abandoned_count = EXCLUDED.abandoned_count,
+                timeout_count = EXCLUDED.timeout_count,
+                low_progress_count = EXCLUDED.low_progress_count,
+                purged_count = EXCLUDED.purged_count,
+                avg_score_percent = EXCLUDED.avg_score_percent,
+                updated_at = NOW();`;
+            await db.sequelize.query(upsertSql, {
+              replacements: { uid: userId, date: startedDateStr, started, finished, abandoned, timeout, lowProgress, purged, avgScore },
+              transaction: t,
+            });
+          }
+        }
+      } catch (_) { /* best-effort; do not block the purge */ }
+    });
+
+    return res.json({ ok: true, attemptId, purgeTotal: true });
+  } catch (err) {
+    logger.error('deleteAttemptHistoryAdmin error:', err);
+    return next(internalError('Internal error', 'DELETE_ATTEMPT_HISTORY_ERROR', err));
   }
 };

@@ -386,6 +386,7 @@
 
       const els = {
         versionId: document.getElementById('versionId'),
+        btnNewGame: document.getElementById('btnNewGame'),
         filterPrincipio: document.getElementById('filterPrincipio'),
         filterDominioDes: document.getElementById('filterDominioDes'),
         filterAbordagem: document.getElementById('filterAbordagem'),
@@ -413,10 +414,7 @@
     if (els.grid) els.grid.classList.toggle('disabled', disabled);
     if (els.gameWarning) els.gameWarning.style.display = disabled ? 'block' : 'none';
     }
-    if (!game.active) {
-      setStatus('', 'info');
-      return;
-    }
+
     async function startNewGame(){
     setStatus('Iniciando novo jogo...', 'info');
     resetFlips();
@@ -448,6 +446,12 @@
       }
       game.attemptId = attemptId;
       setGameActive(true);
+      // Always start a new game with 'Fundamentos' unchecked.
+      // This avoids carrying over persisted filter state into a fresh attempt.
+      if (els.filterBasics) {
+        els.filterBasics.checked = false;
+        persistBasicsOnly();
+      }
       setStatus('Jogo iniciado. Selecione filtros e clique em Carregar.', 'info');
     } catch (e) {
       try { logger.error('[flashcards] startNewGame error', e); } catch(_){ }
@@ -786,7 +790,24 @@
 
       function resetFlips(){
         if (!els.grid) return;
-        els.grid.querySelectorAll('.anki-card.flipped').forEach((n) => n.classList.remove('flipped'));
+        const cards = els.grid.querySelectorAll('.anki-card');
+        const inners = els.grid.querySelectorAll('.anki-inner');
+
+        // Remove class-based flips
+        cards.forEach((n) => n.classList.remove('flipped'));
+
+        // Defensive: if some runtime set an inline transform, force it back to front.
+        // We clear it after the transition so future flips keep working normally.
+        inners.forEach((inner) => {
+          try { inner.style.transform = 'rotateY(0deg)'; } catch(_){ }
+        });
+        window.setTimeout(() => {
+          inners.forEach((inner) => {
+            try { inner.style.transform = ''; } catch(_){ }
+          });
+        }, 500);
+
+        setStatus(cards.length ? 'Cards desvirados.' : 'Nenhum card para desvirar.', 'info');
       }
 
       if (els.btnNewGame) els.btnNewGame.addEventListener('click', startNewGame);
@@ -801,7 +822,10 @@
         shuffleInPlace(copy);
         render(copy);
       });
-      if (els.btnReset) els.btnReset.addEventListener('click', resetFlips);
+      if (els.btnReset) els.btnReset.addEventListener('click', (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+        resetFlips();
+      });
 
 	  // Start locked until 'Novo jogo'
 	  loadPersistedFilters();

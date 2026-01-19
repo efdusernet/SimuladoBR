@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models');
 const requireAdmin = require('../middleware/requireAdmin');
+const { unauthorized, badRequest, notFound, internalError } = require('../middleware/errors');
 
 // GET /api/admin/feedback/pending
 // Lists Feedback entries without any RetornoFeedback
-router.get('/pending', requireAdmin, async (req, res) => {
+router.get('/pending', requireAdmin, async (req, res, next) => {
   try {
     // Find feedbacks with zero respostas
     const [rows] = await db.sequelize.query(`
@@ -21,25 +22,25 @@ router.get('/pending', requireAdmin, async (req, res) => {
     res.json(rows);
   } catch (e) {
     console.error('admin.feedback.pending error', e);
-    res.status(500).json({ error: 'Erro ao listar feedbacks pendentes' });
+    return next(internalError('Erro ao listar feedbacks pendentes', 'ADMIN_FEEDBACK_PENDING_ERROR', { error: e && e.message }));
   }
 });
 
 // POST /api/admin/feedback/respond
 // Body: { idfeedback, resposta }
-router.post('/respond', requireAdmin, async (req, res) => {
+router.post('/respond', requireAdmin, async (req, res, next) => {
   try {
     const { idfeedback, resposta } = req.body || {};
     const fid = Number(idfeedback);
-    if (!Number.isInteger(fid) || fid <= 0) return res.status(400).json({ error: 'idfeedback inválido' });
-    if (!resposta || typeof resposta !== 'string' || !resposta.trim()) return res.status(400).json({ error: 'resposta obrigatória' });
+    if (!Number.isInteger(fid) || fid <= 0) return next(badRequest('idfeedback inválido', 'INVALID_IDFEEDBACK'));
+    if (!resposta || typeof resposta !== 'string' || !resposta.trim()) return next(badRequest('resposta obrigatória', 'RESPOSTA_REQUIRED'));
 
     const fb = await db.Feedback.findByPk(fid);
-    if (!fb) return res.status(404).json({ error: 'Feedback não encontrado' });
+    if (!fb) return next(notFound('Feedback não encontrado', 'FEEDBACK_NOT_FOUND'));
 
     // Determine admin responder user id; requireAdmin places req.admin or req.user
     const adminId = (req.user && (req.user.Id || req.user.id)) || null;
-    if (!adminId) return res.status(401).json({ error: 'Usuário administrador não identificado' });
+    if (!adminId) return next(unauthorized('Usuário administrador não identificado', 'ADMIN_IDENTITY_MISSING'));
 
     const created = await db.RetornoFeedback.create({
       idquestao: fb.idquestao,
@@ -50,7 +51,7 @@ router.post('/respond', requireAdmin, async (req, res) => {
     res.status(201).json({ id: created.id });
   } catch (e) {
     console.error('admin.feedback.respond error', e);
-    res.status(500).json({ error: 'Erro ao registrar resposta' });
+    return next(internalError('Erro ao registrar resposta', 'ADMIN_FEEDBACK_RESPOND_ERROR', { error: e && e.message }));
   }
 });
 

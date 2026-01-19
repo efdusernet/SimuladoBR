@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models');
 const requireUserSession = require('../middleware/requireUserSession');
+const { notFound, internalError } = require('../middleware/errors');
 
 // List notifications for current user
-router.get('/', requireUserSession, async (req, res) => {
+router.get('/', requireUserSession, async (req, res, next) => {
   try {
     const userId = req.user.id;
     const limit = Math.min(Number(req.query.limit)||20, 100);
@@ -23,27 +24,27 @@ router.get('/', requireUserSession, async (req, res) => {
     }
     const out = list.map(r => ({ id: r.id, notificationId: r.notificationId, readAt: r.readAt, deliveredAt: r.deliveredAt, categoria: notifMap[r.notificationId]?.categoria, titulo: notifMap[r.notificationId]?.titulo, mensagem: notifMap[r.notificationId]?.mensagem, createdAt: notifMap[r.notificationId]?.createdAt }));
     res.json(out);
-  } catch(e){ res.status(500).json({ error: 'Internal error' }); }
+  } catch(e){ return next(internalError('Internal error', 'NOTIFICATIONS_LIST_ERROR', { error: e && e.message })); }
 });
 
 // Unread count
-router.get('/unread-count', requireUserSession, async (req, res) => {
+router.get('/unread-count', requireUserSession, async (req, res, next) => {
   try {
     const userId = req.user.id;
     const count = await db.UserNotification.count({ where: { userId, readAt: null } });
     res.json({ count });
-  } catch(e){ res.status(500).json({ error: 'Internal error' }); }
+  } catch(e){ return next(internalError('Internal error', 'NOTIFICATIONS_UNREAD_COUNT_ERROR', { error: e && e.message })); }
 });
 
 // Mark read
-router.post('/:id/read', requireUserSession, async (req, res) => {
+router.post('/:id/read', requireUserSession, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const row = await db.UserNotification.findByPk(id);
-    if (!row || (row.userId !== req.user.id)) return res.status(404).json({ error: 'Not found' });
+    if (!row || (row.userId !== req.user.id)) return next(notFound('Not found', 'NOTIFICATION_NOT_FOUND'));
     if (!row.readAt) { row.readAt = new Date(); await row.save(); }
     res.json({ ok: true });
-  } catch(e){ res.status(500).json({ error: 'Internal error' }); }
+  } catch(e){ return next(internalError('Internal error', 'NOTIFICATIONS_MARK_READ_ERROR', { error: e && e.message })); }
 });
 
 module.exports = router;

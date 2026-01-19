@@ -1,12 +1,21 @@
-const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config/security');
+const { verifyJwtAndGetActiveUser } = require('../utils/singleSession');
+const { unauthorized, forbidden, internalError } = require('./errors');
 
-module.exports = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Token necessário' });
-  jwt.verify(token, jwtSecret, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Token inválido' });
-    req.user = user;
+module.exports = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return next(unauthorized('Token necessário', 'JWT_REQUIRED'));
+
+    const result = await verifyJwtAndGetActiveUser(token);
+    if (!result.ok) {
+      if (result.status === 403) return next(forbidden(result.message, result.code));
+      return next(unauthorized(result.message, result.code));
+    }
+
+    // Keep previous behavior: req.user contains the JWT payload for downstream handlers
+    req.user = result.decoded;
     next();
-  });
+  } catch (e) {
+    return next(internalError('Internal error'));
+  }
 };

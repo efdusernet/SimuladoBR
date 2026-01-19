@@ -2,6 +2,8 @@
 
 Este documento consolida o que foi implementado recentemente (multi-exames), como aplicar migrações, iniciar o backend, endpoints principais (incluindo filtros por exam_type), formatos aceitos no bulk de questões e links de páginas admin. No final há uma lista de pendências e próximos passos sugeridos.
 
+Leitura rápida recomendada (onboarding): `CONTEXT.md` e `FEATURES.md`.
+
 ## Resumo das mudanças recentes
 
 - Suporte a múltiplos exames (Exam Types), com blueprint vindo do banco quando disponível.
@@ -12,9 +14,16 @@ Este documento consolida o que foi implementado recentemente (multi-exames), com
 - Persistência de tentativas (`exam_attempt`, `exam_attempt_question`, `exam_attempt_answer`) com `Meta.sessionId` (recuperação após restart de servidor).
 - Ponto de pausa e bloqueios do botão Continuar alinhados ao rótulo das questões 60 e 120 (índices 59 e 119, 0‑based) no exame completo.
 - Endpoint de retomada: reconstrução de sessão em memória via `/api/exams/resume` quando o servidor é reiniciado.
-- RBAC (papéis) implementado com tabelas `role` e `user_role`, middleware `requireAdmin` e proteção dos endpoints administrativos de questões (`POST /api/questions` e `POST /api/questions/bulk`).
-- API de administração de papéis: `GET /api/roles`, `GET /api/roles/user/:userId`, `POST /api/roles/assign`, `POST /api/roles/remove` (todas requerem cabeçalho `X-Session-Token` de um usuário com papel `admin`).
-- Script CLI para conceder papel admin: `npm run role:grant-admin`.
+- RBAC (papéis) implementado com tabelas `role` e `user_role`, middleware `requireAdmin` e proteção de rotas administrativas (ex.: `/api/questions`, `/api/questions/bulk`, `/api/admin/*`).
+	- Script CLI para conceder papel admin: `npm --prefix backend run role:grant-admin`.
+- Autenticação atual: JWT com sessão única por usuário (cookie httpOnly `sessionToken` no browser; ou `Authorization: Bearer <token>` / `X-Session-Token: <token>` em clientes).
+- Review de tentativas finalizadas:
+	- Endpoint `GET /api/exams/result/:attemptId` e páginas `frontend/pages/examReviewFull.html` / `frontend/pages/examReviewQuiz.html`.
+- Chat-service integrado via reverse-proxy em `/chat/*`.
+- Insights da IA:
+	- Endpoint `GET /api/ai/insights` expandido com `ai.explainability` (rastreabilidade do porquê dos alertas) e plano 7 dias.
+	- Base para modelo temporal: grava snapshots diários em `public.user_daily_snapshot` (upsert 1x/dia), somente para pagantes (`BloqueioAtivado=false`).
+	- Admin UI: seção no modal Admin para consultar snapshots via `GET /api/admin/users/:id/insights-snapshots`.
 
 ## Esquema (foco em exam_type)
 
@@ -50,13 +59,15 @@ Observações de ambiente:
 
 Base: `http://localhost:3000`
 
+Observação: as rotas também existem em `/api/v1/*` (preferencial). O prefixo `/api/*` permanece por compatibilidade.
+
 - `GET /api/exams/types`
 	- Lista os tipos de exame disponíveis (DB quando possível).
 
 - `POST /api/exams/select`
 	- Seleciona perguntas e retorna `{ sessionId, total, exam, questions: [...] }`.
 	- Cabeçalhos/Body relevantes:
-		- `X-Session-Token`: identifica o usuário (e‑mail ou id).
+		- Autenticação: cookie `sessionToken` (browser) ou `Authorization: Bearer <token>` (recomendado) / `X-Session-Token: <token>` (legado).
 		- `examType`: slug (ex.: `pmp`).
 		- `count`: quantidade de questões (quando `count=180`, filtros são ignorados).
 		- `dominios`, `areas`, `grupos`: filtros opcionais (AND entre grupos, OR dentro do grupo).
@@ -80,7 +91,7 @@ Base: `http://localhost:3000`
 Para testes rápidos e ajustes estatísticos existe o endpoint protegido `POST /api/admin/exams/fixture-attempt` que cria uma tentativa finalizada artificial ("fixture") sem percorrer questões manualmente.
 
 Resumo:
-- Auth: usuário com papel `admin` (header `X-Session-Token`).
+- Auth: usuário com papel `admin` (JWT via cookie `sessionToken` ou header `Authorization`/`X-Session-Token`).
 - Body mínimo: `{ userId, overallPct }` (opcionais: `totalQuestions`, `examTypeSlug`).
 - Domínios (`peoplePct`, `processPct`, `businessPct`): ou envia todos ou nenhum. Se enviados, a média deve ficar dentro da tolerância (default 2) de `overallPct`.
 - Query param opcional: `tolerance=<n>` para ajustar coerência.
@@ -174,7 +185,7 @@ Notas do bulk:
 TODO (futuro): Trabalhos planejados para admin UI/entrega de HTML:
 - Mover proteção server-side/do middleware para todos os assets admin (CSS/JS) ou servir assets combinados via rota protegida.
 - Adicionar página administrativa central (/admin) com navegação, listagem de usuários e atribuição de papéis.
-- Melhorar autenticação: migrar de resolução por `X-Session-Token` para tokens JWT e cookies Secure/SameSite em produção.
+- Autenticação (feito): sessão por JWT + cookie httpOnly `sessionToken` e política de sessão única.
 - Escrever testes de integração para endpoints e páginas admin (incluir fluxos de role grant/revoke).
 -- Priorizar: adicionar índice em `exam_attempt` para acelerar `/api/exams/resume` quando for necessário.
 -- Observação: esta lista registra intenções — implementar quando houver janela de trabalho apropriada.
@@ -187,13 +198,13 @@ TODO (futuro): Trabalhos planejados para admin UI/entrega de HTML:
 
 - [ ] Centralizar assets/admin sob rota protegida
 - [ ] Criar dashboard `/admin` para gerenciamento de usuários e papéis
-- [ ] Trocar para auth baseada em JWT + cookie Secure em produção
+- [x] Trocar para auth baseada em JWT + cookie Secure em produção
 - [ ] Cobertura de testes de integração para fluxos admin
 
 ## Postman
 
 Coleção e instruções em: `postman/README.md`
-- Inclui fluxo de registro/login/verificação, exemplos de seleção/execução de exames, submissão de respostas e um grupo "Admin — Roles" com requests para listar papéis, consultar papéis de um usuário, atribuir e remover papel `admin`.
+- Inclui fluxo de registro/login/verificação, exemplos de seleção/execução de exames, submissão de respostas e requests admin (quando aplicável). O token retornado no login é um JWT e pode ser usado em `Authorization: Bearer`.
 
 ## Documentação adicional
 
@@ -211,7 +222,7 @@ Coleção e instruções em: `postman/README.md`
 
 ## Itens pendentes / próximos passos
 
-- Opcional: Autenticação baseada em JWT para rotas admin (atualmente `X-Session-Token` resolve usuário por id/e‑mail/username e valida papel no DB).
+- Postman: manter requests atualizados para auth JWT (preferir `Authorization: Bearer <token>` e lembrar CSRF em métodos state-changing).
 - Completar requests no Postman para:
 	- Admin de questões (create/bulk) com exemplos de payloads reais.
 	- Sessão de retomada (`/api/exams/resume`) e recuperação após restart.
@@ -260,7 +271,7 @@ Arquivos modificados:
 
 Nova aba "Abordagem" para filtrar por categoria de questão:
 - **UI**: Checklist multi-seleção (consistente com abas Domínios/Grupos/Áreas).
-- **Backend**: Endpoint `/api/meta/categorias` reutilizado para listar categorias.
+- **Backend**: Endpoint `/api/meta/abordagens` lista as abordagens (com alias legado em `/api/meta/categorias`).
 - **Persistência**: Seleções salvas em `localStorage.examFilters.categorias`.
 - **Integração Completa**:
   - Contagem dinâmica de questões disponíveis.

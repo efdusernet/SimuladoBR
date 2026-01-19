@@ -108,9 +108,9 @@ async function listTasks() {
 async function getQuestionClassificationMasterdata() {
   const [iddominiogeral, iddominio, idprincipio, codigocategoria, codgrupoprocesso, id_task] = await Promise.all([
     listSimpleTable('dominiogeral'),
-    listSimpleTable('dominio'),
+    listSimpleTable('dominio_desempenho'),
     listSimpleTable('principios'),
-    listSimpleTable('categoriaquestao'),
+    listSimpleTable('abordagem'),
     listGruposProcesso(),
     listTasks(),
   ]);

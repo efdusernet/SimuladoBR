@@ -261,6 +261,9 @@ router.delete('/user-content-version', requireAdmin, async (req, res, next) => {
 router.post('/mark-abandoned', requireAdmin, examController.markAbandonedAttempts);
 router.post('/purge-abandoned', requireAdmin, examController.purgeAbandonedAttempts);
 
+// DELETE /api/admin/exams/attempts/:attemptId
+router.delete('/attempts/:attemptId', requireAdmin, examController.deleteAttemptHistoryAdmin);
+
 // POST /api/admin/exams/fixture-attempt
 // Body: { userId, overallPct, totalQuestions, examTypeSlug, peoplePct?, processPct?, businessPct? }
 // Cria tentativa finalizada diretamente (fixture) para testes sem percorrer questões.
@@ -287,7 +290,7 @@ router.post('/fixture-attempt', requireAdmin, async (req, res, next) => {
         const anyProvided = domVals.some(v => v != null);
         const allProvided = domVals.every(v => v != null);
         if(anyProvided && !allProvided){
-            return res.status(400).json({ error: 'Forneça todos os percentuais de domínio (people, process, business) ou nenhum.' });
+            return next(badRequest('Forneça todos os percentuais de domínio (people, process, business) ou nenhum.', 'DOMAIN_PERCENTS_INCOMPLETE'));
         }
         if(allProvided){
             const meanDom = (peopleVal + processVal + businessVal) / 3;

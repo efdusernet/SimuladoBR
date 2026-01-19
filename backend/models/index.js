@@ -70,6 +70,12 @@ db.CategoriaFeedback = require('./CategoriaFeedback')(sequelize, DataTypes);
 db.Feedback = require('./Feedback')(sequelize, DataTypes);
 db.RetornoFeedback = require('./RetornoFeedback')(sequelize, DataTypes);
 
+// Admin communications recipients
+db.CommunicationRecipient = require('./CommunicationRecipient')(sequelize, DataTypes);
+
+// Single active session per user
+db.UserActiveSession = require('./UserActiveSession')(sequelize, DataTypes);
+
 
 // Associations
 if (db.User && db.EmailVerification) {
@@ -103,6 +109,18 @@ if (db.Notification && db.UserNotification) {
 if (db.User && db.UserNotification) {
   db.User.hasMany(db.UserNotification, { foreignKey: 'userId' });
   db.UserNotification.belongsTo(db.User, { foreignKey: 'userId' });
+}
+
+// Associations for communication recipients
+if (db.User && db.CommunicationRecipient) {
+  db.User.hasMany(db.CommunicationRecipient, { foreignKey: 'UserId' });
+  db.CommunicationRecipient.belongsTo(db.User, { foreignKey: 'UserId' });
+}
+
+// Associations for user active session
+if (db.User && db.UserActiveSession) {
+  db.User.hasOne(db.UserActiveSession, { foreignKey: 'UserId' });
+  db.UserActiveSession.belongsTo(db.User, { foreignKey: 'UserId' });
 }
 
 

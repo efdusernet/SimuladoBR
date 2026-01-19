@@ -222,6 +222,41 @@
       const grid = document.getElementById('grid');
       grid.innerHTML = '';
 
+      function isNonEmpty(v){
+        return v != null && String(v).trim() !== '';
+      }
+
+      function isMatchColumnsAnswered(answerObj, questionObj){
+        try {
+          const a = answerObj && typeof answerObj === 'object' ? answerObj : null;
+          if (!a) return false;
+
+          // Possible shapes:
+          // - { response: { pairs: {...} }, pairs: {...} }
+          // - { response: { pairs: {...} } }
+          // - { pairs: {...} }
+          const resp = (a.response && typeof a.response === 'object') ? a.response : null;
+          const pairs = (a.pairs && typeof a.pairs === 'object') ? a.pairs : (resp && resp.pairs && typeof resp.pairs === 'object' ? resp.pairs : null);
+          if (!pairs) return false;
+
+          const spec = (questionObj && (questionObj.interacao || questionObj.interaction || questionObj.interacaospec))
+            ? (questionObj.interacao || questionObj.interaction || questionObj.interacaospec)
+            : null;
+          const left = Array.isArray(spec && spec.left) ? spec.left : [];
+          if (left.length) {
+            return left.every(it => {
+              const lid = String(it && it.id);
+              return isNonEmpty(pairs[lid]);
+            });
+          }
+
+          // Fallback: at least one mapping exists
+          return Object.keys(pairs).some(k => isNonEmpty(pairs[k]));
+        } catch (e) {
+          return false;
+        }
+      }
+
       // Quantidade de cards baseada em examQuestionCount
       let total = 0;
       try {
@@ -272,7 +307,17 @@
           const hasId = qObj && qObj.id !== undefined && qObj.id !== null;
           const key = hasId ? `q_${qObj.id}` : `idx_${i - 1}`; // idx é 0-based
           const a = answers && answers[key];
-          isMarked = !!(a && a.optionId);
+
+          const qType = (qObj && qObj.type != null) ? String(qObj.type).trim().toLowerCase() : '';
+          if (qType === 'match_columns') {
+            isMarked = isMatchColumnsAnswered(a, qObj);
+          } else {
+            const hasSingle = !!(a && isNonEmpty(a.optionId));
+            const hasMulti = !!(a && Array.isArray(a.optionIds) && a.optionIds.length > 0);
+            const hasIndices = !!(a && Array.isArray(a.indices) && a.indices.length > 0);
+            isMarked = hasSingle || hasMulti || hasIndices;
+          }
+
           isFlagged = markedSet.has(i - 1);
           isHighlighted = !!(highlights && highlights[key] === true);
         } catch (e) { isMarked = false; }

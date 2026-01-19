@@ -303,7 +303,24 @@
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dashboard">Estatísticas</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dominios">Domínios</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=prob">Probabilidade de Sucesso</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=flashcards">Flashcards</a>
         <a class="sidebar-accordion-item" id="sidebarInsightsAiLink" href="/pages/InsightsIA.html">Insights da IA</a>
+      </div>
+    </div>
+
+    <!-- Flashcards (Accordion) -->
+    <div class="sidebar-accordion" id="sidebarFlashcardsAccordion">
+      <button class="sidebar-accordion-header" id="sidebarFlashcards">
+        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        <span class="sidebar-nav-label">Flashcards</span>
+        <svg class="sidebar-accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="sidebar-accordion-content">
+        <a class="sidebar-accordion-item" href="/pages/flashcards.html">Abrir</a>
       </div>
     </div>
 
@@ -366,6 +383,9 @@
         </button>
         <button class="sidebar-accordion-item" data-admin-action="notificacoes">
           Notificações
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="flashcards">
+          Flashcards
         </button>
         <button class="sidebar-accordion-item" data-admin-action="reconcile">
           Reconciliar estatísticas
@@ -750,10 +770,89 @@
       });
     }
 
+    // Flashcards accordion toggle
+    const flashcardsAccordionHeader = document.querySelector('#sidebarFlashcardsAccordion .sidebar-accordion-header');
+    const flashcardsAccordion = document.getElementById('sidebarFlashcardsAccordion');
+    if (flashcardsAccordionHeader && flashcardsAccordion) {
+      // Restaurar estado salvo
+      try {
+        const saved = sessionStorage.getItem('sidebarFlashcardsExpanded');
+        if (saved === 'true') {
+          flashcardsAccordion.classList.add('expanded');
+        }
+      } catch(_){ }
+
+      flashcardsAccordionHeader.addEventListener('click', (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+        flashcardsAccordion.classList.toggle('expanded');
+        try {
+          const isExpanded = flashcardsAccordion.classList.contains('expanded');
+          sessionStorage.setItem('sidebarFlashcardsExpanded', String(isExpanded));
+        } catch(_){ }
+      });
+    }
+
     // Indicadores submenu items: abre conteúdo na index.html (desktop) ou redireciona (mobile)
+    // Premium gating (free users cannot open certain Indicadores submenus)
+    let __premiumStatusPromise = null;
+    async function isPremiumUser(){
+      if (__premiumStatusPromise) return __premiumStatusPromise;
+      __premiumStatusPromise = (async ()=>{
+        try {
+          const lsVal = (localStorage.getItem('BloqueioAtivado') || '').trim();
+          if (lsVal === 'true') return false;
+          if (lsVal === 'false') return true;
+
+          const token = (localStorage.getItem('sessionToken') || '').trim();
+          const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+          const identity = (nomeUsuario || token).trim();
+          if (!identity) return false;
+
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const headers = { 'Accept':'application/json', 'X-Session-Token': identity };
+          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+          const r = await fetch('/api/users/me', { method:'GET', headers, credentials:'include' });
+          if (!r.ok) return false;
+          const data = await r.json().catch(()=>null);
+          try { if (data && typeof data.BloqueioAtivado !== 'undefined') localStorage.setItem('BloqueioAtivado', String(Boolean(data.BloqueioAtivado))); } catch(_){ }
+          return !!(data && data.BloqueioAtivado === false);
+        } catch(_){
+          return false;
+        }
+      })();
+      return __premiumStatusPromise;
+    }
+    function showPremiumOnlyToast(){
+      const msg = 'Somente para usuário premium';
+      try {
+        if (window.showToast) { window.showToast(msg, 2400, { center: true }); return; }
+      } catch(_){ }
+      try {
+        const el = document.getElementById('toast');
+        if (el) {
+          el.textContent = msg;
+          el.style.display = 'block';
+          el.style.left = '50%';
+          el.style.top = '50%';
+          el.style.right = 'auto';
+          el.style.bottom = 'auto';
+          el.style.transform = 'translate(-50%, -50%)';
+          el.style.maxWidth = '80vw';
+          el.style.textAlign = 'center';
+          clearTimeout(window.__toastTimer);
+          window.__toastTimer = setTimeout(()=>{ try{ el.style.display='none'; }catch(_){ } }, 2400);
+          return;
+        }
+      } catch(_){ }
+      try { alert(msg); } catch(_){ }
+    }
+
+    const premiumTabs = new Set(['grupos','abordagem','detalhes','dashboard','dominios','prob']);
     const indicadoresItems = document.querySelectorAll('#sidebarIndicadoresAccordion .sidebar-accordion-content .sidebar-accordion-item');
     indicadoresItems.forEach(item => {
-      item.addEventListener('click', (e) => {
+      item.addEventListener('click', async (e) => {
         try { e.preventDefault(); e.stopPropagation(); } catch(_){}
         const href = item.getAttribute('href') || '';
 
@@ -767,9 +866,10 @@
           return;
         }
 
-        // Permitir navegação para páginas fora do fluxo de abas de Indicadores
-        // (ex.: Dashboard dedicado de IA)
+        // Premium-only: Insights da IA
         if (/\/pages\/InsightsIA\.html(?:\?.*)?$/i.test(href)) {
+          const okPremium = await isPremiumUser();
+          if (!okPremium) { showPremiumOnlyToast(); return; }
           try {
             sessionStorage.removeItem('currentSection');
             sessionStorage.removeItem('currentSubsection');
@@ -780,6 +880,12 @@
 
         const m = href.match(/tab=([a-zA-Z0-9_-]+)/);
         const tab = m ? m[1] : 'geral';
+
+        // Premium-only Indicadores tabs
+        if (premiumTabs.has(String(tab || '').toLowerCase())) {
+          const okPremium = await isPremiumUser();
+          if (!okPremium) { showPremiumOnlyToast(); return; }
+        }
         navigateToSection('indicadores', tab);
       });
     });
@@ -1078,22 +1184,14 @@
     try {
       const indicadoresSection = document.getElementById('indicadores');
       if (!indicadoresSection) {
-        // This is not index.html (standalone page)
+        // This is not index.html (standalone page). Always go back to index.html and
+        // let the Indicadores section render inside <main class="content">.
         const key = String(tab || 'geral').toLowerCase();
-
-        // "Visão Geral" deve abrir no dashboard (index.html), não em Indicadores.html
-        if (key === 'geral') {
-          try {
-            sessionStorage.setItem('currentSection', 'indicadores');
-            sessionStorage.setItem('currentSubsection', 'geral');
-          } catch(_){ }
-          (window.top || window).location.assign('/index.html');
-          return;
-        }
-
-        // Outras abas continuam indo para a página dedicada de Indicadores
-        const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
-        (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+        try {
+          sessionStorage.setItem('currentSection', 'indicadores');
+          sessionStorage.setItem('currentSubsection', key || 'geral');
+        } catch(_){ }
+        (window.top || window).location.assign('/index.html');
         return;
       }
       const key = String(tab || 'geral').toLowerCase();
@@ -1134,6 +1232,8 @@
         await renderDominios(indicadoresSection);
       } else if (key === 'prob' || key === 'probabilidade' || key === 'probabilidade-de-sucesso') {
         await renderProbabilidade(indicadoresSection);
+      } else if (key === 'flashcards' || key === 'flashcard') {
+        await renderFlashcardsIndicadores(indicadoresSection);
       } else {
         indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
       }
@@ -2380,25 +2480,31 @@
         const days = daysSel ? Number(daysSel.value) : 30;
         dashSetLoading(true); dashSetError(false);
         try {
-          let sessionToken = '';
-          try {
-            sessionToken = (localStorage.getItem('sessionToken')
-              || localStorage.getItem('nomeUsuario')
-              || localStorage.getItem('nome')
-              || '').trim();
-          } catch(_){ sessionToken=''; }
-          if (!sessionToken) {
-            dashSetLoading(false);
+          const headers = (() => {
+            const h = { 'Accept':'application/json' };
+            try {
+              const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+              const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
+              const jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+              if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+              if (sessionToken) h['X-Session-Token'] = sessionToken;
+            } catch(_){ }
+            return h;
+          })();
+
+          const opts = { headers, credentials: 'include' };
+          const [summaryResp,dailyResp,avgTimeResp] = await Promise.all([
+            fetch(`/api/users/me/stats/summary?days=${days}`, opts),
+            fetch(`/api/users/me/stats/daily?days=${days}`, opts),
+            fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, opts)
+          ]);
+
+          if (summaryResp.status === 401 || summaryResp.status === 403 || dailyResp.status === 401 || dailyResp.status === 403) {
             const wrap = document.getElementById('dashSummary');
             if (wrap) wrap.innerHTML = '<div style="grid-column:1/-1; padding:12px; font-size:0.7rem; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">Sessão não identificada. Faça login para ver estatísticas agregadas.</div>';
+            dashSetLoading(false);
             return;
           }
-          const headers = { 'Accept':'application/json', 'X-Session-Token': sessionToken };
-          const [summaryResp,dailyResp,avgTimeResp] = await Promise.all([
-            fetch(`/api/users/me/stats/summary?days=${days}`, { headers }),
-            fetch(`/api/users/me/stats/daily?days=${days}`, { headers }),
-            fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, { headers })
-          ]);
           if (!summaryResp.ok || !dailyResp.ok){ throw new Error('Resp inválida'); }
           const summaryData = await summaryResp.json();
           const dailyWrap = await dailyResp.json();
@@ -2653,10 +2759,252 @@
     } catch(e){ logger.error('[Sidebar] renderProbabilidade error:', e); container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Probabilidade de Sucesso.</div></div></div>'; }
   }
 
+  async function renderFlashcardsIndicadores(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-flashcards';
+
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Flashcards');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Flashcards';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      const card = document.createElement('div');
+      card.style.maxWidth = '980px';
+      card.style.margin = '10px auto 20px';
+      card.style.background = '#fff';
+      card.style.padding = '14px 16px';
+      card.style.borderRadius = '10px';
+      card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+      card.style.border = '1px solid #e2e8f0';
+
+      card.innerHTML = `
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; margin-bottom:10px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:0.7rem; font-weight:700; color:#334155;">
+              Amostra mínima (n)
+              <input id="fcMinTotal" type="number" min="1" max="200" value="5" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem; width:140px;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:0.7rem; font-weight:700; color:#334155;">
+              Top N
+              <input id="fcTopN" type="number" min="1" max="50" value="10" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem; width:140px;" />
+            </label>
+            <button id="fcReload" type="button" style="padding:7px 10px; border:1px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:8px; cursor:pointer; font-weight:800; font-size:0.75rem;">Atualizar</button>
+          </div>
+          <div id="fcMeta" style="font-size:0.7rem; color:#64748b; font-weight:600;">—</div>
+        </div>
+        <div id="fcBox" style="font-size:0.78rem; color:#334155;">Carregando...</div>
+      `;
+
+      sec.appendChild(card);
+      container.appendChild(sec);
+
+      const escapeHtml = (s) => String(s || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+
+      const int = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? String(Math.round(n)) : '—';
+      };
+      const pct = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? `${n.toFixed(1)}%` : '—';
+      };
+      const rate = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : '—';
+      };
+
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+
+      async function loadFlashcards(){
+        const box = document.getElementById('fcBox');
+        const meta = document.getElementById('fcMeta');
+        const minEl = document.getElementById('fcMinTotal');
+        const topEl = document.getElementById('fcTopN');
+
+        if (box) box.textContent = 'Carregando...';
+        if (meta) meta.textContent = '—';
+
+        const minTotal = (() => {
+          const n = Number(minEl && minEl.value);
+          return Number.isFinite(n) ? Math.min(Math.max(Math.floor(n), 1), 200) : 5;
+        })();
+        const topN = (() => {
+          const n = Number(topEl && topEl.value);
+          return Number.isFinite(n) ? Math.min(Math.max(Math.floor(n), 1), 50) : 10;
+        })();
+
+        const url = `/api/flashcards/insights?min_total=${encodeURIComponent(String(minTotal))}&top_n=${encodeURIComponent(String(topN))}`;
+        const res = await fetch(url, { headers, credentials: 'include', cache: 'no-store' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
+          (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
+          return;
+        }
+        const payload = await res.json().catch(() => null);
+        const fc = payload && payload.flashcards ? payload.flashcards : null;
+        if (!res.ok || !payload || payload.success !== true) {
+          if (box) box.innerHTML = '<div style="color:#b91c1c;">Erro ao carregar indicadores de flashcards.</div>';
+          return;
+        }
+        if (!fc) {
+          if (box) box.innerHTML = '<div style="color:#64748b;">Sem dados de flashcards para exibir.</div>';
+          return;
+        }
+
+        if (meta) meta.textContent = `min_total=${fc.meta && fc.meta.minTotal != null ? fc.meta.minTotal : minTotal} • top_n=${fc.meta && fc.meta.topN != null ? fc.meta.topN : topN}`;
+
+        const perf = fc.performance || {};
+        const attempts = fc.attempts || {};
+
+        const perfRow = (p) => {
+          const obj = p || {};
+          const label = obj.days == null ? 'All-time' : `${obj.days}d`;
+          return `<li><strong>${escapeHtml(label)}</strong>: respondidas=${escapeHtml(int(obj.totalAnswers))}, distintas=${escapeHtml(int(obj.distinctCards))}, acerto=${escapeHtml(pct(obj.correctPct))}, erro=${escapeHtml(pct(obj.errorPct))}</li>`;
+        };
+        const attRow = (a) => {
+          const obj = a || {};
+          const label = obj.days == null ? 'All-time' : `${obj.days}d`;
+          const by = obj.byStatus || {};
+          return `<li><strong>${escapeHtml(label)}</strong>: attempts=${escapeHtml(int(obj.totalAttempts))}, active=${escapeHtml(int(by.active))}, finished=${escapeHtml(int(by.finished))}, abandoned=${escapeHtml(by.abandoned == null ? '—' : int(by.abandoned))}, abandonRate=${escapeHtml(rate(obj.abandonRate))}${obj.note ? ` <span style="color:#64748b;">(${escapeHtml(obj.note)})</span>` : ''}</li>`;
+        };
+        const topList = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem amostra mínima.</div>';
+          return `<ol style="margin:6px 0 0 18px;">${arr.map(it => {
+            const desc = it && it.descricao != null ? String(it.descricao) : '—';
+            return `<li>${escapeHtml(desc)} <span style="color:#64748b;">(erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))})</span></li>`;
+          }).join('')}</ol>`;
+        };
+        const basics = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem respostas suficientes.</div>';
+          return `<ul style="margin:6px 0 0 18px;">${arr.map(it => {
+            const label = it && it.basics ? 'Fundamentos' : 'Não-fundamentos';
+            return `<li>${escapeHtml(label)} <span style="color:#64748b;">(acerto=${escapeHtml(pct(it.acertoPct))}, erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))})</span></li>`;
+          }).join('')}</ul>`;
+        };
+        const topCards = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem cards com amostra mínima.</div>';
+          return `<ol style="margin:6px 0 0 18px;">${arr.map(it => {
+            const id = it && it.id != null ? String(it.id) : '—';
+            const q = it && it.pergunta ? String(it.pergunta) : '';
+            const basicsTxt = it && it.basics ? 'Fundamentos' : '';
+            return `<li><strong>#${escapeHtml(id)}</strong> ${escapeHtml(q)} <span style="color:#64748b;">(erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))}${basicsTxt ? `, ${escapeHtml(basicsTxt)}` : ''})</span></li>`;
+          }).join('')}</ol>`;
+        };
+
+        if (box) {
+          box.innerHTML = `
+            <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px;">
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Performance (respostas)</div>
+                <ul style="margin:0 0 0 18px;">${perfRow(perf.last7)}${perfRow(perf.last30)}${perfRow(perf.allTime)}</ul>
+              </div>
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Engajamento (attempts)</div>
+                <ul style="margin:0 0 0 18px;">${attRow(attempts.last7)}${attRow(attempts.last30)}${attRow(attempts.allTime)}</ul>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:10px;">
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Princípios (30d)</div>
+                ${topList(fc.byPrincipio && fc.byPrincipio.last30)}
+              </div>
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Domínios (30d)</div>
+                ${topList(fc.byDominioDesempenho && fc.byDominioDesempenho.last30)}
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:10px;">
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Abordagens (30d)</div>
+                ${topList(fc.byAbordagem && fc.byAbordagem.last30)}
+              </div>
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Fundamentos vs não (30d)</div>
+                ${basics(fc.byBasics && fc.byBasics.last30)}
+              </div>
+            </div>
+
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-top:10px;">
+              <div style="font-weight:800; color:#334155; margin-bottom:6px;">Top flashcards problemáticos (30d)</div>
+              ${topCards(fc.topCards && fc.topCards.last30)}
+            </div>
+          `;
+        }
+      }
+
+      (function wire(){
+        const btn = document.getElementById('fcReload');
+        const minEl = document.getElementById('fcMinTotal');
+        const topEl = document.getElementById('fcTopN');
+        if (btn) btn.addEventListener('click', () => { loadFlashcards().catch(e => logger.error(e)); });
+        if (minEl) minEl.addEventListener('change', () => { /* noop */ });
+        if (topEl) topEl.addEventListener('change', () => { /* noop */ });
+      })();
+
+      loadFlashcards().catch(e => logger.error(e));
+    } catch(e){
+      logger.error('[Sidebar] renderFlashcardsIndicadores error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Flashcards.</div></div></div>';
+    }
+  }
+
   window.loadIndicadoresIntoSection = loadIndicadoresIntoSection;
 
   // Navigate to section (integrates with existing index.html navigation)
   function navigateToSection(section, subsection) {
+    const currentPath = (() => {
+      try {
+        return (window.location.pathname || '').replace(/\/+$/, '') || '/';
+      } catch(_){
+        return '/';
+      }
+    })();
+    const isInsightsIaPage = /\/pages\/InsightsIA\.html$/i.test(currentPath);
+
     // Save current navigation state
     try {
       sessionStorage.setItem('currentSection', section);
@@ -2703,26 +3051,33 @@
       'indicadores': (tab) => {
         logger.info('[Sidebar] Indicadores clicked, tab:', tab);
         const layout = document.body.getAttribute('data-layout');
-        const qp = tab ? ('tab=' + encodeURIComponent(tab)) : '';
         const canEmbedHere = !!document.getElementById('indicadores');
         if (layout === 'desktop' && canEmbedHere) {
           loadIndicadoresIntoSection(tab || 'geral');
           return;
         }
-        (window.top || window).location.assign('/pages/Indicadores.html' + (qp ? ('?' + qp) : ''));
+        // When we're not in index.html, redirect to index and let it render into main.content
+        // (navigation state is already persisted by navigateToSection()).
+        (window.top || window).location.assign('/index.html');
       },
       'progresso-geral': () => {
         logger.info('[Sidebar] Progresso-geral clicked');
         const layout = document.body.getAttribute('data-layout');
         logger.info('[Sidebar] Current layout:', layout);
         
-        // No modo desktop, carregar dentro do index.html
-        if (layout === 'desktop' && document.getElementById('progresso-geral')) {
+        // Carregar dentro do index.html quando possível
+        if (document.getElementById('progresso-geral')) {
           logger.info('[Sidebar] Desktop mode - loading progresso geral into section');
           loadProgressoGeralIntoSection();
         } else {
-          // No mobile, redirecionar normalmente
-          logger.info('[Sidebar] Mobile mode - redirecting to progressoGeral.html');
+          // Fora do index.html (ex.: InsightsIA.html): abrir dentro do main do index.html
+          if (isInsightsIaPage) {
+            logger.info('[Sidebar] Not in index (InsightsIA) - redirecting to index.html');
+            (window.top || window).location.assign('/index.html');
+            return;
+          }
+          // Comportamento legado: página dedicada
+          logger.info('[Sidebar] Not embeddable - redirecting to progressoGeral.html');
           (window.top || window).location.assign('/pages/progressoGeral.html');
         }
       },
@@ -2732,10 +3087,16 @@
         logger.info('[Sidebar] Current layout:', layout);
         
         // No modo desktop, não precisa verificar senha (usuário já está autenticado)
-        if (layout === 'desktop' && document.getElementById('profile')) {
+        if (document.getElementById('profile')) {
           logger.info('[Sidebar] Desktop mode - loading settings directly');
           loadSettingsIntoProfile();
         } else {
+          // Fora do index.html (ex.: InsightsIA.html): abrir dentro do main do index.html
+          if (isInsightsIaPage) {
+            logger.info('[Sidebar] Not in index (InsightsIA) - redirecting to index.html');
+            (window.top || window).location.assign('/index.html');
+            return;
+          }
           // No mobile, verificar senha antes de redirecionar
           if (window.verifyPasswordForSettings) {
             logger.info('[Sidebar] Mobile mode - verifying password');
@@ -2762,7 +3123,11 @@
         const cardMap = {
           'pmp': () => {
             const card = document.getElementById('card-exam-mock');
-            if (card) card.click();
+            if (card) {
+              card.click();
+            } else if (isInsightsIaPage) {
+              (window.top || window).location.assign('/index.html');
+            }
           },
           'custom': () => {
             // Marcar que estamos indo para o examSetup para evitar loop ao voltar
@@ -2770,15 +3135,23 @@
               sessionStorage.setItem('wentToExamSetup', 'true');
             } catch(e) {}
             
-            // No modo desktop, carregar dentro do index.html
-            if (layout === 'desktop') {
+            // Carregar dentro do index.html quando possível
+            if (document.getElementById('exam-setup')) {
               logger.info('[Sidebar] Desktop mode - loading exam setup into section');
               loadExamSetupIntoSection();
-            } else {
-              // No mobile, redirecionar normalmente
-              logger.info('[Sidebar] Mobile mode - redirecting to examSetup.html');
-              (window.top || window).location.assign('/pages/examSetup.html');
+              return;
             }
+
+            // Fora do index.html (ex.: InsightsIA.html): abrir dentro do main do index.html
+            if (isInsightsIaPage) {
+              logger.info('[Sidebar] Not in index (InsightsIA) - redirecting to index.html');
+              (window.top || window).location.assign('/index.html');
+              return;
+            }
+
+            // Comportamento legado: página dedicada
+            logger.info('[Sidebar] Not embeddable - redirecting to examSetup.html');
+            (window.top || window).location.assign('/pages/examSetup.html');
           },
           'historico': () => {
             // Abrir modal de histórico
@@ -2824,8 +3197,48 @@
     }
   }
 
+  async function ensureAdminAccess() {
+    try { if (window.__isAdmin === true) return true; } catch(_){ }
+
+    try {
+      const token = localStorage.getItem('sessionToken') || '';
+      const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
+      const sessionForHeader = nomeUsuario || token;
+      const jwtTok = localStorage.getItem('jwtToken') || '';
+      const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
+
+      const headers = {};
+      if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+      const resp = await fetch('/api/users/me', { headers, credentials: 'include' });
+      if (!resp.ok) return false;
+      const user = await resp.json().catch(() => null);
+      const ok = !!(user && user.TipoUsuario === 'admin');
+      if (ok) {
+        try { window.__isAdmin = true; } catch(_){ }
+      }
+      return ok;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function showAdminDenied() {
+    try {
+      if (window.showToast) { window.showToast('Acesso restrito: somente admin.'); return; }
+    } catch(_){ }
+    alert('Acesso restrito: somente admin.');
+  }
+
   // Admin action handler
-  function handleAdminAction(action) {
+  async function handleAdminAction(action) {
+    const isAdmin = await ensureAdminAccess();
+    if (!isAdmin) {
+      showAdminDenied();
+      return;
+    }
+
     const token = localStorage.getItem('sessionToken') || '';
     const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
     const sessionForHeader = nomeUsuario || token;
@@ -2834,23 +3247,36 @@
       'chat-host': () => {
         const url = `/chat/admin?sessionToken=${encodeURIComponent(sessionForHeader)}`;
         try {
-          const w = (window.top || window).open(url, '_blank', 'noopener');
-          if (!w) (window.top || window).location.assign(url);
+          const topWin = (window.top || window);
+          const w = topWin.open(url, '_blank', 'noopener,noreferrer');
+          if (!w) {
+            // Fallback that tends to bypass popup blockers better than window.open().
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }
         } catch (_) {
           (window.top || window).location.assign(url);
         }
       },
       'cadastrar-questao': () => {
-        (window.top || window).location.assign(`/pages/admin/questionForm.html?sessionToken=${encodeURIComponent(token)}`);
+        (window.top || window).location.assign('/pages/admin/questionForm.html');
       },
       'cadastrar-bulk': () => {
-        (window.top || window).location.assign(`/pages/admin/questionBulk.html?sessionToken=${encodeURIComponent(token)}`);
+        (window.top || window).location.assign('/pages/admin/questionBulk.html');
       },
       'feedback': () => {
-        (window.top || window).location.assign(`/pages/admin/feedbackResponses.html?sessionToken=${encodeURIComponent(token)}`);
+        (window.top || window).location.assign('/pages/admin/feedbackResponses.html');
       },
       'notificacoes': () => {
-        (window.top || window).location.assign(`/pages/admin/notifications.html?sessionToken=${encodeURIComponent(token)}`);
+        (window.top || window).location.assign('/pages/admin/notifications.html');
+      },
+      'flashcards': () => {
+        (window.top || window).location.assign('/pages/admin/flashcards.html');
       },
       'fixture': () => {
         // Open admin modal and scroll to fixture section
@@ -2969,33 +3395,17 @@
     }
   }
 
-  // Check if user is admin
+  // Check if user is admin (UI visibility only)
   async function checkAdminAccess() {
     try {
-      const token = localStorage.getItem('sessionToken');
-      const nomeUsuario = localStorage.getItem('nomeUsuario');
-      const sessionForHeader = nomeUsuario || token;
-      
-      if (!token) return;
-      
-      const jwtTok = localStorage.getItem('jwtToken') || '';
-      const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
-      const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
-      
-      const headers = {};
-      if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
-      if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-      
-      const response = await fetch(probeUrl, { headers, method: 'GET' });
-      
-      if (response.ok) {
-        // User is admin, show the admin menu
-        const adminAccordion = document.getElementById('sidebarAdminAccordion');
-        if (adminAccordion) {
-          adminAccordion.style.display = 'block';
-        }
-      }
-    } catch (e) {
+      const adminAccordion = document.getElementById('sidebarAdminAccordion');
+      if (adminAccordion) adminAccordion.style.display = 'none';
+
+      const ok = await ensureAdminAccess();
+      if (!ok) return;
+
+      if (adminAccordion) adminAccordion.style.display = 'block';
+    } catch (_e) {
       // Not admin or error, keep menu hidden
     }
   }

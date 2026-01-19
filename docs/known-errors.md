@@ -14,7 +14,7 @@ Este documento lista problemas recorrentes e suas causas/soluções confirmadas 
   - `frontend/script_exam.js`: reforçado para incluir explicitamente `X-CSRF-Token` obtido via `window.csrfManager.token` no POST `/api/exams/select`.
   - Backend (previamente): Cookie `SameSite=lax` em desenvolvimento e relaxo de origem para localhost/file://.
 - Como verificar:
-  - Network → POST /api/exams/select deve conter os cabeçalhos `X-CSRF-Token`, `X-Session-Token`, `X-Exam-Type`; cookie `csrfToken` enviado.
+  - Network → POST /api/exams/select deve conter `X-CSRF-Token` e autenticação (cookie `sessionToken` ou `Authorization: Bearer <token>` / `X-Session-Token: <token>`), além do cookie `csrfToken`.
   - Resposta 200 deve trazer `questions` com `id`, `descricao`, `options`, `imagem_url`.
 - Workaround (se persistir):
   - Atualizar/forçar `SIMULADOS_CONFIG.BACKEND_BASE` para mesma origem do backend.
@@ -68,3 +68,10 @@ node backend/scripts/unlock_user.js seuemail@dominio.com
 ## Referências de arquivos
 - Frontend: `frontend/utils/csrf.js`, `frontend/script_exam.js`, `frontend/pages/examFull.html`.
 - Backend: `backend/middleware/csrfProtection.js`, `backend/controllers/examController.js`, `backend/routes/auth.js`, `backend/scripts/unlock_user.js`.
+
+## 5. 401 com `SESSION_REVOKED` após novo login
+- Sintomas: chamadas autenticadas começam a retornar 401 com mensagem do tipo “Sua sessão foi encerrada porque houve um novo login”.
+- Causa raiz: política de **sessão única** (JWT inclui `sid` e o backend compara com `UserActiveSession.SessionId`). Quando o usuário faz login em outro dispositivo/navegador, a sessão anterior é revogada.
+- Como resolver:
+  - Refazer login e usar o token/cookie mais recente.
+  - Em clientes API (Postman/app), sempre atualizar o token após login.

@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { security } = require('../utils/logger');
+const { forbidden } = require('./errors');
 
 // In-memory token store (in production, use Redis)
 const tokenStore = new Map();
@@ -24,11 +25,11 @@ function csrfProtection(req, res, next) {
 
   // Get token from header or body
   const tokenFromRequest = req.headers['x-csrf-token'] || 
-                          req.body._csrf || 
-                          req.query._csrf;
+                          (req.body && req.body._csrf) || 
+                          (req.query && req.query._csrf);
   
   // Get token from cookie
-  const tokenFromCookie = req.cookies.csrfToken;
+  const tokenFromCookie = req.cookies && req.cookies.csrfToken;
 
   // Validate token exists
   if (!tokenFromRequest || !tokenFromCookie) {
@@ -43,10 +44,7 @@ function csrfProtection(req, res, next) {
         referer: req.headers.referer
       });
     } catch(_) {}
-    return res.status(403).json({ 
-      error: 'CSRF token missing',
-      code: 'CSRF_MISSING'
-    });
+    return next(forbidden('CSRF token missing', 'CSRF_MISSING'));
   }
 
   // Validate tokens match
@@ -60,10 +58,7 @@ function csrfProtection(req, res, next) {
         cookieLen: String(tokenFromCookie||'').length
       });
     } catch(_) {}
-    return res.status(403).json({ 
-      error: 'CSRF token invalid',
-      code: 'CSRF_INVALID'
-    });
+    return next(forbidden('CSRF token invalid', 'CSRF_INVALID'));
   }
 
   // Validate token in store and not expired
@@ -85,10 +80,7 @@ function csrfProtection(req, res, next) {
     tokenStore.delete(tokenFromCookie);
     security.csrfFailure(req);
     try { console.warn('[CSRF] Token expired', { path: req.path, method: req.method }); } catch(_) {}
-    return res.status(403).json({ 
-      error: 'CSRF token expired',
-      code: 'CSRF_EXPIRED'
-    });
+    return next(forbidden('CSRF token expired', 'CSRF_EXPIRED'));
   }
 
   // Validate origin/referer for additional security (relaxed for localhost and file:// testing)
@@ -112,10 +104,7 @@ function csrfProtection(req, res, next) {
     security.csrfFailure(req);
     security.suspiciousActivity(req, `CSRF origin mismatch: ${origin}`);
     try { console.warn('[CSRF] Origin mismatch', { origin, referer: req.headers.referer }); } catch(_) {}
-    return res.status(403).json({ 
-      error: 'Invalid origin',
-      code: 'CSRF_ORIGIN_MISMATCH'
-    });
+    return next(forbidden('Invalid origin', 'CSRF_ORIGIN_MISMATCH'));
   }
 
   next();
@@ -128,7 +117,7 @@ function generateCsrfToken(req, res) {
   // Store token with metadata
   tokenStore.set(token, {
     createdAt: Date.now(),
-    sessionId: req.cookies.sessionToken || 'anonymous'
+    sessionId: (req.cookies && req.cookies.sessionToken) || 'anonymous'
   });
 
   // Set cookie with token

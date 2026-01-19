@@ -2,6 +2,7 @@ const express = require('express');
 const requireUserSession = require('../middleware/requireUserSession');
 const requireAdmin = require('../middleware/requireAdmin');
 const db = require('../models');
+const { unauthorized, forbidden, serviceUnavailable } = require('../middleware/errors');
 
 const router = express.Router();
 
@@ -45,25 +46,25 @@ async function requirePremium(req, res, next) {
 		if (res.headersSent) return;
 
 		const userId = req.user && req.user.id;
-		if (!userId) return res.status(401).json({ error: 'Session token required' });
+		if (!userId) return next(unauthorized('Session token required', 'SESSION_TOKEN_REQUIRED'));
 
 		// Use session token as cache key (preferred), fallback to user id
 		const tokenKey = String((req.cookies && req.cookies.sessionToken) || req.get('X-Session-Token') || userId);
 		const cached = cacheGet(tokenKey);
 		if (cached) {
 			if (cached.value === true) return next();
-			return res.status(403).json({ error: 'Premium required' });
+			return next(forbidden('Premium required', 'PREMIUM_REQUIRED'));
 		}
 
 		const user = await db.User.findByPk(Number(userId));
 		if (!user) {
 			cacheSet(tokenKey, false, 30_000);
-			return res.status(401).json({ error: 'User not found' });
+			return next(unauthorized('User not found', 'USER_NOT_FOUND'));
 		}
 
 		const isPremium = user.BloqueioAtivado === false;
 		cacheSet(tokenKey, isPremium, 60_000);
-		if (!isPremium) return res.status(403).json({ error: 'Premium required' });
+		if (!isPremium) return next(forbidden('Premium required', 'PREMIUM_REQUIRED'));
 		return next();
 	} catch (e) {
 		return next(e);
@@ -167,11 +168,12 @@ async function proxyToChatService(req, res, next) {
 	try {
 		const base = getChatServiceBaseUrl();
 		if (!base) {
-			return res.status(503).json({
-				ok: false,
-				error: 'CHAT_SERVICE_UNCONFIGURED',
-				message: 'CHAT_SERVICE_BASE_URL não configurada no backend',
-			});
+			return next(
+				serviceUnavailable(
+					'CHAT_SERVICE_BASE_URL não configurada no backend',
+					'CHAT_SERVICE_UNCONFIGURED'
+				)
+			);
 		}
 
 		// router is mounted at /chat, so req.url starts with /...

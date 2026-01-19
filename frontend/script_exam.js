@@ -23,6 +23,14 @@
             const ANSWERS = {};
             try { window.ANSWERS = ANSWERS; } catch(e){}
 
+            // Debug/build stamp to confirm which script version is active in the browser.
+            const EXAM_SCRIPT_VERSION = '20260116_11';
+            try { window.__EXAM_SCRIPT_VERSION = EXAM_SCRIPT_VERSION; } catch(_){ }
+
+            // Per-question feedback cache (used by "Conferir resposta" for advanced interactions)
+            const MATCH_FEEDBACK = {};
+            try { window.MATCH_FEEDBACK = MATCH_FEEDBACK; } catch(e){}
+
             // Current exam blueprint (durations, checkpoints, multi-select, etc.)
             let EXAM_BP = (function(){
               try {
@@ -179,6 +187,83 @@
               } catch(e) { logger.warn('saveAnswersForCurrentSession failed', e); }
             }
 
+            function normalizeQuestionsAndMigrateAnswers(questions){
+              try {
+                if (!Array.isArray(questions)) return questions;
+                for (let i = 0; i < questions.length; i++) {
+                  const q = questions[i];
+                  if (!q || typeof q !== 'object') continue;
+
+                  // Normalize id field (some payloads/caches use Id)
+                  if ((q.id === undefined || q.id === null) && (q.Id !== undefined && q.Id !== null)) {
+                    try { q.id = q.Id; } catch(_){ }
+                  }
+
+                  // Normalize type field (some payloads/caches use tiposlug)
+                  if ((q.type === undefined || q.type === null || String(q.type).trim() === '') && (q.tiposlug || q.tipoSlug || q.TipoSlug)) {
+                    try { q.type = q.tiposlug || q.tipoSlug || q.TipoSlug; } catch(_){ }
+                  }
+
+                  // Normalize interaction spec field
+                  if (!q.interacao && (q.interaction || q.interacaospec)) {
+                    try { q.interacao = q.interaction || q.interacaospec; } catch(_){ }
+                  }
+
+                  // Migrate any existing idx-based answers to id-based keys once an id becomes available.
+                  try {
+                    const hasId = (q.id !== undefined && q.id !== null && String(q.id).trim() !== '');
+                    if (!hasId) continue;
+                    const idKey = `q_${q.id}`;
+                    const idxKey = `idx_${i}`;
+                    if (ANSWERS && ANSWERS[idxKey] && !ANSWERS[idKey]) {
+                      ANSWERS[idKey] = ANSWERS[idxKey];
+                    }
+                  } catch(_){ }
+                }
+              } catch(_){ }
+              return questions;
+            }
+
+            function getInteractionSpec(q){
+              try {
+                if (!q || typeof q !== 'object') return null;
+                return (q.interacao || q.interaction || q.interacaospec) || null;
+              } catch(_){
+                return null;
+              }
+            }
+
+            function inferQuestionType(q){
+              try {
+                const raw = (q && (q.type || q.tiposlug || q.tipoSlug || q.TipoSlug)) || '';
+                const t = (typeof raw === 'string') ? raw.trim().toLowerCase() : '';
+                if (t) return t;
+
+                const spec = getInteractionSpec(q);
+                const kind = (spec && typeof spec.kind === 'string') ? spec.kind.trim().toLowerCase() : '';
+                if (kind) return kind;
+
+                // Heuristic: match_columns spec usually has left/right arrays.
+                const left = Array.isArray(spec && spec.left) ? spec.left : null;
+                const right = Array.isArray(spec && spec.right) ? spec.right : null;
+                if (left && right && left.length && right.length) return 'match_columns';
+              } catch(_){ }
+              return '';
+            }
+
+            function allQuestionsHaveValidIds(questions){
+              try {
+                if (!Array.isArray(questions) || !questions.length) return false;
+                return questions.every(q => {
+                  const raw = (q && (q.id ?? q.Id ?? q.questionId ?? q.QuestionId ?? q.question_id ?? q.questionID)) ?? null;
+                  const n = Number(raw);
+                  return Number.isFinite(n) && n > 0;
+                });
+              } catch(_){
+                return false;
+              }
+            }
+
             // toast helper (now supports centered positioning)
             // Usage:
             //  - showToast('Mensagem')
@@ -207,6 +292,143 @@
                   }catch(e){}
                 }, ms);
               } catch(e) {}
+            }
+
+            function persistLastSubmitError(obj){
+              try { window.__lastSubmitError = obj; } catch(_){ }
+              try {
+                if (obj != null) {
+                  localStorage.setItem('lastSubmitError', JSON.stringify(obj, null, 2));
+                  localStorage.setItem('lastSubmitErrorSavedAt', new Date().toISOString());
+                }
+              } catch(_){ }
+            }
+
+            function renderPersistentSubmitError(errMsg, detailsObj){
+              try {
+                const status = $('status');
+                const hasStatus = !!status;
+                if (hasStatus) {
+                  status.style.display = '';
+                  status.innerHTML = '';
+                }
+
+                const title = document.createElement('div');
+                title.style.fontWeight = '700';
+                title.style.marginBottom = '6px';
+                title.style.color = '#b91c1c';
+                title.textContent = 'Erro ao enviar respostas';
+
+                const msg = document.createElement('div');
+                msg.style.marginBottom = '10px';
+                msg.textContent = `${errMsg} (script v=${EXAM_SCRIPT_VERSION})`;
+
+                if (hasStatus) {
+                  status.appendChild(title);
+                  status.appendChild(msg);
+                }
+
+                const detailsRow = document.createElement('div');
+                detailsRow.style.display = 'flex';
+                detailsRow.style.gap = '8px';
+                detailsRow.style.alignItems = 'center';
+                detailsRow.style.marginBottom = '8px';
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = 'Copiar detalhes';
+                btn.style.cssText = 'background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;';
+
+                const hint = document.createElement('div');
+                hint.style.color = '#475569';
+                hint.style.fontSize = '.85rem';
+                try {
+                  const savedAt = localStorage.getItem('lastSubmitErrorSavedAt') || '';
+                  hint.textContent = savedAt ? ('salvo em lastSubmitError às ' + savedAt) : 'salvo em lastSubmitError';
+                } catch(_){ hint.textContent = 'salvo em lastSubmitError'; }
+
+                detailsRow.appendChild(btn);
+                detailsRow.appendChild(hint);
+                if (hasStatus) status.appendChild(detailsRow);
+
+                const pre = document.createElement('pre');
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.style.wordBreak = 'break-word';
+                pre.style.maxHeight = '260px';
+                pre.style.overflow = 'auto';
+                pre.style.padding = '10px';
+                pre.style.border = '1px solid #e5e7eb';
+                pre.style.borderRadius = '10px';
+                pre.style.background = '#fff';
+                let txt = '';
+                try { txt = JSON.stringify(detailsObj, null, 2); } catch(_){ txt = String(detailsObj); }
+                pre.textContent = txt;
+                if (hasStatus) status.appendChild(pre);
+
+                btn.addEventListener('click', async ()=>{
+                  try {
+                    const text = pre.textContent || '';
+                    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                      await navigator.clipboard.writeText(text);
+                      try { showToast('Detalhes copiados.', 1400, true); } catch(_){ }
+                      return;
+                    }
+                  } catch(_){ }
+                  // Fallback: select and copy
+                  try {
+                    const ta = document.createElement('textarea');
+                    ta.value = pre.textContent || '';
+                    ta.style.position = 'fixed';
+                    ta.style.left = '-9999px';
+                    document.body.appendChild(ta);
+                    ta.focus();
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    try { showToast('Detalhes copiados.', 1400, true); } catch(_){ }
+                  } catch(_){
+                    try { showToast('Não foi possível copiar automaticamente.', 1800, true); } catch(__){ }
+                  }
+                });
+
+                // Fallback UI: if #status isn't available/visible, show a modal overlay with the same content.
+                if (!hasStatus) {
+                  try {
+                    const existing = document.getElementById('submitErrorModal');
+                    if (existing) existing.remove();
+
+                    const modal = document.createElement('div');
+                    modal.id = 'submitErrorModal';
+                    modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+                    const panel = document.createElement('div');
+                    panel.style.cssText = 'width:min(920px,100%);max-height:85vh;overflow:auto;background:#fff;border-radius:14px;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,.25);padding:14px;';
+
+                    const top = document.createElement('div');
+                    top.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;';
+
+                    const left = document.createElement('div');
+                    left.appendChild(title);
+                    left.appendChild(msg);
+
+                    const closeBtn = document.createElement('button');
+                    closeBtn.type = 'button';
+                    closeBtn.textContent = 'Fechar';
+                    closeBtn.style.cssText = 'background:#fff;color:#0f172a;border:1px solid #0f172a;border-radius:10px;padding:6px 10px;cursor:pointer;font-weight:700;';
+                    closeBtn.addEventListener('click', ()=>{ try { modal.remove(); } catch(_){ } });
+
+                    top.appendChild(left);
+                    top.appendChild(closeBtn);
+                    panel.appendChild(top);
+                    panel.appendChild(detailsRow);
+                    panel.appendChild(pre);
+                    modal.appendChild(panel);
+
+                    modal.addEventListener('click', (e)=>{ if (e.target === modal) { try { modal.remove(); } catch(_){ } } });
+                    document.body.appendChild(modal);
+                  } catch(_){ }
+                }
+              } catch(_){ }
             }
 
             // Progress persistence (current index and elapsed seconds)
@@ -457,11 +679,156 @@
               // determine storage key for this question
               const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${idx}`;
 
+              // Tracks whether this question rendered a custom interaction UI (vs. radio/checkbox list)
+              let renderedAnswers = false;
+
               // Diagnostic log for first render of each question (once)
               try {
                 if (!q.__logged) { logger.debug('[exam] renderQuestion idx', idx, 'id', q.id, 'has imagem_url?', !!(q.imagem_url||q.imagemUrl)); q.__logged = true; }
               } catch(_){}
 
+              // Advanced type: match_columns
+              try {
+                const qType = inferQuestionType(q);
+                if (qType === 'match_columns') {
+                  const ac = document.getElementById('answersContainer');
+                  if (ac) ac.innerHTML = '';
+
+                  const spec = getInteractionSpec(q);
+                  if (!spec || !window.MatchColumns || typeof window.MatchColumns.create !== 'function') {
+                    if (ac) ac.textContent = 'Interação indisponível.';
+                    renderedAnswers = true;
+                    try { const contBtn = $('continueBtn'); if (contBtn) contBtn.disabled = true; } catch(_){ }
+                    // continue so the rest of the UI (back button, etc) still updates
+                  } else {
+                    const prev = ANSWERS[qKey];
+                    const prevPairs = (prev && prev.response && prev.response.pairs && typeof prev.response.pairs === 'object') ? prev.response.pairs : null;
+
+                    function isAnswered(pairs){
+                      try {
+                        const left = Array.isArray(spec && spec.left) ? spec.left : [];
+                        if (!left.length) return false;
+                        const p = (pairs && typeof pairs === 'object') ? pairs : {};
+                        return left.every(it => {
+                          const lid = String(it && it.id);
+                          const rid = p[lid];
+                          return rid != null && String(rid).trim() !== '';
+                        });
+                      } catch(_){ return false; }
+                    }
+
+                    function setContinueDisabled(answered){
+                      try {
+                        const contBtn = $('continueBtn');
+                        if (!contBtn) return;
+                        const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                        const isCheckpoint = cps.includes(idx);
+                        const isExtraGate = (idx === 59 || idx === 119);
+                        const allowOverride = isContinueOverrideEnabled();
+                        const inPause = isPauseActive();
+                        const gate = (isCheckpoint || isExtraGate) && !allowOverride;
+                        contBtn.disabled = inPause || gate || !answered;
+                      } catch(_){ }
+                    }
+
+                    function renderFeedback(){
+                      try {
+                        const data = MATCH_FEEDBACK[qKey];
+                        if (!data) return;
+                        const root = document.createElement('div');
+                        root.style.marginTop = '12px';
+                        root.style.padding = '10px';
+                        root.style.border = '1px solid #e5e7eb';
+                        root.style.borderRadius = '10px';
+                        root.style.background = '#fff';
+                        const title = document.createElement('div');
+                        title.style.fontWeight = '700';
+                        title.style.marginBottom = '6px';
+                        title.textContent = 'Conferência';
+                        root.appendChild(title);
+
+                        try {
+                          const reason = data && data.gradeReason ? String(data.gradeReason) : '';
+                          if (reason && data && data.isCorrect !== true) {
+                            const info = document.createElement('div');
+                            info.style.marginBottom = '8px';
+                            info.style.color = '#64748b';
+                            info.style.fontSize = '.85rem';
+                            info.textContent = 'Motivo (debug): ' + reason;
+                            root.appendChild(info);
+                          }
+                        } catch(_){ }
+
+                        const left = Array.isArray(spec.left) ? spec.left : [];
+                        const right = Array.isArray(spec.right) ? spec.right : [];
+                        const rightById = new Map(right.map(r => [String(r.id), r]));
+                        const userPairs = (data && data.userPairs && typeof data.userPairs === 'object') ? data.userPairs : {};
+                        const correctPairs = (data && data.correctPairs && typeof data.correctPairs === 'object') ? data.correctPairs : {};
+
+                        left.forEach(item => {
+                          const lid = String(item && item.id);
+                          const ltxt = String(item && item.text || '');
+                          const ur = userPairs[lid];
+                          const cr = correctPairs[lid];
+                          const uTxt = ur ? String((rightById.get(String(ur)) || {}).text || '') : '';
+                          const cTxt = cr ? String((rightById.get(String(cr)) || {}).text || '') : '';
+                          const ok = (ur != null && cr != null && String(ur) === String(cr));
+
+                          const row = document.createElement('div');
+                          row.style.display = 'grid';
+                          row.style.gridTemplateColumns = '1fr 1fr';
+                          row.style.gap = '10px';
+                          row.style.padding = '6px 0';
+                          row.style.borderTop = '1px solid #f1f5f9';
+
+                          const a = document.createElement('div');
+                          a.textContent = ltxt;
+
+                          const b = document.createElement('div');
+                          b.textContent = ok ? uTxt : (uTxt ? (uTxt + ' (correta: ' + cTxt + ')') : ('(vazio) (correta: ' + cTxt + ')'));
+                          b.style.color = ok ? '#16a34a' : '#b91c1c';
+
+                          row.appendChild(a);
+                          row.appendChild(b);
+                          root.appendChild(row);
+                        });
+
+                        ac.appendChild(root);
+                      } catch(_){ }
+                    }
+
+                    const mcInst = window.MatchColumns.create(ac, spec, {
+                      mode: 'exam',
+                      valuePairs: prevPairs,
+                      onChange: (val)=>{
+                        try {
+                          try { delete MATCH_FEEDBACK[qKey]; } catch(_){ }
+                          // Store redundantly to be resilient to older shapes / partial migrations
+                          const pairs = (val && val.pairs && typeof val.pairs === 'object') ? val.pairs : null;
+                          ANSWERS[qKey] = { response: val, pairs };
+                          try { saveAnswersForCurrentSession(); } catch(_){ }
+                          setContinueDisabled(isAnswered(pairs));
+                          try { const qc = $('questionContent'); if (qc) qc.classList.remove('input-error'); } catch(_){ }
+                        } catch(e) {
+                          try { logger.warn('[exam] match_columns onChange failed', e); } catch(_){ }
+                        }
+                      }
+                    });
+
+                    // Keep a handle to the widget instance so we can always read current pairs at submit time.
+                    try {
+                      if (!window.__mcInstances) window.__mcInstances = {};
+                      window.__mcInstances[qKey] = mcInst;
+                    } catch(_){ }
+
+                    setContinueDisabled(isAnswered(prevPairs));
+                    renderFeedback();
+                    renderedAnswers = true;
+                  }
+                }
+              } catch(_){ }
+
+              if (!renderedAnswers) {
                 // Render dynamic options
                 const ac = document.getElementById('answersContainer');
                 if (ac) {
@@ -587,6 +954,8 @@
                   } catch(e){}
                 }
 
+              }
+
               
               try { const lb = $('likeBtn'); if (lb) lb.setAttribute('aria-pressed','false'); } catch(e){}
               try { const db = $('dislikeBtn'); if (db) db.setAttribute('aria-pressed','false'); } catch(e){}
@@ -612,7 +981,23 @@
                   // Requisito adicional: ao chegar nos índices 59 e 119 (0-based; rótulo 60 e 120),
                   // desabilitar também como se fossem checkpoints, a menos que haja override.
                   const isExtraGate = (idx === 59 || idx === 119);
-                  contBtn.disabled = inPause || ((isCheckpoint || isExtraGate) && !allowOverride);
+                  let disabled = inPause || ((isCheckpoint || isExtraGate) && !allowOverride);
+                  try {
+                    const qType = inferQuestionType(q);
+                    if (qType === 'match_columns') {
+                      const spec = getInteractionSpec(q);
+                      const left = Array.isArray(spec && spec.left) ? spec.left : [];
+                      const prev = ANSWERS[qKey];
+                      const pairs = (prev && prev.response && prev.response.pairs && typeof prev.response.pairs === 'object') ? prev.response.pairs : {};
+                      const answered = left.length > 0 && left.every(it => {
+                        const lid = String(it && it.id);
+                        const rid = pairs[lid];
+                        return rid != null && String(rid).trim() !== '';
+                      });
+                      if (!answered) disabled = true;
+                    }
+                  } catch(_){ }
+                  contBtn.disabled = disabled;
                   // Ao chegar na última questão, alterar rótulo para "Enviar"
                   try {
                     const total = Array.isArray(QUESTIONS) ? QUESTIONS.length : 0;
@@ -649,6 +1034,33 @@
               } catch(e){}
             }
 
+            // Show a warning banner when a full exam starts without pretest questions
+            // (expectedTotal - returnedTotal === 5 and no questions are marked as pretest)
+            function updatePretestWarning(examSelectResponse, mappedQuestions){
+              try {
+                const el = document.getElementById('pretestWarning');
+                if (!el) return;
+
+                const mode = (examSelectResponse && examSelectResponse.examMode != null) ? String(examSelectResponse.examMode).toLowerCase() : '';
+                if (mode !== 'full') { el.style.display = 'none'; return; }
+
+                const expectedTotal = (examSelectResponse && examSelectResponse.exam && typeof examSelectResponse.exam.numeroQuestoes === 'number')
+                  ? Number(examSelectResponse.exam.numeroQuestoes)
+                  : (function(){ try { return Number(localStorage.getItem('examQuestionCount')) || 0; } catch(_){ return 0; } })();
+
+                const returnedTotal = (examSelectResponse && typeof examSelectResponse.total === 'number')
+                  ? Number(examSelectResponse.total)
+                  : (Array.isArray(mappedQuestions) ? mappedQuestions.length : 0);
+
+                const qs = Array.isArray(mappedQuestions) ? mappedQuestions : [];
+                const pretestCount = qs.filter(q => q && (q._isPreTest === true || q.isPreTest === true)).length;
+
+                // Only show this specific warning when the shortage matches the pretest target and none exist.
+                const missingPretest = expectedTotal > 0 && returnedTotal > 0 && (expectedTotal - returnedTotal) === 5 && pretestCount === 0;
+                el.style.display = missingPretest ? '' : 'none';
+              } catch(_){ }
+            }
+
             function nextQuestion(){
               // Guardar contra avanço durante pausa ativa, independente do estado visual do botão
               if (isPauseActive()){
@@ -666,6 +1078,22 @@
                   return;
                 }
               } catch(_){}
+              // Best-effort capture for match_columns before moving on.
+              try {
+                const q = QUESTIONS[currentIdx];
+                const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${currentIdx}`;
+                const qType = inferQuestionType(q);
+                if (qType === 'match_columns') {
+                  const inst = (window.__mcInstances && window.__mcInstances[qKey]) ? window.__mcInstances[qKey] : null;
+                  const v = inst && typeof inst.getValue === 'function' ? inst.getValue() : null;
+                  const pairs = (v && v.pairs && typeof v.pairs === 'object') ? v.pairs : null;
+                  if (pairs) {
+                    ANSWERS[qKey] = { response: { pairs }, pairs };
+                    try { saveAnswersForCurrentSession(); } catch(_){ }
+                  }
+                }
+              } catch(_){ }
+
               if (currentIdx < QUESTIONS.length - 1){
                 currentIdx++;
                 renderQuestion(currentIdx);
@@ -679,14 +1107,184 @@
               }
             }
 
+            // Expose a best-effort snapshot helper so other UI (e.g., Grid de questões) can
+            // persist the current question's answer state before opening overlays.
+            async function captureCurrentAnswerSnapshot(){
+              try {
+                const idx = (typeof currentIdx === 'number') ? currentIdx : 0;
+                const q = (Array.isArray(QUESTIONS) && QUESTIONS[idx]) ? QUESTIONS[idx] : null;
+                if (!q) return { ok: false, reason: 'no_question' };
+                const qIdRaw = (q && (q.id ?? q.Id ?? q.questionId ?? q.QuestionId ?? q.question_id ?? q.questionID)) ?? null;
+                const qid = (qIdRaw != null && String(qIdRaw).trim() !== '') ? Number(qIdRaw) : null;
+                const idKey = (Number.isFinite(qid) && qid > 0) ? `q_${qid}` : null;
+                const idxKey = `idx_${idx}`;
+                const qKey = idKey || idxKey;
+                const qType = inferQuestionType(q);
+                if (qType === 'match_columns') {
+                  const spec = getInteractionSpec(q);
+
+                  function normalizePairs(p){
+                    const out = {};
+                    if (!p || typeof p !== 'object') return out;
+                    for (const k of Object.keys(p)) {
+                      const key = String(k).trim();
+                      const v = p[k];
+                      if (!key) continue;
+                      if (v == null) { out[key] = null; continue; }
+                      const s = String(v).trim();
+                      out[key] = s ? s : null;
+                    }
+                    return out;
+                  }
+
+                  function isComplete(pairs){
+                    try {
+                      const left = Array.isArray(spec && spec.left) ? spec.left : [];
+                      if (!left.length) return Object.keys(pairs || {}).length > 0;
+                      const p = (pairs && typeof pairs === 'object') ? pairs : {};
+                      return left.every(it => {
+                        const lid = String(it && it.id);
+                        const rid = p[lid];
+                        return rid != null && String(rid).trim() !== '';
+                      });
+                    } catch(_){ return false; }
+                  }
+
+                  const inst = (window.__mcInstances && (window.__mcInstances[qKey] || (idKey && window.__mcInstances[idxKey])))
+                    ? (window.__mcInstances[qKey] || (idKey ? window.__mcInstances[idxKey] : null))
+                    : null;
+                  const v = inst && typeof inst.getValue === 'function' ? inst.getValue() : null;
+                  const pairs = (v && v.pairs && typeof v.pairs === 'object') ? normalizePairs(v.pairs) : null;
+                  if (pairs && isComplete(pairs)) {
+                    ANSWERS[qKey] = { response: { pairs }, pairs: pairs };
+                    if (idKey && qKey !== idxKey && ANSWERS[idxKey] && !ANSWERS[idKey]) {
+                      try { ANSWERS[idKey] = ANSWERS[qKey]; } catch(_){ }
+                    }
+                    try { saveAnswersForCurrentSession(); } catch(_){ }
+                    return { ok: true, type: 'match_columns', key: qKey };
+                  }
+                  return { ok: false, type: 'match_columns', key: qKey, reason: 'no_pairs' };
+                }
+                // For non-typed questions, we already store on change; just ensure persisted.
+                try { saveAnswersForCurrentSession(); } catch(_){ }
+                return { ok: true, type: qType || 'unknown', key: qKey };
+              } catch (e) {
+                return { ok: false, reason: String(e && e.message || e) };
+              }
+            }
+
             async function submitExam(){
               try {
                 const answers = [];
                 for (let i = 0; i < QUESTIONS.length; i++){
                   const q = QUESTIONS[i];
-                  const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${i}`;
-                  const a = ANSWERS[qKey];
-                  const questionId = q && q.id ? Number(q.id) : null;
+                  const qIdRaw = (q && (q.id ?? q.Id ?? q.questionId ?? q.QuestionId ?? q.question_id ?? q.questionID)) ?? null;
+                  const questionId = (qIdRaw != null && String(qIdRaw).trim() !== '') ? Number(qIdRaw) : null;
+                  if (!Number.isFinite(questionId) || questionId <= 0) {
+                    const msg = 'Questão sem ID válido no envio. Atualize a página e tente novamente.';
+                    console.error('Question missing id at submit', { index: i, q });
+                    try { showToast(msg, 2600, true); } catch(_){ }
+                    throw new Error(msg);
+                  }
+                  const idKey = (Number.isFinite(questionId) && questionId > 0) ? `q_${questionId}` : null;
+                  const idxKey = `idx_${i}`;
+                  const qKey = idKey || idxKey;
+                  let a = (ANSWERS && ANSWERS[qKey]) ? ANSWERS[qKey] : null;
+                  if (!a && idKey && ANSWERS && ANSWERS[idxKey]) {
+                    a = ANSWERS[idxKey];
+                    // migrate so future reads use the id-based key
+                    try { ANSWERS[idKey] = a; } catch(_){ }
+                  }
+                  const qType = inferQuestionType(q);
+                  const mcInst = (window.__mcInstances && (window.__mcInstances[qKey] || (idKey && window.__mcInstances[idxKey])))
+                    ? (window.__mcInstances[qKey] || (idKey ? window.__mcInstances[idxKey] : null))
+                    : null;
+                  const isMatchColumns = (qType === 'match_columns') || (!!(mcInst && typeof mcInst.getValue === 'function'));
+
+                  if (isMatchColumns) {
+                    const obj = { questionId };
+                    const spec = getInteractionSpec(q);
+
+                    function normalizePairs(p){
+                      const out = {};
+                      if (!p || typeof p !== 'object') return out;
+                      for (const k of Object.keys(p)) {
+                        const key = String(k).trim();
+                        const v = p[k];
+                        if (!key) continue;
+                        if (v == null) { out[key] = null; continue; }
+                        const s = String(v).trim();
+                        out[key] = s ? s : null;
+                      }
+                      return out;
+                    }
+
+                    function isComplete(pairs){
+                      try {
+                        const left = Array.isArray(spec && spec.left) ? spec.left : [];
+                        if (!left.length) return Object.keys(pairs || {}).length > 0;
+                        const p = (pairs && typeof pairs === 'object') ? pairs : {};
+                        return left.every(it => {
+                          const lid = String(it && it.id);
+                          const rid = p[lid];
+                          return rid != null && String(rid).trim() !== '';
+                        });
+                      } catch(_){ return false; }
+                    }
+
+                    // Be resilient to older/localStorage shapes:
+                    // - { response: { pairs: {...} } }
+                    // - { pairs: {...} }
+                    // - direct { pairs: {...} }
+                    let pairsFromStorage = null;
+                    try {
+                      let resp = null;
+                      if (a && a.response && typeof a.response === 'object') resp = a.response;
+                      else if (a && a.pairs && typeof a.pairs === 'object') resp = { pairs: a.pairs };
+                      else if (a && typeof a === 'object' && a.pairs && typeof a.pairs === 'object') resp = a;
+                      if (resp && typeof resp === 'string') {
+                        try { resp = JSON.parse(resp); } catch(_){ }
+                      }
+                      const p = (resp && typeof resp === 'object' && resp.pairs && typeof resp.pairs === 'object') ? resp.pairs : (resp && typeof resp === 'object' ? resp : null);
+                      if (p && typeof p === 'object') pairsFromStorage = normalizePairs(p);
+                    } catch(_){ pairsFromStorage = null; }
+
+                    // Always read directly from the widget instance (source of truth for current UI state).
+                    let pairsFromWidget = null;
+                    try {
+                      const v = mcInst && typeof mcInst.getValue === 'function' ? mcInst.getValue() : null;
+                      const p = (v && v.pairs && typeof v.pairs === 'object') ? v.pairs : null;
+                      if (p) pairsFromWidget = normalizePairs(p);
+                    } catch(_){ pairsFromWidget = null; }
+
+                    const widgetOk = pairsFromWidget && isComplete(pairsFromWidget);
+                    const storageOk = pairsFromStorage && isComplete(pairsFromStorage);
+                    const pairs = widgetOk ? pairsFromWidget : (storageOk ? pairsFromStorage : (pairsFromWidget || pairsFromStorage));
+
+                    if (!Number.isFinite(questionId) || questionId <= 0) {
+                      const msg = 'Questão sem ID válido no envio (match_columns). Atualize a página e tente novamente.';
+                      try { showToast(msg, 2600, true); } catch(_){ }
+                      throw new Error(msg);
+                    }
+                    if (!pairs || !isComplete(pairs)) {
+                      const msg = `Resposta de associação incompleta na questão ID ${questionId}. Volte e confirme todos os pareamentos.`;
+                      try { showToast(msg, 2600, true); } catch(_){ }
+                      throw new Error(msg);
+                    }
+
+                    // Persist the final normalized pairs we are about to submit.
+                    try {
+                      ANSWERS[qKey] = { response: { pairs }, pairs };
+                      if (idKey && qKey !== idxKey && ANSWERS[idxKey] && !ANSWERS[idKey]) {
+                        ANSWERS[idKey] = ANSWERS[qKey];
+                      }
+                      saveAnswersForCurrentSession();
+                    } catch(_){ }
+
+                    obj.response = { pairs };
+                    answers.push(obj);
+                    continue;
+                  }
                   const isMulti = (function(){
                     try { if (q && typeof q.type === 'string') { const t = q.type.toLowerCase(); return (t === 'checkbox' || t === 'multi' || t === 'multiple'); } } catch(e){}
                     return !!(EXAM_BP && EXAM_BP.multiplaSelecao);
@@ -704,19 +1302,64 @@
                   }
                 }
 
-                const payload = { sessionId: window.currentSessionId || null, answers };
+                const payload = { sessionId: window.currentSessionId || null, answers, clientScriptVersion: (typeof EXAM_SCRIPT_VERSION !== 'undefined') ? EXAM_SCRIPT_VERSION : null };
                 const token = localStorage.getItem('sessionToken') || '';
                 // Ensure BACKEND_BASE has a proper default value
                 const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                 const submitUrl = baseUrl.replace(/\/$/, '') + '/api/exams/submit';
                 const resp = await fetch(submitUrl, {
                   method: 'POST',
-                  headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token }; try { const examType = (localStorage.getItem('examType')||'').trim(); if (examType) h['X-Exam-Type'] = examType; const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(),
+                  headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token }; try { h['X-Client-Script-Version'] = (typeof EXAM_SCRIPT_VERSION !== 'undefined') ? String(EXAM_SCRIPT_VERSION) : ''; } catch(_){} try { const examType = (localStorage.getItem('examType')||'').trim(); if (examType) h['X-Exam-Type'] = examType; const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(),
                   body: JSON.stringify(payload),
                   credentials: 'include'
                 });
-                if (!resp.ok) throw new Error('submit failed: ' + resp.status);
+                if (!resp.ok) {
+                  let extra = '';
+                  let parsed = null;
+                  try {
+                    const ct = String(resp.headers.get('content-type') || '').toLowerCase();
+                    if (ct.includes('application/json')) {
+                      const j = await resp.json();
+                      parsed = j;
+                      const msg = (j && (j.message || j.error || j.msg)) ? String(j.message || j.error || j.msg) : '';
+                      const code = (j && (j.code || j.errorCode)) ? String(j.code || j.errorCode) : '';
+                      const missing = (j && j.details && Array.isArray(j.details.missing)) ? j.details.missing : null;
+                      const received = (j && j.details && Array.isArray(j.details.receivedQuestionIds)) ? j.details.receivedQuestionIds : null;
+                      extra = [
+                        code,
+                        msg,
+                        (missing ? ('missing=' + JSON.stringify(missing)) : ''),
+                        (received ? ('receivedQuestionIds=' + JSON.stringify(received)) : '')
+                      ].filter(Boolean).join(' | ');
+                    } else {
+                      const t = await resp.text();
+                      extra = t ? String(t).slice(0, 300) : '';
+                    }
+                  } catch(_){ }
+                  const errMsg = 'submit failed: ' + resp.status + (extra ? (' - ' + extra) : '');
+                  try { persistLastSubmitError(parsed || { status: resp.status, extra }); } catch(_){ }
+                  try { renderPersistentSubmitError(errMsg, parsed || { status: resp.status, extra }); } catch(_){ }
+                  try {
+                    console.error('[submit] error details saved', {
+                      status: resp.status,
+                      scriptVersion: (typeof EXAM_SCRIPT_VERSION !== 'undefined') ? EXAM_SCRIPT_VERSION : null,
+                      parsed
+                    });
+                    console.error('[submit] You can copy from localStorage.lastSubmitError or window.__lastSubmitError');
+                  } catch(_){ }
+                  try { showToast(errMsg + ' (detalhes no painel)', 2600, true); } catch(_){ }
+                  throw new Error(errMsg);
+                }
                 const data = await resp.json();
+
+                // If backend provides attemptId, persist it for review navigation.
+                try {
+                  const attemptId = Number(data && (data.attemptId || data.examAttemptId || data.id || data.Id));
+                  if (Number.isFinite(attemptId) && attemptId > 0) {
+                    try { sessionStorage.setItem('currentReviewAttemptId', String(attemptId)); } catch(_){ }
+                    try { localStorage.setItem('lastExamAttemptId', String(attemptId)); } catch(_){ }
+                  }
+                } catch(_){ }
 
                 // show results in #status area
                 try {
@@ -801,11 +1444,25 @@
                   return data;
                 }
                 
-                // Após envio no modo quiz (exam.html), limpar dados e redirecionar para a página inicial
+                // Após envio no modo quiz (exam.html), limpar dados e redirecionar para a revisão do exame submetido
                 try {
                   if (typeof window.clearExamDataShared === 'function') { window.clearExamDataShared(); }
                   else if (typeof clearExamData === 'function') { clearExamData(); }
                 } catch(_){ }
+
+                try {
+                  const path = (window.location && window.location.pathname) ? String(window.location.pathname) : '';
+                  const isQuizPage = /\/pages\/exam\.html$/i.test(path);
+                  if (isQuizPage) {
+                    const attemptId = Number(data && (data.attemptId || data.examAttemptId || data.id || data.Id));
+                    if (Number.isFinite(attemptId) && attemptId > 0) {
+                      const url = '/pages/examReviewQuiz.html?examId=' + encodeURIComponent(String(attemptId));
+                      (window.top || window).location.assign(url);
+                      return data;
+                    }
+                  }
+                } catch(_){ }
+
                 try { (window.top || window).location.assign('/'); } catch(_){ (window.top || window).location.href = '/'; }
 
                 return data;
@@ -823,6 +1480,25 @@
                   const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${i}`;
                   const a = ANSWERS[qKey];
                   const questionId = q && q.id ? Number(q.id) : null;
+                  const qType = (q && typeof q.type === 'string') ? q.type.trim().toLowerCase() : '';
+
+                  if (qType === 'match_columns') {
+                    let resp = null;
+                    try {
+                      if (a && a.response && typeof a.response === 'object') resp = a.response;
+                      else if (a && a.pairs && typeof a.pairs === 'object') resp = { pairs: a.pairs };
+                    } catch(_){ resp = null; }
+                    if (!resp) {
+                      try {
+                        const inst = (window.__mcInstances && window.__mcInstances[qKey]) ? window.__mcInstances[qKey] : null;
+                        const v = inst && typeof inst.getValue === 'function' ? inst.getValue() : null;
+                        const pairs = (v && v.pairs && typeof v.pairs === 'object') ? v.pairs : null;
+                        if (pairs) resp = { pairs };
+                      } catch(_){ }
+                    }
+                    if (questionId && resp) answers.push({ questionId, response: resp });
+                    continue;
+                  }
                   const isMulti = (function(){
                     try { if (q && typeof q.type === 'string') { const t = q.type.toLowerCase(); return (t === 'checkbox' || t === 'multi' || t === 'multiple'); } } catch(e){}
                     return !!(EXAM_BP && EXAM_BP.multiplaSelecao);
@@ -858,6 +1534,7 @@
 
             // expose submitExam globally so pages can trigger submission on finalize
             try { window.submitExam = submitExam; } catch(e) {}
+            try { window.captureCurrentAnswerSnapshot = captureCurrentAnswerSnapshot; } catch(e) {}
 
             /* Feedback like/dislike toggles */
             function initFeedback(){
@@ -1088,6 +1765,8 @@
                     const qKey = (q && (q.id !== undefined && q.id !== null)) ? `q_${q.id}` : `idx_${currentIdx}`;
                     const a = ANSWERS[qKey] || null;
 
+                    const qType = (q && typeof q.type === 'string') ? q.type.trim().toLowerCase() : '';
+
                     const isMulti = (function(){
                       try {
                         if (q && typeof q.type === 'string') {
@@ -1100,7 +1779,10 @@
                     })();
 
                     const payload = { questionId: Number(q.id) };
-                    if (isMulti) {
+                    if (qType === 'match_columns') {
+                      const respObj = (a && a.response && typeof a.response === 'object') ? a.response : null;
+                      if (respObj) payload.response = respObj;
+                    } else if (isMulti) {
                       const ids = Array.isArray(a && a.optionIds) ? a.optionIds.map(Number).filter(n => Number.isFinite(n) && n > 0) : [];
                       if (ids.length) payload.optionIds = ids;
                     } else {
@@ -1125,6 +1807,39 @@
                       throw new Error(data && data.error ? data.error : ('Falha ao conferir resposta (' + resp.status + ')'));
                     }
                     const data = await resp.json();
+
+                    if (qType === 'match_columns') {
+                      try { MATCH_FEEDBACK[qKey] = data; } catch(_){ }
+                      if (data && data.isCorrect === true) {
+                        try { showToast('Acertou!', 1400); } catch(_){ }
+                        try { renderQuestion(currentIdx); } catch(_){ }
+                        return;
+                      }
+
+                      // Disregard the answer on wrong (mirrors legacy behavior)
+                      try {
+                        ANSWERS[qKey] = { disregarded: true };
+                        saveAnswersForCurrentSession();
+                      } catch(_){ }
+
+                      // allow continue even if nothing selected (unless pause/checkpoint gate)
+                      try {
+                        const contBtn = $('continueBtn');
+                        if (contBtn) {
+                          const cps = (EXAM_BP && EXAM_BP.pausas && Array.isArray(EXAM_BP.pausas.checkpoints)) ? EXAM_BP.pausas.checkpoints : [60,120];
+                          const isCheckpoint = cps.includes(currentIdx);
+                          const isExtraGate = (currentIdx === 59 || currentIdx === 119);
+                          const allowOverride = isContinueOverrideEnabled();
+                          const inPause = isPauseActive();
+                          const gate = (isCheckpoint || isExtraGate) && !allowOverride;
+                          contBtn.disabled = inPause || gate;
+                        }
+                      } catch(_){ }
+
+                      try { showToast('Resposta desconsiderada.', 1600); } catch(_){ }
+                      try { renderQuestion(currentIdx); } catch(_){ }
+                      return;
+                    }
 
                     const ac = document.getElementById('answersContainer');
                     if (!ac) return;
@@ -1266,6 +1981,23 @@
                             if (parsed && typeof parsed === 'object') Object.keys(parsed).forEach(k => { ANSWERS[k] = parsed[k]; });
                           }
                         } catch(e) {}
+                        // Normalize cached question shape and migrate any idx_* answers to q_<id> keys.
+                        try { normalizeQuestionsAndMigrateAnswers(QUESTIONS); } catch(_){ }
+                        try { saveAnswersForCurrentSession(); } catch(_){ }
+
+                        // Hard requirement: every question must have an id. If cache is corrupted/legacy, refetch.
+                        if (!allQuestionsHaveValidIds(QUESTIONS)) {
+                          try {
+                            localStorage.removeItem(`questions_${window.currentSessionId}`);
+                          } catch(_){ }
+                          try {
+                            // keep answers, but remove progress so we don't jump to a bad index
+                            localStorage.removeItem(`progress_${window.currentSessionId}`);
+                          } catch(_){ }
+                          QUESTIONS = [];
+                          try { window.QUESTIONS = QUESTIONS; } catch(_){ }
+                          // fall through to network fetch
+                        } else {
                         try {
                           const progRaw = localStorage.getItem(`progress_${window.currentSessionId}`) || null;
                           if (progRaw) {
@@ -1276,10 +2008,11 @@
                             }
                           }
                         } catch(e) {}
-                        // ensure there's at least an answers object persisted for this session
-                        try { if (window.currentSessionId && !localStorage.getItem(`answers_${window.currentSessionId}`)) saveAnswersForCurrentSession(); } catch(e){}
+                        // ensure answers are persisted (also captures any migrations)
+                        try { saveAnswersForCurrentSession(); } catch(e){}
                         initExam();
                         return;
+                        }
                       }
                     }
                   } catch(e) {}
@@ -1318,7 +2051,29 @@
                   } catch(e) { /* ignore parse errors */ }
                   const examType = (function(){ try { return localStorage.getItem('examType') || 'pmp'; } catch(e){ return 'pmp'; } })();
                   const payload = { count, examType };
-                  const bypassFilters = (Number(count) === 180);
+
+                  // Admin emulator: start exam with explicit question IDs (stored by examFull.html button)
+                  try {
+                    const rawIds = localStorage.getItem('examEmulatorQuestionIds');
+                    if (rawIds) {
+                      const parsed = JSON.parse(rawIds);
+                      if (Array.isArray(parsed) && parsed.length) {
+                        const ids = parsed.map(Number).filter(n => Number.isFinite(n) && n > 0).map(n => Math.floor(n));
+                        // De-duplicate preserving order
+                        const seen = new Set();
+                        const uniq = [];
+                        for (const id of ids) { if (!seen.has(id)) { seen.add(id); uniq.push(id); } }
+                        if (uniq.length) {
+                          payload.questionIds = uniq;
+                          payload.count = uniq.length;
+                          try { localStorage.setItem('examQuestionCount', String(uniq.length)); } catch(_){ }
+                          // Hint mode to backend (optional)
+                          try { payload._emulator = true; } catch(_){ }
+                        }
+                      }
+                    }
+                  } catch(_){ }
+                  const bypassFilters = !!(payload && payload.questionIds) || (Number(count) === 180);
                   if (!bypassFilters) {
                     if (areas && areas.length) payload.areas = areas;
                     if (grupos && grupos.length) payload.grupos = grupos;
@@ -1409,8 +2164,13 @@
                             } catch(e){}
                             if (data && Array.isArray(data.questions) && data.questions.length) {
                               QUESTIONS = data.questions.map(q => ({
-                                id: q.id,
-                                type: q.type || null,
+                                id: (q && (q.id != null ? q.id : (q.Id != null ? q.Id : null))),
+                                type: (q && (q.type || q.tiposlug || q.tipoSlug)) || null,
+                                // Keep interaction spec (e.g., match_columns)
+                                interacao: (q.interacao || q.interaction || null),
+                                interacaospec: (q.interacaospec || null),
+                                // Keep pretest marker if present
+                                _isPreTest: (q._isPreTest === true || q.isPreTest === true),
                                 descricao: q.descricao,
                                 explicacao: q.explicacao,
                                 idprocesso: q.idprocesso,
@@ -1420,6 +2180,12 @@
                                 imagemUrl: (q.imagemUrl || q.imagem_url || q.image_url || q.imageUrl || null),
                                 options: (q.options || []).map(o => ({ id: o.id || o.Id || null, text: (o.text || o.descricao || o.Descricao || '') }))
                               }));
+                              try { normalizeQuestionsAndMigrateAnswers(QUESTIONS); } catch(_){ }
+                              try { saveAnswersForCurrentSession(); } catch(_){ }
+                              if (!allQuestionsHaveValidIds(QUESTIONS)) {
+                                throw new Error('Questões recebidas sem id. Atualize a página e tente novamente.');
+                              }
+                              try { updatePretestWarning(data, QUESTIONS); } catch(_){ }
                               try {
                                 const withImg = QUESTIONS.filter(q => q.imagem_url || q.imagemUrl);
                                 if (withImg.length) {
@@ -1522,6 +2288,9 @@
                     initExam();
                     return;
                   }
+
+                  // Clear emulator IDs after a successful selection to avoid surprising future starts.
+                  try { if (payload && payload.questionIds) localStorage.removeItem('examEmulatorQuestionIds'); } catch(_){ }
                   const data = await resp.json();
                   logger.debug('[exam] fetched data', data && { total: data.total, questions: (data.questions||[]).length });
                   try { if (data && Array.isArray(data.questions) && data.questions.length) { logger.debug('[exam] sample question[0] raw', data.questions[0]); } } catch(e){}
@@ -1584,8 +2353,13 @@
                       }
                     } catch(e) { /* ignore */ }
                     QUESTIONS = data.questions.map(q => ({
-                      id: q.id,
-                      type: q.type || null,
+                      id: (q && (q.id != null ? q.id : (q.Id != null ? q.Id : null))),
+                      type: (q && (q.type || q.tiposlug || q.tipoSlug)) || null,
+                      // Keep interaction spec (e.g., match_columns)
+                      interacao: (q.interacao || q.interaction || null),
+                      interacaospec: (q.interacaospec || null),
+                      // Keep pretest marker if present
+                      _isPreTest: (q._isPreTest === true || q.isPreTest === true),
                       descricao: q.descricao,
                       explicacao: q.explicacao,
                       idprocesso: q.idprocesso,
@@ -1595,6 +2369,12 @@
                       imagemUrl: (q.imagemUrl || q.imagem_url || q.image_url || q.imageUrl || null),
                       options: (q.options || []).map(o => ({ id: o.id || o.Id || null, text: (o.text || o.descricao || o.Descricao || '') }))
                     }));
+                    try { normalizeQuestionsAndMigrateAnswers(QUESTIONS); } catch(_){ }
+                    try { saveAnswersForCurrentSession(); } catch(_){ }
+                    if (!allQuestionsHaveValidIds(QUESTIONS)) {
+                      throw new Error('Questões recebidas sem id. Atualize a página e tente novamente.');
+                    }
+                    try { updatePretestWarning(data, QUESTIONS); } catch(_){ }
                     try { window.QUESTIONS = QUESTIONS; } catch(_){}
                     // Debug: log questão 266 após mapeamento
                     try {

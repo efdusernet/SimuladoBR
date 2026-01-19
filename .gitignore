@@ -22,6 +22,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Local smoke test logs
+backend/smoke_backend_*.log
+
 # Build artifacts
 dist/
 build/
@@ -33,6 +36,10 @@ coverage/
 
 # Local helper files
 frontend/commitmsg.txt
+
+# Temporary generation artifacts
+.git_added_paths.txt
+FEATURES_AVAILABLE.with-dates.md
 
 # Local/untracked SQL drafts
 backend/sql/041_alter_explicacaoguia_add_descricao.sql

@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/csrf.js"></script>
+  <script src="/utils/layoutManager.js"></script>
+  <script src="/utils/logout.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Flashcards - SimuladosBR</title>
+
+  <link rel="stylesheet" href="/layouts/mobile-layout.css">
+  <link rel="stylesheet" href="/layouts/desktop-layout.css" media="(min-width: 768px)">
+  <link rel="stylesheet" href="/layouts/fullscreen-layout.css">
+
+  <style>
+    :root{
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --border: #1f2937;
+    }
+    body{ margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#f8fafc; color:#0f172a; }
+
+    /* Mobile quick menu (hidden on desktop w/ sidebar) */
+    .menu-toggle{
+      position: fixed; top: 8px; left: 8px; z-index: 1100;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 8px;
+      border: 1px solid #d6d9e0; background:#fff; cursor:pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .menu-toggle:hover{ background:#f7f9fc; }
+    .ui-menu-icon-set-hamburger-mobile{
+      display:inline-block; width: 18px; height: 2px; background: #333; border-radius: 2px;
+      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+    }
+    .menu-panel{
+      position: fixed; top: 44px; left: 8px; z-index: 1099;
+      background:#fff; border:1px solid #d6d9e0; border-radius:10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      min-width: 180px; padding: 6px; display:none;
+    }
+    .menu-panel.open{ display:block; }
+    .menu-panel a{ display:block; padding: 6px 8px; color:#222; text-decoration:none; border-radius:6px; }
+    .menu-panel a:hover{ background:#f4f7fb; }
+    body[data-layout='desktop'] .menu-toggle{ display: none !important; }
+    body[data-layout='desktop'] .menu-panel{ display: none !important; }
+
+    .wrap{
+      padding: 56px 12px 20px;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
+                  radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
+                  linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .container{
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+
+    .header{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(17,24,39,0.86);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .header h1{ margin: 0; font-size: 1.05rem; }
+    .header .muted{ color: rgba(229,231,235,0.76); font-size: 0.85rem; }
+
+    .controls{
+      display:flex;
+      align-items:flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: rgba(17,24,39,0.86);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+    .field{ display:flex; flex-direction: column; gap: 4px; }
+    .field label{ font-size: 0.8rem; color: rgba(229,231,235,0.78); }
+    .field input{
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+      padding: 0 10px;
+      outline: none;
+      min-width: 120px;
+    }
+    .field select{
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      background: #fff;
+      color: #0f172a;
+      padding: 0 10px;
+      outline: none;
+      min-width: 180px;
+    }
+    .field select:focus-visible{
+      outline: 3px solid rgba(59,130,246,0.65);
+      outline-offset: 2px;
+    }
+    .btn{
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.10);
+      color: #fff;
+      padding: 0 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn:hover{ background: rgba(255,255,255,0.16); }
+    .btn:disabled{ opacity: 0.55; cursor: not-allowed; }
+
+    .btn-primary{
+      background: rgba(59,130,246,0.30);
+      border-color: rgba(59,130,246,0.38);
+    }
+    .btn-primary:hover{ background: rgba(59,130,246,0.40); }
+
+    .warn{
+      background: rgba(239,68,68,0.16);
+      border: 1px solid rgba(239,68,68,0.28);
+      color: #fecaca;
+      padding: 10px 12px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      font-weight: 800;
+    }
+
+    .field.check{
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      height: 34px;
+    }
+    .field.check label{ margin: 0; cursor: pointer; }
+    .field.check input[type="checkbox"]{ width: 16px; height: 16px; }
+
+    .status{ font-size: 0.85rem; color: rgba(229,231,235,0.78); margin: 8px 0 10px; }
+    .status.error{ color: #fecaca; }
+
+    /* Anki-like cards */
+    .anki-grid{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .anki-grid.disabled{
+      opacity: 0.55;
+      filter: saturate(0.8);
+      pointer-events: none;
+    }
+    .anki-card{
+      perspective: 1100px;
+      width: 100%;
+      min-height: 180px;
+    }
+    .anki-inner{
+      position: relative;
+      width: 100%;
+      min-height: 180px;
+      transform-style: preserve-3d;
+      transition: transform 420ms cubic-bezier(.2,.8,.2,1);
+    }
+    .anki-card.flipped .anki-inner{
+      transform: rotateY(180deg);
+    }
+    .anki-face{
+      position:absolute;
+      inset: 0;
+      border-radius: 14px;
+      backface-visibility: hidden;
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: 0 14px 30px rgba(0,0,0,0.30);
+      overflow:hidden;
+      display:flex;
+      flex-direction: column;
+    }
+
+    .anki-front{
+      background: linear-gradient(135deg, rgba(34,197,94,0.92), rgba(16,185,129,0.86));
+      color: #052e16;
+    }
+    .anki-back{
+      transform: rotateY(180deg);
+      background: linear-gradient(135deg, rgba(21,128,61,0.92), rgba(5,150,105,0.82));
+      color: #ecfdf5;
+    }
+
+    .anki-top{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.14);
+      border-bottom: 1px solid rgba(255,255,255,0.16);
+    }
+    .anki-left{ display:flex; align-items:center; gap:8px; flex-wrap: wrap; }
+    .anki-right{ display:flex; align-items:center; gap:10px; }
+    .anki-badge{
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.22);
+      color: inherit;
+      white-space: nowrap;
+    }
+    .anki-tag{
+      font-size: 0.70rem;
+      font-weight: 900;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(2, 6, 23, 0.22);
+      color: inherit;
+      white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+    .anki-hint{ font-size: 0.78rem; opacity: 0.9; }
+
+    .anki-toggle{
+      height: 30px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.22);
+      padding: 0 10px;
+      font-weight: 900;
+      cursor: pointer;
+      background: rgba(239,68,68,0.22);
+      color: inherit;
+      box-shadow: 0 2px 0 rgba(0,0,0,0.25);
+      transition: transform 120ms ease, background 150ms ease, box-shadow 150ms ease;
+      user-select: none;
+    }
+    .anki-toggle:hover{ background: rgba(239,68,68,0.28); }
+    .anki-toggle.correct{
+      background: rgba(34,197,94,0.26);
+      box-shadow: inset 0 2px 0 rgba(0,0,0,0.25);
+      transform: translateY(1px);
+    }
+    .anki-toggle.correct:hover{ background: rgba(34,197,94,0.32); }
+    .anki-toggle:disabled{ opacity: 0.65; cursor: not-allowed; }
+
+    .anki-body{
+      padding: 12px 12px 14px;
+      display:flex;
+      flex: 1;
+      align-items:center;
+      justify-content: center;
+      text-align:center;
+    }
+    .anki-text{
+      font-size: 0.98rem;
+      line-height: 1.35;
+      font-weight: 800;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .anki-back .anki-text{ font-weight: 700; }
+
+    .anki-btn{
+      appearance: none;
+      border: none;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+    }
+    .anki-btn:focus-visible{
+      outline: 3px solid rgba(59,130,246,0.65);
+      outline-offset: 4px;
+      border-radius: 16px;
+    }
+
+
+    /* Desktop layout integration: keep content readable */
+    body[data-layout='desktop'] .content{ background: transparent !important; }
+  </style>
+</head>
+<body>
+  <div id="sidebarMount"></div>
+  <main class="content">
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+      <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
+    </button>
+    <nav class="menu-panel" id="menuPanel" aria-label="Menu">
+      <a href="/index.html">Home</a>
+      <a href="/pages/examSetup.html">Simulados</a>
+      <a href="#" class="page-logout">Sair</a>
+    </nav>
+
+    <section class="wrap">
+      <div class="container">
+        <header class="header">
+          <div>
+            <h1>Flashcards (Modelo Anki)</h1>
+            <div class="muted">Clique no card para virar (pergunta → resposta).</div>
+          </div>
+          <div class="muted" id="cardsCount">—</div>
+        </header>
+
+        <div class="controls" aria-label="Controles">
+          <input id="versionId" type="hidden" value="2" />
+
+          <button id="btnNewGame" class="btn btn-primary" type="button">Novo jogo</button>
+
+          <div class="field">
+            <label for="filterPrincipio">Princípio</label>
+            <select id="filterPrincipio">
+              <option value="">(todos)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="filterDominioDes">Domínio de Desempenho</label>
+            <select id="filterDominioDes">
+              <option value="">(todos)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="filterAbordagem">Abordagem</label>
+            <select id="filterAbordagem">
+              <option value="">(todos)</option>
+            </select>
+          </div>
+
+          <div class="field check" title="Mostra apenas flashcards marcados como fundamentos (basics=true).">
+            <input id="filterBasics" type="checkbox" />
+            <label for="filterBasics">Fundamentos</label>
+          </div>
+
+          <button id="btnLoad" class="btn" type="button">Carregar</button>
+          <button id="btnShuffle" class="btn" type="button">Embaralhar</button>
+          <button id="btnReset" class="btn" type="button">Desvirar todos</button>
+        </div>
+
+        <div id="gameWarning" class="warn" role="alert">Clique em 'Novo jogo' para iniciar os filtros de flashcards e jogar</div>
+
+        <div id="status" class="status" aria-live="polite"></div>
+
+        <div id="grid" class="anki-grid" aria-label="Flashcards"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      // Layout
+      try { LayoutManager.init(); } catch(e) { try { logger.warn('[flashcards] LayoutManager init failed', e); } catch(_){} }
+
+      // Mobile menu
+      (function(){
+        const btn = document.getElementById('menuToggle');
+        const panel = document.getElementById('menuPanel');
+        if (!btn || !panel) return;
+        btn.addEventListener('click', (e) => {
+          try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+          panel.classList.toggle('open');
+        });
+        document.addEventListener('click', (e) => {
+          try { if (!panel.contains(e.target) && e.target !== btn) panel.classList.remove('open'); } catch(_){ }
+        });
+      })();
+
+      const els = {
+        versionId: document.getElementById('versionId'),
+        btnNewGame: document.getElementById('btnNewGame'),
+        filterPrincipio: document.getElementById('filterPrincipio'),
+        filterDominioDes: document.getElementById('filterDominioDes'),
+        filterAbordagem: document.getElementById('filterAbordagem'),
+        filterBasics: document.getElementById('filterBasics'),
+        btnLoad: document.getElementById('btnLoad'),
+        btnShuffle: document.getElementById('btnShuffle'),
+        btnReset: document.getElementById('btnReset'),
+        grid: document.getElementById('grid'),
+        status: document.getElementById('status'),
+        count: document.getElementById('cardsCount'),
+		gameWarning: document.getElementById('gameWarning'),
+      };
+    let game = { active: false, attemptId: null };
+
+    function setGameActive(active){
+    game.active = !!active;
+    const disabled = !game.active;
+    if (els.filterPrincipio) els.filterPrincipio.disabled = disabled;
+    if (els.filterDominioDes) els.filterDominioDes.disabled = disabled;
+    if (els.filterAbordagem) els.filterAbordagem.disabled = disabled;
+    if (els.filterBasics) els.filterBasics.disabled = disabled;
+    if (els.btnLoad) els.btnLoad.disabled = disabled;
+    if (els.btnShuffle) els.btnShuffle.disabled = disabled;
+    if (els.btnReset) els.btnReset.disabled = disabled;
+    if (els.grid) els.grid.classList.toggle('disabled', disabled);
+    if (els.gameWarning) els.gameWarning.style.display = disabled ? 'block' : 'none';
+    }
+
+    async function startNewGame(){
+    setStatus('Iniciando novo jogo...', 'info');
+    resetFlips();
+    if (els.grid) els.grid.innerHTML = '';
+    if (els.count) els.count.textContent = '—';
+
+    const versionId = Number.parseInt(String(els.versionId && els.versionId.value || '2'), 10);
+    const safeVersionId = Number.isInteger(versionId) && versionId > 0 ? versionId : 2;
+    if (els.versionId) els.versionId.value = String(safeVersionId);
+
+    try {
+      const resp = await fetch('/api/flashcards/attempts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ versionId: safeVersionId })
+      });
+      if (!resp.ok) {
+        let msg = `Falha ao iniciar (${resp.status}). Verifique login.`;
+        try { const data = await resp.json(); if (data && data.message) msg = String(data.message); } catch(_){ }
+        setStatus(msg, 'error');
+        return;
+      }
+      const data = await resp.json().catch(()=>null);
+      const attemptId = data && data.attemptId ? Number.parseInt(String(data.attemptId), 10) : null;
+      if (!attemptId || !Number.isInteger(attemptId)) {
+        setStatus('Falha ao iniciar: attemptId inválido.', 'error');
+        return;
+      }
+      game.attemptId = attemptId;
+      setGameActive(true);
+      // Always start a new game with 'Fundamentos' unchecked.
+      // This avoids carrying over persisted filter state into a fresh attempt.
+      if (els.filterBasics) {
+        els.filterBasics.checked = false;
+        persistBasicsOnly();
+      }
+      setStatus('Jogo iniciado. Selecione filtros e clique em Carregar.', 'info');
+    } catch (e) {
+      try { logger.error('[flashcards] startNewGame error', e); } catch(_){ }
+      setStatus('Erro ao iniciar novo jogo. Verifique servidor e login.', 'error');
+    }
+    }
+
+      let currentItems = [];
+	  let metaMaps = { principios: new Map(), dominios: new Map(), abordagens: new Map() };
+
+	  const LS_KEYS = {
+		basicsOnly: 'flashcards.filters.basicsOnly'
+	  };
+
+      function setStatus(msg, type){
+        if (!els.status) return;
+        els.status.textContent = msg || '';
+        els.status.classList.toggle('error', type === 'error');
+      }
+
+      function getAuthHeaders(){
+        const headers = {};
+        try {
+          const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+          if (sessionToken) headers['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        try {
+          const jwtTok = (localStorage.getItem('jwt') || '').trim();
+          const jwtType = (localStorage.getItem('jwt_type') || localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+        } catch(_){ }
+        return headers;
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+	  function getLabelFromMap(map, id, fallbackPrefix){
+		if (id == null || String(id).trim() === '') return null;
+		const key = Number.parseInt(String(id), 10);
+		if (!Number.isInteger(key)) return `${fallbackPrefix} ${String(id)}`;
+		const v = map.get(key);
+		return v ? String(v) : `${fallbackPrefix} #${key}`;
+	  }
+
+      function render(items){
+        currentItems = Array.isArray(items) ? items : [];
+        if (els.count) els.count.textContent = `${currentItems.length} cards`;
+
+        if (!els.grid) return;
+        if (!currentItems.length) {
+          els.grid.innerHTML = '';
+
+      const anyMetaSelected = !!(
+      (els.filterPrincipio && String(els.filterPrincipio.value||'').trim()) ||
+      (els.filterDominioDes && String(els.filterDominioDes.value||'').trim()) ||
+      (els.filterAbordagem && String(els.filterAbordagem.value||'').trim()) ||
+      (els.filterBasics && els.filterBasics.checked)
+      );
+      if (!anyMetaSelected) {
+      setStatus('Selecione um filtro (Princípio, Domínio, Abordagem ou Fundamentos) para carregar flashcards.', 'info');
+      } else {
+      setStatus('Nenhum flashcard encontrado com os filtros selecionados.', 'info');
+      }
+          return;
+        }
+
+        setStatus('Clique em um card para ver a resposta.', 'info');
+
+        els.grid.innerHTML = currentItems.map((it) => {
+          const q = escapeHtml(it.pergunta);
+          const a = escapeHtml(it.resposta);
+          const code = escapeHtml(it.versao_code || `v#${it.id_versao_pmbok}`);
+          const id = escapeHtml(it.id);
+
+		  const tags = [];
+		  const principioLabel = getLabelFromMap(metaMaps.principios, it.idprincipio, 'Princípio');
+		  const dominioLabel = getLabelFromMap(metaMaps.dominios, it.iddominio_desempenho, 'Domínio');
+		  const abordagemLabel = getLabelFromMap(metaMaps.abordagens, it.idabordagem, 'Abordagem');
+		  if (principioLabel) tags.push(escapeHtml(principioLabel));
+		  if (dominioLabel) tags.push(escapeHtml(dominioLabel));
+		  if (abordagemLabel) tags.push(escapeHtml(abordagemLabel));
+		  if (it.basics === true || String(it.basics).toLowerCase() === 'true') tags.push('Fundamentos');
+		  const tagsHtml = tags.map(t => `<span class="anki-tag">${t}</span>`).join('');
+      const toggleHtml = `<button type="button" class="anki-toggle" data-state="incorrect" aria-pressed="false" title="Clique para alternar entre Errei/Acertei">Errei</button>`;
+
+          return `
+            <div class="anki-card" data-id="${id}">
+              <div class="anki-btn" role="button" tabindex="0" aria-label="Virar flashcard">
+                <div class="anki-inner">
+                  <div class="anki-face anki-front">
+                    <div class="anki-top">
+                      <div class="anki-left">
+						<span class="anki-badge">${code}</span>
+						${tagsHtml}
+					</div>
+            <div class="anki-right">
+            <span class="anki-hint">Pergunta</span>
+            </div>
+                    </div>
+                    <div class="anki-body"><div class="anki-text">${q}</div></div>
+                  </div>
+                  <div class="anki-face anki-back">
+                    <div class="anki-top">
+                      <div class="anki-left">
+						<span class="anki-badge">${code}</span>
+						${tagsHtml}
+					</div>
+            <div class="anki-right">
+            <span class="anki-hint">Resposta</span>
+            ${toggleHtml}
+            </div>
+                    </div>
+                    <div class="anki-body"><div class="anki-text">${a}</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Click-to-flip
+        els.grid.querySelectorAll('.anki-card .anki-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const wrapper = btn.closest('.anki-card');
+            if (!wrapper) return;
+            wrapper.classList.toggle('flipped');
+          });
+		  btn.addEventListener('keydown', (e) => {
+			const k = e && e.key ? String(e.key) : '';
+			if (k !== 'Enter' && k !== ' ') return;
+			try { e.preventDefault(); } catch(_){ }
+			const wrapper = btn.closest('.anki-card');
+			if (!wrapper) return;
+			wrapper.classList.toggle('flipped');
+		  });
+        });
+
+    // Toggle score (prevent flip)
+    els.grid.querySelectorAll('.anki-card .anki-toggle').forEach((toggleBtn) => {
+      toggleBtn.addEventListener('click', async (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+        if (!game.active || !game.attemptId) {
+          setStatus("Clique em 'Novo jogo' para iniciar.", 'error');
+          return;
+        }
+        const wrapper = toggleBtn.closest('.anki-card');
+        if (!wrapper) return;
+        const idStr = wrapper.getAttribute('data-id');
+        const flashcardId = Number.parseInt(String(idStr||''), 10);
+        if (!Number.isInteger(flashcardId) || flashcardId <= 0) return;
+
+        const prevState = toggleBtn.getAttribute('data-state') || 'incorrect';
+        const nextState = prevState === 'correct' ? 'incorrect' : 'correct';
+        const correct = nextState === 'correct';
+
+        // Optimistic UI update
+        toggleBtn.setAttribute('data-state', nextState);
+        toggleBtn.classList.toggle('correct', correct);
+        toggleBtn.textContent = correct ? 'Acertei' : 'Errei';
+        toggleBtn.setAttribute('aria-pressed', correct ? 'true' : 'false');
+
+        toggleBtn.disabled = true;
+        try {
+          const resp = await fetch(`/api/flashcards/attempts/${encodeURIComponent(String(game.attemptId))}/answer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            credentials: 'include',
+            body: JSON.stringify({ flashcardId, correct })
+          });
+          if (!resp.ok) {
+            let msg = `Falha ao salvar (${resp.status}).`;
+            try { const data = await resp.json(); if (data && data.message) msg = String(data.message); } catch(_){ }
+            setStatus(msg, 'error');
+            // Revert UI
+            toggleBtn.setAttribute('data-state', prevState);
+            const backToCorrect = prevState === 'correct';
+            toggleBtn.classList.toggle('correct', backToCorrect);
+            toggleBtn.textContent = backToCorrect ? 'Acertei' : 'Errei';
+            toggleBtn.setAttribute('aria-pressed', backToCorrect ? 'true' : 'false');
+            return;
+          }
+          setStatus(correct ? 'Marcado: acerto.' : 'Marcado: erro.', 'info');
+        } catch (err) {
+          try { logger.error('[flashcards] score error', err); } catch(_){ }
+          setStatus('Erro ao salvar acerto/erro. Verifique login/servidor.', 'error');
+          // Revert UI
+          toggleBtn.setAttribute('data-state', prevState);
+          const backToCorrect = prevState === 'correct';
+          toggleBtn.classList.toggle('correct', backToCorrect);
+          toggleBtn.textContent = backToCorrect ? 'Acertei' : 'Errei';
+          toggleBtn.setAttribute('aria-pressed', backToCorrect ? 'true' : 'false');
+        } finally {
+          toggleBtn.disabled = false;
+        }
+      });
+    });
+      }
+
+      function shuffleInPlace(arr){
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+
+      function normalizeMetaItems(items){
+        const arr = Array.isArray(items) ? items : [];
+        return arr
+          .map(it => ({ id: it && it.id != null ? String(it.id) : '', descricao: it && it.descricao != null ? String(it.descricao) : '' }))
+          .filter(it => it.id && it.descricao);
+      }
+
+      function fillSelect(selectEl, items){
+        if (!selectEl) return;
+        const current = String(selectEl.value || '');
+        const base = '<option value="">(todos)</option>';
+        const options = normalizeMetaItems(items)
+          .sort((a,b) => a.descricao.localeCompare(b.descricao, 'pt-BR'))
+          .map(it => `<option value="${escapeHtml(it.id)}">${escapeHtml(it.descricao)}</option>`)
+          .join('');
+        selectEl.innerHTML = base + options;
+        // restore selection if still present
+        selectEl.value = current;
+      }
+
+      async function loadMeta(){
+        try {
+          const headers = { ...getAuthHeaders(), 'Accept': 'application/json' };
+
+          const [principiosRes, dominiosRes, abordagensRes] = await Promise.all([
+            fetch('/api/meta/principios', { headers, credentials: 'include' }).catch(()=>null),
+            fetch('/api/meta/ddesempenho', { headers, credentials: 'include' }).catch(()=>null),
+            fetch('/api/meta/abordagens', { headers, credentials: 'include' }).catch(()=>null)
+          ]);
+
+          const [principios, dominios, abordagens] = await Promise.all([
+            principiosRes && principiosRes.ok ? principiosRes.json().catch(()=>[]) : [],
+            dominiosRes && dominiosRes.ok ? dominiosRes.json().catch(()=>[]) : [],
+            abordagensRes && abordagensRes.ok ? abordagensRes.json().catch(()=>[]) : []
+          ]);
+
+          fillSelect(els.filterPrincipio, principios);
+          fillSelect(els.filterDominioDes, dominios);
+          fillSelect(els.filterAbordagem, abordagens);
+
+      // Build id->descricao maps for rendering card tags
+      metaMaps = {
+      principios: new Map(normalizeMetaItems(principios).map(it => [Number.parseInt(it.id, 10), it.descricao])),
+      dominios: new Map(normalizeMetaItems(dominios).map(it => [Number.parseInt(it.id, 10), it.descricao])),
+      abordagens: new Map(normalizeMetaItems(abordagens).map(it => [Number.parseInt(it.id, 10), it.descricao])),
+      };
+        } catch (e) {
+          try { logger.warn('[flashcards] loadMeta failed', e); } catch(_){ }
+        }
+      }
+
+    function loadPersistedFilters(){
+    try {
+      const raw = localStorage.getItem(LS_KEYS.basicsOnly);
+      if (els.filterBasics && raw != null) {
+        els.filterBasics.checked = String(raw) === 'true';
+      }
+    } catch(_){ }
+    }
+
+    function persistBasicsOnly(){
+    try {
+      if (els.filterBasics) localStorage.setItem(LS_KEYS.basicsOnly, els.filterBasics.checked ? 'true' : 'false');
+    } catch(_){ }
+    }
+
+      function parseOptionalPositiveInt(v){
+        const s = String(v ?? '').trim();
+        if (!s) return null;
+        const n = Number.parseInt(s, 10);
+        if (!Number.isInteger(n) || n <= 0) return null;
+        return n;
+      }
+
+      async function load(){
+        const versionId = Number.parseInt(String(els.versionId && els.versionId.value || '2'), 10);
+        const safeVersionId = Number.isInteger(versionId) && versionId > 0 ? versionId : 2;
+        if (els.versionId) els.versionId.value = String(safeVersionId);
+
+        const idprincipio = parseOptionalPositiveInt(els.filterPrincipio && els.filterPrincipio.value);
+        const iddominio_desempenho = parseOptionalPositiveInt(els.filterDominioDes && els.filterDominioDes.value);
+        const idabordagem = parseOptionalPositiveInt(els.filterAbordagem && els.filterAbordagem.value);
+        const basicsOnly = !!(els.filterBasics && els.filterBasics.checked);
+
+        setStatus('Carregando...', 'info');
+        if (els.grid) els.grid.innerHTML = '';
+        if (els.count) els.count.textContent = '—';
+
+        try {
+          const params = new URLSearchParams();
+          params.set('versionId', String(safeVersionId));
+          if (idprincipio != null) params.set('idprincipio', String(idprincipio));
+          if (iddominio_desempenho != null) params.set('iddominio_desempenho', String(iddominio_desempenho));
+          if (idabordagem != null) params.set('idabordagem', String(idabordagem));
+          if (basicsOnly) params.set('basics', 'true');
+          const url = `/api/flashcards?${params.toString()}`;
+          const resp = await fetch(url, {
+            method: 'GET',
+            headers: getAuthHeaders(),
+            credentials: 'include'
+          });
+
+          if (!resp.ok) {
+            let msg = `Falha ao carregar (${resp.status}). Verifique login.`;
+            try {
+              const data = await resp.json();
+              if (data && data.message) msg = String(data.message);
+            } catch(_){ }
+            setStatus(msg, 'error');
+            render([]);
+            return;
+          }
+
+          const data = await resp.json();
+          const items = (data && data.items) ? data.items : [];
+          render(items);
+        } catch (e) {
+          try { logger.error('[flashcards] load error', e); } catch(_){ }
+          setStatus('Erro ao carregar flashcards. Verifique servidor e login.', 'error');
+          render([]);
+        }
+      }
+
+      function resetFlips(){
+        if (!els.grid) return;
+        const cards = els.grid.querySelectorAll('.anki-card');
+        const inners = els.grid.querySelectorAll('.anki-inner');
+
+        // Remove class-based flips
+        cards.forEach((n) => n.classList.remove('flipped'));
+
+        // Defensive: if some runtime set an inline transform, force it back to front.
+        // We clear it after the transition so future flips keep working normally.
+        inners.forEach((inner) => {
+          try { inner.style.transform = 'rotateY(0deg)'; } catch(_){ }
+        });
+        window.setTimeout(() => {
+          inners.forEach((inner) => {
+            try { inner.style.transform = ''; } catch(_){ }
+          });
+        }, 500);
+
+        setStatus(cards.length ? 'Cards desvirados.' : 'Nenhum card para desvirar.', 'info');
+      }
+
+      if (els.btnNewGame) els.btnNewGame.addEventListener('click', startNewGame);
+      if (els.btnLoad) els.btnLoad.addEventListener('click', load);
+      if (els.filterPrincipio) els.filterPrincipio.addEventListener('change', load);
+      if (els.filterDominioDes) els.filterDominioDes.addEventListener('change', load);
+      if (els.filterAbordagem) els.filterAbordagem.addEventListener('change', load);
+      if (els.filterBasics) els.filterBasics.addEventListener('change', () => { persistBasicsOnly(); load(); });
+      if (els.btnShuffle) els.btnShuffle.addEventListener('click', () => {
+        resetFlips();
+        const copy = currentItems.slice();
+        shuffleInPlace(copy);
+        render(copy);
+      });
+      if (els.btnReset) els.btnReset.addEventListener('click', (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+        resetFlips();
+      });
+
+	  // Start locked until 'Novo jogo'
+	  loadPersistedFilters();
+	  setGameActive(false);
+	  setStatus("Clique em 'Novo jogo' para iniciar.", 'error');
+	  loadMeta();
+    })();
+  </script>
+</body>
+</html>

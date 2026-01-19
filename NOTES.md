@@ -1,5 +1,13 @@
 # SimuladosBR - Notes
 
+## Atualização (2026-01-17)
+
+- Auth: JWT com política de **sessão única** (cookie httpOnly `sessionToken` no browser; `Authorization: Bearer` ou `X-Session-Token` como alternativas).
+- API: rotas versionadas em `/api/v1/*` (mantém `/api/*` por compatibilidade).
+- Review: endpoint `GET /api/exams/result/:attemptId` e páginas de review atualizadas (`examReviewFull.html`, `examReviewQuiz.html`) incluindo suporte a `match_columns`.
+- Admin (exames): `GET /api/admin/exams/probe`, `DELETE /api/admin/exams/attempts/:attemptId` e endpoints de versionamento de conteúdo ECO.
+- Chat: reverse-proxy do chat-service em `/chat/*` (inclui WS admin em `/chat/v1/admin/ws`).
+
 Data: 2025-11-02
 
 Este arquivo consolida o estado atual do projeto, decisões tomadas, endpoints relevantes e próximos passos, para facilitar a continuidade entre sessões.

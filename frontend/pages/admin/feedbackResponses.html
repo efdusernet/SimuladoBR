@@ -197,6 +197,22 @@
       const status = document.getElementById('status');
       const rows = document.getElementById('rows');
       const textList = document.getElementById('feedbackTextList');
+
+      let cachedCsrfToken = null;
+      async function ensureCsrfToken(){
+        if (cachedCsrfToken) return cachedCsrfToken;
+        try {
+          const r = await fetch('/api/csrf-token', { credentials: 'include' });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => null);
+          const t = j && j.csrfToken ? String(j.csrfToken) : '';
+          cachedCsrfToken = t ? t : null;
+          return cachedCsrfToken;
+        } catch(_){
+          return null;
+        }
+      }
+
       function headers(){
         const h = {};
         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
@@ -256,7 +272,12 @@
                 try {
                   const payload = { idfeedback: item.id, resposta: ta.value.trim() };
                   if(!payload.resposta){ msg.textContent='Digite uma resposta.'; btn.disabled=false; return; }
-                  const rr = await fetch('/api/admin/feedback/respond',{method:'POST', headers: headers(), body: JSON.stringify(payload)});
+
+                  const h = headers();
+                  const csrfTok = await ensureCsrfToken();
+                  if (csrfTok) h['X-CSRF-Token'] = csrfTok;
+
+                  const rr = await fetch('/api/admin/feedback/respond',{method:'POST', headers: h, credentials:'include', body: JSON.stringify(payload)});
                   if(rr.ok){
                     msg.textContent='Resposta registrada.'; card.style.opacity='0.6'; tr.style.opacity='0.6';
                     if(notifyChk.checked){
@@ -264,11 +285,17 @@
                         const userId = (item.usuarioId!=null?item.usuarioId:null) || item.usuarioid || item.reportadopor || item.idusuario || item.userId || item.usuarioId || null;
                         if(userId){
                           const notifBody={ categoria:'Avisos', titulo:(notifTitulo.value.trim()||'Resposta ao seu feedback'), mensagem:(notifMsg.value.trim()||('Sua questão #'+item.idquestao+' recebeu resposta: '+payload.resposta.substring(0,140)+(payload.resposta.length>140?'…':''))), targetType:'user', targetUserId:Number(userId)};
-                            const rn = await fetch('/api/admin/notifications',{method:'POST', headers: headers(), body: JSON.stringify(notifBody)});
+                            const hn = headers();
+                            const csrfTok2 = await ensureCsrfToken();
+                            if (csrfTok2) hn['X-CSRF-Token'] = csrfTok2;
+                            const rn = await fetch('/api/admin/notifications',{method:'POST', headers: hn, credentials:'include', body: JSON.stringify(notifBody)});
                             if(rn.ok){
                               const created = await rn.json().catch(()=>null);
                               if(created && created.id){
-                                const rs = await fetch('/api/admin/notifications/'+created.id+'/send',{method:'POST', headers: headers()});
+                                const hs = headers();
+                                const csrfTok3 = await ensureCsrfToken();
+                                if (csrfTok3) hs['X-CSRF-Token'] = csrfTok3;
+                                const rs = await fetch('/api/admin/notifications/'+created.id+'/send',{method:'POST', headers: hs, credentials:'include'});
                                 if(rs.ok) msg.textContent += ' Notificação enviada.'; else msg.textContent += ' (Falha ao enviar notificação)';
                               } else {
                                 msg.textContent += ' (Notificação criada sem ID)';

@@ -5,6 +5,7 @@ const requireUserSession = require('../middleware/requireUserSession');
 const flashcardController = require('../controllers/flashcardController');
 const flashcardScoreController = require('../controllers/flashcardScoreController');
 const flashcardAttemptController = require('../controllers/flashcardAttemptController');
+const flashcardInsightsController = require('../controllers/flashcardInsightsController');
 
 // GET /api/flashcards?versionId=2
 router.get('/', requireUserSession, flashcardController.listFlashcards);
@@ -17,5 +18,8 @@ router.post('/attempts/:attemptId/answer', requireUserSession, flashcardAttemptC
 
 // POST /api/flashcards/score { flashcardId, correct }
 router.post('/score', requireUserSession, flashcardScoreController.recordScore);
+
+// GET /api/flashcards/insights?min_total=5&top_n=10
+router.get('/insights', requireUserSession, flashcardInsightsController.getInsights);
 
 module.exports = router;

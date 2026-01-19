@@ -1204,7 +1204,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const list = await fetchMetaOnce('dominios', '/api/meta/dominios');
+        const list = await fetchMetaOnce('dominios', '/api/meta/ddesempenho');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';
@@ -1274,7 +1274,7 @@
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
-        const list = await fetchMetaOnce('categorias', '/api/meta/categorias');
+        const list = await fetchMetaOnce('categorias', '/api/meta/abordagens');
         sel.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '';

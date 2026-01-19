@@ -930,11 +930,11 @@
       try {
         const base = (BACKEND_BASE || '').replace(/\/$/, '');
         const [doms, grps, cats] = await Promise.all([
-          fetchJson(base + '/api/meta/dominios'),
+          fetchJson(base + '/api/meta/ddesempenho'),
           fetchJson(base + '/api/meta/grupos'),
           // Área de Conhecimento desativada
           // fetchJson(base + '/api/meta/areas'),
-          fetchJson(base + '/api/meta/categorias')
+          fetchJson(base + '/api/meta/abordagens')
         ]);
         meta.dominios = Array.isArray(doms) ? doms : [];
         meta.grupos = Array.isArray(grps) ? grps : [];

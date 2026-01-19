@@ -284,7 +284,7 @@
 
       async function loadDominiosDesempenho() {
         try {
-          const r = await fetch('/api/meta/dominios', { method: 'GET' });
+          const r = await fetch('/api/meta/ddesempenho', { method: 'GET' });
           if (!r.ok) return;
           const rows = await r.json().catch(() => null);
           if (!Array.isArray(rows)) return;

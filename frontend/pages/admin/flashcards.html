@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flashcards (Admin)</title>
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/csrf.js"></script>
+  <script src="/utils/logout.js"></script>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
+    .wrap{ max-width:1100px; margin:20px auto; padding:16px; background:#111827; border:1px solid #1f2937; border-radius:10px; }
+    .muted{ color:#94a3b8; }
+    label{ display:block; font-size:.85rem; color:#94a3b8; margin:8px 0 4px; }
+    input, select, textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    textarea{ resize: vertical; min-height: 90px; }
+    .row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .row3{ display:grid; grid-template-columns: 160px 1fr 1fr; gap:12px; align-items:end; }
+    .btn{ padding:8px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:700; }
+    .btn-primary{ background:#4f46e5; color:#fff; }
+    .btn-muted{ background:#334155; color:#e5e7eb; }
+    .btn-danger{ background:#b91c1c; color:#fff; }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .status{ font-size:.85rem; color:#93c5fd; min-height:18px; margin: 8px 0 10px; }
+    .status.error{ color:#fecaca; }
+    table{ width:100%; border-collapse:collapse; margin-top:16px; }
+    th,td{ padding:8px; border-bottom:1px solid #1f2937; font-size:.9rem; text-align:left; vertical-align: top; }
+    th{ color:#a5b4fc; }
+    .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#064e3b; color:#d1fae5; font-weight:800; font-size:.75rem; }
+    .actions{ display:flex; gap:8px; }
+    .small{ font-size:.82rem; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .topbar{ display:flex; align-items:flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .topbar h1{ margin:0; }
+    .right{ display:flex; gap: 8px; align-items: end; }
+    @media (max-width: 860px){
+      .row3{ grid-template-columns: 1fr; }
+      .row{ grid-template-columns: 1fr; }
+      .actions{ flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1 style="margin:0 0 6px;">Flashcards (Admin)</h1>
+        <div class="muted small">CRUD de cadastro/edição baseado na tabela <span class="mono">public.flashcard</span>.</div>
+      </div>
+      <div class="right">
+        <button id="btnReload" type="button" class="btn btn-muted">Recarregar</button>
+        <button id="btnLogout" type="button" class="btn btn-danger">Sair</button>
+      </div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="row3" style="margin-top: 6px;">
+      <div>
+        <label for="filterVersion">Versão (id_versao_pmbok)</label>
+        <input id="filterVersion" type="number" min="1" value="2" inputmode="numeric" />
+      </div>
+      <div>
+        <label for="filterQ">Busca (pergunta/resposta)</label>
+        <input id="filterQ" type="text" placeholder="Ex: stakeholder" />
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="btnLoad" type="button" class="btn btn-primary" style="width:100%;">Carregar lista</button>
+      </div>
+    </div>
+
+    <hr style="border:0; border-top:1px solid #1f2937; margin: 14px 0;" />
+
+    <h2 style="margin:0 0 6px; font-size: 1.0rem;">Cadastrar / Editar</h2>
+    <div class="muted small">Salva via <span class="mono">/api/admin/flashcards</span> (CSRF automático).</div>
+
+    <div class="row" style="margin-top: 8px;">
+      <div>
+        <label for="editVersion">id_versao_pmbok</label>
+        <input id="editVersion" type="number" min="1" value="2" inputmode="numeric" />
+        <div class="muted small" style="margin-top:4px;">Versão code: <span id="editVersionCode" class="pill">—</span></div>
+      </div>
+      <div>
+        <label for="editId">ID (somente edição)</label>
+        <input id="editId" type="text" disabled placeholder="(novo)" />
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 6px;">
+      <div>
+        <label for="editPrincipio">Princípio (idprincipio)</label>
+        <select id="editPrincipio">
+          <option value="">(vazio)</option>
+        </select>
+      </div>
+      <div>
+        <label for="editDominioDes">Domínio desempenho (iddominio_desempenho)</label>
+        <select id="editDominioDes">
+          <option value="">(vazio)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 6px;">
+      <div>
+        <label for="editAbordagem">Abordagem (idabordagem)</label>
+        <select id="editAbordagem">
+          <option value="">(vazio)</option>
+        </select>
+      </div>
+      <div>
+        <label for="editBasics">Basics</label>
+        <select id="editBasics">
+          <option value="false" selected>Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 6px;">
+      <div>
+        <label for="editPergunta">Pergunta</label>
+        <textarea id="editPergunta" placeholder="Digite a pergunta..."></textarea>
+      </div>
+      <div>
+        <label for="editResposta">Resposta</label>
+        <textarea id="editResposta" placeholder="Digite a resposta..."></textarea>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top: 10px;">
+      <button id="btnClear" type="button" class="btn btn-muted">Limpar</button>
+      <button id="btnSave" type="button" class="btn btn-primary">Salvar</button>
+    </div>
+
+    <table aria-label="Flashcards cadastrados">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Versão</th>
+          <th>Pergunta</th>
+          <th>Atualização</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <script>
+    (function(){
+      const els = {
+        status: document.getElementById('status'),
+        btnReload: document.getElementById('btnReload'),
+        btnLogout: document.getElementById('btnLogout'),
+        btnLoad: document.getElementById('btnLoad'),
+        filterVersion: document.getElementById('filterVersion'),
+        filterQ: document.getElementById('filterQ'),
+        rows: document.getElementById('rows'),
+
+        editId: document.getElementById('editId'),
+        editVersion: document.getElementById('editVersion'),
+        editVersionCode: document.getElementById('editVersionCode'),
+        editPrincipio: document.getElementById('editPrincipio'),
+        editDominioDes: document.getElementById('editDominioDes'),
+        editAbordagem: document.getElementById('editAbordagem'),
+        editBasics: document.getElementById('editBasics'),
+        editPergunta: document.getElementById('editPergunta'),
+        editResposta: document.getElementById('editResposta'),
+        btnClear: document.getElementById('btnClear'),
+        btnSave: document.getElementById('btnSave')
+      };
+
+      let versions = [];
+      let principios = [];
+      let dominiosDes = [];
+      let abordagens = [];
+      let currentItems = [];
+
+      function setStatus(msg, type){
+        els.status.textContent = msg || '';
+        els.status.classList.toggle('error', type === 'error');
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function headers(){
+        const h = { 'Content-Type': 'application/json' };
+        try {
+          const st = (localStorage.getItem('sessionToken') || '').trim();
+          const nome = (localStorage.getItem('nomeUsuario') || '').trim();
+          const identity = nome || st;
+          if (identity) h['X-Session-Token'] = identity;
+        } catch(_){ }
+        try {
+          const jwt = (localStorage.getItem('jwt') || localStorage.getItem('jwtToken') || localStorage.getItem('jwtToken') || '').trim();
+          const jwtType = (localStorage.getItem('jwt_type') || localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+          if (jwt) h['Authorization'] = jwtType + ' ' + jwt;
+        } catch(_){ }
+        return h;
+      }
+
+      function getVersionCode(versionId){
+        const v = versions.find(x => Number(x.id) === Number(versionId));
+        return v && v.code ? String(v.code) : null;
+      }
+
+      function syncVersionBadge(){
+        const vid = Number.parseInt(String(els.editVersion.value || '2'), 10);
+        const code = getVersionCode(vid);
+        els.editVersionCode.textContent = code || '—';
+      }
+
+      function clearForm(){
+        els.editId.value = '';
+        els.editPergunta.value = '';
+        els.editResposta.value = '';
+        els.editVersion.value = String(Number.parseInt(String(els.filterVersion.value||'2'),10) || 2);
+        if (els.editPrincipio) els.editPrincipio.value = '';
+        if (els.editDominioDes) els.editDominioDes.value = '';
+        if (els.editAbordagem) els.editAbordagem.value = '';
+        if (els.editBasics) els.editBasics.value = 'false';
+        syncVersionBadge();
+      }
+
+      function fillForm(item){
+        els.editId.value = item && item.id != null ? String(item.id) : '';
+        els.editVersion.value = String(item && item.id_versao_pmbok != null ? item.id_versao_pmbok : 2);
+        els.editPergunta.value = item && item.pergunta != null ? String(item.pergunta) : '';
+        els.editResposta.value = item && item.resposta != null ? String(item.resposta) : '';
+        if (els.editPrincipio) els.editPrincipio.value = (item && item.idprincipio != null) ? String(item.idprincipio) : '';
+        if (els.editDominioDes) els.editDominioDes.value = (item && item.iddominio_desempenho != null) ? String(item.iddominio_desempenho) : '';
+        if (els.editAbordagem) els.editAbordagem.value = (item && item.idabordagem != null) ? String(item.idabordagem) : '';
+        if (els.editBasics) {
+          const b = item && (item.basics === true || String(item.basics).toLowerCase() === 'true');
+          els.editBasics.value = b ? 'true' : 'false';
+        }
+        syncVersionBadge();
+      }
+
+      function toNullableInt(value){
+        const s = String(value ?? '').trim();
+        if (!s) return null;
+        const n = Number.parseInt(s, 10);
+        return Number.isInteger(n) && n > 0 ? n : null;
+      }
+
+      function renderSelectOptions(selectEl, items){
+        if (!selectEl) return;
+        const placeholder = '(vazio)';
+        selectEl.innerHTML = '';
+        const first = document.createElement('option');
+        first.value = '';
+        first.textContent = placeholder;
+        selectEl.appendChild(first);
+
+        (Array.isArray(items) ? items : []).forEach(it => {
+          if (!it) return;
+          const opt = document.createElement('option');
+          opt.value = String(it.id);
+          opt.textContent = String(it.descricao || it.code || it.id);
+          selectEl.appendChild(opt);
+        });
+      }
+
+      function renderTable(items){
+        currentItems = Array.isArray(items) ? items : [];
+        if (!els.rows) return;
+
+        if (!currentItems.length){
+          els.rows.innerHTML = '<tr><td colspan="5">Nenhum flashcard.</td></tr>';
+          return;
+        }
+
+        els.rows.innerHTML = currentItems.map(it => {
+          const vid = it.id_versao_pmbok;
+          const code = escapeHtml(it.versao_code || ('v#' + vid));
+          const pergunta = escapeHtml(it.pergunta || '');
+          const basics = (it && (it.basics === true || String(it.basics).toLowerCase() === 'true'));
+          const dt = it.data_alteracao ? escapeHtml(String(it.data_alteracao)) : '—';
+          return `
+            <tr>
+              <td class="mono">${escapeHtml(it.id)}</td>
+              <td><span class="pill">${code}</span> <span class="muted small">(#${escapeHtml(vid)})</span></td>
+              <td>${pergunta}${basics ? ' <span class="pill" style="background:#1f2937;color:#e5e7eb;">Basics</span>' : ''}</td>
+              <td class="small">${dt}</td>
+              <td>
+                <div class="actions">
+                  <button type="button" class="btn btn-muted" data-action="edit" data-id="${escapeHtml(it.id)}">Editar</button>
+                  <button type="button" class="btn btn-danger" data-action="delete" data-id="${escapeHtml(it.id)}">Excluir</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        els.rows.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = Number(btn.dataset.id);
+            const item = currentItems.find(x => Number(x.id) === id);
+            if (item) fillForm(item);
+          });
+        });
+
+        els.rows.querySelectorAll('button[data-action="delete"]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const id = Number(btn.dataset.id);
+            if (!Number.isInteger(id) || id <= 0) return;
+            if (!confirm('Excluir flashcard #' + id + '?')) return;
+            await del(id);
+          });
+        });
+      }
+
+      async function loadVersions(){
+        try {
+          const r = await fetch('/api/admin/flashcards/versions', { headers: headers(), credentials: 'include' });
+          if (!r.ok) return;
+          const data = await r.json().catch(()=>null);
+          versions = (data && data.items) ? data.items : [];
+          syncVersionBadge();
+        } catch(_){ }
+      }
+
+      async function loadMeta(){
+        try {
+          const [rPr, rDom, rCat] = await Promise.all([
+            fetch('/api/meta/principios', { method: 'GET', headers: headers(), credentials: 'include' }),
+            fetch('/api/meta/ddesempenho', { method: 'GET', headers: headers(), credentials: 'include' }),
+            fetch('/api/meta/abordagens', { method: 'GET', headers: headers(), credentials: 'include' }),
+          ]);
+
+          const pr = rPr && rPr.ok ? await rPr.json().catch(()=>[]) : [];
+          const dom = rDom && rDom.ok ? await rDom.json().catch(()=>[]) : [];
+          const cat = rCat && rCat.ok ? await rCat.json().catch(()=>[]) : [];
+
+          principios = Array.isArray(pr) ? pr : [];
+          dominiosDes = Array.isArray(dom) ? dom : [];
+          abordagens = Array.isArray(cat) ? cat : [];
+
+          renderSelectOptions(els.editPrincipio, principios);
+          renderSelectOptions(els.editDominioDes, dominiosDes);
+          renderSelectOptions(els.editAbordagem, abordagens);
+        } catch(_){ }
+      }
+
+      async function loadList(){
+        const versionId = Number.parseInt(String(els.filterVersion.value||'2'), 10) || 2;
+        const q = String(els.filterQ.value||'').trim();
+        els.filterVersion.value = String(versionId);
+        setStatus('Carregando...', 'info');
+
+        try {
+          const url = '/api/admin/flashcards?versionId=' + encodeURIComponent(String(versionId)) + '&q=' + encodeURIComponent(q);
+          const r = await fetch(url, { headers: headers(), credentials: 'include' });
+          if (!r.ok){
+            let msg = 'Falha ao carregar';
+            try { const d = await r.json(); if (d && d.message) msg += ': ' + d.message; } catch(_){ }
+            setStatus(msg, 'error');
+            renderTable([]);
+            return;
+          }
+          const data = await r.json().catch(()=>null);
+          const items = (data && data.items) ? data.items : [];
+          renderTable(items);
+          setStatus('OK: ' + items.length + ' itens', 'info');
+        } catch(e){
+          setStatus('Erro: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
+          renderTable([]);
+        }
+      }
+
+      async function save(){
+        const idRaw = String(els.editId.value||'').trim();
+        const id = idRaw ? Number.parseInt(idRaw, 10) : null;
+        const pergunta = String(els.editPergunta.value||'').trim();
+        const resposta = String(els.editResposta.value||'').trim();
+        const id_versao_pmbok = Number.parseInt(String(els.editVersion.value||'2'), 10) || 2;
+
+        if (!pergunta || !resposta){
+          alert('Preencha pergunta e resposta.');
+          return;
+        }
+
+        const body = {
+          pergunta,
+          resposta,
+          id_versao_pmbok,
+          idprincipio: toNullableInt(els.editPrincipio ? els.editPrincipio.value : ''),
+          iddominio_desempenho: toNullableInt(els.editDominioDes ? els.editDominioDes.value : ''),
+          idabordagem: toNullableInt(els.editAbordagem ? els.editAbordagem.value : ''),
+          basics: (els.editBasics ? String(els.editBasics.value || 'false') : 'false') === 'true',
+        };
+
+        try {
+          els.btnSave.disabled = true;
+          setStatus('Salvando...', 'info');
+
+          let r;
+          if (id){
+            r = await fetch('/api/admin/flashcards/' + encodeURIComponent(String(id)), {
+              method: 'PUT',
+              headers: headers(),
+              credentials: 'include',
+              body: JSON.stringify(body)
+            });
+          } else {
+            r = await fetch('/api/admin/flashcards', {
+              method: 'POST',
+              headers: headers(),
+              credentials: 'include',
+              body: JSON.stringify(body)
+            });
+          }
+
+          if (!r.ok){
+            let msg = 'Falha ao salvar';
+            try { const d = await r.json(); if (d && d.message) msg += ': ' + d.message; } catch(_){ }
+            setStatus(msg, 'error');
+            return;
+          }
+
+          await r.json().catch(()=>null);
+          setStatus('Salvo com sucesso.', 'info');
+          clearForm();
+          await loadList();
+        } catch(e){
+          setStatus('Erro ao salvar: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
+        } finally {
+          els.btnSave.disabled = false;
+        }
+      }
+
+      async function del(id){
+        try {
+          setStatus('Excluindo...', 'info');
+          const r = await fetch('/api/admin/flashcards/' + encodeURIComponent(String(id)), {
+            method: 'DELETE',
+            headers: headers(),
+            credentials: 'include'
+          });
+          if (!r.ok){
+            let msg = 'Falha ao excluir';
+            try { const d = await r.json(); if (d && d.message) msg += ': ' + d.message; } catch(_){ }
+            setStatus(msg, 'error');
+            return;
+          }
+          setStatus('Excluído.', 'info');
+          await loadList();
+        } catch(e){
+          setStatus('Erro ao excluir: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
+        }
+      }
+
+      // Wire up
+      if (els.btnLoad) els.btnLoad.addEventListener('click', loadList);
+      if (els.btnReload) els.btnReload.addEventListener('click', async () => {
+        setStatus('Recarregando...', 'info');
+        await Promise.all([loadVersions(), loadMeta()]);
+        syncVersionBadge();
+        await loadList();
+        setStatus('OK', 'info');
+      });
+      if (els.btnClear) els.btnClear.addEventListener('click', clearForm);
+      if (els.btnSave) els.btnSave.addEventListener('click', save);
+      if (els.editVersion) els.editVersion.addEventListener('input', syncVersionBadge);
+
+      if (els.btnLogout) els.btnLogout.addEventListener('click', () => {
+        try { if (typeof window.logout === 'function') return window.logout(); } catch(_){ }
+        try { localStorage.clear(); } catch(_){ }
+        window.location.assign('/login');
+      });
+
+      // Init
+      Promise.all([loadVersions(), loadMeta()]).finally(() => {
+        syncVersionBadge();
+        clearForm();
+        loadList();
+      });
+    })();
+  </script>
+</body>
+</html>

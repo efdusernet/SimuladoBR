@@ -1998,7 +1998,7 @@ exports.getAttemptResult = async (req, res, next) => {
              FROM questao q
              LEFT JOIN dominiogeral dg ON dg.id = q.iddominiogeral
              LEFT JOIN public."Tasks" t ON t.id = q.id_task
-             LEFT JOIN categoriaquestao cq ON cq.id = q.codigocategoria
+             LEFT JOIN public.abordagem cq ON cq.id = q.codigocategoria
             WHERE q.id IN (:ids)`,
           { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
         );

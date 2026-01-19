@@ -65,7 +65,7 @@ Para evitar prompt “hard-coded” e permitir evolução das tabelas sem interv
 }
 ```
 
-**Origem no banco:** o backend lê tabelas via `backend/services/masterdataService.js` (inclui `dominiogeral`, `dominio`, `principios`, `categoriaquestao`, `grupoprocesso`/`gruprocesso` e `Tasks`).
+**Origem no banco:** o backend lê tabelas via `backend/services/masterdataService.js` (inclui `dominiogeral`, `dominio_desempenho`, `principios`, `abordagem`, `grupoprocesso`/`gruprocesso` e `Tasks`).
 
 Observação: por padrão, o masterdata retornado considera apenas registros com `status=true` (ativos).
 

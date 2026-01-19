@@ -303,6 +303,7 @@
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dashboard">Estatísticas</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dominios">Domínios</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=prob">Probabilidade de Sucesso</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=flashcards">Flashcards</a>
         <a class="sidebar-accordion-item" id="sidebarInsightsAiLink" href="/pages/InsightsIA.html">Insights da IA</a>
       </div>
     </div>
@@ -1231,6 +1232,8 @@
         await renderDominios(indicadoresSection);
       } else if (key === 'prob' || key === 'probabilidade' || key === 'probabilidade-de-sucesso') {
         await renderProbabilidade(indicadoresSection);
+      } else if (key === 'flashcards' || key === 'flashcard') {
+        await renderFlashcardsIndicadores(indicadoresSection);
       } else {
         indicadoresSection.innerHTML = '<div class="panel"><h3>Em breve</h3><p>Esta aba ainda não foi migrada.</p></div>';
       }
@@ -2754,6 +2757,239 @@
         probCards.appendChild(expl);
       } catch(e){ probCards.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Erro ao carregar dados</div>'; }
     } catch(e){ logger.error('[Sidebar] renderProbabilidade error:', e); container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Probabilidade de Sucesso.</div></div></div>'; }
+  }
+
+  async function renderFlashcardsIndicadores(container){
+    try {
+      container.innerHTML = '';
+      const sec = document.createElement('div');
+      sec.id = 'sec-flashcards';
+
+      const mainEl = document.querySelector('main.content') || document.querySelector('main');
+      if (mainEl) {
+        let hdr = document.getElementById('sectionHeaderStrip');
+        if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
+        hdr.innerHTML = '';
+        const headerStrip = document.createElement('div');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Flashcards');
+        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.color = '#ffffff';
+        headerStrip.style.padding = '12px 14px';
+        headerStrip.style.borderRadius = '8px';
+        headerStrip.style.margin = '0 0 10px 0';
+        headerStrip.style.display = 'flex';
+        headerStrip.style.alignItems = 'center';
+        headerStrip.style.justifyContent = 'space-between';
+        const headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Flashcards';
+        headerTitle.style.fontSize = '0.95rem';
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.letterSpacing = '0.3px';
+        headerStrip.appendChild(headerTitle);
+        hdr.appendChild(headerStrip);
+      }
+
+      const card = document.createElement('div');
+      card.style.maxWidth = '980px';
+      card.style.margin = '10px auto 20px';
+      card.style.background = '#fff';
+      card.style.padding = '14px 16px';
+      card.style.borderRadius = '10px';
+      card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+      card.style.border = '1px solid #e2e8f0';
+
+      card.innerHTML = `
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; margin-bottom:10px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:0.7rem; font-weight:700; color:#334155;">
+              Amostra mínima (n)
+              <input id="fcMinTotal" type="number" min="1" max="200" value="5" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem; width:140px;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:0.7rem; font-weight:700; color:#334155;">
+              Top N
+              <input id="fcTopN" type="number" min="1" max="50" value="10" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem; width:140px;" />
+            </label>
+            <button id="fcReload" type="button" style="padding:7px 10px; border:1px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:8px; cursor:pointer; font-weight:800; font-size:0.75rem;">Atualizar</button>
+          </div>
+          <div id="fcMeta" style="font-size:0.7rem; color:#64748b; font-weight:600;">—</div>
+        </div>
+        <div id="fcBox" style="font-size:0.78rem; color:#334155;">Carregando...</div>
+      `;
+
+      sec.appendChild(card);
+      container.appendChild(sec);
+
+      const escapeHtml = (s) => String(s || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+
+      const int = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? String(Math.round(n)) : '—';
+      };
+      const pct = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? `${n.toFixed(1)}%` : '—';
+      };
+      const rate = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : '—';
+      };
+
+      const headers = (() => {
+        const h = { 'Accept':'application/json' };
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
+          if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+          if (sessionToken) h['X-Session-Token'] = sessionToken;
+        } catch(_){ }
+        return h;
+      })();
+
+      async function loadFlashcards(){
+        const box = document.getElementById('fcBox');
+        const meta = document.getElementById('fcMeta');
+        const minEl = document.getElementById('fcMinTotal');
+        const topEl = document.getElementById('fcTopN');
+
+        if (box) box.textContent = 'Carregando...';
+        if (meta) meta.textContent = '—';
+
+        const minTotal = (() => {
+          const n = Number(minEl && minEl.value);
+          return Number.isFinite(n) ? Math.min(Math.max(Math.floor(n), 1), 200) : 5;
+        })();
+        const topN = (() => {
+          const n = Number(topEl && topEl.value);
+          return Number.isFinite(n) ? Math.min(Math.max(Math.floor(n), 1), 50) : 10;
+        })();
+
+        const url = `/api/flashcards/insights?min_total=${encodeURIComponent(String(minTotal))}&top_n=${encodeURIComponent(String(topN))}`;
+        const res = await fetch(url, { headers, credentials: 'include', cache: 'no-store' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
+          (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
+          return;
+        }
+        const payload = await res.json().catch(() => null);
+        const fc = payload && payload.flashcards ? payload.flashcards : null;
+        if (!res.ok || !payload || payload.success !== true) {
+          if (box) box.innerHTML = '<div style="color:#b91c1c;">Erro ao carregar indicadores de flashcards.</div>';
+          return;
+        }
+        if (!fc) {
+          if (box) box.innerHTML = '<div style="color:#64748b;">Sem dados de flashcards para exibir.</div>';
+          return;
+        }
+
+        if (meta) meta.textContent = `min_total=${fc.meta && fc.meta.minTotal != null ? fc.meta.minTotal : minTotal} • top_n=${fc.meta && fc.meta.topN != null ? fc.meta.topN : topN}`;
+
+        const perf = fc.performance || {};
+        const attempts = fc.attempts || {};
+
+        const perfRow = (p) => {
+          const obj = p || {};
+          const label = obj.days == null ? 'All-time' : `${obj.days}d`;
+          return `<li><strong>${escapeHtml(label)}</strong>: respondidas=${escapeHtml(int(obj.totalAnswers))}, distintas=${escapeHtml(int(obj.distinctCards))}, acerto=${escapeHtml(pct(obj.correctPct))}, erro=${escapeHtml(pct(obj.errorPct))}</li>`;
+        };
+        const attRow = (a) => {
+          const obj = a || {};
+          const label = obj.days == null ? 'All-time' : `${obj.days}d`;
+          const by = obj.byStatus || {};
+          return `<li><strong>${escapeHtml(label)}</strong>: attempts=${escapeHtml(int(obj.totalAttempts))}, active=${escapeHtml(int(by.active))}, finished=${escapeHtml(int(by.finished))}, abandoned=${escapeHtml(by.abandoned == null ? '—' : int(by.abandoned))}, abandonRate=${escapeHtml(rate(obj.abandonRate))}${obj.note ? ` <span style="color:#64748b;">(${escapeHtml(obj.note)})</span>` : ''}</li>`;
+        };
+        const topList = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem amostra mínima.</div>';
+          return `<ol style="margin:6px 0 0 18px;">${arr.map(it => {
+            const desc = it && it.descricao != null ? String(it.descricao) : '—';
+            return `<li>${escapeHtml(desc)} <span style="color:#64748b;">(erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))})</span></li>`;
+          }).join('')}</ol>`;
+        };
+        const basics = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem respostas suficientes.</div>';
+          return `<ul style="margin:6px 0 0 18px;">${arr.map(it => {
+            const label = it && it.basics ? 'Fundamentos' : 'Não-fundamentos';
+            return `<li>${escapeHtml(label)} <span style="color:#64748b;">(acerto=${escapeHtml(pct(it.acertoPct))}, erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))})</span></li>`;
+          }).join('')}</ul>`;
+        };
+        const topCards = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem cards com amostra mínima.</div>';
+          return `<ol style="margin:6px 0 0 18px;">${arr.map(it => {
+            const id = it && it.id != null ? String(it.id) : '—';
+            const q = it && it.pergunta ? String(it.pergunta) : '';
+            const basicsTxt = it && it.basics ? 'Fundamentos' : '';
+            return `<li><strong>#${escapeHtml(id)}</strong> ${escapeHtml(q)} <span style="color:#64748b;">(erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))}${basicsTxt ? `, ${escapeHtml(basicsTxt)}` : ''})</span></li>`;
+          }).join('')}</ol>`;
+        };
+
+        if (box) {
+          box.innerHTML = `
+            <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px;">
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Performance (respostas)</div>
+                <ul style="margin:0 0 0 18px;">${perfRow(perf.last7)}${perfRow(perf.last30)}${perfRow(perf.allTime)}</ul>
+              </div>
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Engajamento (attempts)</div>
+                <ul style="margin:0 0 0 18px;">${attRow(attempts.last7)}${attRow(attempts.last30)}${attRow(attempts.allTime)}</ul>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:10px;">
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Princípios (30d)</div>
+                ${topList(fc.byPrincipio && fc.byPrincipio.last30)}
+              </div>
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Domínios (30d)</div>
+                ${topList(fc.byDominioDesempenho && fc.byDominioDesempenho.last30)}
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:10px;">
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Abordagens (30d)</div>
+                ${topList(fc.byAbordagem && fc.byAbordagem.last30)}
+              </div>
+              <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+                <div style="font-weight:800; color:#334155; margin-bottom:6px;">Fundamentos vs não (30d)</div>
+                ${basics(fc.byBasics && fc.byBasics.last30)}
+              </div>
+            </div>
+
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-top:10px;">
+              <div style="font-weight:800; color:#334155; margin-bottom:6px;">Top flashcards problemáticos (30d)</div>
+              ${topCards(fc.topCards && fc.topCards.last30)}
+            </div>
+          `;
+        }
+      }
+
+      (function wire(){
+        const btn = document.getElementById('fcReload');
+        const minEl = document.getElementById('fcMinTotal');
+        const topEl = document.getElementById('fcTopN');
+        if (btn) btn.addEventListener('click', () => { loadFlashcards().catch(e => logger.error(e)); });
+        if (minEl) minEl.addEventListener('change', () => { /* noop */ });
+        if (topEl) topEl.addEventListener('change', () => { /* noop */ });
+      })();
+
+      loadFlashcards().catch(e => logger.error(e));
+    } catch(e){
+      logger.error('[Sidebar] renderFlashcardsIndicadores error:', e);
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Flashcards.</div></div></div>';
+    }
   }
 
   window.loadIndicadoresIntoSection = loadIndicadoresIntoSection;

@@ -128,6 +128,7 @@
         <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false">Estatísticas</button>
         <button class="tab-btn" data-tab="dominios" role="tab" aria-selected="false">Domínios</button>
         <button class="tab-btn" data-tab="prob" role="tab" aria-selected="false">Probabilidade de Sucesso</button>
+        <button class="tab-btn" data-tab="flashcards" role="tab" aria-selected="false">Flashcards</button>
     </div>
     <div style="margin-top:8px;">
       <label style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#334155; font-weight:600;">
@@ -344,6 +345,25 @@
         </style>
         <div id="probCards"></div>
       </section>
+      <section id="sec-flashcards" class="section" aria-labelledby="tab-flashcards">
+        <div style="max-width:980px; margin:10px auto 20px; background:#fff; padding:14px 16px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.06); border:1px solid #e2e8f0;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; margin-bottom:10px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+              <label style="display:flex; flex-direction:column; gap:4px; font-size:0.7rem; font-weight:700; color:#334155;">
+                Amostra mínima (n)
+                <input id="fcMinTotal" type="number" min="1" max="200" value="5" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem; width:140px;" />
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px; font-size:0.7rem; font-weight:700; color:#334155;">
+                Top N
+                <input id="fcTopN" type="number" min="1" max="50" value="10" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.8rem; width:140px;" />
+              </label>
+              <button id="fcReload" type="button" style="padding:7px 10px; border:1px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:8px; cursor:pointer; font-weight:800; font-size:0.75rem;">Atualizar</button>
+            </div>
+            <div id="fcMeta" style="font-size:0.7rem; color:#64748b; font-weight:600;">—</div>
+          </div>
+          <div id="fcBox" style="font-size:0.78rem; color:#334155;">Abra esta aba para carregar os dados.</div>
+        </div>
+      </section>
   </div>
   <script>
         // Unified helper: builds Accept + Authorization (JWT) + X-Session-Token when available
@@ -420,7 +440,8 @@
       detalhes: document.getElementById('sec-detalhes'),
       dashboard: document.getElementById('sec-dashboard'),
       dominios: document.getElementById('sec-dominios'),
-      prob: document.getElementById('sec-prob')
+      prob: document.getElementById('sec-prob'),
+      flashcards: document.getElementById('sec-flashcards')
     };
     // _detalhesLoadedOnce flag removed: always reload Detalhes tab
     tabButtons.forEach(btn => {
@@ -435,13 +456,14 @@
           if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
           if (tab === 'dominios') loadDominiosLazy();
           if (tab === 'prob') loadProbabilityCards();
+          if (tab === 'flashcards') loadFlashcardsIndicadores();
         }
       });
     });
     // Public helper: programmatically activate a tab and trigger loaders
     window.activateTab = function(tab){
       try {
-        const allowed = ['geral','grupos','abordagem','detalhes','dashboard','dominios','prob'];
+        const allowed = ['geral','grupos','abordagem','detalhes','dashboard','dominios','prob','flashcards'];
         const key = String(tab||'').toLowerCase();
         if (!allowed.includes(key)) return false;
         const target = document.querySelector(`.tab-btn[data-tab="${key}"]`) || document.getElementById(`tab-${key}`);
@@ -457,9 +479,164 @@
         if (key === 'dashboard' && !_dashLoadedOnce) loadDashboard();
         if (key === 'dominios') loadDominiosLazy();
         if (key === 'prob') loadProbabilityCards();
+        if (key === 'flashcards') loadFlashcardsIndicadores();
         return true;
       } catch(_) { return false; }
     };
+
+    let _flashcardsLoadedOnce = false;
+    async function loadFlashcardsIndicadores(){
+      if (_flashcardsLoadedOnce) return;
+      _flashcardsLoadedOnce = true;
+
+      const box = document.getElementById('fcBox');
+      const meta = document.getElementById('fcMeta');
+      const btn = document.getElementById('fcReload');
+      const minEl = document.getElementById('fcMinTotal');
+      const topEl = document.getElementById('fcTopN');
+      if (!box || !btn || !minEl || !topEl) return;
+
+      const escapeHtml = (s) => String(s || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+
+      const int = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? String(Math.round(n)) : '—';
+      };
+      const pct = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? `${n.toFixed(1)}%` : '—';
+      };
+      const rate = (v) => {
+        if (v == null) return '—';
+        const n = Number(v);
+        return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : '—';
+      };
+
+      async function fetchAndRender(){
+        box.textContent = 'Carregando...';
+        if (meta) meta.textContent = '—';
+
+        const minTotal = (() => {
+          const n = Number(minEl.value);
+          return Number.isFinite(n) ? Math.min(Math.max(Math.floor(n), 1), 200) : 5;
+        })();
+        const topN = (() => {
+          const n = Number(topEl.value);
+          return Number.isFinite(n) ? Math.min(Math.max(Math.floor(n), 1), 50) : 10;
+        })();
+
+        const url = `/api/flashcards/insights?min_total=${encodeURIComponent(String(minTotal))}&top_n=${encodeURIComponent(String(topN))}`;
+        const res = await fetch(url, { headers: buildAuthHeadersLocal(), credentials: 'include', cache: 'no-store' });
+        if (res.status === 401 || res.status === 403) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        const payload = await res.json().catch(() => null);
+        const fc = payload && payload.flashcards ? payload.flashcards : null;
+
+        if (!res.ok || !payload || payload.success !== true) {
+          box.innerHTML = '<div style="color:#b91c1c;">Erro ao carregar indicadores de flashcards.</div>';
+          return;
+        }
+        if (!fc) {
+          box.innerHTML = '<div style="color:#64748b;">Sem dados de flashcards para exibir.</div>';
+          return;
+        }
+
+        if (meta) meta.textContent = `min_total=${fc.meta && fc.meta.minTotal != null ? fc.meta.minTotal : minTotal} • top_n=${fc.meta && fc.meta.topN != null ? fc.meta.topN : topN}`;
+
+        const perf = fc.performance || {};
+        const attempts = fc.attempts || {};
+        const perfRow = (p) => {
+          const obj = p || {};
+          const label = obj.days == null ? 'All-time' : `${obj.days}d`;
+          return `<li><strong>${escapeHtml(label)}</strong>: respondidas=${escapeHtml(int(obj.totalAnswers))}, distintas=${escapeHtml(int(obj.distinctCards))}, acerto=${escapeHtml(pct(obj.correctPct))}, erro=${escapeHtml(pct(obj.errorPct))}</li>`;
+        };
+        const attRow = (a) => {
+          const obj = a || {};
+          const label = obj.days == null ? 'All-time' : `${obj.days}d`;
+          const by = obj.byStatus || {};
+          return `<li><strong>${escapeHtml(label)}</strong>: attempts=${escapeHtml(int(obj.totalAttempts))}, active=${escapeHtml(int(by.active))}, finished=${escapeHtml(int(by.finished))}, abandoned=${escapeHtml(by.abandoned == null ? '—' : int(by.abandoned))}, abandonRate=${escapeHtml(rate(obj.abandonRate))}${obj.note ? ` <span style="color:#64748b;">(${escapeHtml(obj.note)})</span>` : ''}</li>`;
+        };
+        const topList = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem amostra mínima.</div>';
+          return `<ol style="margin:6px 0 0 18px;">${arr.map(it => {
+            const desc = it && it.descricao != null ? String(it.descricao) : '—';
+            return `<li>${escapeHtml(desc)} <span style="color:#64748b;">(erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))})</span></li>`;
+          }).join('')}</ol>`;
+        };
+        const basics = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem respostas suficientes.</div>';
+          return `<ul style="margin:6px 0 0 18px;">${arr.map(it => {
+            const label = it && it.basics ? 'Fundamentos' : 'Não-fundamentos';
+            return `<li>${escapeHtml(label)} <span style="color:#64748b;">(acerto=${escapeHtml(pct(it.acertoPct))}, erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))})</span></li>`;
+          }).join('')}</ul>`;
+        };
+        const topCards = (items) => {
+          const arr = Array.isArray(items) ? items : [];
+          if (!arr.length) return '<div style="color:#64748b;">Sem cards com amostra mínima.</div>';
+          return `<ol style="margin:6px 0 0 18px;">${arr.map(it => {
+            const id = it && it.id != null ? String(it.id) : '—';
+            const q = it && it.pergunta ? String(it.pergunta) : '';
+            const basicsTxt = it && it.basics ? 'Fundamentos' : '';
+            return `<li><strong>#${escapeHtml(id)}</strong> ${escapeHtml(q)} <span style="color:#64748b;">(erro=${escapeHtml(pct(it.taxaErroPct))}, erros=${escapeHtml(int(it.erros))}/${escapeHtml(int(it.total))}${basicsTxt ? `, ${escapeHtml(basicsTxt)}` : ''})</span></li>`;
+          }).join('')}</ol>`;
+        };
+
+        box.innerHTML = `
+          <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px;">
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+              <div style="font-weight:800; color:#334155; margin-bottom:6px;">Performance (respostas)</div>
+              <ul style="margin:0 0 0 18px;">${perfRow(perf.last7)}${perfRow(perf.last30)}${perfRow(perf.allTime)}</ul>
+            </div>
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+              <div style="font-weight:800; color:#334155; margin-bottom:6px;">Engajamento (attempts)</div>
+              <ul style="margin:0 0 0 18px;">${attRow(attempts.last7)}${attRow(attempts.last30)}${attRow(attempts.allTime)}</ul>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:10px;">
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+              <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Princípios (30d)</div>
+              ${topList(fc.byPrincipio && fc.byPrincipio.last30)}
+            </div>
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+              <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Domínios (30d)</div>
+              ${topList(fc.byDominioDesempenho && fc.byDominioDesempenho.last30)}
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:10px;">
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+              <div style="font-weight:800; color:#334155; margin-bottom:6px;">Onde focar: Abordagens (30d)</div>
+              ${topList(fc.byAbordagem && fc.byAbordagem.last30)}
+            </div>
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px;">
+              <div style="font-weight:800; color:#334155; margin-bottom:6px;">Fundamentos vs não (30d)</div>
+              ${basics(fc.byBasics && fc.byBasics.last30)}
+            </div>
+          </div>
+
+          <div style="border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-top:10px;">
+            <div style="font-weight:800; color:#334155; margin-bottom:6px;">Top flashcards problemáticos (30d)</div>
+            ${topCards(fc.topCards && fc.topCards.last30)}
+          </div>
+        `;
+      }
+
+      btn.addEventListener('click', () => { fetchAndRender().catch(e => logger.error(e)); });
+      fetchAndRender().catch(e => logger.error(e));
+    }
     // Initialize tab from query string with fallback, retry and scroll
     (function initTabFromQuery(){
       try {

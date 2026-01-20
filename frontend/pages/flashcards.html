@@ -198,7 +198,7 @@
     }
 
     .anki-front{
-      background: linear-gradient(135deg, rgba(34,197,94,0.92), rgba(16,185,129,0.86));
+      background: linear-gradient(135deg, rgba(134,239,172,0.92), rgba(74,222,128,0.88));
       color: #052e16;
     }
     .anki-back{
@@ -225,39 +225,40 @@
       display:flex;
       align-items:center;
       justify-content: space-between;
-      gap: 10px;
-      padding: 10px 12px;
+      gap: 8px;
+      padding: 8px 9px;
       background: rgba(255,255,255,0.14);
       border-bottom: 1px solid rgba(255,255,255,0.16);
     }
-    .anki-left{ display:flex; align-items:center; gap:8px; flex-wrap: wrap; }
-    .anki-right{ display:flex; align-items:center; gap:10px; }
+    .anki-left{ display:flex; align-items:center; gap:6px; flex-wrap: wrap; }
+    .anki-right{ display:flex; align-items:center; gap:8px; }
     .anki-badge{
-      font-size: 0.72rem;
+      font-size: 0.65rem;
       font-weight: 800;
-      padding: 4px 8px;
+      padding: 3px 5px;
       border-radius: 999px;
       background: rgba(255,255,255,0.22);
       color: inherit;
       white-space: nowrap;
     }
     .anki-tag{
-      font-size: 0.70rem;
+      font-size: 0.62rem;
       font-weight: 900;
-      padding: 4px 8px;
+      padding: 3px 5px;
       border-radius: 999px;
       background: rgba(2, 6, 23, 0.22);
       color: inherit;
       white-space: nowrap;
       border: 1px solid rgba(255,255,255,0.18);
     }
-    .anki-hint{ font-size: 0.78rem; opacity: 0.9; }
+    .anki-hint{ font-size: 0.65rem; opacity: 0.9; }
 
     .anki-toggle{
-      height: 30px;
-      border-radius: 10px;
+      height: 24px;
+      border-radius: 8px;
       border: 1px solid rgba(255,255,255,0.22);
-      padding: 0 10px;
+      padding: 0 8px;
+      font-size: 0.78rem;
       font-weight: 900;
       cursor: pointer;
       background: rgba(239,68,68,0.22);
@@ -274,6 +275,46 @@
     }
     .anki-toggle.correct:hover{ background: rgba(34,197,94,0.32); }
     .anki-toggle:disabled{ opacity: 0.65; cursor: not-allowed; }
+
+    /* Feedback (thumbs up/down) */
+    .fc-feedback{
+      display:flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+      margin-top: 5px;
+    }
+    .fc-feedback-actions{ display:flex; gap: 6px; }
+    .fc-vote-btn{
+      width: 28px;
+      height: 24px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.10);
+      color: #fff;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+    }
+    .fc-vote-btn:hover{ background: rgba(255,255,255,0.16); }
+    .fc-vote-btn:disabled{ opacity: 0.65; cursor: not-allowed; }
+    .fc-vote-btn.active{
+      background: rgba(2, 6, 23, 0.28);
+      border-color: rgba(255,255,255,0.34);
+    }
+    .fc-vote-btn svg{ width: 16px; height: 16px; }
+    .fc-feedback-counts{
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: rgba(229,231,235,0.92);
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      justify-content:flex-end;
+      min-height: 12px;
+    }
+    .fc-feedback-counts .muted{ color: rgba(229,231,235,0.72); font-weight: 700; }
 
     .anki-body{
       padding: 12px 12px 14px;
@@ -570,6 +611,51 @@
 		return v ? String(v) : `${fallbackPrefix} #${key}`;
 	  }
 
+      function applyFeedbackToCard(wrapper, data){
+        try {
+          if (!wrapper) return;
+          const likeEl = wrapper.querySelector('[data-fc-like-count]');
+          const dislikeEl = wrapper.querySelector('[data-fc-dislike-count]');
+          const btnUp = wrapper.querySelector('button[data-fc-vote="1"]');
+          const btnDown = wrapper.querySelector('button[data-fc-vote="-1"]');
+          const likes = data && data.likes != null ? Number(data.likes) : 0;
+          const dislikes = data && data.dislikes != null ? Number(data.dislikes) : 0;
+          const myVote = data && data.myVote != null ? Number(data.myVote) : 0;
+          if (likeEl) likeEl.textContent = Number.isFinite(likes) ? String(likes) : '0';
+          if (dislikeEl) dislikeEl.textContent = Number.isFinite(dislikes) ? String(dislikes) : '0';
+          if (btnUp) btnUp.classList.toggle('active', myVote === 1);
+          if (btnDown) btnDown.classList.toggle('active', myVote === -1);
+        } catch(_){ }
+      }
+
+      async function loadFeedbackForRenderedCards(){
+        if (!els.grid) return;
+        const cards = Array.from(els.grid.querySelectorAll('.anki-card[data-id]'));
+        if (!cards.length) return;
+        const ids = cards
+          .map(el => Number.parseInt(String(el.getAttribute('data-id')||''), 10))
+          .filter(n => Number.isInteger(n) && n > 0);
+        if (!ids.length) return;
+
+        try {
+          const resp = await fetch('/api/flashcards/feedback/batch', {
+            method: 'POST',
+            headers: getAuthHeaders({ acceptJson: true, contentType: 'application/json' }),
+            credentials: 'include',
+            cache: 'no-store',
+            body: JSON.stringify({ flashcardIds: ids })
+          });
+          if (!resp.ok) return;
+          const data = await resp.json().catch(() => null);
+          const byId = data && data.byId ? data.byId : {};
+          cards.forEach(cardEl => {
+            const idStr = String(cardEl.getAttribute('data-id') || '');
+            const row = byId && Object.prototype.hasOwnProperty.call(byId, idStr) ? byId[idStr] : null;
+            applyFeedbackToCard(cardEl, row || { likes: 0, dislikes: 0, myVote: 0 });
+          });
+        } catch(_){ }
+      }
+
       function render(items){
         currentItems = Array.isArray(items) ? items : [];
         if (els.count) els.count.textContent = `${currentItems.length} cards`;
@@ -611,6 +697,31 @@
 		  const tagsHtml = tags.map(t => `<span class="anki-tag">${t}</span>`).join('');
       const toggleHtml = `<button type="button" class="anki-toggle" data-state="incorrect" aria-pressed="false" title="Clique para alternar entre Errei/Acertei">Errei</button>`;
 
+      const feedbackHtml = `
+        <div class="fc-feedback" data-fc-feedback>
+          <div class="fc-feedback-actions">
+            <button type="button" class="fc-vote-btn" data-fc-vote="1" aria-label="Gostei" title="Gostei">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 9V5a3 3 0 0 0-3-3l-1 7"/>
+                <path d="M5 9h14a2 2 0 0 1 2 2l-1 9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9z"/>
+                <path d="M5 9V22"/>
+              </svg>
+            </button>
+            <button type="button" class="fc-vote-btn" data-fc-vote="-1" aria-label="Não gostei" title="Não gostei">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10 15v4a3 3 0 0 0 3 3l1-7"/>
+                <path d="M19 15H5a2 2 0 0 1-2-2l1-9a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v11z"/>
+                <path d="M19 15V2"/>
+              </svg>
+            </button>
+          </div>
+          <div class="fc-feedback-counts" aria-label="Feedback do card">
+            <span><span class="muted">likes</span> <span data-fc-like-count>0</span></span>
+            <span><span class="muted">dislikes</span> <span data-fc-dislike-count>0</span></span>
+          </div>
+        </div>
+      `;
+
           return `
             <div class="anki-card" data-id="${id}">
               <div class="anki-btn" role="button" tabindex="0" aria-label="Virar flashcard">
@@ -636,6 +747,7 @@
             <div class="anki-right">
             <span class="anki-hint">Resposta</span>
             ${toggleHtml}
+            ${feedbackHtml}
             </div>
                     </div>
                     <div class="anki-body"><div class="anki-text">${a}</div></div>
@@ -727,6 +839,77 @@
         }
       });
     });
+
+    // Feedback (thumbs) handlers
+    els.grid.querySelectorAll('.anki-card .fc-vote-btn').forEach((voteBtn) => {
+      voteBtn.addEventListener('click', async (e) => {
+        try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+        const wrapper = voteBtn.closest('.anki-card');
+        if (!wrapper) return;
+
+        const idStr = wrapper.getAttribute('data-id');
+        const flashcardId = Number.parseInt(String(idStr||''), 10);
+        if (!Number.isInteger(flashcardId) || flashcardId <= 0) return;
+
+        const voteRaw = voteBtn.getAttribute('data-fc-vote');
+        const desired = Number.parseInt(String(voteRaw||''), 10);
+        if (desired !== 1 && desired !== -1) return;
+
+        const btnUp = wrapper.querySelector('button[data-fc-vote="1"]');
+        const btnDown = wrapper.querySelector('button[data-fc-vote="-1"]');
+        const wasActive = voteBtn.classList.contains('active');
+        const vote = wasActive ? 0 : desired;
+
+        if (btnUp) btnUp.disabled = true;
+        if (btnDown) btnDown.disabled = true;
+
+        // optimistic state
+        if (btnUp) btnUp.classList.toggle('active', vote === 1);
+        if (btnDown) btnDown.classList.toggle('active', vote === -1);
+
+        try {
+          const resp = await fetch(`/api/flashcards/${encodeURIComponent(String(flashcardId))}/feedback`, {
+            method: 'POST',
+            headers: getAuthHeaders({ acceptJson: true, contentType: 'application/json' }),
+            credentials: 'include',
+            cache: 'no-store',
+            body: JSON.stringify({ vote })
+          });
+
+          if (!resp.ok) {
+            let msg = `Falha ao salvar feedback (${resp.status}).`;
+            try { const data = await resp.json(); if (data && data.message) msg = String(data.message); } catch(_){ }
+            setStatus(msg, 'error');
+            // reload from server best-effort
+            try {
+              const g = await fetch(`/api/flashcards/${encodeURIComponent(String(flashcardId))}/feedback`, {
+                method: 'GET',
+                headers: getAuthHeaders({ acceptJson: true }),
+                credentials: 'include',
+                cache: 'no-store'
+              });
+              if (g.ok) {
+                const gd = await g.json().catch(() => null);
+                applyFeedbackToCard(wrapper, gd);
+              }
+            } catch(_){ }
+            return;
+          }
+
+          const data = await resp.json().catch(() => null);
+          applyFeedbackToCard(wrapper, data);
+        } catch (err) {
+          try { logger.error('[flashcards] feedback error', err); } catch(_){ }
+          setStatus('Erro ao salvar feedback. Verifique login/servidor.', 'error');
+        } finally {
+          if (btnUp) btnUp.disabled = false;
+          if (btnDown) btnDown.disabled = false;
+        }
+      });
+    });
+
+    // Load counts after render
+    loadFeedbackForRenderedCards();
       }
 
       function shuffleInPlace(arr){
@@ -828,6 +1011,8 @@
         try {
           const params = new URLSearchParams();
           params.set('versionId', String(safeVersionId));
+          // Only show active flashcards by default
+          params.set('active', 'true');
           if (idprincipio != null) params.set('idprincipio', String(idprincipio));
           if (iddominio_desempenho != null) params.set('iddominio_desempenho', String(iddominio_desempenho));
           if (idabordagem != null) params.set('idabordagem', String(idabordagem));

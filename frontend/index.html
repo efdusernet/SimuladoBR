@@ -25,6 +25,7 @@
     <script src="/utils/layoutManager.js"></script>
     <!-- Controlled Logging System (must load before other scripts) -->
     <script src="/utils/logger.js"></script>
+    <script src="/utils/dicaDoDiaHello.js"></script>
     <script src="/utils/auth.js"></script>
     <!-- Logout Utility -->
     <script src="/utils/logout.js"></script>
@@ -257,6 +258,86 @@
                         linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
             color: #fff !important;
         }
+
+        /* === Dica do dia modal === */
+        .dica-modal{
+            background: rgba(2,6,23,0.72) !important;
+            z-index: 2147483647 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+        .dica-card{
+            width: min(720px, 92vw);
+            background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(2,6,23,0.94));
+            border-radius: 16px;
+            position: relative;
+            padding: 18px 18px 14px;
+            box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+            color: var(--text);
+        }
+        .dica-card::before{
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 18px;
+            background: linear-gradient(90deg, rgba(245,158,11,0.95), rgba(79,70,229,0.95), rgba(34,211,238,0.95));
+            filter: drop-shadow(0 0 14px rgba(245,158,11,0.35));
+            z-index: -1;
+            opacity: 0.95;
+        }
+        .dica-header{ display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-bottom: 10px; }
+        .dica-title{ display:flex; align-items:center; gap:10px; font-weight: 800; letter-spacing: 0.2px; }
+        .dica-title span{ font-size: 1.1rem; }
+        .dica-bulb{
+            width: 34px; height: 34px; border-radius: 12px;
+            background: rgba(245,158,11,0.12);
+            border: 1px solid rgba(245,158,11,0.28);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .dica-close{
+            width: 36px; height: 36px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.86);
+            cursor: pointer;
+            font-size: 1.3rem;
+            line-height: 1;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .dica-meta{ color: var(--muted); font-size: .82rem; margin: 2px 0 10px; }
+        .dica-text{
+            font-size: 1.02rem;
+            line-height: 1.55;
+            color: rgba(255,255,255,0.92);
+            padding: 14px 14px;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.55);
+            border: 1px solid rgba(255,255,255,0.10);
+            white-space: pre-wrap;
+        }
+        .dica-footer{ display:flex; gap: 10px; justify-content:flex-end; margin-top: 12px; flex-wrap: wrap; }
+        .dica-btn{
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.92);
+            cursor: pointer;
+            font-weight: 800;
+            font-size: .92rem;
+        }
+        .dica-btn.primary{
+            border: none;
+            background: linear-gradient(135deg, rgba(79,70,229,1), rgba(34,211,238,0.95));
+            color: #06101f;
+        }
+        .dica-btn:disabled{ opacity: .65; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -980,7 +1061,9 @@
                     <img src="assets/exame.png" alt="Exame completo" class="thumb" />
                     <span class="card-label">Simulador</span>
                 </div>
-                <div class="card card--simulador" data-full="https://picsum.photos/800/800?random=3" aria-label="Dica do dia" role="button" tabindex="0">
+                <div id="card-dica-do-dia" class="card card--simulador" data-card="dica-do-dia" aria-label="Dica do dia" role="button" tabindex="0"
+                     onclick="try{event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();if(window.openDicaDoDiaModal)window.openDicaDoDiaModal();else{if(window.showToast)window.showToast('Dica do dia: script não carregou (recarregue a página).');else alert('Dica do dia: script não carregou (recarregue a página).');}}catch(_){ }"
+                     onkeydown="try{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();if(window.openDicaDoDiaModal)window.openDicaDoDiaModal();else{if(window.showToast)window.showToast('Dica do dia: script não carregou (recarregue a página).');else alert('Dica do dia: script não carregou (recarregue a página).');}}}catch(_){ }">
                     <img src="assets/adendo.png" alt="Dica do dia" class="thumb" />
                     <span class="card-label">Dica do dia</span>
                 </div>
@@ -2051,6 +2134,31 @@
         </div>
     </div>
 
+    <!-- Dica do dia Modal -->
+    <div id="dicaModal" class="overlay dica-modal" aria-hidden="true">
+        <div class="dica-card" role="dialog" aria-modal="true" aria-label="Dica do dia">
+            <div class="dica-header">
+                <div class="dica-title">
+                    <div class="dica-bulb" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: rgba(245,158,11,0.95)">
+                            <path d="M9 18h6" />
+                            <path d="M10 22h4" />
+                            <path d="M8 14c-1.5-1.2-2.5-3-2.5-5a6.5 6.5 0 1 1 13 0c0 2-1 3.8-2.5 5-.8.7-1.5 1.8-1.5 3H11c0-1.2-.7-2.3-1.5-3z" />
+                        </svg>
+                    </div>
+                    <span>Dica do dia</span>
+                </div>
+                <button id="dicaModalClose" type="button" class="dica-close" aria-label="Fechar">×</button>
+            </div>
+            <div id="dicaModalMeta" class="dica-meta"></div>
+            <div id="dicaModalText" class="dica-text">Carregando...</div>
+            <div class="dica-footer">
+                <button id="dicaModalAnother" type="button" class="dica-btn">Outra dica</button>
+                <button id="dicaModalCopy" type="button" class="dica-btn primary">Copiar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         (function(){
             const counters = { home: 1, search: 0, favorites: 0, profile: 0 };
@@ -2072,6 +2180,78 @@
             const overlay = document.getElementById('fullOverlay');
             const fullImg = document.getElementById('fullImg');
             const backBtn = document.getElementById('backBtn');
+
+            // Early fallback: allow Dica do dia to work even if other init fails/hasn't run yet.
+            function getDicaHeadersEarly(){
+                try {
+                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                        return window.Auth.getAuthHeaders({ acceptJson: true });
+                    }
+                } catch(_){ }
+                const headers = { 'Accept': 'application/json' };
+                try {
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const identity = token || nomeUsuario;
+                    if (identity) headers['X-Session-Token'] = identity;
+                } catch(_){ }
+                try {
+                    const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                } catch(_){ }
+                return headers;
+            }
+
+            async function openDicaDoDiaModalEarly(){
+                const dicaModal = document.getElementById('dicaModal');
+                const dicaModalText = document.getElementById('dicaModalText');
+                const dicaModalMeta = document.getElementById('dicaModalMeta');
+                if (!dicaModal) {
+                    try { if (window.showToast) window.showToast('Modal de dica não encontrado no DOM.'); else alert('Modal de dica não encontrado no DOM.'); } catch(_){ }
+                    return;
+                }
+                try {
+                    dicaModal.classList.add('active');
+                    dicaModal.setAttribute('aria-hidden', 'false');
+                    const navHide = document.querySelector('.bottom-nav');
+                    if (navHide) navHide.style.display='none';
+                    document.body.style.overflow = 'hidden';
+                } catch(_){ }
+
+                if (dicaModalText) dicaModalText.textContent = 'Carregando...';
+                if (dicaModalMeta) dicaModalMeta.textContent = '';
+
+                try {
+                    const url = '/api/dicas/today?_ts=' + Date.now();
+                    const r = await fetch(url, { method: 'GET', headers: getDicaHeadersEarly(), cache: 'no-store', credentials: 'include' });
+                    const data = await r.json().catch(()=>null);
+                    if (!r.ok) {
+                        const errText = data && (data.message || data.error) ? String(data.message || data.error) : ('Falha ao carregar dica (HTTP ' + r.status + ')');
+                        if (dicaModalText) dicaModalText.textContent = errText;
+                        return;
+                    }
+                    const item = data && (data.item || data);
+                    const txt = item && item.descricao != null ? String(item.descricao) : '';
+                    const metaBits = [];
+                    try {
+                        if (item && item.versao_code) metaBits.push('Versão: ' + String(item.versao_code));
+                        else if (item && item.id_versao_pmbok != null) metaBits.push('Versão #' + String(item.id_versao_pmbok));
+                    } catch(_){ }
+                    try { if (item && item.id != null) metaBits.push('ID: ' + String(item.id)); } catch(_){ }
+                    if (dicaModalMeta) dicaModalMeta.textContent = metaBits.join(' • ');
+                    if (dicaModalText) dicaModalText.textContent = txt || 'Dica vazia.';
+                    try { dicaModal.dataset.lastDica = txt || ''; } catch(_){ }
+                } catch(_){
+                    if (dicaModalText) dicaModalText.textContent = 'Erro ao carregar dica.';
+                }
+            }
+
+            try {
+                if (typeof window.openDicaDoDiaModal !== 'function') {
+                    window.openDicaDoDiaModal = openDicaDoDiaModalEarly;
+                }
+            } catch(_){ }
 
             function updateDebug(name){ if (debugEls[name]) debugEls[name].textContent = 'Cliques: ' + counters[name]; }
 
@@ -2095,8 +2275,22 @@
             document.addEventListener('click', (e) => {
                 const card = e.target.closest && e.target.closest('.card');
                 if (!card) return;
-                
-                logger.info('[index.html] Card clicado:', card.id, card.getAttribute('data-card'));
+
+                // Dica do dia: abre modal com dica aleatória (não navega para examSetup.html)
+                const isDicaDoDia =
+                    (card.id === 'card-dica-do-dia') ||
+                    (card.getAttribute('data-card') === 'dica-do-dia') ||
+                    (String(card.getAttribute('aria-label') || '').trim().toLowerCase() === 'dica do dia');
+                if (isDicaDoDia) {
+                    try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                    try { if (typeof window.openDicaDoDiaModal === 'function') window.openDicaDoDiaModal(); } catch(_){ }
+                    return;
+                }
+
+                try {
+                    const log = (typeof logger !== 'undefined') ? logger : console;
+                    if (log && typeof log.info === 'function') log.info('[index.html] Card clicado:', card.id, card.getAttribute('data-card'));
+                } catch(_){ }
                 
                 // Prioridade: interceptar clique no exame completo (mock) antes do handler genérico
                 if (card.id === 'card-exam-mock' || card.getAttribute('data-card') === 'exam-mock'){
@@ -2306,6 +2500,133 @@
             // Close overlay when clicking backdrop (except image/back button)
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) backBtn.click();
+            });
+
+            // Dica do dia modal handlers
+            const dicaModal = document.getElementById('dicaModal');
+            const dicaModalClose = document.getElementById('dicaModalClose');
+            const dicaModalAnother = document.getElementById('dicaModalAnother');
+            const dicaModalCopy = document.getElementById('dicaModalCopy');
+            const dicaModalText = document.getElementById('dicaModalText');
+            const dicaModalMeta = document.getElementById('dicaModalMeta');
+
+            // Direct fallback listeners (extra robustness)
+            try {
+                const dicaCard = document.getElementById('card-dica-do-dia');
+                if (dicaCard) {
+                    dicaCard.addEventListener('click', (ev) => {
+                        try { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(_){ }
+                        try { if (typeof window.openDicaDoDiaModal === 'function') window.openDicaDoDiaModal(); } catch(_){ }
+                    }, true);
+                    dicaCard.addEventListener('keydown', (ev) => {
+                        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+                        try { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(_){ }
+                        try { if (typeof window.openDicaDoDiaModal === 'function') window.openDicaDoDiaModal(); } catch(_){ }
+                    }, true);
+                }
+            } catch(_){ }
+
+            function getUserHeaders(){
+                try {
+                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                        return window.Auth.getAuthHeaders({ acceptJson: true });
+                    }
+                } catch(_){ }
+                const headers = { 'Accept': 'application/json' };
+                try {
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const sessionForHeader = token || nomeUsuario;
+                    if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+                } catch(_){ }
+                try {
+                    const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                } catch(_){ }
+                return headers;
+            }
+
+            function setDicaModalOpen(open){
+                if (!dicaModal) return;
+                if (open) {
+                    dicaModal.classList.add('active');
+                    dicaModal.setAttribute('aria-hidden', 'false');
+                    const navHide = document.querySelector('.bottom-nav');
+                    if (navHide) navHide.style.display='none';
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    dicaModal.classList.remove('active');
+                    dicaModal.setAttribute('aria-hidden', 'true');
+                    const navShow = document.querySelector('.bottom-nav');
+                    if (navShow) navShow.style.display='';
+                    document.body.style.overflow = '';
+                }
+            }
+
+            async function loadRandomDica(){
+                if (dicaModalText) dicaModalText.textContent = 'Carregando...';
+                if (dicaModalMeta) dicaModalMeta.textContent = '';
+                if (dicaModalAnother) dicaModalAnother.disabled = true;
+                if (dicaModalCopy) dicaModalCopy.disabled = true;
+
+                try {
+                    const url = '/api/dicas/today?_ts=' + Date.now();
+                    const r = await fetch(url, { method: 'GET', headers: getUserHeaders(), cache: 'no-store', credentials: 'include' });
+                    if (!r.ok) {
+                        const msg = (await r.json().catch(()=>null)) || null;
+                        const errText = msg && (msg.message || msg.error) ? String(msg.message || msg.error) : ('Falha ao carregar dica (HTTP ' + r.status + ')');
+                        if (dicaModalText) dicaModalText.textContent = errText;
+                        return;
+                    }
+                    const data = await r.json().catch(()=>null);
+                    const item = data && (data.item || data);
+                    const txt = item && item.descricao != null ? String(item.descricao) : '';
+                    const metaBits = [];
+                    try {
+                        if (item && item.versao_code) metaBits.push('Versão: ' + String(item.versao_code));
+                        else if (item && item.id_versao_pmbok != null) metaBits.push('Versão #' + String(item.id_versao_pmbok));
+                    } catch(_){ }
+                    try { if (item && item.id != null) metaBits.push('ID: ' + String(item.id)); } catch(_){ }
+                    if (dicaModalMeta) dicaModalMeta.textContent = metaBits.join(' • ');
+                    if (dicaModalText) dicaModalText.textContent = txt || 'Dica vazia.';
+                    try { if (dicaModal && dicaModal.dataset) dicaModal.dataset.lastDica = txt || ''; } catch(_){ }
+                } catch (err) {
+                    if (dicaModalText) dicaModalText.textContent = 'Erro ao carregar dica.';
+                } finally {
+                    if (dicaModalAnother) dicaModalAnother.disabled = false;
+                    if (dicaModalCopy) dicaModalCopy.disabled = false;
+                }
+            }
+
+            if (typeof window.openDicaDoDiaModal !== 'function') {
+                window.openDicaDoDiaModal = function(){
+                    setDicaModalOpen(true);
+                    loadRandomDica();
+                };
+            }
+
+            if (dicaModalClose) dicaModalClose.addEventListener('click', () => setDicaModalOpen(false));
+            if (dicaModal) dicaModal.addEventListener('click', (e) => { if (e.target === dicaModal) setDicaModalOpen(false); });
+            if (dicaModalAnother) dicaModalAnother.addEventListener('click', () => loadRandomDica());
+            if (dicaModalCopy) dicaModalCopy.addEventListener('click', async () => {
+                try {
+                    const txt = (dicaModal && dicaModal.dataset && dicaModal.dataset.lastDica) ? String(dicaModal.dataset.lastDica) : (dicaModalText ? String(dicaModalText.textContent || '') : '');
+                    if (!txt) return;
+                    await navigator.clipboard.writeText(txt);
+                    try { if (window.showToast) window.showToast('Dica copiada.'); } catch(_){ }
+                } catch(_){
+                    try { if (window.showToast) window.showToast('Falha ao copiar.'); } catch(_){ }
+                }
+            });
+            document.addEventListener('keydown', (e) => {
+                if (!dicaModal) return;
+                const open = dicaModal.classList && dicaModal.classList.contains('active');
+                if (!open) return;
+                if (e.key === 'Escape') {
+                    try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+                    setDicaModalOpen(false);
+                }
             });
             
             // Admin Modal handlers

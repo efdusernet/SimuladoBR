@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Flashcards (Admin)</title>
+  <title>Dicas (Admin)</title>
   <script src="/utils/logger.js"></script>
   <script src="/utils/auth.js"></script>
   <script src="/utils/csrf.js"></script>
@@ -14,8 +14,8 @@
     .wrap{ max-width:1100px; margin:20px auto; padding:16px; background:#111827; border:1px solid #1f2937; border-radius:10px; }
     .muted{ color:#94a3b8; }
     label{ display:block; font-size:.85rem; color:#94a3b8; margin:8px 0 4px; }
-    input, select, textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
-    textarea{ resize: vertical; min-height: 90px; }
+    input, textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    textarea{ resize: vertical; min-height: 110px; }
     .row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     .row3{ display:grid; grid-template-columns: 160px 1fr 1fr; gap:12px; align-items:end; }
     .btn{ padding:8px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:700; }
@@ -46,8 +46,8 @@
   <div class="wrap">
     <div class="topbar">
       <div>
-        <h1 style="margin:0 0 6px;">Flashcards (Admin)</h1>
-        <div class="muted small">CRUD de cadastro/edição baseado na tabela <span class="mono">public.flashcard</span>.</div>
+        <h1 style="margin:0 0 6px;">Dicas (Admin)</h1>
+        <div class="muted small">CRUD baseado na tabela <span class="mono">public.dicas</span>.</div>
       </div>
       <div class="right">
         <button id="btnReload" type="button" class="btn btn-muted">Recarregar</button>
@@ -63,7 +63,7 @@
         <input id="filterVersion" type="number" min="1" value="2" inputmode="numeric" />
       </div>
       <div>
-        <label for="filterQ">Busca (pergunta/resposta)</label>
+        <label for="filterQ">Busca (descrição)</label>
         <input id="filterQ" type="text" placeholder="Ex: stakeholder" />
       </div>
       <div style="display:flex; gap:8px; justify-content:flex-end;">
@@ -74,7 +74,7 @@
     <hr style="border:0; border-top:1px solid #1f2937; margin: 14px 0;" />
 
     <h2 style="margin:0 0 6px; font-size: 1.0rem;">Cadastrar / Editar</h2>
-    <div class="muted small">Salva via <span class="mono">/api/admin/flashcards</span> (CSRF automático).</div>
+    <div class="muted small">Salva via <span class="mono">/api/admin/dicas</span> (CSRF automático).</div>
 
     <div class="row" style="margin-top: 8px;">
       <div>
@@ -88,57 +88,9 @@
       </div>
     </div>
 
-    <div class="row" style="margin-top: 6px;">
-      <div>
-        <label for="editPrincipio">Princípio (idprincipio)</label>
-        <select id="editPrincipio">
-          <option value="">(vazio)</option>
-        </select>
-      </div>
-      <div>
-        <label for="editDominioDes">Domínio desempenho (iddominio_desempenho)</label>
-        <select id="editDominioDes">
-          <option value="">(vazio)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="row" style="margin-top: 6px;">
-      <div>
-        <label for="editAbordagem">Abordagem (idabordagem)</label>
-        <select id="editAbordagem">
-          <option value="">(vazio)</option>
-        </select>
-      </div>
-      <div>
-        <label for="editBasics">Basics</label>
-        <select id="editBasics">
-          <option value="false" selected>Não</option>
-          <option value="true">Sim</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="row" style="margin-top: 6px;">
-      <div>
-        <label for="editActive">Ativo</label>
-        <select id="editActive">
-          <option value="true" selected>Sim</option>
-          <option value="false">Não</option>
-        </select>
-      </div>
-      <div></div>
-    </div>
-
-    <div class="row" style="margin-top: 6px;">
-      <div>
-        <label for="editPergunta">Pergunta</label>
-        <textarea id="editPergunta" placeholder="Digite a pergunta..."></textarea>
-      </div>
-      <div>
-        <label for="editResposta">Resposta</label>
-        <textarea id="editResposta" placeholder="Digite a resposta..."></textarea>
-      </div>
+    <div style="margin-top: 6px;">
+      <label for="editDescricao">Descrição</label>
+      <textarea id="editDescricao" placeholder="Digite a dica..."></textarea>
     </div>
 
     <div style="display:flex; gap:8px; justify-content:flex-end; margin-top: 10px;">
@@ -146,14 +98,12 @@
       <button id="btnSave" type="button" class="btn btn-primary">Salvar</button>
     </div>
 
-    <table aria-label="Flashcards cadastrados">
+    <table aria-label="Dicas cadastradas">
       <thead>
         <tr>
           <th>ID</th>
           <th>Versão</th>
-          <th>Ativo</th>
-          <th>Pergunta</th>
-          <th>Atualização</th>
+          <th>Descrição</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -175,21 +125,12 @@
         editId: document.getElementById('editId'),
         editVersion: document.getElementById('editVersion'),
         editVersionCode: document.getElementById('editVersionCode'),
-        editPrincipio: document.getElementById('editPrincipio'),
-        editDominioDes: document.getElementById('editDominioDes'),
-        editAbordagem: document.getElementById('editAbordagem'),
-        editBasics: document.getElementById('editBasics'),
-        editActive: document.getElementById('editActive'),
-        editPergunta: document.getElementById('editPergunta'),
-        editResposta: document.getElementById('editResposta'),
+        editDescricao: document.getElementById('editDescricao'),
         btnClear: document.getElementById('btnClear'),
         btnSave: document.getElementById('btnSave')
       };
 
       let versions = [];
-      let principios = [];
-      let dominiosDes = [];
-      let abordagens = [];
       let currentItems = [];
 
       function setStatus(msg, type){
@@ -216,7 +157,6 @@
         try {
           const st = (localStorage.getItem('sessionToken') || '').trim();
           const nome = (localStorage.getItem('nomeUsuario') || '').trim();
-          // Prefer real sessionToken; fallback to nomeUsuario only if absent
           const identity = st || nome;
           if (identity) h['X-Session-Token'] = identity;
         } catch(_){ }
@@ -239,68 +179,18 @@
         els.editVersionCode.textContent = code || '—';
       }
 
-      function clearForm(opts){
-        const options = opts && typeof opts === 'object' ? opts : {};
-        const preserveSelects = options.preserveSelects === true;
-
+      function clearForm(){
         els.editId.value = '';
-        els.editPergunta.value = '';
-        els.editResposta.value = '';
+        els.editDescricao.value = '';
         els.editVersion.value = String(Number.parseInt(String(els.filterVersion.value||'2'),10) || 2);
-
-        if (!preserveSelects) {
-          if (els.editPrincipio) els.editPrincipio.value = '';
-          if (els.editDominioDes) els.editDominioDes.value = '';
-          if (els.editAbordagem) els.editAbordagem.value = '';
-          if (els.editBasics) els.editBasics.value = 'false';
-          if (els.editActive) els.editActive.value = 'true';
-        }
-
         syncVersionBadge();
       }
 
       function fillForm(item){
         els.editId.value = item && item.id != null ? String(item.id) : '';
         els.editVersion.value = String(item && item.id_versao_pmbok != null ? item.id_versao_pmbok : 2);
-        els.editPergunta.value = item && item.pergunta != null ? String(item.pergunta) : '';
-        els.editResposta.value = item && item.resposta != null ? String(item.resposta) : '';
-        if (els.editPrincipio) els.editPrincipio.value = (item && item.idprincipio != null) ? String(item.idprincipio) : '';
-        if (els.editDominioDes) els.editDominioDes.value = (item && item.iddominio_desempenho != null) ? String(item.iddominio_desempenho) : '';
-        if (els.editAbordagem) els.editAbordagem.value = (item && item.idabordagem != null) ? String(item.idabordagem) : '';
-        if (els.editBasics) {
-          const b = item && (item.basics === true || String(item.basics).toLowerCase() === 'true');
-          els.editBasics.value = b ? 'true' : 'false';
-        }
-        if (els.editActive) {
-          const a = !(item && (item.active === false || String(item.active).toLowerCase() === 'false'));
-          els.editActive.value = a ? 'true' : 'false';
-        }
+        els.editDescricao.value = item && item.descricao != null ? String(item.descricao) : '';
         syncVersionBadge();
-      }
-
-      function toNullableInt(value){
-        const s = String(value ?? '').trim();
-        if (!s) return null;
-        const n = Number.parseInt(s, 10);
-        return Number.isInteger(n) && n > 0 ? n : null;
-      }
-
-      function renderSelectOptions(selectEl, items){
-        if (!selectEl) return;
-        const placeholder = '(vazio)';
-        selectEl.innerHTML = '';
-        const first = document.createElement('option');
-        first.value = '';
-        first.textContent = placeholder;
-        selectEl.appendChild(first);
-
-        (Array.isArray(items) ? items : []).forEach(it => {
-          if (!it) return;
-          const opt = document.createElement('option');
-          opt.value = String(it.id);
-          opt.textContent = String(it.descricao || it.code || it.id);
-          selectEl.appendChild(opt);
-        });
       }
 
       function renderTable(items){
@@ -308,24 +198,19 @@
         if (!els.rows) return;
 
         if (!currentItems.length){
-          els.rows.innerHTML = '<tr><td colspan="6">Nenhum flashcard.</td></tr>';
+          els.rows.innerHTML = '<tr><td colspan="4">Nenhuma dica.</td></tr>';
           return;
         }
 
         els.rows.innerHTML = currentItems.map(it => {
           const vid = it.id_versao_pmbok;
           const code = escapeHtml(it.versao_code || ('v#' + vid));
-          const pergunta = escapeHtml(it.pergunta || '');
-          const basics = (it && (it.basics === true || String(it.basics).toLowerCase() === 'true'));
-          const active = !(it && (it.active === false || String(it.active).toLowerCase() === 'false'));
-          const dt = it.data_alteracao ? escapeHtml(String(it.data_alteracao)) : '—';
+          const descricao = escapeHtml(it.descricao || '');
           return `
             <tr>
               <td class="mono">${escapeHtml(it.id)}</td>
               <td><span class="pill">${code}</span> <span class="muted small">(#${escapeHtml(vid)})</span></td>
-              <td>${active ? '<span class="pill">Sim</span>' : '<span class="pill" style="background:#7f1d1d;color:#fff1f2;">Não</span>'}</td>
-              <td>${pergunta}${basics ? ' <span class="pill" style="background:#1f2937;color:#e5e7eb;">Basics</span>' : ''}</td>
-              <td class="small">${dt}</td>
+              <td>${descricao}</td>
               <td>
                 <div class="actions">
                   <button type="button" class="btn btn-muted" data-action="edit" data-id="${escapeHtml(it.id)}">Editar</button>
@@ -348,7 +233,7 @@
           btn.addEventListener('click', async () => {
             const id = Number(btn.dataset.id);
             if (!Number.isInteger(id) || id <= 0) return;
-            if (!confirm('Excluir flashcard #' + id + '?')) return;
+            if (!confirm('Excluir dica #' + id + '?')) return;
             await del(id);
           });
         });
@@ -356,33 +241,11 @@
 
       async function loadVersions(){
         try {
-          const r = await fetch('/api/admin/flashcards/versions', { headers: headers(), credentials: 'include' });
+          const r = await fetch('/api/admin/dicas/versions', { headers: headers(), credentials: 'include' });
           if (!r.ok) return;
           const data = await r.json().catch(()=>null);
           versions = (data && data.items) ? data.items : [];
           syncVersionBadge();
-        } catch(_){ }
-      }
-
-      async function loadMeta(){
-        try {
-          const [rPr, rDom, rCat] = await Promise.all([
-            fetch('/api/meta/principios', { method: 'GET', headers: headers(), credentials: 'include' }),
-            fetch('/api/meta/ddesempenho', { method: 'GET', headers: headers(), credentials: 'include' }),
-            fetch('/api/meta/abordagens', { method: 'GET', headers: headers(), credentials: 'include' }),
-          ]);
-
-          const pr = rPr && rPr.ok ? await rPr.json().catch(()=>[]) : [];
-          const dom = rDom && rDom.ok ? await rDom.json().catch(()=>[]) : [];
-          const cat = rCat && rCat.ok ? await rCat.json().catch(()=>[]) : [];
-
-          principios = Array.isArray(pr) ? pr : [];
-          dominiosDes = Array.isArray(dom) ? dom : [];
-          abordagens = Array.isArray(cat) ? cat : [];
-
-          renderSelectOptions(els.editPrincipio, principios);
-          renderSelectOptions(els.editDominioDes, dominiosDes);
-          renderSelectOptions(els.editAbordagem, abordagens);
         } catch(_){ }
       }
 
@@ -393,7 +256,7 @@
         setStatus('Carregando...', 'info');
 
         try {
-          const url = '/api/admin/flashcards?versionId=' + encodeURIComponent(String(versionId)) + '&q=' + encodeURIComponent(q);
+          const url = '/api/admin/dicas?versionId=' + encodeURIComponent(String(versionId)) + '&q=' + encodeURIComponent(q);
           const r = await fetch(url, { headers: headers(), credentials: 'include' });
           if (!r.ok){
             let msg = 'Falha ao carregar';
@@ -415,25 +278,15 @@
       async function save(){
         const idRaw = String(els.editId.value||'').trim();
         const id = idRaw ? Number.parseInt(idRaw, 10) : null;
-        const pergunta = String(els.editPergunta.value||'').trim();
-        const resposta = String(els.editResposta.value||'').trim();
+        const descricao = String(els.editDescricao.value||'').trim();
         const id_versao_pmbok = Number.parseInt(String(els.editVersion.value||'2'), 10) || 2;
 
-        if (!pergunta || !resposta){
-          alert('Preencha pergunta e resposta.');
+        if (!descricao){
+          alert('Preencha a descrição.');
           return;
         }
 
-        const body = {
-          pergunta,
-          resposta,
-          id_versao_pmbok,
-          idprincipio: toNullableInt(els.editPrincipio ? els.editPrincipio.value : ''),
-          iddominio_desempenho: toNullableInt(els.editDominioDes ? els.editDominioDes.value : ''),
-          idabordagem: toNullableInt(els.editAbordagem ? els.editAbordagem.value : ''),
-          basics: (els.editBasics ? String(els.editBasics.value || 'false') : 'false') === 'true',
-          active: (els.editActive ? String(els.editActive.value || 'true') : 'true') === 'true',
-        };
+        const body = { descricao, id_versao_pmbok };
 
         try {
           els.btnSave.disabled = true;
@@ -441,14 +294,14 @@
 
           let r;
           if (id){
-            r = await fetch('/api/admin/flashcards/' + encodeURIComponent(String(id)), {
+            r = await fetch('/api/admin/dicas/' + encodeURIComponent(String(id)), {
               method: 'PUT',
               headers: headers(),
               credentials: 'include',
               body: JSON.stringify(body)
             });
           } else {
-            r = await fetch('/api/admin/flashcards', {
+            r = await fetch('/api/admin/dicas', {
               method: 'POST',
               headers: headers(),
               credentials: 'include',
@@ -465,7 +318,7 @@
 
           await r.json().catch(()=>null);
           setStatus('Salvo com sucesso.', 'info');
-          clearForm({ preserveSelects: true });
+          clearForm();
           await loadList();
         } catch(e){
           setStatus('Erro ao salvar: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
@@ -477,7 +330,7 @@
       async function del(id){
         try {
           setStatus('Excluindo...', 'info');
-          const r = await fetch('/api/admin/flashcards/' + encodeURIComponent(String(id)), {
+          const r = await fetch('/api/admin/dicas/' + encodeURIComponent(String(id)), {
             method: 'DELETE',
             headers: headers(),
             credentials: 'include'
@@ -499,27 +352,27 @@
       if (els.btnLoad) els.btnLoad.addEventListener('click', loadList);
       if (els.btnReload) els.btnReload.addEventListener('click', async () => {
         setStatus('Recarregando...', 'info');
-        await Promise.all([loadVersions(), loadMeta()]);
+        await loadVersions();
         syncVersionBadge();
         await loadList();
         setStatus('OK', 'info');
       });
-      if (els.btnClear) els.btnClear.addEventListener('click', () => clearForm());
+      if (els.btnClear) els.btnClear.addEventListener('click', clearForm);
       if (els.btnSave) els.btnSave.addEventListener('click', save);
       if (els.editVersion) els.editVersion.addEventListener('input', syncVersionBadge);
 
-	  // Keyboard shortcut: Ctrl+S / Cmd+S to save
-	  document.addEventListener('keydown', (e) => {
-		  try {
-			  const key = e && e.key ? String(e.key).toLowerCase() : '';
-			  const isSave = key === 's';
-			  const hasModifier = !!(e && (e.ctrlKey || e.metaKey));
-			  if (!isSave || !hasModifier) return;
-			  e.preventDefault();
-			  if (els.btnSave && els.btnSave.disabled) return;
-			  save();
-		  } catch(_){ }
-	  });
+      // Keyboard shortcut: Ctrl+S / Cmd+S to save
+      document.addEventListener('keydown', (e) => {
+        try {
+          const key = e && e.key ? String(e.key).toLowerCase() : '';
+          const isSave = key === 's';
+          const hasModifier = !!(e && (e.ctrlKey || e.metaKey));
+          if (!isSave || !hasModifier) return;
+          e.preventDefault();
+          if (els.btnSave && els.btnSave.disabled) return;
+          save();
+        } catch(_){ }
+      });
 
       if (els.btnLogout) els.btnLogout.addEventListener('click', () => {
         try { if (typeof window.logout === 'function') return window.logout(); } catch(_){ }
@@ -528,7 +381,7 @@
       });
 
       // Init
-      Promise.all([loadVersions(), loadMeta()]).finally(() => {
+      loadVersions().finally(() => {
         syncVersionBadge();
         clearForm();
         loadList();

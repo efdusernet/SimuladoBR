@@ -13,6 +13,21 @@ class SyncManager {
     this.retryDelays = [1000, 3000, 10000, 30000]; // Exponential backoff
   }
 
+  buildAuthHeaders(contentType = 'application/json') {
+    try {
+      if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+        return window.Auth.getAuthHeaders({ contentType });
+      }
+    } catch (_e) { }
+
+    const headers = { 'Content-Type': contentType };
+    try {
+      const token = String(localStorage.getItem('sessionToken') || '').trim() || String(localStorage.getItem('nomeUsuario') || '').trim();
+      if (token) headers['X-Session-Token'] = token;
+    } catch (_e) { }
+    return headers;
+  }
+
   /**
    * Inicia monitoramento de conectividade e sync automático
    */
@@ -149,15 +164,13 @@ class SyncManager {
    * Sincroniza resposta individual
    */
   async syncAnswer(data) {
-    const token = localStorage.getItem('sessionToken') || '';
     const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || 'http://localhost:3000';
+
+    const headers = this.buildAuthHeaders('application/json');
 
     const response = await fetch(`${baseUrl}/api/exams/answer`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Session-Token': token
-      },
+      headers,
       body: JSON.stringify(data)
     });
 
@@ -172,15 +185,13 @@ class SyncManager {
    * Sincroniza submissão de exame
    */
   async syncExamSubmit(data) {
-    const token = localStorage.getItem('sessionToken') || '';
     const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || 'http://localhost:3000';
+
+    const headers = this.buildAuthHeaders('application/json');
 
     const response = await fetch(`${baseUrl}/api/exams/submit`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Session-Token': token
-      },
+      headers,
       body: JSON.stringify(data)
     });
 
@@ -195,15 +206,13 @@ class SyncManager {
    * Sincroniza progresso
    */
   async syncProgress(data) {
-    const token = localStorage.getItem('sessionToken') || '';
     const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || 'http://localhost:3000';
+
+    const headers = this.buildAuthHeaders('application/json');
 
     const response = await fetch(`${baseUrl}/api/exams/progress`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Session-Token': token
-      },
+      headers,
       body: JSON.stringify(data)
     });
 

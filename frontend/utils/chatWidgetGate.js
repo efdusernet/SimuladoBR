@@ -10,6 +10,9 @@
 
   function getSessionToken() {
     try {
+      if (window.Auth && typeof window.Auth.getSessionToken === 'function') {
+        return String(window.Auth.getSessionToken() || '').trim();
+      }
       return String((localStorage.getItem('sessionToken') || '')).trim();
     } catch (_) {
       return '';
@@ -41,9 +44,9 @@
 
     premiumStatusPromise = (async () => {
       try {
-        const token = getSessionToken();
-        const headers = { 'Accept': 'application/json' };
-        if (token) headers['X-Session-Token'] = token;
+        const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+          ? window.Auth.getAuthHeaders({ acceptJson: true })
+          : { 'Accept': 'application/json' };
 
         const resp = await fetch('/api/users/me', {
           method: 'GET',

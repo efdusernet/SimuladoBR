@@ -73,13 +73,19 @@
   window.setTimeout(() => flashAnchorTarget(window.location.hash), 120);
 
   function buildAuthHeaders(){
+    try {
+      if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+        return window.Auth.getAuthHeaders({ acceptJson: true });
+      }
+    } catch(_){ }
     const headers = { 'Accept': 'application/json' };
     try {
       const jwtTok = ((localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '')).trim();
       const jwtType = ((localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer')).trim() || 'Bearer';
       const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+      const identity = sessionToken || (localStorage.getItem('nomeUsuario') || '').trim();
       if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-      if (sessionToken) headers['X-Session-Token'] = sessionToken;
+      if (identity) headers['X-Session-Token'] = identity;
     } catch(_){ }
     return headers;
   }

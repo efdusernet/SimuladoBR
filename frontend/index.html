@@ -25,6 +25,7 @@
     <script src="/utils/layoutManager.js"></script>
     <!-- Controlled Logging System (must load before other scripts) -->
     <script src="/utils/logger.js"></script>
+    <script src="/utils/auth.js"></script>
     <!-- Logout Utility -->
     <script src="/utils/logout.js"></script>
     <!-- CSRF Protection -->
@@ -745,15 +746,13 @@
         if (!btn || !panel) return;
         // Hidden by default; only admins can see it.
         try { btn.style.display = 'none'; } catch(_){ }
-        const token = (localStorage.getItem('sessionToken') || '').trim();
-        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-        const sessionForHeader = token || nomeUsuario;
-        if (!sessionForHeader) return; // no session => skip
-                const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                const headers = { };
-                if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
-                if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                const sessionForHeader = (window.Auth && typeof window.Auth.getSessionIdentity === 'function')
+                    ? window.Auth.getSessionIdentity()
+                    : ((localStorage.getItem('sessionToken') || '').trim() || (localStorage.getItem('nomeUsuario') || '').trim());
+                if (!sessionForHeader) return; // no session => skip
+                const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+                    ? window.Auth.getAuthHeaders()
+                    : {};
 
                 // Primary: RBAC probe.
                 const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
@@ -791,19 +790,16 @@
               const reconcileBtn = document.getElementById('btnAdminReconcile');
               const fixtureBtn = document.getElementById('btnAdminFixture');
               const logoutBtn = document.getElementById('btnAdminLogout');
-              function getToken(){ return (localStorage.getItem('sessionToken')||'').trim(); }
               function getSessionIdentity(){
-                  const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
-                  const sessionToken = getToken();
-                  return sessionToken || nomeUsuario;
+                  try { return (window.Auth && typeof window.Auth.getSessionIdentity === 'function') ? window.Auth.getSessionIdentity() : ''; }
+                  catch(_){ return ''; }
               }
               async function adminPost(path){
                   const identity = getSessionIdentity();
-                  const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                  const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                  const headers = { 'Content-Type':'application/json' };
-                  if (identity) headers['X-Session-Token'] = identity;
-                  if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                  const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+                    ? window.Auth.getAuthHeaders({ contentType: 'application/json' })
+                    : { 'Content-Type': 'application/json' };
+                  if (!headers['X-Session-Token'] && identity) headers['X-Session-Token'] = identity;
                   const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity);
                   const resp = await fetch(url,{method:'POST',headers, credentials: 'include'});
                   const data = await resp.json().catch(()=>({}));
@@ -1695,6 +1691,24 @@
                     <button id="adminModalClose" style="background:none;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center" aria-label="Fechar">×</button>
                 </div>
             </div>
+
+            <!-- Accordion: Health Check (on-demand) -->
+            <div class="admin-accordion" id="adminHealthAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">Health check</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.9rem;color:var(--muted);margin:0 0 12px;line-height:1.5">Diagnóstico de sessão/admin (RBAC + headers).</p>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <button id="adminHealthCheckBtn" type="button" style="flex:1;min-width:220px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Rodar Health Check</button>
+                        <button id="adminHealthCopyBtn" type="button" style="flex:1;min-width:220px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s">Copiar resultado</button>
+                    </div>
+                    <div id="adminHealthCheckOutput" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.8rem;color:var(--text);max-height:240px;overflow-y:auto;display:none;white-space:pre-wrap"></div>
+                </div>
+            </div>
             
             <!-- Accordion: Reconciliação de Estatísticas -->
             <div class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
@@ -2304,6 +2318,11 @@
             const reconcileMode = document.getElementById('reconcileMode');
             const reconcileDryRun = document.getElementById('reconcileDryRun');
 
+            // Admin health check controls
+            const adminHealthCheckBtn = document.getElementById('adminHealthCheckBtn');
+            const adminHealthCopyBtn = document.getElementById('adminHealthCopyBtn');
+            const adminHealthCheckOutput = document.getElementById('adminHealthCheckOutput');
+
             // Exam content version (ECO) admin controls
             const adminExamTypeSelect = document.getElementById('adminExamTypeSelect');
             const adminExamContentVersionSelect = document.getElementById('adminExamContentVersionSelect');
@@ -2399,6 +2418,178 @@
                 try { alert('Acesso restrito: somente admin.'); } catch(_){ }
             }
 
+            function getAdminHeaders(){
+                try {
+                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                        return window.Auth.getAuthHeaders({ acceptJson: true });
+                    }
+                } catch(_){ }
+                const headers = { 'Accept': 'application/json' };
+                try {
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const sessionForHeader = token || nomeUsuario;
+                    if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+                } catch(_){ }
+                try {
+                    const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                } catch(_){ }
+                return headers;
+            }
+
+            function fmtHealthLine(k, v){
+                const key = String(k || '').padEnd(18, ' ');
+                return `${key}: ${v}`;
+            }
+
+            async function runAdminHealthCheck(){
+                const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                const headers = getAdminHeaders();
+                const identity = (window.Auth && typeof window.Auth.getSessionIdentity === 'function')
+                    ? window.Auth.getSessionIdentity()
+                    : ((localStorage.getItem('sessionToken') || '').trim() || (localStorage.getItem('nomeUsuario') || '').trim());
+
+                const outLines = [];
+                outLines.push('[admin-health] ' + new Date().toISOString());
+                outLines.push(fmtHealthLine('base', base));
+                outLines.push(fmtHealthLine('identity', identity ? String(identity) : '(none)'));
+                outLines.push(fmtHealthLine('hasJWT', headers['Authorization'] ? 'yes' : 'no'));
+                outLines.push(fmtHealthLine('hasX-Session', headers['X-Session-Token'] ? 'yes' : 'no'));
+
+                // Sidebar version (helps diagnose cache/stale HTML)
+                try {
+                    const uiBase = (function(){
+                        try { return String(window.location.origin || '').replace(/\/$/, ''); } catch(_){ return ''; }
+                    })();
+                    const sidebarMount = document.getElementById('sidebarMount');
+                    const domHtml = sidebarMount ? String(sidebarMount.innerHTML || '') : '';
+                    const domLen = domHtml.length;
+
+                    let domVersion = '(none)';
+                    try {
+                        const aside = sidebarMount ? sidebarMount.querySelector('aside.sidebar[data-sidebar-version]') : null;
+                        domVersion = aside ? String(aside.getAttribute('data-sidebar-version') || '(none)') : '(none)';
+                    } catch(_){ domVersion = '(none)'; }
+
+                    let remoteLen = '(n/a)';
+                    let remoteVersion = '(n/a)';
+                    try {
+                        const resp = await fetch(uiBase + '/components/sidebar.html?v=' + Date.now(), { method: 'GET', cache: 'no-store', credentials: 'include' });
+                        if (resp.ok) {
+                            const txt = await resp.text();
+                            remoteLen = txt.length;
+                            const m = txt.match(/data-sidebar-version\s*=\s*"([^"]+)"/i);
+                            remoteVersion = m && m[1] ? String(m[1]) : '(missing)';
+                        } else {
+                            remoteLen = '(http ' + resp.status + ')';
+                            remoteVersion = '(http ' + resp.status + ')';
+                        }
+                    } catch(_){ }
+
+                    const versionMatch = (domVersion !== '(none)' && remoteVersion !== '(n/a)' && remoteVersion !== '(missing)' && remoteVersion !== '(none)')
+                        ? (String(domVersion) === String(remoteVersion) ? 'yes' : 'no')
+                        : '(n/a)';
+
+                    outLines.push('');
+                    outLines.push('[sidebar]');
+                    outLines.push(fmtHealthLine('uiBase', uiBase || '(none)'));
+                    outLines.push(fmtHealthLine('mounted', (sidebarMount && sidebarMount.hasChildNodes()) ? 'yes' : 'no'));
+                    outLines.push(fmtHealthLine('domLen', domLen));
+                    outLines.push(fmtHealthLine('domVersion', domVersion));
+                    outLines.push(fmtHealthLine('remoteLen', remoteLen));
+                    outLines.push(fmtHealthLine('remoteVersion', remoteVersion));
+                    outLines.push(fmtHealthLine('match', versionMatch));
+                } catch(_){ }
+
+                // 1) /api/users/me
+                try {
+                    const resp = await fetch(base + '/api/users/me', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+                    const body = await resp.json().catch(() => null);
+                    outLines.push('');
+                    outLines.push('[users/me]');
+                    outLines.push(fmtHealthLine('status', resp.status));
+                    outLines.push(fmtHealthLine('TipoUsuario', body && (body.TipoUsuario || body.tipoUsuario) ? (body.TipoUsuario || body.tipoUsuario) : '(none)'));
+                    outLines.push(fmtHealthLine('Id', body && body.Id != null ? body.Id : '(none)'));
+                    outLines.push(fmtHealthLine('Email', body && body.Email ? body.Email : '(none)'));
+                } catch (e) {
+                    outLines.push('');
+                    outLines.push('[users/me] ERROR: ' + (e && e.message ? e.message : String(e)));
+                }
+
+                // 2) Admin probe (RBAC)
+                try {
+                    const probeUrl = base + '/api/admin/exams/probe' + (identity ? ('?sessionToken=' + encodeURIComponent(identity)) : '');
+                    const resp = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+                    outLines.push('');
+                    outLines.push('[admin/exams/probe]');
+                    outLines.push(fmtHealthLine('status', resp.status));
+                    outLines.push(fmtHealthLine('ok', (resp.ok || resp.status === 204) ? 'yes' : 'no'));
+                } catch (e) {
+                    outLines.push('');
+                    outLines.push('[admin/exams/probe] ERROR: ' + (e && e.message ? e.message : String(e)));
+                }
+
+                const text = outLines.join('\n');
+                if (adminHealthCheckOutput) {
+                    adminHealthCheckOutput.style.display = 'block';
+                    adminHealthCheckOutput.textContent = text;
+                }
+
+                const ok = /\[admin\/exams\/probe\][\s\S]*ok\s*: yes/i.test(text) || /\[users\/me\][\s\S]*TipoUsuario\s*: admin/i.test(text);
+                try {
+                    if (window.showToast) window.showToast(ok ? 'Health check OK (admin)' : 'Health check: atenção (não-admin)');
+                } catch(_){ }
+                return ok;
+            }
+
+            window.runAdminHealthCheck = runAdminHealthCheck;
+
+            // Allow other pages (sidebar) to redirect to /index.html and request opening a specific
+            // admin modal section (e.g., fixture/reconcile).
+            (function consumeAdminModalIntent(){
+                let intent = '';
+                try { intent = String(sessionStorage.getItem('adminModalIntent') || '').trim().toLowerCase(); } catch(_){ intent = ''; }
+                if (!intent) return;
+                try { sessionStorage.removeItem('adminModalIntent'); } catch(_){ }
+
+                // Trigger open (may be async due to ensureAdminAccess())
+                try { openAdminModal(); } catch(_){ }
+
+                const startedAt = Date.now();
+                const timer = setInterval(() => {
+                    const m = document.getElementById('adminModal');
+                    const isOpen = !!(m && m.classList.contains('active') && m.getAttribute('aria-hidden') === 'false');
+                    if (!isOpen) {
+                        if (Date.now() - startedAt > 6000) clearInterval(timer);
+                        return;
+                    }
+
+                    try {
+                        if (intent === 'fixture') {
+                            const userField = document.getElementById('fxUserId');
+                            if (userField) {
+                                userField.focus();
+                                userField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            } else {
+                                const heading = Array.from(m.querySelectorAll('h3')).find(h => /Gerar\s+Tentativa\s+Fixture/i.test(h.textContent||''));
+                                if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                        } else if (intent === 'reconcile') {
+                            const heading = Array.from(m.querySelectorAll('h3')).find(h => /Reconcilia/i.test(h.textContent||''));
+                            if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        } else if (intent === 'health-check' || intent === 'health') {
+                            const acc = document.getElementById('adminHealthAccordion');
+                            if (acc) acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            try { if (typeof window.runAdminHealthCheck === 'function') window.runAdminHealthCheck(); } catch(_){ }
+                        }
+                    } catch(_){ }
+
+                    clearInterval(timer);
+                }, 120);
+            })();
+
             // Unified modal open/close to avoid click-through caused by lingering `inert`.
             function openAdminModal(){
                 const m = document.getElementById('adminModal');
@@ -2475,6 +2666,65 @@
                     logger.warn('Admin check failed:', e);
                 }
             })();
+
+            // Hook health check button
+            if (adminHealthCheckBtn) {
+                adminHealthCheckBtn.addEventListener('click', async () => {
+                    const old = adminHealthCheckBtn.textContent;
+                    adminHealthCheckBtn.disabled = true;
+                    adminHealthCheckBtn.textContent = 'Rodando...';
+                    try {
+                        await runAdminHealthCheck();
+                    } finally {
+                        adminHealthCheckBtn.disabled = false;
+                        adminHealthCheckBtn.textContent = old;
+                    }
+                });
+            }
+
+            // Copy health check output
+            if (adminHealthCopyBtn) {
+                adminHealthCopyBtn.addEventListener('click', async () => {
+                    const text = (adminHealthCheckOutput && adminHealthCheckOutput.textContent)
+                        ? String(adminHealthCheckOutput.textContent)
+                        : '';
+                    if (!text.trim()) {
+                        try { if (window.showToast) window.showToast('Nada para copiar. Rode o health check primeiro.'); } catch(_){ }
+                        return;
+                    }
+
+                    const old = adminHealthCopyBtn.textContent;
+                    adminHealthCopyBtn.disabled = true;
+                    adminHealthCopyBtn.textContent = 'Copiando...';
+
+                    let ok = false;
+                    try {
+                        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                            await navigator.clipboard.writeText(text);
+                            ok = true;
+                        }
+                    } catch(_){ ok = false; }
+
+                    if (!ok) {
+                        try {
+                            const ta = document.createElement('textarea');
+                            ta.value = text;
+                            ta.setAttribute('readonly', '');
+                            ta.style.position = 'fixed';
+                            ta.style.left = '-9999px';
+                            ta.style.top = '0';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            ok = document.execCommand('copy');
+                            ta.remove();
+                        } catch(_){ ok = false; }
+                    }
+
+                    try { if (window.showToast) window.showToast(ok ? 'Resultado copiado.' : 'Falha ao copiar.'); } catch(_){ }
+                    adminHealthCopyBtn.disabled = false;
+                    adminHealthCopyBtn.textContent = old;
+                });
+            }
 
             // Admin: view daily snapshots recorded from /api/ai/insights
             (function initAdminSnapshots(){

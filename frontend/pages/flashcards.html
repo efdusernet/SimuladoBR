@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
   <script src="/utils/csrf.js"></script>
   <script src="/utils/layoutManager.js"></script>
   <script src="/utils/logout.js"></script>
@@ -414,12 +415,7 @@
         adminLinks.forEach(a => { try { a.style.display = 'none'; } catch(_){ } });
 
         try {
-          const headers = { 'Accept': 'application/json' };
-          const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
-          const jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
-          const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
-          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-          if (sessionToken) headers['X-Session-Token'] = sessionToken;
+          const headers = getAuthHeaders({ acceptJson: true });
 
           const resp = await fetch('/api/users/me', { method: 'GET', headers, credentials: 'include' });
           if (!resp.ok) return;
@@ -520,16 +516,40 @@
       }
 
       function getAuthHeaders(){
+        try {
+          if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+            return window.Auth.getAuthHeaders(arguments && arguments[0] ? arguments[0] : undefined);
+          }
+        } catch(_){ }
+        // Fallback (should be rare): match Auth.getAuthHeaders behavior closely
+        const options = (arguments && arguments[0]) ? arguments[0] : undefined;
         const headers = {};
+
+        try {
+          if (options && options.acceptJson) headers['Accept'] = 'application/json';
+          if (options && options.contentType) {
+            headers['Content-Type'] = typeof options.contentType === 'string' ? options.contentType : 'application/json';
+          }
+        } catch(_){ }
+
         try {
           const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
-          if (sessionToken) headers['X-Session-Token'] = sessionToken;
+          const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+          const identity = sessionToken || nomeUsuario;
+          if (identity) headers['X-Session-Token'] = identity;
         } catch(_){ }
+
         try {
-          const jwtTok = (localStorage.getItem('jwt') || '').trim();
-          const jwtType = (localStorage.getItem('jwt_type') || localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+          const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
           if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
         } catch(_){ }
+
+        try {
+          const extra = options && options.extra && typeof options.extra === 'object' ? options.extra : null;
+          if (extra) Object.assign(headers, extra);
+        } catch(_){ }
+
         return headers;
       }
 

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <!-- Controlled Logging System (must load before other scripts) -->
   <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
   <!-- Support chat widget (served via backend /chat proxy) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Indicadores</title>
@@ -368,6 +369,11 @@
   <script>
         // Unified helper: builds Accept + Authorization (JWT) + X-Session-Token when available
         function buildAuthHeadersLocal(extra){
+          try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+              return window.Auth.getAuthHeaders({ acceptJson: true, extra });
+            }
+          } catch(_){ }
           let sessionToken = '';
           let jwtTok = '';
           let jwtType = 'Bearer';
@@ -1435,7 +1441,7 @@
     async function loadDetailsLast(){
         console.log('[DIAG] loadDetailsLast chamada');
           try {
-            const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+            const headers = getAuthHeadersLocal();
             const examTypeId = await getCurrentExamTypeId();
             const url = examTypeId
               ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
@@ -1450,7 +1456,7 @@
             const sec = document.getElementById('sec-dashboard'); if (!sec) return;
             const daysSel = document.getElementById('dashDays');
             const days = daysSel ? Number(daysSel.value) : 30;
-            const headers = { 'Accept':'application/json', 'X-Session-Token': (localStorage.getItem('sessionToken')||'').trim(), ...getAuthHeadersLocal() };
+            const headers = getAuthHeadersLocal();
             const res = await fetch(`/api/users/me/stats/summary?days=${days}`, { headers });
             console.log('[DIAG] loadDashboard fetch status:', res.status);
             const data = await res.json().catch(()=>null);
@@ -1468,7 +1474,7 @@
           grid.removeChild(grid.lastElementChild);
         }
 
-        const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
+        const headers = getAuthHeadersLocal();
         const examTypeId = await getCurrentExamTypeId();
         const url = examTypeId
           ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`

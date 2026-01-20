@@ -8,6 +8,7 @@
   <script src="/utils/logger.js"></script>
   <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
   <script src="/utils/csrf.js"></script>
+  <script src="/utils/auth.js"></script>
   <!-- Support chat widget (served via backend /chat proxy) -->
   <!-- Prefer CSS minificado em dist quando disponível; mantém original como fallback -->
   <link rel="stylesheet" href="../dist/styles.css" />
@@ -426,8 +427,16 @@
       async function fetchHintForQuestion(id){
         try {
           if (!Number.isFinite(id)) return null;
-          const token = (localStorage.getItem('sessionToken') || '').trim();
-          const r = await fetch(`/api/questions/view/${id}`, { headers: token ? { 'X-Session-Token': token } : {} });
+          const headers = (() => {
+            try {
+              if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                return window.Auth.getAuthHeaders({ acceptJson: true });
+              }
+            } catch(_){ }
+            const token = (localStorage.getItem('sessionToken') || '').trim();
+            return token ? { 'X-Session-Token': token } : {};
+          })();
+          const r = await fetch(`/api/questions/view/${id}`, { headers });
           if (r && r.ok) { const q = await r.json(); return q && (q.dica || q.hint || null); }
         } catch(_){ }
         return null;

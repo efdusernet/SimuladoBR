@@ -6,6 +6,7 @@
   <script src="/utils/logger.js"></script>
   <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
   <script src="/utils/csrf.js"></script>
+  <script src="/utils/auth.js"></script>
   <!-- Support chat widget (served via backend /chat proxy) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Personalização de Simulado</title>
@@ -505,6 +506,31 @@
       return function(...args){ clearTimeout(t); t = setTimeout(() => fn.apply(this, args), delay); };
     }
 
+    function getExamAuthHeaders({ acceptJson = false, contentType = null, extra = null } = {}){
+      try {
+        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+          return window.Auth.getAuthHeaders({ acceptJson, contentType, extra });
+        }
+      } catch(_){ }
+      const token = (typeof getSessionToken === 'function') ? getSessionToken() : (localStorage.getItem('sessionToken') || '');
+      const h = {};
+      if (acceptJson) h['Accept'] = 'application/json';
+      if (contentType) h['Content-Type'] = contentType;
+      if (token) h['X-Session-Token'] = token;
+      try {
+        const jwtTok = (localStorage.getItem('jwt')||'').trim();
+        const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim() || 'Bearer';
+        if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+      } catch(_){ }
+      if (extra && typeof extra === 'object') {
+        Object.keys(extra).forEach(k => {
+          const v = extra[k];
+          if (v != null && String(v).trim() !== '') h[k] = v;
+        });
+      }
+      return h;
+    }
+
     // Contagem sempre respeitando filtros (sem bypass por FULL_Q) e com retorno de SQL de depuração
     async function countForCurrentFilters() {
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
@@ -517,7 +543,7 @@
       if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
       if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
       try {
-        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json', extra: { 'X-Exam-Type': currentExamType } }), body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
         if (data && typeof data.available === 'number') return data.available;
@@ -536,7 +562,7 @@
       if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
       try {
-        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json', extra: { 'X-Exam-Type': currentExamType } }), body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
         if (data && typeof data.available === 'number') return data.available;
@@ -649,7 +675,7 @@
           const url = base + '/api/exams/select';
           const token = getSessionToken();
           const payload = { count: 1, onlyCount: true, examType: currentExamType, onlyNew: true };
-          const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
+          const resp = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json', extra: { 'X-Exam-Type': currentExamType } }), body: JSON.stringify(payload) });
           const txt = await resp.text();
           let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
           if (data && typeof data.available === 'number') {
@@ -745,14 +771,14 @@
       }
       if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
       try {
-        const resp = await fetch(url, { method: 'POST', headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': currentExamType }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(), body: JSON.stringify(payload) });
+        const resp = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json', extra: { 'X-Exam-Type': currentExamType } }), body: JSON.stringify(payload) });
         const txt = await resp.text();
         let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
         if (data && typeof data.available === 'number') {
           // Fallback: se count=FULL_Q e available=0, tentar novamente ignorando exam_type (base inteira)
           if (bypassFilters && data.available === 0) {
             try {
-              const resp2 = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify({ count: cnum, onlyCount: true, ignoreExamType: true }) });
+              const resp2 = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json' }), body: JSON.stringify({ count: cnum, onlyCount: true, ignoreExamType: true }) });
               const txt2 = await resp2.text();
               let data2; try { data2 = txt2 ? JSON.parse(txt2) : null; } catch { data2 = null; }
               if (data2 && typeof data2.available === 'number') return data2.available;
@@ -921,7 +947,7 @@
     });
 
     async function fetchJson(url){
-      const resp = await fetch(url, { headers: { 'X-Session-Token': getSessionToken() } });
+      const resp = await fetch(url, { headers: getExamAuthHeaders({ acceptJson: true }) });
       if (!resp.ok) throw new Error(`GET ${url} -> ${resp.status}`);
       return await resp.json();
     }

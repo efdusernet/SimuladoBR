@@ -206,6 +206,20 @@
       color: #ecfdf5;
     }
 
+    /* When marked as "Errei" (incorrect), show a soft red theme with darker red borders */
+    .anki-card.state-incorrect .anki-face{
+      border-color: rgba(127, 29, 29, 0.70);
+      box-shadow: 0 14px 30px rgba(127, 29, 29, 0.22);
+    }
+    .anki-card.state-incorrect .anki-front{
+      background: linear-gradient(135deg, rgba(254, 202, 202, 0.92), rgba(252, 165, 165, 0.86));
+      color: #7f1d1d;
+    }
+    .anki-card.state-incorrect .anki-back{
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.85), rgba(185, 28, 28, 0.82));
+      color: #fff1f2;
+    }
+
     .anki-top{
       display:flex;
       align-items:center;
@@ -620,6 +634,9 @@
         toggleBtn.textContent = correct ? 'Acertei' : 'Errei';
         toggleBtn.setAttribute('aria-pressed', correct ? 'true' : 'false');
 
+        // Card style feedback
+        wrapper.classList.toggle('state-incorrect', !correct);
+
         toggleBtn.disabled = true;
         try {
           const resp = await fetch(`/api/flashcards/attempts/${encodeURIComponent(String(game.attemptId))}/answer`, {
@@ -638,6 +655,7 @@
             toggleBtn.classList.toggle('correct', backToCorrect);
             toggleBtn.textContent = backToCorrect ? 'Acertei' : 'Errei';
             toggleBtn.setAttribute('aria-pressed', backToCorrect ? 'true' : 'false');
+            wrapper.classList.toggle('state-incorrect', !backToCorrect);
             return;
           }
           setStatus(correct ? 'Marcado: acerto.' : 'Marcado: erro.', 'info');
@@ -650,6 +668,7 @@
           toggleBtn.classList.toggle('correct', backToCorrect);
           toggleBtn.textContent = backToCorrect ? 'Acertei' : 'Errei';
           toggleBtn.setAttribute('aria-pressed', backToCorrect ? 'true' : 'false');
+          wrapper.classList.toggle('state-incorrect', !backToCorrect);
         } finally {
           toggleBtn.disabled = false;
         }

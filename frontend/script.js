@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const token = (localStorage.getItem('sessionToken') || '').trim();
             const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-            const sessionForHeader = nomeUsuario || token;
+            const sessionForHeader = token || nomeUsuario;
             const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
             const jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
             const headers = {};

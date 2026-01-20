@@ -6,6 +6,7 @@
   <script src="/utils/logger.js"></script>
   <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
   <script src="/utils/csrf.js"></script>
+  <script src="/utils/auth.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cadastrar Questão</title>
   <link rel="stylesheet" href="/styles.css" />
@@ -887,7 +888,14 @@
           if (idx >= 0) correta = String.fromCharCode('A'.charCodeAt(0) + idx);
         } catch(_){ }
 
-        const token = localStorage.getItem('sessionToken') || '';
+        const token = (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getSessionIdentity === 'function') {
+              return window.Auth.getSessionIdentity();
+            }
+          } catch(_){ }
+          return (localStorage.getItem('sessionToken') || '').trim();
+        })();
         if (!token){ alert('Sessão sem token. Faça login novamente.'); return; }
 
         const current = {
@@ -915,10 +923,14 @@
 
         const resp = await fetch(url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Session-Token': token,
-          },
+          headers: (() => {
+            try {
+              if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+              }
+            } catch(_){ }
+            return { 'Content-Type': 'application/json', 'X-Session-Token': token };
+          })(),
           body: JSON.stringify({
             question: { descricao, alternativas, correta },
             current,
@@ -978,14 +990,28 @@
         navSetStatus('Esta alternativa ainda não foi salva no banco.');
         return;
       }
-      const token = localStorage.getItem('sessionToken') || '';
+      const token = (() => {
+        try {
+          if (window.Auth && typeof window.Auth.getSessionIdentity === 'function') {
+            return window.Auth.getSessionIdentity();
+          }
+        } catch(_){ }
+        return (localStorage.getItem('sessionToken') || '').trim();
+      })();
       const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/options/${oid}/explanation`;
       const payload = { descricao: (descricao != null) ? String(descricao) : '' };
       try {
         if (btn){ btn.disabled = true; btn.dataset._oldText = btn.textContent; btn.textContent = 'Salvando...'; }
         const resp = await fetch(url, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+          headers: (() => {
+            try {
+              if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+              }
+            } catch(_){ }
+            return { 'Content-Type': 'application/json', 'X-Session-Token': token };
+          })(),
           body: JSON.stringify(payload)
         });
         if (!resp.ok){
@@ -1016,11 +1042,25 @@
       const ok = confirm('Deletar explicação desta alternativa?\n\nEsta ação apaga definitivamente na tabela explicacaoguia.');
       if (!ok) return;
 
-      const token = localStorage.getItem('sessionToken') || '';
+      const token = (() => {
+        try {
+          if (window.Auth && typeof window.Auth.getSessionIdentity === 'function') {
+            return window.Auth.getSessionIdentity();
+          }
+        } catch(_){ }
+        return (localStorage.getItem('sessionToken') || '').trim();
+      })();
       const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/options/${oid}/explanation`;
       try {
         if (btn){ btn.disabled = true; btn.dataset._oldText = btn.textContent; btn.textContent = 'Deletando...'; }
-        const resp = await fetch(url, { method: 'DELETE', headers: { 'X-Session-Token': token } });
+        const resp = await fetch(url, { method: 'DELETE', headers: (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+              return window.Auth.getAuthHeaders();
+            }
+          } catch(_){ }
+          return { 'X-Session-Token': token };
+        })() });
         if (!resp.ok){
           const txt = await resp.text().catch(()=> '');
           navSetStatus('Erro ao deletar explicação: ' + (txt || resp.status));
@@ -1457,11 +1497,25 @@
         // Audit: backend should use this to set respostaopcao.CriadoUsuario
         createdByUserId: sessionUserId
       };
-      const token = localStorage.getItem('sessionToken') || '';
+      const token = (() => {
+        try {
+          if (window.Auth && typeof window.Auth.getSessionIdentity === 'function') {
+            return window.Auth.getSessionIdentity();
+          }
+        } catch(_){ }
+        return (localStorage.getItem('sessionToken') || '').trim();
+      })();
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
       const url = base + '/api/questions';
       $('status').textContent = 'Salvando...';
-      const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+      const resp = await fetch(url, { method: 'POST', headers: (() => {
+        try {
+          if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+            return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+          }
+        } catch(_){ }
+        return { 'Content-Type': 'application/json', 'X-Session-Token': token };
+      })(), body: JSON.stringify(payload) });
       if (!resp.ok){ const t = await resp.text(); $('status').textContent = 'Erro ao salvar: ' + t; return; }
       const data = await resp.json();
       $('status').textContent = 'Criado com sucesso. ID: ' + data.id;
@@ -1619,9 +1673,23 @@
       if (!ok) return;
 
       try {
-        const token = localStorage.getItem('sessionToken') || '';
+        const token = (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getSessionIdentity === 'function') {
+              return window.Auth.getSessionIdentity();
+            }
+          } catch(_){ }
+          return (localStorage.getItem('sessionToken') || '').trim();
+        })();
         const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/${id}`;
-        const resp = await fetch(url, { method: 'DELETE', headers: { 'X-Session-Token': token } });
+        const resp = await fetch(url, { method: 'DELETE', headers: (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+              return window.Auth.getAuthHeaders();
+            }
+          } catch(_){ }
+          return { 'X-Session-Token': token };
+        })() });
         if (!resp.ok) {
           const txt = await resp.text().catch(()=> '');
           alert('Erro ao excluir: ' + (txt || resp.status));
@@ -1654,10 +1722,24 @@
 
     async function navGetFirstId(){
       try {
-        const token = localStorage.getItem('sessionToken') || '';
+        const token = (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getSessionIdentity === 'function') {
+              return window.Auth.getSessionIdentity();
+            }
+          } catch(_){ }
+          return (localStorage.getItem('sessionToken') || '').trim();
+        })();
         const url = (BACKEND_BASE||'').replace(/\/$/, '') + '/api/questions?page=1&pageSize=1&order=id%20asc';
         logger.info('[navGetFirstId] fetching:', url);
-        const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+        const resp = await fetch(url, { headers: (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+              return window.Auth.getAuthHeaders({ acceptJson: true });
+            }
+          } catch(_){ }
+          return { 'X-Session-Token': token };
+        })() });
         logger.info('[navGetFirstId] status:', resp.status);
         if (!resp.ok) { 
           logger.error('[navGetFirstId] error response:', await resp.text());
@@ -1680,9 +1762,23 @@
       if (!Number.isFinite(idNum) || idNum <= 0) return;
       navSetStatus('Carregando questão...');
       try {
-        const token = localStorage.getItem('sessionToken') || '';
+        const token = (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getSessionIdentity === 'function') {
+              return window.Auth.getSessionIdentity();
+            }
+          } catch(_){ }
+          return (localStorage.getItem('sessionToken') || '').trim();
+        })();
         const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions/${idNum}`;
-        const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+        const resp = await fetch(url, { headers: (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+              return window.Auth.getAuthHeaders({ acceptJson: true });
+            }
+          } catch(_){ }
+          return { 'X-Session-Token': token };
+        })() });
         if (!resp.ok){ const t = await resp.text(); navSetStatus('Erro: ' + t); return; }
         const q = await resp.json();
 
@@ -1784,7 +1880,14 @@
       }
       
       try {
-        const token = localStorage.getItem('sessionToken') || '';
+        const token = (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getSessionIdentity === 'function') {
+              return window.Auth.getSessionIdentity();
+            }
+          } catch(_){ }
+          return (localStorage.getItem('sessionToken') || '').trim();
+        })();
         const allIds = [];
         let page = 1;
         let hasMore = true;
@@ -1792,7 +1895,14 @@
         // Fetch all IDs in batches
         while (hasMore) {
           const url = (BACKEND_BASE||'').replace(/\/$/, '') + `/api/questions?page=${page}&pageSize=100&order=id%20asc`;
-          const resp = await fetch(url, { headers: { 'X-Session-Token': token } });
+          const resp = await fetch(url, { headers: (() => {
+            try {
+              if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                return window.Auth.getAuthHeaders({ acceptJson: true });
+              }
+            } catch(_){ }
+            return { 'X-Session-Token': token };
+          })() });
           if (!resp.ok) break;
           const data = await resp.json();
           if (!Array.isArray(data.items) || data.items.length === 0) break;
@@ -2000,7 +2110,17 @@
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
       const url = base + `/api/questions/${id}`;
       navSetStatus('Salvando...');
-      const resp = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(payload) });
+      const resp = await fetch(url, { method: 'PUT', headers: (() => {
+        try {
+          if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+            return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+          }
+        } catch(_){ }
+        const t = (token || '').trim();
+        const h = { 'Content-Type': 'application/json' };
+        if (t) h['X-Session-Token'] = t;
+        return h;
+      })(), body: JSON.stringify(payload) });
       const txt = await resp.text();
       if (!resp.ok){
         navSetStatus('Erro ao salvar: ' + (txt || resp.status));
@@ -2102,7 +2222,14 @@
         const base = (BACKEND_BASE || '').replace(/\/$/, '');
         const dupUrl = base + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
         const tokenDup = localStorage.getItem('sessionToken') || '';
-        const resp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
+        const resp = await fetch(dupUrl, { headers: (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+              return window.Auth.getAuthHeaders({ acceptJson: true });
+            }
+          } catch(_){ }
+          return { 'X-Session-Token': tokenDup };
+        })() });
         if (!resp.ok) { return null; }
         const dj = await resp.json().catch(()=>({}));
         if (dj && dj.exists && dj.id){
@@ -2138,7 +2265,14 @@
         const base = (BACKEND_BASE || '').replace(/\/$/, '');
         const dupUrl = base + '/api/questions/exists?descricao=' + encodeURIComponent(descricao) + '&examType=' + encodeURIComponent(examTypeId);
         const tokenDup = localStorage.getItem('sessionToken') || '';
-        const dupResp = await fetch(dupUrl, { headers: { 'X-Session-Token': tokenDup } });
+        const dupResp = await fetch(dupUrl, { headers: (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+              return window.Auth.getAuthHeaders({ acceptJson: true });
+            }
+          } catch(_){ }
+          return { 'X-Session-Token': tokenDup };
+        })() });
         if (!dupResp.ok) return null;
         const dj = await dupResp.json().catch(()=>({}));
         if (dj && dj.exists && dj.id){

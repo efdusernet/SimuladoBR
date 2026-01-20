@@ -6,6 +6,7 @@
   <script src="/utils/logger.js"></script>
   <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
   <script src="/utils/csrf.js"></script>
+  <script src="/utils/auth.js"></script>
   <!-- Support chat widget (served via backend /chat proxy) -->
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Simulado — Exame Completo</title>
@@ -211,12 +212,20 @@
           if (!Number.isFinite(id)) return null;
           if (_imgEnrichment.cache[id]) return _imgEnrichment.cache[id];
           if (_imgEnrichment.inflight[id]) return await _imgEnrichment.inflight[id];
-          const token = (localStorage.getItem('sessionToken') || '').trim();
           const doFetch = async () => {
             const tryUrls = [`/api/questions/view/${id}`, `/api/questions/${id}`];
             for (let k=0; k<tryUrls.length; k++){
               try {
-                const r = await fetch(tryUrls[k], { headers: token ? { 'X-Session-Token': token } : {} });
+                const headers = (() => {
+                  try {
+                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                      return window.Auth.getAuthHeaders({ acceptJson: true });
+                    }
+                  } catch(_){ }
+                  const token = (localStorage.getItem('sessionToken') || '').trim();
+                  return token ? { 'X-Session-Token': token } : {};
+                })();
+                const r = await fetch(tryUrls[k], { headers });
                 if (r && r.ok){ const q = await r.json(); return q; }
               } catch(_){ }
             }
@@ -491,7 +500,14 @@
                     if (sid && token) {
                       const r = await origFetch('/api/exams/resume', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                        headers: (() => {
+                          try {
+                            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                              return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+                            }
+                          } catch(_){ }
+                          return { 'Content-Type': 'application/json', 'X-Session-Token': token };
+                        })(),
                         body: JSON.stringify({ sessionId: sid })
                       });
                       if (r && r.ok) {

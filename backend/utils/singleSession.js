@@ -8,6 +8,9 @@ function isJwtLike(token) {
 }
 
 function extractTokenFromRequest(req) {
+  const authHeader = (req.headers && req.headers.authorization) ? String(req.headers.authorization).trim() : '';
+  const bearer = /^Bearer\s+/i.test(authHeader) ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+
   let token = (
     (req.cookies && req.cookies.sessionToken) ||
     (req.get && req.get('X-Session-Token')) ||
@@ -16,8 +19,14 @@ function extractTokenFromRequest(req) {
     ''
   ).toString().trim();
 
-  const authHeader = (req.headers && req.headers.authorization) ? String(req.headers.authorization).trim() : '';
-  if (!token && /^Bearer\s+/i.test(authHeader)) token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  // If a Bearer token is present, prefer it.
+  // This prevents an invalid/non-JWT X-Session-Token from shadowing a valid JWT.
+  if (bearer) {
+    if (!token) return bearer;
+    if (!isJwtLike(token) && isJwtLike(bearer)) return bearer;
+    // If both exist, keep Bearer as the source of truth.
+    return bearer;
+  }
 
   return token;
 }

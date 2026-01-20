@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <!-- Controlled Logging System (must load before other scripts) -->
   <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Carga de Questões (JSON/XML)</title>
   <link rel="stylesheet" href="/styles.css" />
@@ -152,7 +153,6 @@
     }
 
     $('send').onclick = async function(){
-      const token = localStorage.getItem('sessionToken') || '';
       const base = (BACKEND_BASE||'');
       const mode = $('mode').value;
       const examTypeSlug = ($('examType').value||'').trim();
@@ -176,7 +176,17 @@
           if (Array.isArray(data)) {
             data = { createdByUserId: sessionUserId, questions: data, examType: examTypeSlug || undefined };
           }
-          resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }, body: JSON.stringify(data) });
+          resp = await fetch(url, { method: 'POST', headers: (() => {
+            try {
+              if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+              }
+            } catch(_){ }
+            const token = (localStorage.getItem('sessionToken') || '').trim();
+            const h = { 'Content-Type': 'application/json' };
+            if (token) h['X-Session-Token'] = token;
+            return h;
+          })(), body: JSON.stringify(data) });
         } else {
           const f = $('file').files[0];
           if (!f){ $('status').textContent = 'Selecione um arquivo'; return; }
@@ -185,7 +195,15 @@
           // We can optionally include top-level examType when using file
           if (examTypeSlug) fd.append('examType', examTypeSlug);
           fd.append('createdByUserId', String(sessionUserId));
-          resp = await fetch(url, { method: 'POST', headers: { 'X-Session-Token': token }, body: fd });
+          resp = await fetch(url, { method: 'POST', headers: (() => {
+            try {
+              if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                return window.Auth.getAuthHeaders();
+              }
+            } catch(_){ }
+            const token = (localStorage.getItem('sessionToken') || '').trim();
+            return token ? { 'X-Session-Token': token } : {};
+          })(), body: fd });
         }
         const txt = await resp.text(); let data = null; try { data = txt ? JSON.parse(txt) : null; } catch{ data = null; }
         if (!resp.ok) { $('status').textContent = 'Erro: ' + (data && data.error || txt || resp.status); return; }

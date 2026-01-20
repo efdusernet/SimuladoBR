@@ -89,6 +89,7 @@ const LayoutManager = {
     try {
       // Carregar sidebar se não existir
       const sidebarMount = document.getElementById('sidebarMount');
+      if (sidebarMount) sidebarMount.style.display = '';
       if (sidebarMount && !sidebarMount.hasChildNodes()) {
         const response = await fetch('/components/sidebar.html');
         if (response.ok) {

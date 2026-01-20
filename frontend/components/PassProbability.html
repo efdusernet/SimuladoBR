@@ -62,7 +62,7 @@
 
         const token = (localStorage.getItem('sessionToken') || '').trim();
         const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-        const identity = (nomeUsuario || token).trim();
+        const identity = (token || nomeUsuario).trim();
         if (!identity) return false;
 
         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();

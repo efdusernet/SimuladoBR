@@ -69,7 +69,7 @@
       if (!btn || !panel) return;
       const token = (localStorage.getItem('sessionToken') || '').trim();
       const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-      const sessionForHeader = nomeUsuario || token;
+      const sessionForHeader = token || nomeUsuario;
       if (!token) return;
       function applyTokenFallback(){
         try {
@@ -106,7 +106,7 @@
           function getSessionIdentity(){
             const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
             const sessionToken = (localStorage.getItem('sessionToken')||'').trim();
-            return nomeUsuario || sessionToken;
+            return sessionToken || nomeUsuario;
           }
           async function adminPost(path){
             const identity = getSessionIdentity();

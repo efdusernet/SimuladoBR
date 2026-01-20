@@ -412,7 +412,7 @@
 
                         const token = (localStorage.getItem('sessionToken') || '').trim();
                         const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-                        const identity = (nomeUsuario || token || '').trim();
+                        const identity = (token || nomeUsuario || '').trim();
                         if (!identity) { window.__historyModalIsAdmin = false; return false; }
 
                         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
@@ -538,7 +538,7 @@
 
                                     const token = (localStorage.getItem('sessionToken') || '').trim();
                                     const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-                                    const identity = (nomeUsuario || token || '').trim();
+                                    const identity = (token || nomeUsuario || '').trim();
 
                                     const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
                                     const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
@@ -747,7 +747,7 @@
         try { btn.style.display = 'none'; } catch(_){ }
         const token = (localStorage.getItem('sessionToken') || '').trim();
         const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-        const sessionForHeader = nomeUsuario || token; // prefer NomeUsuario for admin middleware
+        const sessionForHeader = token || nomeUsuario;
         if (!sessionForHeader) return; // no session => skip
                 const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
                 const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
@@ -795,7 +795,7 @@
               function getSessionIdentity(){
                   const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
                   const sessionToken = getToken();
-                  return nomeUsuario || sessionToken;
+                  return sessionToken || nomeUsuario;
               }
               async function adminPost(path){
                   const identity = getSessionIdentity();
@@ -1231,7 +1231,7 @@
 
                                 const token = (localStorage.getItem('sessionToken') || '').trim();
                                 const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-                                const identity = (nomeUsuario || token).trim();
+                                const identity = (token || nomeUsuario).trim();
                                 if (!identity) return false;
 
                                 const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
@@ -2346,7 +2346,7 @@
                     const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                     const token = (localStorage.getItem('sessionToken') || '').trim();
                     const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-                    const sessionForHeader = nomeUsuario || token;
+                    const sessionForHeader = token || nomeUsuario;
 
                     const headers = {};
                     if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
@@ -2911,7 +2911,7 @@
                 function getSessionIdentity(){
                     const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
                     const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
-                    return nomeUsuario || sessionToken;
+                    return sessionToken || nomeUsuario;
                 }
 
                 async function adminFetch(path, opts){

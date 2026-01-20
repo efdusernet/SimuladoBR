@@ -37,6 +37,10 @@ async function listFlashcards(req, res, next) {
 		const basics = parseOptionalBoolean(req.query.basics);
 		if (Number.isNaN(basics)) return next(badRequest('basics inválido', 'FLASHCARD_INVALID_BASICS'));
 
+		const activeRaw = parseOptionalBoolean(req.query.active);
+		if (Number.isNaN(activeRaw)) return next(badRequest('active inválido', 'FLASHCARD_INVALID_ACTIVE'));
+		const active = activeRaw == null ? true : activeRaw;
+
 		const rawLimit = req.query.limit;
 		let limit = 200;
 		if (rawLimit != null && String(rawLimit).trim() !== '') {
@@ -69,10 +73,12 @@ async function listFlashcards(req, res, next) {
 				f.iddominio_desempenho,
 				f.idabordagem,
 				COALESCE(f.basics, FALSE) AS basics,
+				COALESCE(f.active, TRUE) AS active,
 				ecv.code AS versao_code
 			FROM public.flashcard f
 			LEFT JOIN public.exam_content_version ecv ON ecv.id = f.id_versao_pmbok
 			WHERE ($versionId::int IS NULL OR f.id_versao_pmbok = $versionId)
+				AND COALESCE(f.active, TRUE) = $active
 				AND (
 					(
 						$idprincipio::int IS NOT NULL
@@ -100,6 +106,7 @@ async function listFlashcards(req, res, next) {
 				iddominio_desempenho,
 				idabordagem,
 				basics,
+				active,
 				limit,
 				offset,
 			},
@@ -107,7 +114,17 @@ async function listFlashcards(req, res, next) {
 
 		return res.json({
 			items: rows,
-			meta: { versionId, idprincipio, iddominio_desempenho, idabordagem, basics, limit, offset, count: rows.length },
+			meta: {
+				versionId,
+				idprincipio,
+				iddominio_desempenho,
+				idabordagem,
+				basics,
+				active,
+				limit,
+				offset,
+				count: rows.length,
+			},
 		});
 	} catch (err) {
 		logger.error('Erro listando flashcards:', { error: err.message, stack: err.stack });

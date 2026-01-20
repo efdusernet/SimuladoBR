@@ -243,7 +243,7 @@
 <!-- Auth helpers (safe to include multiple times; guarded in /utils/auth.js) -->
 <script src="/utils/auth.js"></script>
 
-<aside class="sidebar" data-sidebar-version="2026-01-20.2">
+<aside class="sidebar" data-sidebar-version="2026-01-20.3">
   <!-- User Header -->
   <div class="sidebar-header">
     <div class="sidebar-avatar" id="sidebarAvatar">U</div>
@@ -391,6 +391,9 @@
         </button>
         <button class="sidebar-accordion-item" data-admin-action="flashcards">
           Flashcards
+        </button>
+        <button class="sidebar-accordion-item" data-admin-action="dicas">
+          Dicas
         </button>
         <button class="sidebar-accordion-item" data-admin-action="reconcile">
           Reconciliar estatísticas
@@ -3337,6 +3340,9 @@
       },
       'flashcards': () => {
         (window.top || window).location.assign('/pages/admin/flashcards.html');
+      },
+      'dicas': () => {
+        (window.top || window).location.assign('/pages/admin/dicas.html');
       },
       'fixture': () => {
         // Open admin modal and scroll to fixture section

@@ -282,14 +282,15 @@
       justify-content: center;
       text-align:center;
     }
-    .anki-text{
-      font-size: 0.98rem;
-      line-height: 1.35;
+    /* Reduce only the main card text (body), keep headers/tags unchanged */
+    .anki-body .anki-text{
+      font-size: 0.88rem;
+      line-height: 1.30;
       font-weight: 800;
       word-break: break-word;
       white-space: pre-wrap;
     }
-    .anki-back .anki-text{ font-weight: 700; }
+    .anki-back .anki-body .anki-text{ font-weight: 700; }
 
     .anki-btn{
       appearance: none;

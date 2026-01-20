@@ -322,6 +322,11 @@
     <nav class="menu-panel" id="menuPanel" aria-label="Menu">
       <a href="/index.html">Home</a>
       <a href="/pages/examSetup.html">Simulados</a>
+      <a href="/pages/admin/questionForm.html" data-admin-link="1" style="display:none;">Admin: Cadastrar questão</a>
+      <a href="/pages/admin/questionBulk.html" data-admin-link="1" style="display:none;">Admin: Questões (bulk)</a>
+      <a href="/pages/admin/feedbackResponses.html" data-admin-link="1" style="display:none;">Admin: Feedbacks</a>
+      <a href="/pages/admin/notifications.html" data-admin-link="1" style="display:none;">Admin: Notificações</a>
+      <a href="/pages/admin/flashcards.html" data-admin-link="1" style="display:none;">Admin: Flashcards</a>
       <a href="#" class="page-logout">Sair</a>
     </nav>
 
@@ -397,6 +402,33 @@
         document.addEventListener('click', (e) => {
           try { if (!panel.contains(e.target) && e.target !== btn) panel.classList.remove('open'); } catch(_){ }
         });
+      })();
+
+      // Admin quick-links (mobile menu): only show for admins
+      (async function(){
+        const panel = document.getElementById('menuPanel');
+        if (!panel) return;
+
+        const adminLinks = Array.from(panel.querySelectorAll('[data-admin-link="1"]'));
+        if (!adminLinks.length) return;
+        adminLinks.forEach(a => { try { a.style.display = 'none'; } catch(_){ } });
+
+        try {
+          const headers = { 'Accept': 'application/json' };
+          const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+          const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+          if (sessionToken) headers['X-Session-Token'] = sessionToken;
+
+          const resp = await fetch('/api/users/me', { method: 'GET', headers, credentials: 'include' });
+          if (!resp.ok) return;
+          const user = await resp.json().catch(() => null);
+          const isAdmin = !!(user && user.TipoUsuario === 'admin');
+          if (!isAdmin) return;
+
+          adminLinks.forEach(a => { try { a.style.display = 'block'; } catch(_){ } });
+        } catch(_){ }
       })();
 
       const els = {

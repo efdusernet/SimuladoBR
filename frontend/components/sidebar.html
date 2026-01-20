@@ -3201,9 +3201,10 @@
     try { if (window.__isAdmin === true) return true; } catch(_){ }
 
     try {
-      const token = localStorage.getItem('sessionToken') || '';
-      const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
-      const sessionForHeader = nomeUsuario || token;
+      const token = (localStorage.getItem('sessionToken') || '').trim();
+      const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+      // Prefer the actual session token; nomeUsuario is not a session token and can break auth.
+      const sessionForHeader = token || nomeUsuario;
       const jwtTok = localStorage.getItem('jwtToken') || '';
       const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
 
@@ -3239,9 +3240,9 @@
       return;
     }
 
-    const token = localStorage.getItem('sessionToken') || '';
-    const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
-    const sessionForHeader = nomeUsuario || token;
+    const token = (localStorage.getItem('sessionToken') || '').trim();
+    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+    const sessionForHeader = token || nomeUsuario;
     
     const actionMap = {
       'chat-host': () => {
@@ -3345,9 +3346,9 @@
 
   async function callAdminPost(path, successMsg) {
     try {
-      const token = localStorage.getItem('sessionToken') || '';
-      const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
-      const sessionForHeader = nomeUsuario || token;
+      const token = (localStorage.getItem('sessionToken') || '').trim();
+      const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+      const sessionForHeader = token || nomeUsuario;
       const jwtTok = localStorage.getItem('jwtToken') || '';
       const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
       
@@ -3371,9 +3372,9 @@
 
   async function callAdminPostWithBody(path, body, successMsg) {
     try {
-      const token = localStorage.getItem('sessionToken') || '';
-      const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
-      const sessionForHeader = nomeUsuario || token;
+      const token = (localStorage.getItem('sessionToken') || '').trim();
+      const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+      const sessionForHeader = token || nomeUsuario;
       const jwtTok = localStorage.getItem('jwtToken') || '';
       const jwtType = localStorage.getItem('jwtTokenType') || 'Bearer';
       

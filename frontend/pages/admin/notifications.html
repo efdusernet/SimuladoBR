@@ -273,7 +273,7 @@
     if (!btn || !panel) return;
     const token = (localStorage.getItem('sessionToken')||'').trim();
     const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
-    const identity = nomeUsuario || token;
+    const identity = token || nomeUsuario;
     if (!identity) return;
     const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
     const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
@@ -291,7 +291,7 @@
         const jwtType2 = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
         const nomeUsuario2 = (localStorage.getItem('nomeUsuario')||'').trim();
         const token2 = (localStorage.getItem('sessionToken')||'').trim();
-        const identity2 = nomeUsuario2 || token2;
+        const identity2 = token2 || nomeUsuario2;
         const h = { 'Content-Type':'application/json' };
         if (identity2) h['X-Session-Token'] = identity2;
         if (jwtTok2) h['Authorization'] = `${jwtType2} ${jwtTok2}`;

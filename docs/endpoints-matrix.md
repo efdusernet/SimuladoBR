@@ -107,6 +107,51 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 ---
 
+## Dicas (`/api/dicas`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/dicas/today` | JWT | Query: `versionId?` (default 2), `anyVersion?` (`true` ignora versionId) | `{ item: { id, descricao, id_versao_pmbok, versao_code? } }` | Retorna uma dica aleatória (`public.dicas`). |
+
+---
+
+## Admin — Dicas (`/api/admin/dicas`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/dicas` | Admin | Query: `versionId?`, `q?`, `limit?`, `offset?` | `{ items, meta }` | Lista dicas (filtro por versão e busca em `descricao`). |
+| GET | `/api/admin/dicas/versions` | Admin | — | `{ items: [{ id, code }] }` | Lista versões em `exam_content_version`. |
+| POST | `/api/admin/dicas` | Admin | Body: `{ descricao, id_versao_pmbok? }` | *(201)* item | Cria dica. |
+| PUT | `/api/admin/dicas/:id` | Admin | Body: `{ descricao, id_versao_pmbok? }` | item | Atualiza dica. |
+| DELETE | `/api/admin/dicas/:id` | Admin | Path: `id` | `{ ok, id }` | Remove dica. |
+
+---
+
+## Admin — Data Explorer (`/api/admin/data-explorer`)
+
+**Nota:** builder seguro (sem SQL livre). Bloqueia tabelas sensíveis por denylist.
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/data-explorer/tables` | Admin | — | `{ tables: string[] }` | Lista tabelas `public` permitidas. |
+| GET | `/api/admin/data-explorer/tables/:table/columns` | Admin | Path: `table` | `{ table, columns: [{ name, type }] }` | Lista colunas e tipos da tabela. |
+| POST | `/api/admin/data-explorer/preview` | Admin | Body: builder JSON | `{ sqlPreview, sqlPreviewExpanded, bind, meta }` | Gera preview do SELECT (não executa). |
+| POST | `/api/admin/data-explorer/query` | Admin | Body: builder JSON | `{ rows, hasMore, sqlPreview, sqlPreviewExpanded, bind, meta }` | Executa SELECT e retorna linhas. |
+
+---
+
+## Admin — Flashcards (`/api/admin/flashcards`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/flashcards` | Admin | Query: `versionId?`, `q?`, `limit?`, `offset?` | `{ items, meta }` | Lista flashcards (filtro por versão + busca em `pergunta`/`resposta`). |
+| GET | `/api/admin/flashcards/versions` | Admin | — | `{ items: [{ id, code }] }` | Lista versões em `exam_content_version`. |
+| POST | `/api/admin/flashcards` | Admin | Body: `{ pergunta, resposta, id_versao_pmbok?, idprincipio?, iddominio_desempenho?, basics?, active? }` | *(201)* item | Cria flashcard. |
+| PUT | `/api/admin/flashcards/:id` | Admin | Body: `{ pergunta, resposta, id_versao_pmbok?, idprincipio?, iddominio_desempenho?, basics?, active? }` | item | Atualiza flashcard. |
+| DELETE | `/api/admin/flashcards/:id` | Admin | Path: `id` | `{ ok, id }` | Remove flashcard. |
+
+---
+
 ## Feedback (`/api/feedback`)
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
@@ -211,6 +256,9 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Descrição |
 |--------|----------|------|-----------|
+| GET | `/pages/admin/dataExplorer.html` | Admin | Admin Data Explorer (builder seguro + preview ao vivo). |
+| GET | `/pages/admin/flashcards.html` | Admin | CRUD de flashcards (admin). |
+| GET | `/pages/admin/dicas.html` | Admin | CRUD de dicas (admin). |
 | GET | `/pages/admin/questionForm.html` | Admin | Formulário de cadastro unitário de questão. |
 | GET | `/pages/admin/questionBulk.html` | Admin | Interface de importação em massa (JSON/XML). |
 | GET | `/admin/questions/form` | Admin | Alias amigável para `questionForm.html`. |

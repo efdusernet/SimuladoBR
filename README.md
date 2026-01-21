@@ -177,6 +177,13 @@ Notas do bulk:
 
 - Formulário de questão: `frontend/pages/admin/questionForm.html`
 - Importação em massa: `frontend/pages/admin/questionBulk.html`
+
+- Data Explorer (admin): `frontend/pages/admin/dataExplorer.html`
+	- Docs: `docs/admin-data-explorer.md`
+- Flashcards (admin): `frontend/pages/admin/flashcards.html`
+	- Docs: `docs/flashcards-admin.md`
+- Dicas (admin): `frontend/pages/admin/dicas.html`
+	- Docs: `docs/dicas.md`
 	- Aliases protegidos (recomendado usar estes links):
 		- `/admin/questions/form`
 		- `/admin/questions/bulk`

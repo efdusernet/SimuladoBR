@@ -245,6 +245,321 @@
     }
     ,
     {
+      "name": "CSRF",
+      "item": [
+        {
+          "name": "Get CSRF token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{BACKEND_BASE}}/api/csrf-token", "host": ["{{BACKEND_BASE}}"], "path": ["api","csrf-token"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', ()=> pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "if (json && json.csrfToken) pm.environment.set('csrfToken', json.csrfToken);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+    ,
+    {
+      "name": "Dicas",
+      "item": [
+        {
+          "name": "Today",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/dicas/today?versionId={{dicasVersionId}}&anyVersion={{dicasAnyVersion}}",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api","dicas","today"],
+              "query": [
+                { "key": "versionId", "value": "{{dicasVersionId}}" },
+                { "key": "anyVersion", "value": "{{dicasAnyVersion}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/401/403/404/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,404,500]); });",
+                  "if (pm.response.code === 200) { const json = pm.response.json(); if (json && json.item && json.item.id) pm.environment.set('lastDicaId', json.item.id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+    ,
+    {
+      "name": "Admin — Dicas",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/admin/dicas?versionId={{dicasVersionId}}&q={{dicasSearch}}",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api","admin","dicas"],
+              "query": [
+                { "key": "versionId", "value": "{{dicasVersionId}}" },
+                { "key": "q", "value": "{{dicasSearch}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });",
+                  "if (pm.response.code === 200) { const json = pm.response.json(); const first = json && json.items && json.items[0]; if (first && first.id) pm.environment.set('lastDicaId', first.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Versions",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/dicas/versions", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","dicas","versions"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });" ] } } ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"id_versao_pmbok\": {{dicasVersionId}},\n  \"descricao\": \"{{dicasDescricao}}\"\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/dicas", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","dicas"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 201/400/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([201,400,401,403,500]); });",
+                  "if (pm.response.code === 201) { const json = pm.response.json(); if (json && json.id) pm.environment.set('lastDicaId', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"id_versao_pmbok\": {{dicasVersionId}},\n  \"descricao\": \"{{dicasDescricao}} (edit)\"\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/dicas/{{lastDicaId}}", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","dicas","{{lastDicaId}}"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200/400/401/403/404/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,404,500]); });" ] } } ]
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/dicas/{{lastDicaId}}", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","dicas","{{lastDicaId}}"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200/401/403/404/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,404,500]); });" ] } } ]
+        }
+      ]
+    }
+    ,
+    {
+      "name": "Admin — Flashcards",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": {
+              "raw": "{{BACKEND_BASE}}/api/admin/flashcards?versionId={{flashcardsVersionId}}&q={{flashcardsSearch}}",
+              "host": ["{{BACKEND_BASE}}"],
+              "path": ["api","admin","flashcards"],
+              "query": [
+                { "key": "versionId", "value": "{{flashcardsVersionId}}" },
+                { "key": "q", "value": "{{flashcardsSearch}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });",
+                  "if (pm.response.code === 200) { const json = pm.response.json(); const first = json && json.items && json.items[0]; if (first && first.id) pm.environment.set('lastFlashcardId', first.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Versions",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/flashcards/versions", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","flashcards","versions"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });" ] } } ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"pergunta\": \"{{flashcardPergunta}}\",\n  \"resposta\": \"{{flashcardResposta}}\",\n  \"id_versao_pmbok\": {{flashcardsVersionId}},\n  \"basics\": {{flashcardBasics}},\n  \"active\": {{flashcardActive}}\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/flashcards", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","flashcards"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 201/400/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([201,400,401,403,500]); });",
+                  "if (pm.response.code === 201) { const json = pm.response.json(); if (json && json.id) pm.environment.set('lastFlashcardId', json.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"pergunta\": \"{{flashcardPergunta}} (edit)\",\n  \"resposta\": \"{{flashcardResposta}}\",\n  \"id_versao_pmbok\": {{flashcardsVersionId}},\n  \"basics\": {{flashcardBasics}},\n  \"active\": {{flashcardActive}}\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/flashcards/{{lastFlashcardId}}", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","flashcards","{{lastFlashcardId}}"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200/400/401/403/404/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,404,500]); });" ] } } ]
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/flashcards/{{lastFlashcardId}}", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","flashcards","{{lastFlashcardId}}"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200/401/403/404/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,404,500]); });" ] } } ]
+        }
+      ]
+    }
+    ,
+    {
+      "name": "Admin — Data Explorer",
+      "item": [
+        {
+          "name": "List tables",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/data-explorer/tables", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","data-explorer","tables"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403,500]); });",
+                  "if (pm.response.code === 200) { const json = pm.response.json(); const t = json && json.tables && json.tables[0]; if (t) pm.environment.set('dataExplorerTable', t); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List columns",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "X-Session-Token", "value": "{{sessionToken}}" } ],
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/data-explorer/tables/{{dataExplorerTable}}/columns", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","data-explorer","tables","{{dataExplorerTable}}","columns"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200/400/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,500]); });",
+                  "if (pm.response.code === 200) { const json = pm.response.json(); const c = json && json.columns && json.columns[0] && json.columns[0].name; if (c) pm.environment.set('dataExplorerColumn', c); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Preview",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"table\": \"{{dataExplorerTable}}\",\n  \"columns\": [\"*\"],\n  \"limit\": {{dataExplorerLimit}},\n  \"offset\": {{dataExplorerOffset}}\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/data-explorer/preview", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","data-explorer","preview"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200/400/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,500]); });" ] } } ]
+        },
+        {
+          "name": "Query",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"table\": \"{{dataExplorerTable}}\",\n  \"columns\": [\"*\"],\n  \"limit\": {{dataExplorerLimit}},\n  \"offset\": {{dataExplorerOffset}}\n}" },
+            "url": { "raw": "{{BACKEND_BASE}}/api/admin/data-explorer/query", "host": ["{{BACKEND_BASE}}"], "path": ["api","admin","data-explorer","query"] }
+          },
+          "event": [ { "listen": "test", "script": { "exec": [ "pm.test('status is 200/400/401/403/500', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403,500]); });" ] } } ]
+        }
+      ]
+    }
+    ,
+    {
       "name": "AI — Web Context (Admin)",
       "item": [
         {

@@ -97,7 +97,7 @@ async function upsertAnswer(req, res, next) {
 
 		// Snapshot flashcard classification
 		const fcRows = await db.sequelize.query(
-			`SELECT id, id_versao_pmbok, idprincipio, iddominio_desempenho, idabordagem, COALESCE(basics, FALSE) AS basics
+			`SELECT id, id_versao_pmbok, idprincipio, iddominio_desempenho, COALESCE(basics, FALSE) AS basics
 			   FROM public.flashcard
 			  WHERE id = $id
 			  LIMIT 1;`,
@@ -111,11 +111,11 @@ async function upsertAnswer(req, res, next) {
 		const upserted = await db.sequelize.query(
 			`INSERT INTO public.flashcard_attempt_answer (
 				attempt_id, user_id, flashcard_id, correct,
-				id_versao_pmbok, idprincipio, iddominio_desempenho, idabordagem, basics,
+				id_versao_pmbok, idprincipio, iddominio_desempenho, basics,
 				created_at, updated_at
 			) VALUES (
 				$attempt_id, $user_id, $flashcard_id, $correct,
-				$id_versao_pmbok, $idprincipio, $iddominio_desempenho, $idabordagem, $basics,
+				$id_versao_pmbok, $idprincipio, $iddominio_desempenho, $basics,
 				NOW(), NOW()
 			)
 			ON CONFLICT (attempt_id, flashcard_id)
@@ -124,7 +124,6 @@ async function upsertAnswer(req, res, next) {
 				id_versao_pmbok = EXCLUDED.id_versao_pmbok,
 				idprincipio = EXCLUDED.idprincipio,
 				iddominio_desempenho = EXCLUDED.iddominio_desempenho,
-				idabordagem = EXCLUDED.idabordagem,
 				basics = EXCLUDED.basics,
 				updated_at = NOW()
 			RETURNING id, correct, updated_at;`,
@@ -138,7 +137,6 @@ async function upsertAnswer(req, res, next) {
 					id_versao_pmbok: flashcard.id_versao_pmbok ?? null,
 					idprincipio: flashcard.idprincipio ?? null,
 					iddominio_desempenho: flashcard.iddominio_desempenho ?? null,
-					idabordagem: flashcard.idabordagem ?? null,
 					basics: !!flashcard.basics,
 				},
 			}

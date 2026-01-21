@@ -62,7 +62,6 @@ async function listFlashcards(req, res, next) {
 				f.data_alteracao,
 				f.idprincipio,
 				f.iddominio_desempenho,
-				f.idabordagem,
 				COALESCE(f.basics, FALSE) AS basics,
 				COALESCE(f.active, TRUE) AS active,
 				ecv.code AS versao_code
@@ -111,7 +110,6 @@ async function createFlashcard(req, res, next) {
 		const iddominioDesempenho = parseNullableInt(
 			req.body && (req.body.iddominio_desempenho ?? req.body['iddominio_desempenho'])
 		);
-		const idabordagem = parseNullableInt(req.body && req.body.idabordagem);
 		const basics = parseBoolean(req.body && req.body.basics, false);
 		const active = parseBoolean(req.body && req.body.active, true);
 
@@ -121,8 +119,8 @@ async function createFlashcard(req, res, next) {
 
 		const sql = `
 			WITH ins AS (
-				INSERT INTO public.flashcard (pergunta, resposta, id_versao_pmbok, idprincipio, iddominio_desempenho, idabordagem, basics, active)
-				VALUES ($pergunta, $resposta, $id_versao_pmbok, $idprincipio, $iddominio_desempenho, $idabordagem, $basics, $active)
+				INSERT INTO public.flashcard (pergunta, resposta, id_versao_pmbok, idprincipio, iddominio_desempenho, basics, active)
+				VALUES ($pergunta, $resposta, $id_versao_pmbok, $idprincipio, $iddominio_desempenho, $basics, $active)
 				RETURNING *
 			)
 			SELECT
@@ -134,7 +132,6 @@ async function createFlashcard(req, res, next) {
 				ins.data_alteracao,
 				ins.idprincipio,
 				ins.iddominio_desempenho,
-				ins.idabordagem,
 				COALESCE(ins.basics, FALSE) AS basics,
 				COALESCE(ins.active, TRUE) AS active,
 				ecv.code AS versao_code
@@ -150,7 +147,6 @@ async function createFlashcard(req, res, next) {
 				id_versao_pmbok,
 				idprincipio,
 				iddominio_desempenho: iddominioDesempenho,
-				idabordagem,
 				basics,
 				active,
 			},
@@ -175,7 +171,6 @@ async function updateFlashcard(req, res, next) {
 		const iddominioDesempenho = parseNullableInt(
 			req.body && (req.body.iddominio_desempenho ?? req.body['iddominio_desempenho'])
 		);
-		const idabordagem = parseNullableInt(req.body && req.body.idabordagem);
 		const basics = parseBoolean(req.body && req.body.basics, false);
 		const active = (req.body && Object.prototype.hasOwnProperty.call(req.body, 'active')) ? parseOptionalBoolean(req.body.active) : null;
 
@@ -191,7 +186,6 @@ async function updateFlashcard(req, res, next) {
 				    id_versao_pmbok = $id_versao_pmbok,
 				    idprincipio = $idprincipio,
 				    iddominio_desempenho = $iddominio_desempenho,
-				    idabordagem = $idabordagem,
 				    basics = $basics,
 				    active = COALESCE($active::boolean, public.flashcard.active)
 				WHERE id = $id
@@ -206,7 +200,6 @@ async function updateFlashcard(req, res, next) {
 				upd.data_alteracao,
 				upd.idprincipio,
 				upd.iddominio_desempenho,
-				upd.idabordagem,
 				COALESCE(upd.basics, FALSE) AS basics,
 				COALESCE(upd.active, TRUE) AS active,
 				ecv.code AS versao_code
@@ -223,7 +216,6 @@ async function updateFlashcard(req, res, next) {
 				id_versao_pmbok,
 				idprincipio,
 				iddominio_desempenho: iddominioDesempenho,
-				idabordagem,
 				basics,
 				active,
 			},

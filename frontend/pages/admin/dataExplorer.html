@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Data Explorer (Admin)</title>
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
+  <script src="/utils/csrf.js"></script>
+  <script src="/utils/logout.js"></script>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{ background:#0b1220; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
+    .wrap{ max-width:1300px; margin:18px auto; padding:16px; background:#0f172a; border:1px solid #1f2937; border-radius:12px; }
+    .topbar{ display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+    .topbar h1{ margin:0; font-size:1.15rem; }
+    .muted{ color:#94a3b8; }
+    .small{ font-size:.85rem; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .btn{ padding:8px 12px; border-radius:8px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; cursor:pointer; font-weight:700; }
+    .btn:hover{ border-color:#334155; }
+    .btn-primary{ background:#4f46e5; border-color:#4338ca; }
+    .btn-danger{ background:#b91c1c; border-color:#7f1d1d; }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .grid{ display:grid; grid-template-columns: 420px 1fr; gap: 14px; margin-top: 14px; }
+    .card{ background:#0b1220; border:1px solid #1f2937; border-radius:12px; padding:12px; }
+
+    label{ display:block; font-size:.82rem; color:#a3b2c5; margin:10px 0 6px; }
+    select,input,textarea{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    textarea{ min-height: 110px; resize: vertical; }
+
+    .row{ display:flex; gap:8px; }
+    .row > * { flex: 1; }
+
+    .chipbar{ display:flex; gap:8px; flex-wrap: wrap; margin-top: 10px; }
+    .chip{ border:1px solid #334155; background:#0f172a; color:#cbd5e1; padding:6px 10px; border-radius:999px; cursor:pointer; font-size:.82rem; font-weight:700; }
+    .chip:hover{ border-color:#64748b; }
+
+    .filters{ margin-top: 10px; display:flex; flex-direction: column; gap: 8px; }
+    .filterRow{ display:grid; grid-template-columns: 1.1fr .9fr 1.1fr 38px; gap: 8px; align-items: center; }
+    .iconBtn{ width:38px; height:38px; border-radius:10px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; cursor:pointer; font-weight:900; }
+
+    .sideMenu{ border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:10px; margin-bottom: 12px; }
+    .sideMenu h2{ margin:0 0 8px; font-size:.95rem; color:#e5e7eb; }
+    .sideMenu a{ display:block; padding:8px 10px; border-radius:10px; text-decoration:none; color:#e5e7eb; border:1px solid transparent; font-weight:700; font-size:.9rem; }
+    .sideMenu a:hover{ border-color:#334155; background:#0f172a; }
+    .sideMenu a.active{ background:#111827; border-color:#334155; }
+    .sideMenu .muted{ margin-top:6px; }
+
+    .kpi{ display:flex; gap:10px; flex-wrap: wrap; margin-top: 10px; }
+    .kpi .pill{ border:1px solid #1f2937; background:#0f172a; padding:6px 10px; border-radius:999px; color:#cbd5e1; font-size:.82rem; }
+
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.08); text-align:left; font-size:.88rem; vertical-align: top; }
+    th{ color:#a5b4fc; position: sticky; top: 0; background:#0b1220; }
+    .tableWrap{ max-height: 520px; overflow:auto; border:1px solid #1f2937; border-radius:12px; }
+
+    .status{ min-height: 18px; margin-top: 10px; color:#93c5fd; }
+    .status.error{ color:#fecaca; }
+
+    .sqlBox{ white-space: pre-wrap; word-break: break-word; background:#020617; border:1px solid #1f2937; border-radius:12px; padding:10px; color:#cbd5e1; font-size:.82rem; }
+
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Data Explorer (Admin)</h1>
+        <div class="muted small">Construtor de consultas (sem SQL livre): WHERE / ILIKE / COUNT / GROUP BY / HAVING, com preview do SQL.</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:end;">
+        <button id="btnHome" class="btn">Home</button>
+        <button id="btnLogout" class="btn btn-danger">Sair</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="sideMenu" aria-label="Menu Admin">
+          <h2>Menu</h2>
+          <a href="/index.html">Home</a>
+          <a href="/pages/admin/questionForm.html">Cadastrar questão</a>
+          <a href="/pages/admin/questionBulk.html">Cadastrar questão bulk</a>
+          <a href="/pages/admin/flashcards.html">Flashcards</a>
+          <a href="/pages/admin/dicas.html">Dicas</a>
+          <a href="/pages/admin/feedbackResponses.html">Responder feedbacks</a>
+          <a href="/pages/admin/notifications.html">Notificações</a>
+          <a href="/pages/admin/dataExplorer.html" class="active" aria-current="page">Data Explorer</a>
+          <div class="muted small">Atalho: este construtor não aceita SQL livre.</div>
+        </div>
+
+        <div class="muted small">Tabela</div>
+        <label for="selTable">Escolha uma tabela</label>
+        <select id="selTable"></select>
+
+        <label for="selColumns">Colunas (opcional)</label>
+        <select id="selColumns" multiple size="8" style="height:auto;"></select>
+        <div class="muted small" style="margin-top:6px;">Dica: deixe vazio para "todas" (limitado pela paginação).</div>
+
+        <label style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+          <input id="chkDistinct" type="checkbox" style="width:auto;" />
+          DISTINCT
+          <span class="muted small">(somente sem GROUP BY/Agregação)</span>
+        </label>
+
+        <div class="chipbar" aria-label="Atalhos">
+          <button class="chip" type="button" data-shortcut="where">+ WHERE</button>
+          <button class="chip" type="button" data-shortcut="ilike">+ ILIKE</button>
+          <button class="chip" type="button" data-shortcut="in">+ IN</button>
+          <button class="chip" type="button" data-shortcut="between">+ BETWEEN</button>
+          <button class="chip" type="button" data-shortcut="isnull">IS NULL</button>
+          <button class="chip" type="button" data-shortcut="count">COUNT(*)</button>
+          <button class="chip" type="button" data-shortcut="group">+ GROUP BY</button>
+          <button class="chip" type="button" data-shortcut="having">+ HAVING</button>
+          <button class="chip" type="button" data-shortcut="orderby">ORDER BY</button>
+          <button class="chip" type="button" data-shortcut="limit10">LIMIT 10</button>
+        </div>
+
+        <label>Filtros (WHERE)</label>
+        <div id="filters" class="filters"></div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button id="btnAddFilter" class="btn" type="button">Adicionar filtro</button>
+          <button id="btnClearFilters" class="btn" type="button">Limpar</button>
+        </div>
+
+        <hr style="border:0;border-top:1px solid #1f2937;margin:14px 0;" />
+
+        <div class="row">
+          <div>
+            <label for="inpGroupBy">GROUP BY (colunas, separadas por vírgula)</label>
+            <input id="inpGroupBy" type="text" placeholder="Ex: id_versao_pmbok" />
+          </div>
+          <div>
+            <label for="selAgg">Agregação</label>
+            <select id="selAgg">
+              <option value="">(nenhuma)</option>
+              <option value="count">COUNT(*)</option>
+              <option value="count_distinct">COUNT(DISTINCT coluna)</option>
+              <option value="sum">SUM(coluna)</option>
+              <option value="avg">AVG(coluna)</option>
+              <option value="min">MIN(coluna)</option>
+              <option value="max">MAX(coluna)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+          <div>
+            <label for="inpAggColumn">Coluna da agregação</label>
+            <input id="inpAggColumn" type="text" placeholder="Ex: id (para count_distinct)" />
+          </div>
+          <div>
+            <label for="inpHaving">HAVING (ex: count >= 10)</label>
+            <input id="inpHaving" type="text" placeholder="Ex: count >= 10" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+          <div>
+            <label for="inpOrderBy">ORDER BY (ex: id desc)</label>
+            <input id="inpOrderBy" type="text" placeholder="Ex: id desc" />
+          </div>
+          <div>
+            <label for="inpLimit">Limite (máx 500)</label>
+            <input id="inpLimit" type="number" min="1" max="500" value="100" inputmode="numeric" />
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button id="btnRun" class="btn btn-primary" type="button">Executar</button>
+          <button id="btnPrev" class="btn" type="button">◀ Página</button>
+          <button id="btnNext" class="btn" type="button">Página ▶</button>
+        </div>
+
+        <div class="kpi" style="margin-top:10px;">
+          <div class="pill" id="pillPage">Página: 1</div>
+          <div class="pill" id="pillRows">Linhas: 0</div>
+        </div>
+
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
+          <div>
+            <div class="muted small">Resultado</div>
+            <div class="muted small">Dica: clique em Executar após ajustar filtros/agrupamentos.</div>
+          </div>
+          <button id="btnCopySql" class="btn" type="button">Copiar SQL</button>
+        </div>
+
+        <label>Preview do SQL (ao vivo)</label>
+        <div id="sqlPreview" class="sqlBox"></div>
+
+        <label style="margin-top:12px;">Tabela de resultados</label>
+        <div class="tableWrap">
+          <table>
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const els = {
+        selTable: document.getElementById('selTable'),
+        selColumns: document.getElementById('selColumns'),
+        chkDistinct: document.getElementById('chkDistinct'),
+        filters: document.getElementById('filters'),
+        btnAddFilter: document.getElementById('btnAddFilter'),
+        btnClearFilters: document.getElementById('btnClearFilters'),
+        inpGroupBy: document.getElementById('inpGroupBy'),
+        selAgg: document.getElementById('selAgg'),
+        inpAggColumn: document.getElementById('inpAggColumn'),
+        inpHaving: document.getElementById('inpHaving'),
+        inpOrderBy: document.getElementById('inpOrderBy'),
+        inpLimit: document.getElementById('inpLimit'),
+        btnRun: document.getElementById('btnRun'),
+        btnPrev: document.getElementById('btnPrev'),
+        btnNext: document.getElementById('btnNext'),
+        pillPage: document.getElementById('pillPage'),
+        pillRows: document.getElementById('pillRows'),
+        status: document.getElementById('status'),
+        thead: document.getElementById('thead'),
+        tbody: document.getElementById('tbody'),
+        sqlPreview: document.getElementById('sqlPreview'),
+        btnCopySql: document.getElementById('btnCopySql'),
+        btnHome: document.getElementById('btnHome'),
+        btnLogout: document.getElementById('btnLogout'),
+      };
+
+      let tableColumns = []; // [{name,type}]
+      let page = 1;
+      let lastSql = '';
+
+      let previewTimer = null;
+      let previewAbort = null;
+
+      function setStatus(msg, type){
+        els.status.textContent = msg || '';
+        els.status.classList.toggle('error', type === 'error');
+      }
+
+      function headers(){
+        try {
+          if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+            return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+          }
+        } catch(_){ }
+        return { 'Content-Type': 'application/json' };
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function splitCsv(s){
+        return String(s || '')
+          .split(',')
+          .map(x => x.trim())
+          .filter(Boolean);
+      }
+
+      function buildFilterRow(preset){
+        const row = document.createElement('div');
+        row.className = 'filterRow';
+
+        const selCol = document.createElement('select');
+        tableColumns.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.name;
+          opt.textContent = c.name;
+          selCol.appendChild(opt);
+        });
+
+        const selOp = document.createElement('select');
+        [
+          {v:'=',t:'='},
+          {v:'!=',t:'!='},
+          {v:'<',t:'<'},
+          {v:'<=',t:'<='},
+          {v:'>',t:'>'},
+          {v:'>=',t:'>='},
+          {v:'like',t:'LIKE'},
+          {v:'ilike',t:'ILIKE'},
+          {v:'contains_like',t:'Contém (LIKE)'},
+          {v:'contains_ilike',t:'Contém (ILIKE)'},
+          {v:'in',t:'IN (lista)'},
+          {v:'not_in',t:'NOT IN (lista)'},
+          {v:'between',t:'BETWEEN (a..b)'},
+          {v:'is_null',t:'IS NULL'},
+          {v:'not_null',t:'IS NOT NULL'},
+        ].forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.v;
+          opt.textContent = o.t;
+          selOp.appendChild(opt);
+        });
+
+        const inpVal = document.createElement('input');
+        inpVal.type = 'text';
+        inpVal.placeholder = 'valor';
+
+        const btnDel = document.createElement('button');
+        btnDel.type = 'button';
+        btnDel.className = 'iconBtn';
+        btnDel.textContent = '×';
+        btnDel.addEventListener('click', () => { row.remove(); scheduleLiveSqlPreview(); });
+
+        row.appendChild(selCol);
+        row.appendChild(selOp);
+        row.appendChild(inpVal);
+        row.appendChild(btnDel);
+
+        const applyPreset = preset && typeof preset === 'object' ? preset : {};
+        if (applyPreset.column) selCol.value = applyPreset.column;
+        if (applyPreset.op) selOp.value = applyPreset.op;
+        if (applyPreset.value != null) inpVal.value = String(applyPreset.value);
+
+        // Disable value input when null operators
+        let lastOp = String(selOp.value || '');
+        function syncValEnabled(){
+          const op = String(selOp.value || '');
+          const disabled = (op === 'is_null' || op === 'not_null');
+          inpVal.disabled = disabled;
+          if (disabled) inpVal.value = '';
+
+          // If user switches away from LIKE/ILIKE and the field was still the default, clear it.
+          if (!disabled && lastOp && (lastOp === 'like' || lastOp === 'ilike') && op !== lastOp) {
+            if (String(inpVal.value || '') === '%%') inpVal.value = '';
+          }
+
+          // If user chooses LIKE/ILIKE, prefill %% when empty and place cursor in the middle.
+          if (!disabled && (op === 'like' || op === 'ilike')) {
+            if (!String(inpVal.value || '')) {
+              inpVal.value = '%%';
+              try { inpVal.setSelectionRange(1, 1); } catch(_) {}
+            }
+          }
+
+          if (op === 'in' || op === 'not_in') inpVal.placeholder = 'a, b, c';
+          else if (op === 'between') inpVal.placeholder = 'a..b';
+          else if (op === 'contains_like' || op === 'contains_ilike') inpVal.placeholder = 'texto';
+          else inpVal.placeholder = 'valor';
+
+          lastOp = op;
+        }
+        selOp.addEventListener('change', syncValEnabled);
+        syncValEnabled();
+
+        return row;
+      }
+
+      async function loadTables(){
+        setStatus('Carregando tabelas...', 'info');
+        const r = await fetch('/api/admin/data-explorer/tables', { headers: headers(), credentials: 'include' });
+        if (!r.ok) {
+          setStatus('Falha ao carregar tabelas.', 'error');
+          return;
+        }
+        const data = await r.json().catch(()=>null);
+        const tables = (data && data.tables) ? data.tables : [];
+        els.selTable.innerHTML = '';
+        tables.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = t;
+          els.selTable.appendChild(opt);
+        });
+        setStatus('OK', 'info');
+      }
+
+      async function loadColumns(){
+        const table = String(els.selTable.value || '').trim();
+        if (!table) return;
+        setStatus('Carregando colunas...', 'info');
+        const r = await fetch('/api/admin/data-explorer/tables/' + encodeURIComponent(table) + '/columns', { headers: headers(), credentials: 'include' });
+        if (!r.ok) {
+          setStatus('Falha ao carregar colunas.', 'error');
+          return;
+        }
+        const data = await r.json().catch(()=>null);
+        tableColumns = (data && data.columns) ? data.columns : [];
+
+        els.selColumns.innerHTML = '';
+        tableColumns.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.name;
+          opt.textContent = c.name + (c.type ? ' · ' + c.type : '');
+          els.selColumns.appendChild(opt);
+        });
+
+        els.filters.innerHTML = '';
+        els.filters.appendChild(buildFilterRow());
+
+        page = 1;
+        syncPagePills(0);
+        setStatus('OK', 'info');
+
+        attachLivePreviewListeners();
+        scheduleLiveSqlPreview({ resetPage: false });
+      }
+
+      function getSelectedColumns(){
+        const selected = Array.from(els.selColumns.selectedOptions || []).map(o => o.value).filter(Boolean);
+        return selected;
+      }
+
+      function readFilters(){
+        const rows = Array.from(els.filters.querySelectorAll('.filterRow'));
+        return rows.map(r => {
+          const parts = r.querySelectorAll('select,input');
+          const col = parts[0] ? String(parts[0].value||'').trim() : '';
+          const op = parts[1] ? String(parts[1].value||'').trim() : '';
+          const val = parts[2] ? String(parts[2].value||'') : '';
+          if (!col || !op) return null;
+          return { column: col, op, value: val };
+        }).filter(Boolean);
+      }
+
+      function parseOrderBy(s){
+        const raw = String(s||'').trim();
+        if (!raw) return null;
+        const parts = raw.split(/\s+/).filter(Boolean);
+        const column = parts[0];
+        const dir = (parts[1] || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
+        return { column, dir };
+      }
+
+      function parseHaving(s){
+        const raw = String(s||'').trim();
+        if (!raw) return null;
+        const m = raw.match(/^(\w+)\s*(=|!=|>=|<=|>|<)\s*(.+)$/);
+        if (!m) return null;
+        return { alias: m[1], op: m[2], value: m[3] };
+      }
+
+      function syncPagePills(rowCount){
+        els.pillPage.textContent = 'Página: ' + String(page);
+        els.pillRows.textContent = 'Linhas: ' + String(rowCount || 0);
+      }
+
+      function renderResult(rows){
+        const items = Array.isArray(rows) ? rows : [];
+        if (!items.length) {
+          els.thead.innerHTML = '<tr><th>Nenhum resultado</th></tr>';
+          els.tbody.innerHTML = '';
+          syncPagePills(0);
+          return;
+        }
+
+        const cols = Object.keys(items[0] || {});
+        els.thead.innerHTML = '<tr>' + cols.map(c => '<th>' + escapeHtml(c) + '</th>').join('') + '</tr>';
+        els.tbody.innerHTML = items.map(row => {
+          return '<tr>' + cols.map(c => {
+            const v = row[c];
+            const txt = (v == null) ? '' : String(v);
+            return '<td>' + escapeHtml(txt) + '</td>';
+          }).join('') + '</tr>';
+        }).join('');
+
+        syncPagePills(items.length);
+      }
+
+      function updateSqlPreview(sql){
+        lastSql = String(sql || '');
+        els.sqlPreview.textContent = lastSql;
+      }
+
+      function buildPayloadFromUi(){
+        const table = String(els.selTable.value || '').trim();
+        if (!table) return null;
+
+        const distinct = !!(els.chkDistinct && els.chkDistinct.checked);
+        const limit = Math.min(Math.max(parseInt(String(els.inpLimit.value || '100'), 10) || 100, 1), 500);
+        const offset = (page - 1) * limit;
+
+        const groupBy = splitCsv(els.inpGroupBy.value);
+        const orderBy = parseOrderBy(els.inpOrderBy.value);
+
+        const agg = String(els.selAgg.value || '');
+        const aggColumn = String(els.inpAggColumn.value || '').trim();
+
+        const aggregates = [];
+        if (agg) {
+          const as = (agg === 'count') ? 'count' : 'agg';
+          aggregates.push({ fn: agg, column: (agg === 'count') ? '*' : aggColumn, as });
+        }
+
+        const havingParsed = parseHaving(els.inpHaving.value);
+        const having = havingParsed ? [{ alias: havingParsed.alias, op: havingParsed.op, value: havingParsed.value }] : [];
+
+        const rawFilters = readFilters();
+        const filters = rawFilters.map(f => {
+          const op = String(f.op || '');
+          if (op === 'contains_ilike') {
+            return { column: f.column, op: 'ilike', value: '%' + String(f.value || '').trim() + '%' };
+          }
+          if (op === 'contains_like') {
+            return { column: f.column, op: 'like', value: '%' + String(f.value || '').trim() + '%' };
+          }
+          if (op === 'is_null') {
+            return { column: f.column, op: 'is_null' };
+          }
+          if (op === 'not_null') {
+            return { column: f.column, op: 'not_null' };
+          }
+          return { column: f.column, op, value: f.value };
+        });
+
+        const columns = getSelectedColumns();
+
+        return {
+          table,
+          columns,
+          distinct,
+          filters,
+          groupBy,
+          aggregates,
+          having,
+          orderBy,
+          limit,
+          offset,
+        };
+      }
+
+      function scheduleLiveSqlPreview(opts){
+        const resetPage = !(opts && opts.resetPage === false);
+        if (resetPage) {
+          page = 1;
+          els.pillPage.textContent = 'Página: ' + String(page);
+        }
+
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = setTimeout(() => refreshLiveSqlPreview(), 220);
+      }
+
+      async function refreshLiveSqlPreview(){
+        const payload = buildPayloadFromUi();
+        if (!payload) {
+          updateSqlPreview('');
+          return;
+        }
+
+        if (previewAbort) {
+          try { previewAbort.abort(); } catch(_){ }
+        }
+        previewAbort = new AbortController();
+
+        try {
+          const r = await fetch('/api/admin/data-explorer/preview', {
+            method: 'POST',
+            headers: headers(),
+            credentials: 'include',
+            body: JSON.stringify(payload),
+            signal: previewAbort.signal,
+          });
+
+          const data = await r.json().catch(()=>null);
+          if (!r.ok) {
+            updateSqlPreview((data && data.message) ? ('[Preview] ' + data.message) : '[Preview] Erro ao gerar SQL');
+            return;
+          }
+          const sql = (data && (data.sqlPreviewExpanded || data.sqlPreview)) ? (data.sqlPreviewExpanded || data.sqlPreview) : '';
+          updateSqlPreview(sql);
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+          updateSqlPreview('[Preview] Erro ao gerar SQL');
+        }
+      }
+
+      function attachLivePreviewListeners(){
+        if (attachLivePreviewListeners._bound) return;
+        attachLivePreviewListeners._bound = true;
+
+        const onChange = () => scheduleLiveSqlPreview();
+        const onInput = () => scheduleLiveSqlPreview();
+
+        if (els.selTable) els.selTable.addEventListener('change', onChange);
+        if (els.selColumns) els.selColumns.addEventListener('change', onChange);
+        if (els.chkDistinct) els.chkDistinct.addEventListener('change', onChange);
+
+        if (els.inpLimit) els.inpLimit.addEventListener('input', onInput);
+        if (els.inpOrderBy) els.inpOrderBy.addEventListener('input', onInput);
+        if (els.inpGroupBy) els.inpGroupBy.addEventListener('input', onInput);
+        if (els.selAgg) els.selAgg.addEventListener('change', onChange);
+        if (els.inpAggColumn) els.inpAggColumn.addEventListener('input', onInput);
+        if (els.inpHaving) els.inpHaving.addEventListener('input', onInput);
+
+        if (els.filters) {
+          els.filters.addEventListener('change', (e) => {
+            if (e.target && e.target.closest && e.target.closest('.filterRow')) onChange();
+          });
+          els.filters.addEventListener('input', (e) => {
+            if (e.target && e.target.closest && e.target.closest('.filterRow')) onInput();
+          });
+        }
+      }
+
+      async function runQuery(){
+        const payload = buildPayloadFromUi();
+        if (!payload) return;
+
+        setStatus('Executando...', 'info');
+        els.btnRun.disabled = true;
+        try {
+          const r = await fetch('/api/admin/data-explorer/query', {
+            method: 'POST',
+            headers: headers(),
+            credentials: 'include',
+            body: JSON.stringify(payload)
+          });
+
+          const data = await r.json().catch(()=>null);
+          if (!r.ok) {
+            setStatus((data && data.message) ? data.message : 'Erro ao executar consulta', 'error');
+            renderResult([]);
+            updateSqlPreview((data && (data.sqlPreviewExpanded || data.sqlPreview)) ? (data.sqlPreviewExpanded || data.sqlPreview) : '');
+            return;
+          }
+
+          renderResult((data && data.rows) ? data.rows : []);
+          updateSqlPreview((data && (data.sqlPreviewExpanded || data.sqlPreview)) ? (data.sqlPreviewExpanded || data.sqlPreview) : '');
+          setStatus('OK', 'info');
+
+          // Pagination buttons: enable next if server says hasMore
+          els.btnPrev.disabled = page <= 1;
+          els.btnNext.disabled = !(data && data.hasMore);
+        } catch (e) {
+          setStatus('Erro: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
+          renderResult([]);
+        } finally {
+          els.btnRun.disabled = false;
+        }
+      }
+
+      function wireShortcuts(){
+        document.querySelectorAll('button[data-shortcut]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const sc = String(btn.dataset.shortcut || '');
+            if (sc === 'where') {
+              els.filters.appendChild(buildFilterRow());
+              scheduleLiveSqlPreview();
+              return;
+            }
+            if (sc === 'ilike') {
+              els.filters.appendChild(buildFilterRow({ op: 'contains_ilike' }));
+              scheduleLiveSqlPreview();
+              return;
+            }
+            if (sc === 'in') {
+              els.filters.appendChild(buildFilterRow({ op: 'in' }));
+              scheduleLiveSqlPreview();
+              return;
+            }
+            if (sc === 'between') {
+              els.filters.appendChild(buildFilterRow({ op: 'between' }));
+              scheduleLiveSqlPreview();
+              return;
+            }
+            if (sc === 'isnull') {
+              els.filters.appendChild(buildFilterRow({ op: 'is_null' }));
+              scheduleLiveSqlPreview();
+              return;
+            }
+            if (sc === 'count') {
+              els.selAgg.value = 'count';
+              els.inpAggColumn.value = '';
+              els.inpGroupBy.value = '';
+              els.inpHaving.value = '';
+              if (els.chkDistinct) els.chkDistinct.checked = false;
+              scheduleLiveSqlPreview();
+              return;
+            }
+            if (sc === 'group') {
+              els.inpGroupBy.focus();
+              return;
+            }
+            if (sc === 'having') {
+              els.inpHaving.focus();
+              return;
+            }
+            if (sc === 'orderby') {
+              if (!String(els.inpOrderBy.value || '').trim()) {
+                els.inpOrderBy.value = 'id desc';
+              }
+              els.inpOrderBy.focus();
+              scheduleLiveSqlPreview({ resetPage: false });
+              return;
+            }
+            if (sc === 'limit10') {
+              els.inpLimit.value = '10';
+              scheduleLiveSqlPreview({ resetPage: false });
+              return;
+            }
+          });
+        });
+      }
+
+      // Wire
+      els.btnHome.addEventListener('click', () => window.location.assign('/index.html'));
+      els.btnLogout.addEventListener('click', () => {
+        try { if (typeof window.logout === 'function') return window.logout(); } catch(_){ }
+        try { localStorage.clear(); } catch(_){ }
+        window.location.assign('/login');
+      });
+
+      els.btnAddFilter.addEventListener('click', () => { els.filters.appendChild(buildFilterRow()); scheduleLiveSqlPreview(); });
+      els.btnClearFilters.addEventListener('click', () => {
+        els.filters.innerHTML = '';
+        els.filters.appendChild(buildFilterRow());
+        scheduleLiveSqlPreview();
+      });
+
+      els.selTable.addEventListener('change', async () => {
+        await loadColumns();
+      });
+
+      els.btnRun.addEventListener('click', () => { page = 1; runQuery(); });
+      els.btnPrev.addEventListener('click', () => { if (page > 1) { page -= 1; runQuery(); } });
+      els.btnNext.addEventListener('click', () => { page += 1; runQuery(); });
+
+      els.btnCopySql.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(String(lastSql || ''));
+          setStatus('SQL copiado.', 'info');
+        } catch(_) {
+          setStatus('Não foi possível copiar.', 'error');
+        }
+      });
+
+      wireShortcuts();
+
+      attachLivePreviewListeners();
+
+      // Init
+      loadTables().then(() => loadColumns()).catch(()=>{});
+    })();
+  </script>
+</body>
+</html>

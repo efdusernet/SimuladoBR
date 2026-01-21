@@ -504,7 +504,7 @@
                         headers['X-Session-Token'] = identity;
                         if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
 
-                        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(identity)}`;
+                        const probeUrl = `/api/admin/data-explorer/tables?sessionToken=${encodeURIComponent(identity)}`;
                         const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
                         window.__historyModalIsAdmin = !!r.ok;
                         return window.__historyModalIsAdmin;
@@ -672,6 +672,7 @@
     <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">
         <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão</a>
         <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
+        <a id="lnkAdminDataExplorer" href="/pages/admin/dataExplorer.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Data Explorer (SQL)</a>
         <a id="lnkAdminFeedbackResp" href="/pages/admin/feedbackResponses.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Responder feedbacks</a>
         <a id="lnkAdminNotifications" href="/pages/admin/notifications.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Notificações</a>
         <a id="lnkAdminChatHost" href="/chat/admin" target="_blank" rel="noopener noreferrer" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Chat (Admin)</a>
@@ -836,7 +837,7 @@
                     : {};
 
                 // Primary: RBAC probe.
-                const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+                const probeUrl = `/api/admin/data-explorer/tables?sessionToken=${encodeURIComponent(sessionForHeader)}`;
                 fetch(probeUrl, { headers, method: 'GET', credentials: 'include' })
                     .then(async (r) => {
                         let isAdmin = !!(r && (r.ok || r.status === 204));
@@ -1766,7 +1767,7 @@
 
     <!-- Admin Modal -->
     <div id="adminModal" class="overlay" aria-hidden="true" style="background:rgba(0,0,0,0.75);align-items:flex-start;padding-top:20px;overflow-y:auto">
-        <div style="background:var(--panel);border-radius:12px;max-width:500px;width:90%;margin:0 auto;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.4);color:var(--text)">
+        <div style="background:var(--panel);border-radius:12px;max-width:980px;width:94%;margin:0 auto;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.4);color:var(--text)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
                 <h2 style="margin:0;font-size:1.4rem;color:var(--text)">Administração</h2>
                 <div style="display:flex;align-items:center;gap:10px">
@@ -1774,6 +1775,22 @@
                     <button id="adminModalClose" style="background:none;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center" aria-label="Fechar">×</button>
                 </div>
             </div>
+
+            <div style="display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start">
+                <aside aria-label="Menu Admin" style="border:1px solid var(--border);background:var(--bg);border-radius:10px;padding:12px;position:sticky;top:20px">
+                    <div style="font-weight:800;color:var(--text);margin-bottom:10px">Menu</div>
+                    <a href="/pages/admin/questionForm.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Cadastrar questão</a>
+                    <a href="/pages/admin/questionBulk.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Cadastrar questão bulk</a>
+                    <a href="/pages/admin/flashcards.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Flashcards</a>
+                    <a href="/pages/admin/dicas.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Dicas</a>
+                    <a href="/pages/admin/feedbackResponses.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Responder feedbacks</a>
+                    <a href="/pages/admin/notifications.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Notificações</a>
+                    <a href="/pages/admin/dataExplorer.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Data Explorer</a>
+                    <a href="/index.html" style="display:block;margin-top:10px;padding:10px 10px;border-radius:10px;color:var(--muted);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Voltar para Home</a>
+                    <div style="font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.3">Dica: o Data Explorer não aceita SQL livre; é um construtor seguro.</div>
+                </aside>
+
+                <div>
 
             <!-- Accordion: Health Check (on-demand) -->
             <div class="admin-accordion" id="adminHealthAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
@@ -2129,6 +2146,8 @@
                         <div id="commRecipientsStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
                         <div id="commRecipientsList" style="display:grid;gap:8px"></div>
                     </div>
+                </div>
+            </div>
                 </div>
             </div>
         </div>
@@ -2720,7 +2739,7 @@
 
                     // Primary: probe admin-only endpoint (aligns with backend RBAC).
                     try {
-                        const probeUrl = base + '/api/admin/exams/probe?sessionToken=' + encodeURIComponent(sessionForHeader || '');
+                        const probeUrl = base + '/api/admin/data-explorer/tables?sessionToken=' + encodeURIComponent(sessionForHeader || '');
                         const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include' });
                         if (probeResp.ok || probeResp.status === 204) {
                             try { window.__isAdmin = true; } catch(_){ }
@@ -2858,15 +2877,15 @@
 
                 // 2) Admin probe (RBAC)
                 try {
-                    const probeUrl = base + '/api/admin/exams/probe' + (identity ? ('?sessionToken=' + encodeURIComponent(identity)) : '');
+                    const probeUrl = base + '/api/admin/data-explorer/tables' + (identity ? ('?sessionToken=' + encodeURIComponent(identity)) : '');
                     const resp = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
                     outLines.push('');
-                    outLines.push('[admin/exams/probe]');
+                    outLines.push('[admin/data-explorer/tables]');
                     outLines.push(fmtHealthLine('status', resp.status));
                     outLines.push(fmtHealthLine('ok', (resp.ok || resp.status === 204) ? 'yes' : 'no'));
                 } catch (e) {
                     outLines.push('');
-                    outLines.push('[admin/exams/probe] ERROR: ' + (e && e.message ? e.message : String(e)));
+                    outLines.push('[admin/data-explorer/tables] ERROR: ' + (e && e.message ? e.message : String(e)));
                 }
 
                 const text = outLines.join('\n');
@@ -2875,7 +2894,7 @@
                     adminHealthCheckOutput.textContent = text;
                 }
 
-                const ok = /\[admin\/exams\/probe\][\s\S]*ok\s*: yes/i.test(text) || /\[users\/me\][\s\S]*TipoUsuario\s*: admin/i.test(text);
+                const ok = /\[admin\/data-explorer\/tables\][\s\S]*ok\s*: yes/i.test(text) || /\[users\/me\][\s\S]*TipoUsuario\s*: admin/i.test(text);
                 try {
                     if (window.showToast) window.showToast(ok ? 'Health check OK (admin)' : 'Health check: atenção (não-admin)');
                 } catch(_){ }
@@ -3369,7 +3388,7 @@
 
                     // Primary: RBAC/requireAdmin probe (aligns with backend enforcement)
                     try {
-                        const resp = await fetch(base + '/api/admin/exams/probe', { method: 'GET', headers, credentials: 'include' });
+                        const resp = await fetch(base + '/api/admin/data-explorer/tables', { method: 'GET', headers, credentials: 'include' });
                         if (resp.ok || resp.status === 204) {
                             try { window.__isAdmin = true; } catch(_){ }
                             return true;

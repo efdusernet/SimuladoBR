@@ -31,9 +31,6 @@ async function listFlashcards(req, res, next) {
 		const iddominio_desempenho = parseOptionalPositiveInt(req.query.iddominio_desempenho);
 		if (Number.isNaN(iddominio_desempenho)) return next(badRequest('iddominio_desempenho inválido', 'FLASHCARD_INVALID_IDDOMINIO_DESEMPENHO'));
 
-		const idabordagem = parseOptionalPositiveInt(req.query.idabordagem);
-		if (Number.isNaN(idabordagem)) return next(badRequest('idabordagem inválido', 'FLASHCARD_INVALID_IDABORDAGEM'));
-
 		const basics = parseOptionalBoolean(req.query.basics);
 		if (Number.isNaN(basics)) return next(badRequest('basics inválido', 'FLASHCARD_INVALID_BASICS'));
 
@@ -71,7 +68,6 @@ async function listFlashcards(req, res, next) {
 				f.data_alteracao,
 				f.idprincipio,
 				f.iddominio_desempenho,
-				f.idabordagem,
 				COALESCE(f.basics, FALSE) AS basics,
 				COALESCE(f.active, TRUE) AS active,
 				ecv.code AS versao_code
@@ -83,13 +79,11 @@ async function listFlashcards(req, res, next) {
 					(
 						$idprincipio::int IS NOT NULL
 						OR $iddominio_desempenho::int IS NOT NULL
-						OR $idabordagem::int IS NOT NULL
 						OR $basics::boolean IS NOT NULL
 					)
 					AND (
 						(f.idprincipio = $idprincipio)
 						OR (f.iddominio_desempenho = $iddominio_desempenho)
-						OR (f.idabordagem = $idabordagem)
 						OR (COALESCE(f.basics, FALSE) = $basics)
 					)
 				)
@@ -104,7 +98,6 @@ async function listFlashcards(req, res, next) {
 				versionId,
 				idprincipio,
 				iddominio_desempenho,
-				idabordagem,
 				basics,
 				active,
 				limit,
@@ -118,7 +111,6 @@ async function listFlashcards(req, res, next) {
 				versionId,
 				idprincipio,
 				iddominio_desempenho,
-				idabordagem,
 				basics,
 				active,
 				limit,

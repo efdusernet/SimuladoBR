@@ -50,6 +50,7 @@
         <div class="muted small">CRUD de cadastro/edição baseado na tabela <span class="mono">public.flashcard</span>.</div>
       </div>
       <div class="right">
+        <button id="btnHome" type="button" class="btn btn-muted">Home</button>
         <button id="btnReload" type="button" class="btn btn-muted">Recarregar</button>
         <button id="btnLogout" type="button" class="btn btn-danger">Sair</button>
       </div>
@@ -105,18 +106,13 @@
 
     <div class="row" style="margin-top: 6px;">
       <div>
-        <label for="editAbordagem">Abordagem (idabordagem)</label>
-        <select id="editAbordagem">
-          <option value="">(vazio)</option>
-        </select>
-      </div>
-      <div>
         <label for="editBasics">Basics</label>
         <select id="editBasics">
           <option value="false" selected>Não</option>
           <option value="true">Sim</option>
         </select>
       </div>
+      <div></div>
     </div>
 
     <div class="row" style="margin-top: 6px;">
@@ -146,6 +142,17 @@
       <button id="btnSave" type="button" class="btn btn-primary">Salvar</button>
     </div>
 
+    <div id="pager" class="muted small" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top: 14px; flex-wrap: wrap;">
+      <div>
+        <span class="mono">100</span> por página
+        <span id="pagerInfo" style="margin-left:10px;"></span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="btnPrevPage" type="button" class="btn btn-muted">Anterior</button>
+        <button id="btnNextPage" type="button" class="btn btn-muted">Próxima</button>
+      </div>
+    </div>
+
     <table aria-label="Flashcards cadastrados">
       <thead>
         <tr>
@@ -165,6 +172,7 @@
     (function(){
       const els = {
         status: document.getElementById('status'),
+        btnHome: document.getElementById('btnHome'),
         btnReload: document.getElementById('btnReload'),
         btnLogout: document.getElementById('btnLogout'),
         btnLoad: document.getElementById('btnLoad'),
@@ -177,7 +185,6 @@
         editVersionCode: document.getElementById('editVersionCode'),
         editPrincipio: document.getElementById('editPrincipio'),
         editDominioDes: document.getElementById('editDominioDes'),
-        editAbordagem: document.getElementById('editAbordagem'),
         editBasics: document.getElementById('editBasics'),
         editActive: document.getElementById('editActive'),
         editPergunta: document.getElementById('editPergunta'),
@@ -189,8 +196,9 @@
       let versions = [];
       let principios = [];
       let dominiosDes = [];
-      let abordagens = [];
-      let currentItems = [];
+      const PAGE_SIZE = 100;
+      let currentPage = 1;
+      let allItems = [];
 
       function setStatus(msg, type){
         els.status.textContent = msg || '';
@@ -251,7 +259,6 @@
         if (!preserveSelects) {
           if (els.editPrincipio) els.editPrincipio.value = '';
           if (els.editDominioDes) els.editDominioDes.value = '';
-          if (els.editAbordagem) els.editAbordagem.value = '';
           if (els.editBasics) els.editBasics.value = 'false';
           if (els.editActive) els.editActive.value = 'true';
         }
@@ -266,7 +273,6 @@
         els.editResposta.value = item && item.resposta != null ? String(item.resposta) : '';
         if (els.editPrincipio) els.editPrincipio.value = (item && item.idprincipio != null) ? String(item.idprincipio) : '';
         if (els.editDominioDes) els.editDominioDes.value = (item && item.iddominio_desempenho != null) ? String(item.iddominio_desempenho) : '';
-        if (els.editAbordagem) els.editAbordagem.value = (item && item.idabordagem != null) ? String(item.idabordagem) : '';
         if (els.editBasics) {
           const b = item && (item.basics === true || String(item.basics).toLowerCase() === 'true');
           els.editBasics.value = b ? 'true' : 'false';
@@ -303,16 +309,47 @@
         });
       }
 
-      function renderTable(items){
-        currentItems = Array.isArray(items) ? items : [];
+      function clampInt(n, min, max){
+        const nn = Number.isFinite(n) ? Math.trunc(n) : min;
+        if (nn < min) return min;
+        if (nn > max) return max;
+        return nn;
+      }
+
+      function getTotalPages(){
+        return Math.max(1, Math.ceil((allItems.length || 0) / PAGE_SIZE));
+      }
+
+      function syncPager(){
+        const total = getTotalPages();
+        currentPage = clampInt(currentPage, 1, total);
+
+        const infoEl = document.getElementById('pagerInfo');
+        const btnPrev = document.getElementById('btnPrevPage');
+        const btnNext = document.getElementById('btnNextPage');
+
+        if (infoEl) {
+          const totalItems = allItems.length || 0;
+          infoEl.textContent = `• Página ${currentPage} de ${total} • ${totalItems} itens`;
+        }
+        if (btnPrev) btnPrev.disabled = currentPage <= 1;
+        if (btnNext) btnNext.disabled = currentPage >= total;
+      }
+
+      function renderTablePage(){
         if (!els.rows) return;
 
-        if (!currentItems.length){
+        syncPager();
+
+        if (!allItems.length){
           els.rows.innerHTML = '<tr><td colspan="6">Nenhum flashcard.</td></tr>';
           return;
         }
 
-        els.rows.innerHTML = currentItems.map(it => {
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageItems = allItems.slice(start, start + PAGE_SIZE);
+
+        els.rows.innerHTML = pageItems.map(it => {
           const vid = it.id_versao_pmbok;
           const code = escapeHtml(it.versao_code || ('v#' + vid));
           const pergunta = escapeHtml(it.pergunta || '');
@@ -339,7 +376,7 @@
         els.rows.querySelectorAll('button[data-action="edit"]').forEach(btn => {
           btn.addEventListener('click', () => {
             const id = Number(btn.dataset.id);
-            const item = currentItems.find(x => Number(x.id) === id);
+            const item = allItems.find(x => Number(x.id) === id);
             if (item) fillForm(item);
           });
         });
@@ -366,27 +403,27 @@
 
       async function loadMeta(){
         try {
-          const [rPr, rDom, rCat] = await Promise.all([
+          const [rPr, rDom] = await Promise.all([
             fetch('/api/meta/principios', { method: 'GET', headers: headers(), credentials: 'include' }),
             fetch('/api/meta/ddesempenho', { method: 'GET', headers: headers(), credentials: 'include' }),
-            fetch('/api/meta/abordagens', { method: 'GET', headers: headers(), credentials: 'include' }),
           ]);
 
           const pr = rPr && rPr.ok ? await rPr.json().catch(()=>[]) : [];
           const dom = rDom && rDom.ok ? await rDom.json().catch(()=>[]) : [];
-          const cat = rCat && rCat.ok ? await rCat.json().catch(()=>[]) : [];
 
           principios = Array.isArray(pr) ? pr : [];
           dominiosDes = Array.isArray(dom) ? dom : [];
-          abordagens = Array.isArray(cat) ? cat : [];
 
           renderSelectOptions(els.editPrincipio, principios);
           renderSelectOptions(els.editDominioDes, dominiosDes);
-          renderSelectOptions(els.editAbordagem, abordagens);
         } catch(_){ }
       }
 
-      async function loadList(){
+      async function loadList(opts){
+        const options = opts && typeof opts === 'object' ? opts : {};
+        const preservePage = options.preservePage === true;
+        const prevPage = currentPage;
+
         const versionId = Number.parseInt(String(els.filterVersion.value||'2'), 10) || 2;
         const q = String(els.filterQ.value||'').trim();
         els.filterVersion.value = String(versionId);
@@ -399,16 +436,25 @@
             let msg = 'Falha ao carregar';
             try { const d = await r.json(); if (d && d.message) msg += ': ' + d.message; } catch(_){ }
             setStatus(msg, 'error');
-            renderTable([]);
+            allItems = [];
+            currentPage = 1;
+            renderTablePage();
             return;
           }
           const data = await r.json().catch(()=>null);
           const items = (data && data.items) ? data.items : [];
-          renderTable(items);
-          setStatus('OK: ' + items.length + ' itens', 'info');
+
+          allItems = Array.isArray(items) ? items : [];
+          const totalPages = getTotalPages();
+          currentPage = preservePage ? clampInt(prevPage, 1, totalPages) : 1;
+          renderTablePage();
+
+          setStatus('OK: ' + allItems.length + ' itens', 'info');
         } catch(e){
           setStatus('Erro: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
-          renderTable([]);
+          allItems = [];
+          currentPage = 1;
+          renderTablePage();
         }
       }
 
@@ -430,7 +476,6 @@
           id_versao_pmbok,
           idprincipio: toNullableInt(els.editPrincipio ? els.editPrincipio.value : ''),
           iddominio_desempenho: toNullableInt(els.editDominioDes ? els.editDominioDes.value : ''),
-          idabordagem: toNullableInt(els.editAbordagem ? els.editAbordagem.value : ''),
           basics: (els.editBasics ? String(els.editBasics.value || 'false') : 'false') === 'true',
           active: (els.editActive ? String(els.editActive.value || 'true') : 'true') === 'true',
         };
@@ -466,7 +511,7 @@
           await r.json().catch(()=>null);
           setStatus('Salvo com sucesso.', 'info');
           clearForm({ preserveSelects: true });
-          await loadList();
+          await loadList({ preservePage: true });
         } catch(e){
           setStatus('Erro ao salvar: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
         } finally {
@@ -489,7 +534,7 @@
             return;
           }
           setStatus('Excluído.', 'info');
-          await loadList();
+          await loadList({ preservePage: true });
         } catch(e){
           setStatus('Erro ao excluir: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
         }
@@ -503,6 +548,25 @@
         syncVersionBadge();
         await loadList();
         setStatus('OK', 'info');
+      });
+
+      const btnPrev = document.getElementById('btnPrevPage');
+      const btnNext = document.getElementById('btnNextPage');
+      if (btnPrev) btnPrev.addEventListener('click', () => {
+        currentPage = Math.max(1, currentPage - 1);
+        renderTablePage();
+      });
+      if (btnNext) btnNext.addEventListener('click', () => {
+        currentPage = Math.min(getTotalPages(), currentPage + 1);
+        renderTablePage();
+      });
+
+      if (els.filterQ) els.filterQ.addEventListener('keydown', (e) => {
+        if (!e) return;
+        const key = e.key ? String(e.key) : '';
+        if (key !== 'Enter') return;
+        e.preventDefault();
+        loadList();
       });
       if (els.btnClear) els.btnClear.addEventListener('click', () => clearForm());
       if (els.btnSave) els.btnSave.addEventListener('click', save);
@@ -525,6 +589,10 @@
         try { if (typeof window.logout === 'function') return window.logout(); } catch(_){ }
         try { localStorage.clear(); } catch(_){ }
         window.location.assign('/login');
+      });
+
+      if (els.btnHome) els.btnHome.addEventListener('click', () => {
+        window.location.assign('/index.html');
       });
 
       // Init

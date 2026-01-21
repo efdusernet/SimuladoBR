@@ -16,6 +16,10 @@
     label{ display:block; font-size:.85rem; color:#94a3b8; margin:8px 0 4px; }
     input, textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
     textarea{ resize: vertical; min-height: 110px; }
+    .toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin: 6px 0; }
+    .btn-mini{ padding:6px 10px; border-radius:6px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; cursor:pointer; font-weight:800; font-size:.82rem; }
+    .preview{ margin-top:8px; padding:10px; border-radius:8px; border:1px dashed #334155; background:#0b1220; color:#e5e7eb; }
+    .preview a{ color:#93c5fd; text-decoration: underline; }
     .row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     .row3{ display:grid; grid-template-columns: 160px 1fr 1fr; gap:12px; align-items:end; }
     .btn{ padding:8px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:700; }
@@ -90,7 +94,12 @@
 
     <div style="margin-top: 6px;">
       <label for="editDescricao">Descrição</label>
+      <div class="toolbar" aria-label="Ferramentas de edição">
+        <button id="btnLink" type="button" class="btn-mini" title="Transforma o texto selecionado em link (Markdown)">Link</button>
+        <span class="muted small">Use: <span class="mono">[texto](https://exemplo.com)</span></span>
+      </div>
       <textarea id="editDescricao" placeholder="Digite a dica..."></textarea>
+      <div id="editDescricaoPreview" class="preview" aria-label="Pré-visualização" style="display:none;"></div>
     </div>
 
     <div style="display:flex; gap:8px; justify-content:flex-end; margin-top: 10px;">
@@ -126,6 +135,8 @@
         editVersion: document.getElementById('editVersion'),
         editVersionCode: document.getElementById('editVersionCode'),
         editDescricao: document.getElementById('editDescricao'),
+        editDescricaoPreview: document.getElementById('editDescricaoPreview'),
+        btnLink: document.getElementById('btnLink'),
         btnClear: document.getElementById('btnClear'),
         btnSave: document.getElementById('btnSave')
       };
@@ -145,6 +156,28 @@
           .replace(/>/g, '&gt;')
           .replace(/\"/g, '&quot;')
           .replace(/'/g, '&#039;');
+      }
+
+      function renderMarkdownLinksSafe(raw){
+        // Only supports Markdown links: [text](https://...)
+        const escaped = escapeHtml(raw ?? '');
+        return escaped.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, text, url) => {
+          const u = String(url || '').trim();
+          if (!/^https?:\/\//i.test(u)) return m;
+          return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+        });
+      }
+
+      function updatePreview(){
+        if (!els.editDescricaoPreview) return;
+        const v = String(els.editDescricao.value || '');
+        if (!v.trim()) {
+          els.editDescricaoPreview.style.display = 'none';
+          els.editDescricaoPreview.innerHTML = '';
+          return;
+        }
+        els.editDescricaoPreview.style.display = 'block';
+        els.editDescricaoPreview.innerHTML = renderMarkdownLinksSafe(v);
       }
 
       function headers(){
@@ -184,6 +217,7 @@
         els.editDescricao.value = '';
         els.editVersion.value = String(Number.parseInt(String(els.filterVersion.value||'2'),10) || 2);
         syncVersionBadge();
+        updatePreview();
       }
 
       function fillForm(item){
@@ -191,6 +225,7 @@
         els.editVersion.value = String(item && item.id_versao_pmbok != null ? item.id_versao_pmbok : 2);
         els.editDescricao.value = item && item.descricao != null ? String(item.descricao) : '';
         syncVersionBadge();
+        updatePreview();
       }
 
       function renderTable(items){
@@ -205,12 +240,12 @@
         els.rows.innerHTML = currentItems.map(it => {
           const vid = it.id_versao_pmbok;
           const code = escapeHtml(it.versao_code || ('v#' + vid));
-          const descricao = escapeHtml(it.descricao || '');
+          const descricaoHtml = renderMarkdownLinksSafe(it.descricao || '');
           return `
             <tr>
               <td class="mono">${escapeHtml(it.id)}</td>
               <td><span class="pill">${code}</span> <span class="muted small">(#${escapeHtml(vid)})</span></td>
-              <td>${descricao}</td>
+              <td>${descricaoHtml}</td>
               <td>
                 <div class="actions">
                   <button type="button" class="btn btn-muted" data-action="edit" data-id="${escapeHtml(it.id)}">Editar</button>
@@ -247,6 +282,34 @@
           versions = (data && data.items) ? data.items : [];
           syncVersionBadge();
         } catch(_){ }
+      }
+
+      function insertMarkdownLink(){
+        const ta = els.editDescricao;
+        if (!ta) return;
+        const start = ta.selectionStart ?? 0;
+        const end = ta.selectionEnd ?? 0;
+        const selected = String(ta.value || '').slice(start, end);
+
+        let url = prompt('URL do link (https://...)');
+        if (!url) return;
+        url = String(url).trim();
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+        let text = selected;
+        if (!text) {
+          text = prompt('Texto para exibir');
+          if (!text) return;
+        }
+
+        const md = `[${text}](${url})`;
+        const before = ta.value.slice(0, start);
+        const after = ta.value.slice(end);
+        ta.value = before + md + after;
+
+        const caret = before.length + md.length;
+        try { ta.focus(); ta.setSelectionRange(caret, caret); } catch(_){ }
+        updatePreview();
       }
 
       async function loadList(){
@@ -360,6 +423,8 @@
       if (els.btnClear) els.btnClear.addEventListener('click', clearForm);
       if (els.btnSave) els.btnSave.addEventListener('click', save);
       if (els.editVersion) els.editVersion.addEventListener('input', syncVersionBadge);
+      if (els.btnLink) els.btnLink.addEventListener('click', insertMarkdownLink);
+      if (els.editDescricao) els.editDescricao.addEventListener('input', updatePreview);
 
       // Keyboard shortcut: Ctrl+S / Cmd+S to save
       document.addEventListener('keydown', (e) => {

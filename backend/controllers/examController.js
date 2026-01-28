@@ -217,7 +217,7 @@ exports.selectQuestions = async (req, res, next) => {
   // AND semantics across tabs; OR within each list
   // Using ANY() for safe array parameter binding
   if (!customQuestionIds && dominios && dominios.length) {
-    whereClauses.push(`q.iddominio = ANY(ARRAY[:dominios])`);
+    whereClauses.push(`q.iddominio_desempenho = ANY(ARRAY[:dominios])`);
     replacements.dominios = dominios;
   }
   if (!customQuestionIds && areas && areas.length) {
@@ -229,7 +229,7 @@ exports.selectQuestions = async (req, res, next) => {
     replacements.grupos = grupos;
   }
   if (!customQuestionIds && categorias && categorias.length) {
-    whereClauses.push(`q.codigocategoria = ANY(ARRAY[:categorias])`);
+    whereClauses.push(`q.id_abordagem = ANY(ARRAY[:categorias])`);
     replacements.categorias = categorias;
   }
   
@@ -1195,7 +1195,7 @@ exports.startOnDemand = async (req, res, next) => {
     }
     if (bloqueio) whereClauses.push(`seed = true`);
     if (dominios && dominios.length) {
-      whereClauses.push(`iddominio = ANY(ARRAY[:dominios])`);
+      whereClauses.push(`iddominio_desempenho = ANY(ARRAY[:dominios])`);
       queryReplacements.dominios = dominios;
     }
     if (areas && areas.length) {
@@ -1972,7 +1972,7 @@ exports.getAttemptResult = async (req, res, next) => {
         const hasRef = names.has('referencia');
         const hasDomGeral = names.has('iddominiogeral');
         const hasTask = names.has('id_task');
-        const hasCategoria = names.has('codigocategoria');
+        const hasAbordagem = names.has('id_abordagem');
         const hasTipoSlug = names.has('tiposlug');
         const hasInteracao = names.has('interacaospec');
 
@@ -1985,7 +1985,7 @@ exports.getAttemptResult = async (req, res, next) => {
           hasRef ? 'q.referencia AS referencia' : 'NULL::text AS referencia',
           hasDomGeral ? 'q.iddominiogeral AS iddominiogeral' : 'NULL::int AS iddominiogeral',
           hasTask ? 'q.id_task AS id_task' : 'NULL::int AS id_task',
-          hasCategoria ? 'q.codigocategoria AS codigocategoria' : 'NULL::int AS codigocategoria',
+          hasAbordagem ? 'q.id_abordagem AS id_abordagem' : 'NULL::int AS id_abordagem',
           'dg.descricao AS dominio_descricao',
           't.id_dominio AS task_id_dominio',
           't.numero AS task_numero',
@@ -1998,7 +1998,7 @@ exports.getAttemptResult = async (req, res, next) => {
              FROM questao q
              LEFT JOIN dominiogeral dg ON dg.id = q.iddominiogeral
              LEFT JOIN public."Tasks" t ON t.id = q.id_task
-             LEFT JOIN public.abordagem cq ON cq.id = q.codigocategoria
+             LEFT JOIN public.abordagem cq ON cq.id = q.id_abordagem
             WHERE q.id IN (:ids)`,
           { replacements: { ids: questionIds }, type: sequelize.QueryTypes.SELECT }
         );

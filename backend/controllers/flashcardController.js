@@ -31,11 +31,12 @@ async function listFlashcards(req, res, next) {
 		const iddominio_desempenho = parseOptionalPositiveInt(req.query.iddominio_desempenho);
 		if (Number.isNaN(iddominio_desempenho)) return next(badRequest('iddominio_desempenho inválido', 'FLASHCARD_INVALID_IDDOMINIO_DESEMPENHO'));
 
-		const idabordagem = parseOptionalPositiveInt(req.query.idabordagem);
-		if (Number.isNaN(idabordagem)) return next(badRequest('idabordagem inválido', 'FLASHCARD_INVALID_IDABORDAGEM'));
-
 		const basics = parseOptionalBoolean(req.query.basics);
 		if (Number.isNaN(basics)) return next(badRequest('basics inválido', 'FLASHCARD_INVALID_BASICS'));
+
+		const activeRaw = parseOptionalBoolean(req.query.active);
+		if (Number.isNaN(activeRaw)) return next(badRequest('active inválido', 'FLASHCARD_INVALID_ACTIVE'));
+		const active = activeRaw == null ? true : activeRaw;
 
 		const rawLimit = req.query.limit;
 		let limit = 200;
@@ -67,23 +68,22 @@ async function listFlashcards(req, res, next) {
 				f.data_alteracao,
 				f.idprincipio,
 				f.iddominio_desempenho,
-				f.idabordagem,
 				COALESCE(f.basics, FALSE) AS basics,
+				COALESCE(f.active, TRUE) AS active,
 				ecv.code AS versao_code
 			FROM public.flashcard f
 			LEFT JOIN public.exam_content_version ecv ON ecv.id = f.id_versao_pmbok
 			WHERE ($versionId::int IS NULL OR f.id_versao_pmbok = $versionId)
+				AND COALESCE(f.active, TRUE) = $active
 				AND (
 					(
 						$idprincipio::int IS NOT NULL
 						OR $iddominio_desempenho::int IS NOT NULL
-						OR $idabordagem::int IS NOT NULL
 						OR $basics::boolean IS NOT NULL
 					)
 					AND (
 						(f.idprincipio = $idprincipio)
 						OR (f.iddominio_desempenho = $iddominio_desempenho)
-						OR (f.idabordagem = $idabordagem)
 						OR (COALESCE(f.basics, FALSE) = $basics)
 					)
 				)
@@ -98,8 +98,8 @@ async function listFlashcards(req, res, next) {
 				versionId,
 				idprincipio,
 				iddominio_desempenho,
-				idabordagem,
 				basics,
+				active,
 				limit,
 				offset,
 			},
@@ -107,7 +107,16 @@ async function listFlashcards(req, res, next) {
 
 		return res.json({
 			items: rows,
-			meta: { versionId, idprincipio, iddominio_desempenho, idabordagem, basics, limit, offset, count: rows.length },
+			meta: {
+				versionId,
+				idprincipio,
+				iddominio_desempenho,
+				basics,
+				active,
+				limit,
+				offset,
+				count: rows.length,
+			},
 		});
 	} catch (err) {
 		logger.error('Erro listando flashcards:', { error: err.message, stack: err.stack });

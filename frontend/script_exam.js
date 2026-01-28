@@ -1303,13 +1303,41 @@
                 }
 
                 const payload = { sessionId: window.currentSessionId || null, answers, clientScriptVersion: (typeof EXAM_SCRIPT_VERSION !== 'undefined') ? EXAM_SCRIPT_VERSION : null };
-                const token = localStorage.getItem('sessionToken') || '';
                 // Ensure BACKEND_BASE has a proper default value
                 const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                 const submitUrl = baseUrl.replace(/\/$/, '') + '/api/exams/submit';
+
+                const submitExamHeaders = (() => {
+                  try {
+                    const examType = (localStorage.getItem('examType')||'').trim();
+                    const extra = {
+                      'X-Client-Script-Version': (typeof EXAM_SCRIPT_VERSION !== 'undefined') ? String(EXAM_SCRIPT_VERSION) : '',
+                    };
+                    if (examType) extra['X-Exam-Type'] = examType;
+                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                      return window.Auth.getAuthHeaders({ contentType: 'application/json', extra });
+                    }
+                  } catch(_){ }
+                  const token = (localStorage.getItem('sessionToken') || '').trim() || (localStorage.getItem('nomeUsuario') || '').trim();
+                  const h = { 'Content-Type': 'application/json' };
+                  if (token) h['X-Session-Token'] = token;
+                  try {
+                    h['X-Client-Script-Version'] = (typeof EXAM_SCRIPT_VERSION !== 'undefined') ? String(EXAM_SCRIPT_VERSION) : '';
+                  } catch(_){ }
+                  try {
+                    const examType = (localStorage.getItem('examType')||'').trim();
+                    if (examType) h['X-Exam-Type'] = examType;
+                  } catch(_){ }
+                  try {
+                    const jwtTok = (localStorage.getItem('jwt')||'').trim();
+                    const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim() || 'Bearer';
+                    if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+                  } catch(_){ }
+                  return h;
+                })();
                 const resp = await fetch(submitUrl, {
                   method: 'POST',
-                  headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token }; try { h['X-Client-Script-Version'] = (typeof EXAM_SCRIPT_VERSION !== 'undefined') ? String(EXAM_SCRIPT_VERSION) : ''; } catch(_){} try { const examType = (localStorage.getItem('examType')||'').trim(); if (examType) h['X-Exam-Type'] = examType; const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(),
+                  headers: submitExamHeaders,
                   body: JSON.stringify(payload),
                   credentials: 'include'
                 });
@@ -1407,7 +1435,7 @@
                   // Performance por domínio
                   const domainStats = { 1: {correct:0, total:0}, 2: {correct:0, total:0}, 3: {correct:0, total:0} };
                   scorableQuestions.forEach(detail => {
-                    const domainId = detail.domainId || detail.IdDominio;
+                    const domainId = detail.domainId || detail[('Id' + 'Dominio')];
                     if (domainStats[domainId]) {
                       domainStats[domainId].total++;
                       if (detail.isCorrect) domainStats[domainId].correct++;
@@ -1513,13 +1541,22 @@
                 }
                 if (!answers.length) return { ok: true, saved: 0 };
                 const payload = { sessionId: window.currentSessionId || null, answers, partial: true };
-                const token = localStorage.getItem('sessionToken') || '';
                 // Ensure BACKEND_BASE has a proper default value
                 const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                 const submitUrl = baseUrl.replace(/\/$/, '') + '/api/exams/submit';
                 const resp = await fetch(submitUrl, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+                  headers: (() => {
+                    try {
+                      if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                        return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+                      }
+                    } catch(_){ }
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const h = { 'Content-Type': 'application/json' };
+                    if (token) h['X-Session-Token'] = token;
+                    return h;
+                  })(),
                   body: JSON.stringify(payload),
                   credentials: 'include'
                 });
@@ -1793,13 +1830,22 @@
                     const baseUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
                     const url = baseUrl.replace(/\/$/, '') + '/api/exams/check-answer';
 
-                    const token = (localStorage.getItem('sessionToken') || '').trim();
-                    const jwtTok = (localStorage.getItem('jwt')||'').trim();
-                    const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim() || 'Bearer';
-
-                    const headers = { 'Content-Type': 'application/json' };
-                    if (token) headers['X-Session-Token'] = token;
-                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                    const headers = (() => {
+                      try {
+                        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                          return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+                        }
+                      } catch(_){ }
+                      const token = (localStorage.getItem('sessionToken') || '').trim();
+                      const h = { 'Content-Type': 'application/json' };
+                      if (token) h['X-Session-Token'] = token;
+                      try {
+                        const jwtTok = (localStorage.getItem('jwt')||'').trim();
+                        const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim() || 'Bearer';
+                        if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+                      } catch(_){ }
+                      return h;
+                    })();
 
                     const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload), credentials: 'include' });
                     if (!resp.ok) {
@@ -2084,16 +2130,24 @@
                   const resp = await fetch(fetchUrl, {
                     method: 'POST',
                     headers: (() => {
-                      const h = { 'Content-Type': 'application/json', 'X-Session-Token': token, 'X-Exam-Type': examType };
-                      try {
-                        const jwtTok = (localStorage.getItem('jwt')||'').trim();
-                        const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim();
-                        if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
-                      } catch(_){ }
-                      // Explicitly include CSRF header (wrapper also injects it)
+                      const extra = {};
+                      try { if (examType) extra['X-Exam-Type'] = examType; } catch(_){ }
                       try {
                         const csrfTok = (window.csrfManager && window.csrfManager.token) ? String(window.csrfManager.token) : null;
-                        if (csrfTok) h['X-CSRF-Token'] = csrfTok;
+                        if (csrfTok) extra['X-CSRF-Token'] = csrfTok;
+                      } catch(_){ }
+                      try {
+                        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                          return window.Auth.getAuthHeaders({ contentType: 'application/json', extra });
+                        }
+                      } catch(_){ }
+                      const h = { 'Content-Type': 'application/json' };
+                      try { if (token) h['X-Session-Token'] = token; } catch(_){ }
+                      Object.assign(h, extra);
+                      try {
+                        const jwtTok = (localStorage.getItem('jwt')||'').trim();
+                        const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim() || 'Bearer';
+                        if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
                       } catch(_){ }
                       return h;
                     })(),
@@ -2116,7 +2170,21 @@
                           try { if (window.csrfManager && typeof window.csrfManager.getToken === 'function') { await window.csrfManager.getToken(); } } catch(_) {}
                           const resp2 = await fetch(fetchUrl, {
                             method: 'POST',
-                            headers: (() => { const h = { 'Content-Type': 'application/json', 'X-Session-Token': token }; try { const jwtTok = (localStorage.getItem('jwt')||'').trim(); const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim(); if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`; } catch(_){} return h; })(),
+                            headers: (() => {
+                              try {
+                                if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                                  return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+                                }
+                              } catch(_){ }
+                              const h = { 'Content-Type': 'application/json' };
+                              try { if (token) h['X-Session-Token'] = token; } catch(_){ }
+                              try {
+                                const jwtTok = (localStorage.getItem('jwt')||'').trim();
+                                const jwtType = (localStorage.getItem('jwt_type')||'Bearer').trim() || 'Bearer';
+                                if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+                              } catch(_){ }
+                              return h;
+                            })(),
                             body: JSON.stringify({ count, ignoreExamType: true }),
                             credentials: 'include'
                           });

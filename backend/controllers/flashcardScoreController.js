@@ -37,7 +37,7 @@ async function recordScore(req, res, next) {
 
 		// Load flashcard to snapshot its classification at answer time
 		const fc = await db.sequelize.query(
-			`SELECT id, id_versao_pmbok, idprincipio, iddominio_desempenho, idabordagem, COALESCE(basics, FALSE) AS basics
+			`SELECT id, id_versao_pmbok, idprincipio, iddominio_desempenho, COALESCE(basics, FALSE) AS basics
 			   FROM public.flashcard
 			  WHERE id = $id
 			  LIMIT 1;`,
@@ -52,10 +52,10 @@ async function recordScore(req, res, next) {
 		const inserted = await db.sequelize.query(
 			`INSERT INTO public.flashcard_score (
 				user_id, flashcard_id, correct,
-				id_versao_pmbok, idprincipio, iddominio_desempenho, idabordagem, basics
+				id_versao_pmbok, idprincipio, iddominio_desempenho, basics
 			) VALUES (
 				$user_id, $flashcard_id, $correct,
-				$id_versao_pmbok, $idprincipio, $iddominio_desempenho, $idabordagem, $basics
+				$id_versao_pmbok, $idprincipio, $iddominio_desempenho, $basics
 			)
 			RETURNING id, created_at;`,
 			{
@@ -67,7 +67,6 @@ async function recordScore(req, res, next) {
 					id_versao_pmbok: flashcard.id_versao_pmbok ?? null,
 					idprincipio: flashcard.idprincipio ?? null,
 					iddominio_desempenho: flashcard.iddominio_desempenho ?? null,
-					idabordagem: flashcard.idabordagem ?? null,
 					basics: !!flashcard.basics,
 				},
 			}

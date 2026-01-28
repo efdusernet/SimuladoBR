@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
   <!-- Controlled Logging System (must load before other scripts) -->
   <script src="/utils/logger.js"></script>
+    <script src="/utils/auth.js"></script>
     <!-- Support chat widget (served via backend /chat proxy) -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Progresso Geral - SimuladosBR</title>
@@ -128,16 +129,21 @@
         // Fetch data from API
         async function loadData(examMode) {
             try {
-                const token = (localStorage.getItem('sessionToken') || '').trim();
-                if (!token) {
+                                const token = (localStorage.getItem('sessionToken') || '').trim();
+                                if (!token) {
                     logger.warn('Sem token de sessão');
                     return;
                 }
                 
                 const response = await fetch(`/api/indicators/IND10?examMode=${examMode}`, {
-                    headers: {
-                        'X-Session-Token': token
-                    }
+                                        headers: (() => {
+                                            try {
+                                                if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                                                    return window.Auth.getAuthHeaders({ acceptJson: true });
+                                                }
+                                            } catch(_){ }
+                                            return { 'X-Session-Token': token };
+                                        })()
                 });
                 
                 if (!response.ok) {

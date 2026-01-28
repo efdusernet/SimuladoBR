@@ -34,6 +34,16 @@ function parseBoolean(value, def = false) {
 	return def;
 }
 
+function parseOptionalBoolean(value) {
+	if (value == null) return null;
+	if (typeof value === 'boolean') return value;
+	const s = String(value).trim().toLowerCase();
+	if (!s) return null;
+	if (s === '1' || s === 'true' || s === 'yes' || s === 'y' || s === 'on') return true;
+	if (s === '0' || s === 'false' || s === 'no' || s === 'n' || s === 'off') return false;
+	return null;
+}
+
 async function listFlashcards(req, res, next) {
 	try {
 		const versionId = parsePositiveInt(req.query.versionId);
@@ -52,8 +62,8 @@ async function listFlashcards(req, res, next) {
 				f.data_alteracao,
 				f.idprincipio,
 				f.iddominio_desempenho,
-				f.idabordagem,
 				COALESCE(f.basics, FALSE) AS basics,
+				COALESCE(f.active, TRUE) AS active,
 				ecv.code AS versao_code
 			FROM public.flashcard f
 			JOIN public.exam_content_version ecv ON ecv.id = f.id_versao_pmbok
@@ -66,7 +76,7 @@ async function listFlashcards(req, res, next) {
 
 		const items = await db.sequelize.query(sql, {
 			type: db.sequelize.QueryTypes.SELECT,
-			replacements: { versionId, q, limit, offset },
+			bind: { versionId, q, limit, offset },
 		});
 
 		return res.json({ items, meta: { versionId, q, limit, offset, count: items.length } });
@@ -100,8 +110,8 @@ async function createFlashcard(req, res, next) {
 		const iddominioDesempenho = parseNullableInt(
 			req.body && (req.body.iddominio_desempenho ?? req.body['iddominio_desempenho'])
 		);
-		const idabordagem = parseNullableInt(req.body && req.body.idabordagem);
 		const basics = parseBoolean(req.body && req.body.basics, false);
+		const active = parseBoolean(req.body && req.body.active, true);
 
 		if (!pergunta || !resposta) {
 			return next(badRequest('pergunta e resposta são obrigatórios', 'FLASHCARD_MISSING_FIELDS'));
@@ -109,8 +119,8 @@ async function createFlashcard(req, res, next) {
 
 		const sql = `
 			WITH ins AS (
-				INSERT INTO public.flashcard (pergunta, resposta, id_versao_pmbok, idprincipio, iddominio_desempenho, idabordagem, basics)
-				VALUES ($pergunta, $resposta, $id_versao_pmbok, $idprincipio, $iddominio_desempenho, $idabordagem, $basics)
+				INSERT INTO public.flashcard (pergunta, resposta, id_versao_pmbok, idprincipio, iddominio_desempenho, basics, active)
+				VALUES ($pergunta, $resposta, $id_versao_pmbok, $idprincipio, $iddominio_desempenho, $basics, $active)
 				RETURNING *
 			)
 			SELECT
@@ -122,8 +132,8 @@ async function createFlashcard(req, res, next) {
 				ins.data_alteracao,
 				ins.idprincipio,
 				ins.iddominio_desempenho,
-				ins.idabordagem,
 				COALESCE(ins.basics, FALSE) AS basics,
+				COALESCE(ins.active, TRUE) AS active,
 				ecv.code AS versao_code
 			FROM ins
 			JOIN public.exam_content_version ecv ON ecv.id = ins.id_versao_pmbok;
@@ -131,7 +141,15 @@ async function createFlashcard(req, res, next) {
 
 		const rows = await db.sequelize.query(sql, {
 			type: db.sequelize.QueryTypes.SELECT,
-			replacements: { pergunta, resposta, id_versao_pmbok, idprincipio, iddominio_desempenho: iddominioDesempenho, idabordagem, basics },
+			bind: {
+				pergunta,
+				resposta,
+				id_versao_pmbok,
+				idprincipio,
+				iddominio_desempenho: iddominioDesempenho,
+				basics,
+				active,
+			},
 		});
 		const created = rows && rows[0];
 		return res.status(201).json(created);
@@ -153,8 +171,8 @@ async function updateFlashcard(req, res, next) {
 		const iddominioDesempenho = parseNullableInt(
 			req.body && (req.body.iddominio_desempenho ?? req.body['iddominio_desempenho'])
 		);
-		const idabordagem = parseNullableInt(req.body && req.body.idabordagem);
 		const basics = parseBoolean(req.body && req.body.basics, false);
+		const active = (req.body && Object.prototype.hasOwnProperty.call(req.body, 'active')) ? parseOptionalBoolean(req.body.active) : null;
 
 		if (!pergunta || !resposta) {
 			return next(badRequest('pergunta e resposta são obrigatórios', 'FLASHCARD_MISSING_FIELDS'));
@@ -168,8 +186,8 @@ async function updateFlashcard(req, res, next) {
 				    id_versao_pmbok = $id_versao_pmbok,
 				    idprincipio = $idprincipio,
 				    iddominio_desempenho = $iddominio_desempenho,
-				    idabordagem = $idabordagem,
-				    basics = $basics
+				    basics = $basics,
+				    active = COALESCE($active::boolean, public.flashcard.active)
 				WHERE id = $id
 				RETURNING *
 			)
@@ -182,8 +200,8 @@ async function updateFlashcard(req, res, next) {
 				upd.data_alteracao,
 				upd.idprincipio,
 				upd.iddominio_desempenho,
-				upd.idabordagem,
 				COALESCE(upd.basics, FALSE) AS basics,
+				COALESCE(upd.active, TRUE) AS active,
 				ecv.code AS versao_code
 			FROM upd
 			JOIN public.exam_content_version ecv ON ecv.id = upd.id_versao_pmbok;
@@ -191,7 +209,16 @@ async function updateFlashcard(req, res, next) {
 
 		const rows = await db.sequelize.query(sql, {
 			type: db.sequelize.QueryTypes.SELECT,
-			replacements: { id, pergunta, resposta, id_versao_pmbok, idprincipio, iddominio_desempenho: iddominioDesempenho, idabordagem, basics },
+			bind: {
+				id,
+				pergunta,
+				resposta,
+				id_versao_pmbok,
+				idprincipio,
+				iddominio_desempenho: iddominioDesempenho,
+				basics,
+				active,
+			},
 		});
 		const updated = rows && rows[0];
 		if (!updated) return next(notFound('Flashcard não encontrado', 'FLASHCARD_NOT_FOUND'));
@@ -210,7 +237,7 @@ async function deleteFlashcard(req, res, next) {
 		const sql = `DELETE FROM public.flashcard WHERE id = $id RETURNING id;`;
 		const rows = await db.sequelize.query(sql, {
 			type: db.sequelize.QueryTypes.SELECT,
-			replacements: { id },
+			bind: { id },
 		});
 		if (!rows || !rows.length) return next(notFound('Flashcard não encontrado', 'FLASHCARD_NOT_FOUND'));
 		return res.json({ ok: true, id });

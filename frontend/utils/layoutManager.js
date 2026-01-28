@@ -91,7 +91,7 @@ const LayoutManager = {
       const sidebarMount = document.getElementById('sidebarMount');
       if (sidebarMount) sidebarMount.style.display = '';
       if (sidebarMount && !sidebarMount.hasChildNodes()) {
-        const response = await fetch('/components/sidebar.html');
+        const response = await fetch('/components/sidebar.html?v=' + Date.now(), { cache: 'no-store', credentials: 'include' });
         if (response.ok) {
           const html = await response.text();
           sidebarMount.innerHTML = html;

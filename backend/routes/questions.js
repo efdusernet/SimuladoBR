@@ -12,7 +12,7 @@ const requireUserSession = require('../middleware/requireUserSession');
 //   descricao: string,
 //   tiposlug?: 'single'|'multi'|string,
 //   multiplaescolha?: boolean,
-//   iddominio?: number,
+//   iddominio_desempenho?: number,
 //   codareaconhecimento?: number,
 //   codgrupoprocesso?: number,
 //   dica?: string,
@@ -42,7 +42,7 @@ router.delete('/:id', requireAdmin, questionController.deleteQuestion);
 // Bulk upload: accepts JSON body or multipart/form-data with a file field named "file"
 // JSON format:
 //  - Either an array of questions [{ descricao, tiposlug, examTypeSlug|examTypeId, options:[{descricao, correta}], ... }]
-//  - Or an object { examTypeSlug|examTypeId, iddominio?, codareaconhecimento?, codgrupoprocesso?, dica?, questions:[...] }
+//  - Or an object { examTypeSlug|examTypeId, iddominio_desempenho?, codareaconhecimento?, codgrupoprocesso?, dica?, questions:[...] }
 // XML format (file upload):
 //  <questions examType="pmp">
 //    <question>

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <!-- Controlled Logging System (must load before other scripts) -->
   <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
   <!-- Support chat widget (served via backend /chat proxy) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações - SimuladosBR</title>
@@ -122,8 +123,15 @@
     }
 
     function getAuthHeaders() {
-      const token = localStorage.getItem('sessionToken') || '';
-      return { 'Content-Type': 'application/json', 'X-Session-Token': token };
+      try {
+        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+          return window.Auth.getAuthHeaders({ acceptJson: true, contentType: 'application/json' });
+        }
+      } catch(_){ }
+      const token = (localStorage.getItem('sessionToken') || '').trim();
+      const h = { 'Content-Type': 'application/json' };
+      if (token) h['X-Session-Token'] = token;
+      return h;
     }
 
     // Load user data

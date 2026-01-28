@@ -114,7 +114,7 @@ Aceita:
 		"descricao": "Enunciado da questão 1",
 		"tiposlug": "single",
 		"examTypeSlug": "pmp",
-		"iddominio": 1,
+		"iddominio_desempenho": 1,
 		"codareaconhecimento": 2,
 		"codgrupoprocesso": 3,
 		"dica": "Opcional",
@@ -134,7 +134,7 @@ Aceita:
 ```json
 {
 	"examTypeSlug": "pmp",
-	"iddominio": 1,
+	"iddominio_desempenho": 1,
 	"questions": [
 		{ "descricao": "Questão 1", "tiposlug": "single", "options": [
 			{ "descricao": "A", "correta": true },
@@ -177,6 +177,13 @@ Notas do bulk:
 
 - Formulário de questão: `frontend/pages/admin/questionForm.html`
 - Importação em massa: `frontend/pages/admin/questionBulk.html`
+
+- Data Explorer (admin): `frontend/pages/admin/dataExplorer.html`
+	- Docs: `docs/admin-data-explorer.md`
+- Flashcards (admin): `frontend/pages/admin/flashcards.html`
+	- Docs: `docs/flashcards-admin.md`
+- Dicas (admin): `frontend/pages/admin/dicas.html`
+	- Docs: `docs/dicas.md`
 	- Aliases protegidos (recomendado usar estes links):
 		- `/admin/questions/form`
 		- `/admin/questions/bulk`
@@ -275,7 +282,7 @@ Nova aba "Abordagem" para filtrar por categoria de questão:
 - **Persistência**: Seleções salvas em `localStorage.examFilters.categorias`.
 - **Integração Completa**:
   - Contagem dinâmica de questões disponíveis.
-  - Filtro aplicado em `/api/exams/select` via `WHERE codigocategoria IN (...)`.
+	- Filtro aplicado em `/api/exams/select` via `WHERE id_abordagem IN (...)`.
   - Bypass automático em exames completos (180 questões).
 - **Correções**: Mapeamento correto de `abaAtual === 'abordagem'` para `selecionados.categorias` em `renderChecklist`.
 

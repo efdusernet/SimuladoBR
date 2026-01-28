@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Flashcards (Admin)</title>
+  <title>Dicas (Admin)</title>
   <script src="/utils/logger.js"></script>
   <script src="/utils/auth.js"></script>
   <script src="/utils/csrf.js"></script>
@@ -14,8 +14,12 @@
     .wrap{ max-width:1100px; margin:20px auto; padding:16px; background:#111827; border:1px solid #1f2937; border-radius:10px; }
     .muted{ color:#94a3b8; }
     label{ display:block; font-size:.85rem; color:#94a3b8; margin:8px 0 4px; }
-    input, select, textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
-    textarea{ resize: vertical; min-height: 90px; }
+    input, textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    textarea{ resize: vertical; min-height: 110px; }
+    .toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin: 6px 0; }
+    .btn-mini{ padding:6px 10px; border-radius:6px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; cursor:pointer; font-weight:800; font-size:.82rem; }
+    .preview{ margin-top:8px; padding:10px; border-radius:8px; border:1px dashed #334155; background:#0b1220; color:#e5e7eb; }
+    .preview a{ color:#93c5fd; text-decoration: underline; }
     .row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     .row3{ display:grid; grid-template-columns: 160px 1fr 1fr; gap:12px; align-items:end; }
     .btn{ padding:8px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:700; }
@@ -46,11 +50,10 @@
   <div class="wrap">
     <div class="topbar">
       <div>
-        <h1 style="margin:0 0 6px;">Flashcards (Admin)</h1>
-        <div class="muted small">CRUD de cadastro/edição baseado na tabela <span class="mono">public.flashcard</span>.</div>
+        <h1 style="margin:0 0 6px;">Dicas (Admin)</h1>
+        <div class="muted small">CRUD baseado na tabela <span class="mono">public.dicas</span>.</div>
       </div>
       <div class="right">
-        <button id="btnHome" type="button" class="btn btn-muted">Home</button>
         <button id="btnReload" type="button" class="btn btn-muted">Recarregar</button>
         <button id="btnLogout" type="button" class="btn btn-danger">Sair</button>
       </div>
@@ -64,7 +67,7 @@
         <input id="filterVersion" type="number" min="1" value="2" inputmode="numeric" />
       </div>
       <div>
-        <label for="filterQ">Busca (pergunta/resposta)</label>
+        <label for="filterQ">Busca (descrição)</label>
         <input id="filterQ" type="text" placeholder="Ex: stakeholder" />
       </div>
       <div style="display:flex; gap:8px; justify-content:flex-end;">
@@ -75,7 +78,7 @@
     <hr style="border:0; border-top:1px solid #1f2937; margin: 14px 0;" />
 
     <h2 style="margin:0 0 6px; font-size: 1.0rem;">Cadastrar / Editar</h2>
-    <div class="muted small">Salva via <span class="mono">/api/admin/flashcards</span> (CSRF automático).</div>
+    <div class="muted small">Salva via <span class="mono">/api/admin/dicas</span> (CSRF automático).</div>
 
     <div class="row" style="margin-top: 8px;">
       <div>
@@ -89,52 +92,14 @@
       </div>
     </div>
 
-    <div class="row" style="margin-top: 6px;">
-      <div>
-        <label for="editPrincipio">Princípio (idprincipio)</label>
-        <select id="editPrincipio">
-          <option value="">(vazio)</option>
-        </select>
+    <div style="margin-top: 6px;">
+      <label for="editDescricao">Descrição</label>
+      <div class="toolbar" aria-label="Ferramentas de edição">
+        <button id="btnLink" type="button" class="btn-mini" title="Transforma o texto selecionado em link (Markdown)">Link</button>
+        <span class="muted small">Use: <span class="mono">[texto](https://exemplo.com)</span></span>
       </div>
-      <div>
-        <label for="editDominioDes">Domínio desempenho (iddominio_desempenho)</label>
-        <select id="editDominioDes">
-          <option value="">(vazio)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="row" style="margin-top: 6px;">
-      <div>
-        <label for="editBasics">Basics</label>
-        <select id="editBasics">
-          <option value="false" selected>Não</option>
-          <option value="true">Sim</option>
-        </select>
-      </div>
-      <div></div>
-    </div>
-
-    <div class="row" style="margin-top: 6px;">
-      <div>
-        <label for="editActive">Ativo</label>
-        <select id="editActive">
-          <option value="true" selected>Sim</option>
-          <option value="false">Não</option>
-        </select>
-      </div>
-      <div></div>
-    </div>
-
-    <div class="row" style="margin-top: 6px;">
-      <div>
-        <label for="editPergunta">Pergunta</label>
-        <textarea id="editPergunta" placeholder="Digite a pergunta..."></textarea>
-      </div>
-      <div>
-        <label for="editResposta">Resposta</label>
-        <textarea id="editResposta" placeholder="Digite a resposta..."></textarea>
-      </div>
+      <textarea id="editDescricao" placeholder="Digite a dica..."></textarea>
+      <div id="editDescricaoPreview" class="preview" aria-label="Pré-visualização" style="display:none;"></div>
     </div>
 
     <div style="display:flex; gap:8px; justify-content:flex-end; margin-top: 10px;">
@@ -142,25 +107,12 @@
       <button id="btnSave" type="button" class="btn btn-primary">Salvar</button>
     </div>
 
-    <div id="pager" class="muted small" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top: 14px; flex-wrap: wrap;">
-      <div>
-        <span class="mono">100</span> por página
-        <span id="pagerInfo" style="margin-left:10px;"></span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <button id="btnPrevPage" type="button" class="btn btn-muted">Anterior</button>
-        <button id="btnNextPage" type="button" class="btn btn-muted">Próxima</button>
-      </div>
-    </div>
-
-    <table aria-label="Flashcards cadastrados">
+    <table aria-label="Dicas cadastradas">
       <thead>
         <tr>
           <th>ID</th>
           <th>Versão</th>
-          <th>Ativo</th>
-          <th>Pergunta</th>
-          <th>Atualização</th>
+          <th>Descrição</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -172,7 +124,6 @@
     (function(){
       const els = {
         status: document.getElementById('status'),
-        btnHome: document.getElementById('btnHome'),
         btnReload: document.getElementById('btnReload'),
         btnLogout: document.getElementById('btnLogout'),
         btnLoad: document.getElementById('btnLoad'),
@@ -183,22 +134,15 @@
         editId: document.getElementById('editId'),
         editVersion: document.getElementById('editVersion'),
         editVersionCode: document.getElementById('editVersionCode'),
-        editPrincipio: document.getElementById('editPrincipio'),
-        editDominioDes: document.getElementById('editDominioDes'),
-        editBasics: document.getElementById('editBasics'),
-        editActive: document.getElementById('editActive'),
-        editPergunta: document.getElementById('editPergunta'),
-        editResposta: document.getElementById('editResposta'),
+        editDescricao: document.getElementById('editDescricao'),
+        editDescricaoPreview: document.getElementById('editDescricaoPreview'),
+        btnLink: document.getElementById('btnLink'),
         btnClear: document.getElementById('btnClear'),
         btnSave: document.getElementById('btnSave')
       };
 
       let versions = [];
-      let principios = [];
-      let dominiosDes = [];
-      const PAGE_SIZE = 100;
-      let currentPage = 1;
-      let allItems = [];
+      let currentItems = [];
 
       function setStatus(msg, type){
         els.status.textContent = msg || '';
@@ -214,6 +158,28 @@
           .replace(/'/g, '&#039;');
       }
 
+      function renderMarkdownLinksSafe(raw){
+        // Only supports Markdown links: [text](https://...)
+        const escaped = escapeHtml(raw ?? '');
+        return escaped.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, text, url) => {
+          const u = String(url || '').trim();
+          if (!/^https?:\/\//i.test(u)) return m;
+          return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+        });
+      }
+
+      function updatePreview(){
+        if (!els.editDescricaoPreview) return;
+        const v = String(els.editDescricao.value || '');
+        if (!v.trim()) {
+          els.editDescricaoPreview.style.display = 'none';
+          els.editDescricaoPreview.innerHTML = '';
+          return;
+        }
+        els.editDescricaoPreview.style.display = 'block';
+        els.editDescricaoPreview.innerHTML = renderMarkdownLinksSafe(v);
+      }
+
       function headers(){
         try {
           if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
@@ -224,7 +190,6 @@
         try {
           const st = (localStorage.getItem('sessionToken') || '').trim();
           const nome = (localStorage.getItem('nomeUsuario') || '').trim();
-          // Prefer real sessionToken; fallback to nomeUsuario only if absent
           const identity = st || nome;
           if (identity) h['X-Session-Token'] = identity;
         } catch(_){ }
@@ -247,122 +212,40 @@
         els.editVersionCode.textContent = code || '—';
       }
 
-      function clearForm(opts){
-        const options = opts && typeof opts === 'object' ? opts : {};
-        const preserveSelects = options.preserveSelects === true;
-
+      function clearForm(){
         els.editId.value = '';
-        els.editPergunta.value = '';
-        els.editResposta.value = '';
+        els.editDescricao.value = '';
         els.editVersion.value = String(Number.parseInt(String(els.filterVersion.value||'2'),10) || 2);
-
-        if (!preserveSelects) {
-          if (els.editPrincipio) els.editPrincipio.value = '';
-          if (els.editDominioDes) els.editDominioDes.value = '';
-          if (els.editBasics) els.editBasics.value = 'false';
-          if (els.editActive) els.editActive.value = 'true';
-        }
-
         syncVersionBadge();
+        updatePreview();
       }
 
       function fillForm(item){
         els.editId.value = item && item.id != null ? String(item.id) : '';
         els.editVersion.value = String(item && item.id_versao_pmbok != null ? item.id_versao_pmbok : 2);
-        els.editPergunta.value = item && item.pergunta != null ? String(item.pergunta) : '';
-        els.editResposta.value = item && item.resposta != null ? String(item.resposta) : '';
-        if (els.editPrincipio) els.editPrincipio.value = (item && item.idprincipio != null) ? String(item.idprincipio) : '';
-        if (els.editDominioDes) els.editDominioDes.value = (item && item.iddominio_desempenho != null) ? String(item.iddominio_desempenho) : '';
-        if (els.editBasics) {
-          const b = item && (item.basics === true || String(item.basics).toLowerCase() === 'true');
-          els.editBasics.value = b ? 'true' : 'false';
-        }
-        if (els.editActive) {
-          const a = !(item && (item.active === false || String(item.active).toLowerCase() === 'false'));
-          els.editActive.value = a ? 'true' : 'false';
-        }
+        els.editDescricao.value = item && item.descricao != null ? String(item.descricao) : '';
         syncVersionBadge();
+        updatePreview();
       }
 
-      function toNullableInt(value){
-        const s = String(value ?? '').trim();
-        if (!s) return null;
-        const n = Number.parseInt(s, 10);
-        return Number.isInteger(n) && n > 0 ? n : null;
-      }
-
-      function renderSelectOptions(selectEl, items){
-        if (!selectEl) return;
-        const placeholder = '(vazio)';
-        selectEl.innerHTML = '';
-        const first = document.createElement('option');
-        first.value = '';
-        first.textContent = placeholder;
-        selectEl.appendChild(first);
-
-        (Array.isArray(items) ? items : []).forEach(it => {
-          if (!it) return;
-          const opt = document.createElement('option');
-          opt.value = String(it.id);
-          opt.textContent = String(it.descricao || it.code || it.id);
-          selectEl.appendChild(opt);
-        });
-      }
-
-      function clampInt(n, min, max){
-        const nn = Number.isFinite(n) ? Math.trunc(n) : min;
-        if (nn < min) return min;
-        if (nn > max) return max;
-        return nn;
-      }
-
-      function getTotalPages(){
-        return Math.max(1, Math.ceil((allItems.length || 0) / PAGE_SIZE));
-      }
-
-      function syncPager(){
-        const total = getTotalPages();
-        currentPage = clampInt(currentPage, 1, total);
-
-        const infoEl = document.getElementById('pagerInfo');
-        const btnPrev = document.getElementById('btnPrevPage');
-        const btnNext = document.getElementById('btnNextPage');
-
-        if (infoEl) {
-          const totalItems = allItems.length || 0;
-          infoEl.textContent = `• Página ${currentPage} de ${total} • ${totalItems} itens`;
-        }
-        if (btnPrev) btnPrev.disabled = currentPage <= 1;
-        if (btnNext) btnNext.disabled = currentPage >= total;
-      }
-
-      function renderTablePage(){
+      function renderTable(items){
+        currentItems = Array.isArray(items) ? items : [];
         if (!els.rows) return;
 
-        syncPager();
-
-        if (!allItems.length){
-          els.rows.innerHTML = '<tr><td colspan="6">Nenhum flashcard.</td></tr>';
+        if (!currentItems.length){
+          els.rows.innerHTML = '<tr><td colspan="4">Nenhuma dica.</td></tr>';
           return;
         }
 
-        const start = (currentPage - 1) * PAGE_SIZE;
-        const pageItems = allItems.slice(start, start + PAGE_SIZE);
-
-        els.rows.innerHTML = pageItems.map(it => {
+        els.rows.innerHTML = currentItems.map(it => {
           const vid = it.id_versao_pmbok;
           const code = escapeHtml(it.versao_code || ('v#' + vid));
-          const pergunta = escapeHtml(it.pergunta || '');
-          const basics = (it && (it.basics === true || String(it.basics).toLowerCase() === 'true'));
-          const active = !(it && (it.active === false || String(it.active).toLowerCase() === 'false'));
-          const dt = it.data_alteracao ? escapeHtml(String(it.data_alteracao)) : '—';
+          const descricaoHtml = renderMarkdownLinksSafe(it.descricao || '');
           return `
             <tr>
               <td class="mono">${escapeHtml(it.id)}</td>
               <td><span class="pill">${code}</span> <span class="muted small">(#${escapeHtml(vid)})</span></td>
-              <td>${active ? '<span class="pill">Sim</span>' : '<span class="pill" style="background:#7f1d1d;color:#fff1f2;">Não</span>'}</td>
-              <td>${pergunta}${basics ? ' <span class="pill" style="background:#1f2937;color:#e5e7eb;">Basics</span>' : ''}</td>
-              <td class="small">${dt}</td>
+              <td>${descricaoHtml}</td>
               <td>
                 <div class="actions">
                   <button type="button" class="btn btn-muted" data-action="edit" data-id="${escapeHtml(it.id)}">Editar</button>
@@ -376,7 +259,7 @@
         els.rows.querySelectorAll('button[data-action="edit"]').forEach(btn => {
           btn.addEventListener('click', () => {
             const id = Number(btn.dataset.id);
-            const item = allItems.find(x => Number(x.id) === id);
+            const item = currentItems.find(x => Number(x.id) === id);
             if (item) fillForm(item);
           });
         });
@@ -385,7 +268,7 @@
           btn.addEventListener('click', async () => {
             const id = Number(btn.dataset.id);
             if (!Number.isInteger(id) || id <= 0) return;
-            if (!confirm('Excluir flashcard #' + id + '?')) return;
+            if (!confirm('Excluir dica #' + id + '?')) return;
             await del(id);
           });
         });
@@ -393,7 +276,7 @@
 
       async function loadVersions(){
         try {
-          const r = await fetch('/api/admin/flashcards/versions', { headers: headers(), credentials: 'include' });
+          const r = await fetch('/api/admin/dicas/versions', { headers: headers(), credentials: 'include' });
           if (!r.ok) return;
           const data = await r.json().catch(()=>null);
           versions = (data && data.items) ? data.items : [];
@@ -401,84 +284,72 @@
         } catch(_){ }
       }
 
-      async function loadMeta(){
-        try {
-          const [rPr, rDom] = await Promise.all([
-            fetch('/api/meta/principios', { method: 'GET', headers: headers(), credentials: 'include' }),
-            fetch('/api/meta/ddesempenho', { method: 'GET', headers: headers(), credentials: 'include' }),
-          ]);
+      function insertMarkdownLink(){
+        const ta = els.editDescricao;
+        if (!ta) return;
+        const start = ta.selectionStart ?? 0;
+        const end = ta.selectionEnd ?? 0;
+        const selected = String(ta.value || '').slice(start, end);
 
-          const pr = rPr && rPr.ok ? await rPr.json().catch(()=>[]) : [];
-          const dom = rDom && rDom.ok ? await rDom.json().catch(()=>[]) : [];
+        let url = prompt('URL do link (https://...)');
+        if (!url) return;
+        url = String(url).trim();
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
 
-          principios = Array.isArray(pr) ? pr : [];
-          dominiosDes = Array.isArray(dom) ? dom : [];
+        let text = selected;
+        if (!text) {
+          text = prompt('Texto para exibir');
+          if (!text) return;
+        }
 
-          renderSelectOptions(els.editPrincipio, principios);
-          renderSelectOptions(els.editDominioDes, dominiosDes);
-        } catch(_){ }
+        const md = `[${text}](${url})`;
+        const before = ta.value.slice(0, start);
+        const after = ta.value.slice(end);
+        ta.value = before + md + after;
+
+        const caret = before.length + md.length;
+        try { ta.focus(); ta.setSelectionRange(caret, caret); } catch(_){ }
+        updatePreview();
       }
 
-      async function loadList(opts){
-        const options = opts && typeof opts === 'object' ? opts : {};
-        const preservePage = options.preservePage === true;
-        const prevPage = currentPage;
-
+      async function loadList(){
         const versionId = Number.parseInt(String(els.filterVersion.value||'2'), 10) || 2;
         const q = String(els.filterQ.value||'').trim();
         els.filterVersion.value = String(versionId);
         setStatus('Carregando...', 'info');
 
         try {
-          const url = '/api/admin/flashcards?versionId=' + encodeURIComponent(String(versionId)) + '&q=' + encodeURIComponent(q);
+          const url = '/api/admin/dicas?versionId=' + encodeURIComponent(String(versionId)) + '&q=' + encodeURIComponent(q);
           const r = await fetch(url, { headers: headers(), credentials: 'include' });
           if (!r.ok){
             let msg = 'Falha ao carregar';
             try { const d = await r.json(); if (d && d.message) msg += ': ' + d.message; } catch(_){ }
             setStatus(msg, 'error');
-            allItems = [];
-            currentPage = 1;
-            renderTablePage();
+            renderTable([]);
             return;
           }
           const data = await r.json().catch(()=>null);
           const items = (data && data.items) ? data.items : [];
-
-          allItems = Array.isArray(items) ? items : [];
-          const totalPages = getTotalPages();
-          currentPage = preservePage ? clampInt(prevPage, 1, totalPages) : 1;
-          renderTablePage();
-
-          setStatus('OK: ' + allItems.length + ' itens', 'info');
+          renderTable(items);
+          setStatus('OK: ' + items.length + ' itens', 'info');
         } catch(e){
           setStatus('Erro: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
-          allItems = [];
-          currentPage = 1;
-          renderTablePage();
+          renderTable([]);
         }
       }
 
       async function save(){
         const idRaw = String(els.editId.value||'').trim();
         const id = idRaw ? Number.parseInt(idRaw, 10) : null;
-        const pergunta = String(els.editPergunta.value||'').trim();
-        const resposta = String(els.editResposta.value||'').trim();
+        const descricao = String(els.editDescricao.value||'').trim();
         const id_versao_pmbok = Number.parseInt(String(els.editVersion.value||'2'), 10) || 2;
 
-        if (!pergunta || !resposta){
-          alert('Preencha pergunta e resposta.');
+        if (!descricao){
+          alert('Preencha a descrição.');
           return;
         }
 
-        const body = {
-          pergunta,
-          resposta,
-          id_versao_pmbok,
-          idprincipio: toNullableInt(els.editPrincipio ? els.editPrincipio.value : ''),
-          iddominio_desempenho: toNullableInt(els.editDominioDes ? els.editDominioDes.value : ''),
-          basics: (els.editBasics ? String(els.editBasics.value || 'false') : 'false') === 'true',
-          active: (els.editActive ? String(els.editActive.value || 'true') : 'true') === 'true',
-        };
+        const body = { descricao, id_versao_pmbok };
 
         try {
           els.btnSave.disabled = true;
@@ -486,14 +357,14 @@
 
           let r;
           if (id){
-            r = await fetch('/api/admin/flashcards/' + encodeURIComponent(String(id)), {
+            r = await fetch('/api/admin/dicas/' + encodeURIComponent(String(id)), {
               method: 'PUT',
               headers: headers(),
               credentials: 'include',
               body: JSON.stringify(body)
             });
           } else {
-            r = await fetch('/api/admin/flashcards', {
+            r = await fetch('/api/admin/dicas', {
               method: 'POST',
               headers: headers(),
               credentials: 'include',
@@ -510,8 +381,8 @@
 
           await r.json().catch(()=>null);
           setStatus('Salvo com sucesso.', 'info');
-          clearForm({ preserveSelects: true });
-          await loadList({ preservePage: true });
+          clearForm();
+          await loadList();
         } catch(e){
           setStatus('Erro ao salvar: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
         } finally {
@@ -522,7 +393,7 @@
       async function del(id){
         try {
           setStatus('Excluindo...', 'info');
-          const r = await fetch('/api/admin/flashcards/' + encodeURIComponent(String(id)), {
+          const r = await fetch('/api/admin/dicas/' + encodeURIComponent(String(id)), {
             method: 'DELETE',
             headers: headers(),
             credentials: 'include'
@@ -534,7 +405,7 @@
             return;
           }
           setStatus('Excluído.', 'info');
-          await loadList({ preservePage: true });
+          await loadList();
         } catch(e){
           setStatus('Erro ao excluir: ' + (e && e.message ? e.message : 'desconhecido'), 'error');
         }
@@ -544,46 +415,29 @@
       if (els.btnLoad) els.btnLoad.addEventListener('click', loadList);
       if (els.btnReload) els.btnReload.addEventListener('click', async () => {
         setStatus('Recarregando...', 'info');
-        await Promise.all([loadVersions(), loadMeta()]);
+        await loadVersions();
         syncVersionBadge();
         await loadList();
         setStatus('OK', 'info');
       });
-
-      const btnPrev = document.getElementById('btnPrevPage');
-      const btnNext = document.getElementById('btnNextPage');
-      if (btnPrev) btnPrev.addEventListener('click', () => {
-        currentPage = Math.max(1, currentPage - 1);
-        renderTablePage();
-      });
-      if (btnNext) btnNext.addEventListener('click', () => {
-        currentPage = Math.min(getTotalPages(), currentPage + 1);
-        renderTablePage();
-      });
-
-      if (els.filterQ) els.filterQ.addEventListener('keydown', (e) => {
-        if (!e) return;
-        const key = e.key ? String(e.key) : '';
-        if (key !== 'Enter') return;
-        e.preventDefault();
-        loadList();
-      });
-      if (els.btnClear) els.btnClear.addEventListener('click', () => clearForm());
+      if (els.btnClear) els.btnClear.addEventListener('click', clearForm);
       if (els.btnSave) els.btnSave.addEventListener('click', save);
       if (els.editVersion) els.editVersion.addEventListener('input', syncVersionBadge);
+      if (els.btnLink) els.btnLink.addEventListener('click', insertMarkdownLink);
+      if (els.editDescricao) els.editDescricao.addEventListener('input', updatePreview);
 
-	  // Keyboard shortcut: Ctrl+S / Cmd+S to save
-	  document.addEventListener('keydown', (e) => {
-		  try {
-			  const key = e && e.key ? String(e.key).toLowerCase() : '';
-			  const isSave = key === 's';
-			  const hasModifier = !!(e && (e.ctrlKey || e.metaKey));
-			  if (!isSave || !hasModifier) return;
-			  e.preventDefault();
-			  if (els.btnSave && els.btnSave.disabled) return;
-			  save();
-		  } catch(_){ }
-	  });
+      // Keyboard shortcut: Ctrl+S / Cmd+S to save
+      document.addEventListener('keydown', (e) => {
+        try {
+          const key = e && e.key ? String(e.key).toLowerCase() : '';
+          const isSave = key === 's';
+          const hasModifier = !!(e && (e.ctrlKey || e.metaKey));
+          if (!isSave || !hasModifier) return;
+          e.preventDefault();
+          if (els.btnSave && els.btnSave.disabled) return;
+          save();
+        } catch(_){ }
+      });
 
       if (els.btnLogout) els.btnLogout.addEventListener('click', () => {
         try { if (typeof window.logout === 'function') return window.logout(); } catch(_){ }
@@ -591,12 +445,8 @@
         window.location.assign('/login');
       });
 
-      if (els.btnHome) els.btnHome.addEventListener('click', () => {
-        window.location.assign('/index.html');
-      });
-
       // Init
-      Promise.all([loadVersions(), loadMeta()]).finally(() => {
+      loadVersions().finally(() => {
         syncVersionBadge();
         clearForm();
         loadList();

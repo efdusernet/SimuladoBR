@@ -25,7 +25,7 @@ This comprehensive analysis identified **87 actionable improvements** across 9 m
 **Issue:** Direct string interpolation in SQL queries without parameterization
 ```javascript
 // VULNERABLE CODE:
-whereClauses.push(`q.iddominio IN (${dominios.join(',')})`);
+whereClauses.push(`q.iddominio_desempenho IN (${dominios.join(',')})`);
 whereClauses.push(`q.exam_type_id = ${Number(examCfg._dbId)}`);
 const whereSql = whereClauses.join(' AND ');
 const countQuery = `SELECT COUNT(*)::int AS cnt FROM questao q WHERE ${whereSql}`;
@@ -52,7 +52,7 @@ const whereClauses = ['q.excluido = false', 'q.idstatus = 1'];
 const replacements = {};
 
 if (dominios && dominios.length) {
-  whereClauses.push('q.iddominio = ANY(:dominios)');
+  whereClauses.push('q.iddominio_desempenho = ANY(:dominios)');
   replacements.dominios = dominios;
 }
 

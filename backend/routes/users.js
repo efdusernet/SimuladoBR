@@ -161,10 +161,26 @@ router.get('/me', async (req, res, next) => {
         }
 
         const user = authRes.user;
+
+        // Admin resolution policy:
+        // 1) Prefer RBAC role membership if tables exist (slug=admin)
+        // 2) Fallback to configured ADMIN_EMAILS and legacy username conventions
+        let isAdminByRole = false;
+        try {
+            const rows = await db.sequelize.query(
+                'SELECT 1 FROM public.user_role ur JOIN public.role r ON r.id = ur.role_id WHERE ur.user_id = :uid AND r.slug = :slug AND (r.ativo = TRUE OR r.ativo IS NULL) LIMIT 1',
+                { replacements: { uid: user.Id, slug: 'admin' }, type: db.Sequelize.QueryTypes.SELECT }
+            );
+            isAdminByRole = !!(rows && rows.length);
+        } catch (err) {
+            // If RBAC tables are missing or query fails, ignore and fallback.
+            // (Do not log as error to avoid noisy logs on deployments without RBAC.)
+        }
+
         const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
         const emailLower = String(user.Email || '').toLowerCase();
         const nomeLower = String(user.NomeUsuario || '').toLowerCase();
-        const isAdmin = adminEmails.includes(emailLower) || nomeLower === 'admin' || nomeLower.startsWith('admin_');
+        const isAdmin = isAdminByRole || adminEmails.includes(emailLower) || nomeLower === 'admin' || nomeLower.startsWith('admin_');
         return res.json({
             Id: user.Id,
             Nome: user.Nome,

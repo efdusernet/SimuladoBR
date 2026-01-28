@@ -20,9 +20,18 @@
     setLoading(true); setError(false);
     try {
       const days = 30;
+      const headers = (() => {
+        try {
+          if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+            // IMPORTANT: token comes from user input; override X-Session-Token explicitly.
+            return window.Auth.getAuthHeaders({ acceptJson: true, extra: { 'X-Session-Token': token } });
+          }
+        } catch(_){ }
+        return { 'X-Session-Token': token };
+      })();
       const [summaryResp,dailyResp] = await Promise.all([
-        fetch(`/api/users/me/stats/summary?days=${days}`, { headers: { 'X-Session-Token': token }, credentials: 'include' }),
-        fetch(`/api/users/me/stats/daily?days=${days}`, { headers: { 'X-Session-Token': token }, credentials: 'include' })
+        fetch(`/api/users/me/stats/summary?days=${days}`, { headers, credentials: 'include' }),
+        fetch(`/api/users/me/stats/daily?days=${days}`, { headers, credentials: 'include' })
       ]);
       if(!summaryResp.ok || !dailyResp.ok) throw new Error('Falha na resposta');
       const summary = await summaryResp.json();

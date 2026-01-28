@@ -351,14 +351,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function ensureAdminAccess(){
         try { if (window.__isAdmin === true) return true; } catch(_){ }
         try {
-            const token = (localStorage.getItem('sessionToken') || '').trim();
-            const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-            const sessionForHeader = token || nomeUsuario;
-            const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
-            const jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
-            const headers = {};
-            if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
-            if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+            const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+              ? window.Auth.getAuthHeaders({ acceptJson: true })
+              : {};
             const resp = await fetch('/api/users/me', { headers, credentials: 'include' });
             if (!resp.ok) return false;
             const user = await resp.json().catch(() => null);
@@ -708,7 +703,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         fetch('/api/auth/me', {
                             method: 'GET',
                             credentials: 'include',
-                            headers: { 'X-Session-Token': tok },
+                            headers: (() => {
+                                try {
+                                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                                        return window.Auth.getAuthHeaders({ acceptJson: true });
+                                    }
+                                } catch(_) {}
+                                return { 'X-Session-Token': tok };
+                            })(),
                             signal: ac.signal,
                             cache: 'no-store'
                         }).then((resp) => handleAuthFailureForResponse(resp, '/api/auth/me')).catch(() => {}).finally(() => clearTimeout(t));
@@ -1031,10 +1033,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = `${BACKEND_BASE.replace(/\/$/, '')}/api/users`;
             const res = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Session-Token': sessionToken || ''
-                },
+                headers: (() => {
+                    try {
+                        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                            return window.Auth.getAuthHeaders({ contentType: 'application/json', acceptJson: true });
+                        }
+                    } catch(_) {}
+                    return {
+                        'Content-Type': 'application/json',
+                        'X-Session-Token': sessionToken || ''
+                    };
+                })(),
                 body: JSON.stringify(payload),
             });
 
@@ -1059,7 +1068,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!token) return null;
             const BACKEND_BASE = SIMULADOS_CONFIG.BACKEND_BASE || 'http://localhost:3000';
             const url = `${BACKEND_BASE.replace(/\/$/, '')}/api/auth/me`;
-            const res = await fetch(url, { headers: { 'X-Session-Token': token }, credentials: 'include' });
+            const res = await fetch(url, {
+                headers: (() => {
+                    try {
+                        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                            return window.Auth.getAuthHeaders({ acceptJson: true, extra: { 'X-Session-Token': token } });
+                        }
+                    } catch(_) {}
+                    return { 'X-Session-Token': token };
+                })(),
+                credentials: 'include'
+            });
             if (!res.ok) {
                 console.warn('[syncBloqueio] /api/auth/me returned', res.status);
                 return null;

@@ -301,7 +301,11 @@ app.use((req, res, next) => {
 		// Allow chat-service proxy routes (widget/assets/API) without redirecting to /login
 		if (req.path.startsWith('/chat/')) return next();
 		// Allow login and static asset files without auth
-		const allowPaths = new Set(['/login', '/login.html', '/manifest.json']);
+		const allowPaths = new Set([
+			'/login',
+			'/login.html',
+			'/manifest.json',
+		]);
 		const isAsset = /\.(css|js|png|jpg|jpeg|gif|svg|ico|json|webmanifest|map)$/i.test(req.path);
 		if (allowPaths.has(req.path) || isAsset) return next();
 		const hasCookie = !!(req.cookies && (req.cookies.sessionToken || req.cookies.jwtToken));
@@ -372,7 +376,10 @@ app.use(`${API_V1}/admin/notifications`, require('./routes/admin_notifications')
 app.use(`${API_V1}/admin/users`, require('./routes/admin_users'));
 app.use(`${API_V1}/admin/communication`, require('./routes/admin_communication'));
 app.use(`${API_V1}/admin/db`, require('./routes/admin_db'));
+app.use(`${API_V1}/admin/data-explorer`, require('./routes/admin_data_explorer'));
 app.use(`${API_V1}/admin/flashcards`, require('./routes/admin_flashcards'));
+app.use(`${API_V1}/admin/dicas`, require('./routes/admin_dicas'));
+app.use(`${API_V1}/dicas`, require('./routes/dicas'));
 app.use(`${API_V1}/notifications`, require('./routes/notifications'));
 app.use(`${API_V1}/debug`, require('./routes/debug'));
 app.use(`${API_V1}/ai`, require('./routes/ai'));
@@ -393,7 +400,10 @@ app.use(`${API_BASE}/admin/notifications`, require('./routes/admin_notifications
 app.use(`${API_BASE}/admin/users`, require('./routes/admin_users'));
 app.use(`${API_BASE}/admin/communication`, require('./routes/admin_communication'));
 app.use(`${API_BASE}/admin/db`, require('./routes/admin_db'));
+app.use(`${API_BASE}/admin/data-explorer`, require('./routes/admin_data_explorer'));
 app.use(`${API_BASE}/admin/flashcards`, require('./routes/admin_flashcards'));
+app.use(`${API_BASE}/admin/dicas`, require('./routes/admin_dicas'));
+app.use(`${API_BASE}/dicas`, require('./routes/dicas'));
 app.use(`${API_BASE}/notifications`, require('./routes/notifications'));
 app.use(`${API_BASE}/debug`, require('./routes/debug'));
 app.use(`${API_BASE}/ai`, require('./routes/ai'));

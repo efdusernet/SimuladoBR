@@ -202,7 +202,7 @@
 
   function desempenhoDominioIdFromQuestion(question) {
     try {
-      const direct = (question && (question.iddominio ?? question.idDominio ?? question.id_dominio));
+      const direct = (question && (question.iddominio_desempenho ?? question.idDominioDesempenho ?? question.id_dominio_desempenho));
       const nested = question && question.dominio && (question.dominio.id ?? question.dominio.Id);
       const v = (direct != null) ? direct : nested;
       const n = Number(v);

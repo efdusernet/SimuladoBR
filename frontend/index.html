@@ -25,6 +25,8 @@
     <script src="/utils/layoutManager.js"></script>
     <!-- Controlled Logging System (must load before other scripts) -->
     <script src="/utils/logger.js"></script>
+    <script src="/utils/dicaDoDiaHello.js"></script>
+    <script src="/utils/auth.js"></script>
     <!-- Logout Utility -->
     <script src="/utils/logout.js"></script>
     <!-- CSRF Protection -->
@@ -256,6 +258,86 @@
                         linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
             color: #fff !important;
         }
+
+        /* === Dica do dia modal === */
+        .dica-modal{
+            background: rgba(2,6,23,0.72) !important;
+            z-index: 2147483647 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+        .dica-card{
+            width: min(720px, 92vw);
+            background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(2,6,23,0.94));
+            border-radius: 16px;
+            position: relative;
+            padding: 18px 18px 14px;
+            box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+            color: var(--text);
+        }
+        .dica-card::before{
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 18px;
+            background: linear-gradient(90deg, rgba(245,158,11,0.95), rgba(79,70,229,0.95), rgba(34,211,238,0.95));
+            filter: drop-shadow(0 0 14px rgba(245,158,11,0.35));
+            z-index: -1;
+            opacity: 0.95;
+        }
+        .dica-header{ display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-bottom: 10px; }
+        .dica-title{ display:flex; align-items:center; gap:10px; font-weight: 800; letter-spacing: 0.2px; }
+        .dica-title span{ font-size: 1.1rem; }
+        .dica-bulb{
+            width: 34px; height: 34px; border-radius: 12px;
+            background: rgba(245,158,11,0.12);
+            border: 1px solid rgba(245,158,11,0.28);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .dica-close{
+            width: 36px; height: 36px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.86);
+            cursor: pointer;
+            font-size: 1.3rem;
+            line-height: 1;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .dica-meta{ color: var(--muted); font-size: .82rem; margin: 2px 0 10px; }
+        .dica-text{
+            font-size: 1.02rem;
+            line-height: 1.55;
+            color: rgba(255,255,255,0.92);
+            padding: 14px 14px;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.55);
+            border: 1px solid rgba(255,255,255,0.10);
+            white-space: pre-wrap;
+        }
+        .dica-footer{ display:flex; gap: 10px; justify-content:flex-end; margin-top: 12px; flex-wrap: wrap; }
+        .dica-btn{
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.92);
+            cursor: pointer;
+            font-weight: 800;
+            font-size: .92rem;
+        }
+        .dica-btn.primary{
+            border: none;
+            background: linear-gradient(135deg, rgba(79,70,229,1), rgba(34,211,238,0.95));
+            color: #06101f;
+        }
+        .dica-btn:disabled{ opacity: .65; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -422,7 +504,7 @@
                         headers['X-Session-Token'] = identity;
                         if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
 
-                        const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(identity)}`;
+                        const probeUrl = `/api/admin/data-explorer/tables?sessionToken=${encodeURIComponent(identity)}`;
                         const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
                         window.__historyModalIsAdmin = !!r.ok;
                         return window.__historyModalIsAdmin;
@@ -590,6 +672,7 @@
     <nav id="adminMenuPanel" aria-label="Ações administrativas" aria-hidden="true" style="display:none;position:fixed;top:52px;left:12px;z-index:2299;min-width:200px;background:#ffffff;border:1px solid #d6d9e0;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.18);padding:6px;">
         <a id="lnkAdminCadastrar" href="/pages/admin/questionForm.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão</a>
         <a id="lnkAdminBulk" href="/pages/admin/questionBulk.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Cadastrar questão bulk</a>
+        <a id="lnkAdminDataExplorer" href="/pages/admin/dataExplorer.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Data Explorer (SQL)</a>
         <a id="lnkAdminFeedbackResp" href="/pages/admin/feedbackResponses.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Responder feedbacks</a>
         <a id="lnkAdminNotifications" href="/pages/admin/notifications.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Notificações</a>
         <a id="lnkAdminChatHost" href="/chat/admin" target="_blank" rel="noopener noreferrer" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Chat (Admin)</a>
@@ -745,18 +828,16 @@
         if (!btn || !panel) return;
         // Hidden by default; only admins can see it.
         try { btn.style.display = 'none'; } catch(_){ }
-        const token = (localStorage.getItem('sessionToken') || '').trim();
-        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-        const sessionForHeader = token || nomeUsuario;
-        if (!sessionForHeader) return; // no session => skip
-                const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                const headers = { };
-                if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
-                if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                const sessionForHeader = (window.Auth && typeof window.Auth.getSessionIdentity === 'function')
+                    ? window.Auth.getSessionIdentity()
+                    : ((localStorage.getItem('sessionToken') || '').trim() || (localStorage.getItem('nomeUsuario') || '').trim());
+                if (!sessionForHeader) return; // no session => skip
+                const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+                    ? window.Auth.getAuthHeaders()
+                    : {};
 
                 // Primary: RBAC probe.
-                const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+                const probeUrl = `/api/admin/data-explorer/tables?sessionToken=${encodeURIComponent(sessionForHeader)}`;
                 fetch(probeUrl, { headers, method: 'GET', credentials: 'include' })
                     .then(async (r) => {
                         let isAdmin = !!(r && (r.ok || r.status === 204));
@@ -791,19 +872,16 @@
               const reconcileBtn = document.getElementById('btnAdminReconcile');
               const fixtureBtn = document.getElementById('btnAdminFixture');
               const logoutBtn = document.getElementById('btnAdminLogout');
-              function getToken(){ return (localStorage.getItem('sessionToken')||'').trim(); }
               function getSessionIdentity(){
-                  const nomeUsuario = (localStorage.getItem('nomeUsuario')||'').trim();
-                  const sessionToken = getToken();
-                  return sessionToken || nomeUsuario;
+                  try { return (window.Auth && typeof window.Auth.getSessionIdentity === 'function') ? window.Auth.getSessionIdentity() : ''; }
+                  catch(_){ return ''; }
               }
               async function adminPost(path){
                   const identity = getSessionIdentity();
-                  const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                  const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                  const headers = { 'Content-Type':'application/json' };
-                  if (identity) headers['X-Session-Token'] = identity;
-                  if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                  const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+                    ? window.Auth.getAuthHeaders({ contentType: 'application/json' })
+                    : { 'Content-Type': 'application/json' };
+                  if (!headers['X-Session-Token'] && identity) headers['X-Session-Token'] = identity;
                   const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity);
                   const resp = await fetch(url,{method:'POST',headers, credentials: 'include'});
                   const data = await resp.json().catch(()=>({}));
@@ -984,7 +1062,9 @@
                     <img src="assets/exame.png" alt="Exame completo" class="thumb" />
                     <span class="card-label">Simulador</span>
                 </div>
-                <div class="card card--simulador" data-full="https://picsum.photos/800/800?random=3" aria-label="Dica do dia" role="button" tabindex="0">
+                <div id="card-dica-do-dia" class="card card--simulador" data-card="dica-do-dia" aria-label="Dica do dia" role="button" tabindex="0"
+                     onclick="try{event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();if(window.openDicaDoDiaModal)window.openDicaDoDiaModal();else{if(window.showToast)window.showToast('Dica do dia: script não carregou (recarregue a página).');else alert('Dica do dia: script não carregou (recarregue a página).');}}catch(_){ }"
+                     onkeydown="try{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();if(window.openDicaDoDiaModal)window.openDicaDoDiaModal();else{if(window.showToast)window.showToast('Dica do dia: script não carregou (recarregue a página).');else alert('Dica do dia: script não carregou (recarregue a página).');}}}catch(_){ }">
                     <img src="assets/adendo.png" alt="Dica do dia" class="thumb" />
                     <span class="card-label">Dica do dia</span>
                 </div>
@@ -1687,12 +1767,46 @@
 
     <!-- Admin Modal -->
     <div id="adminModal" class="overlay" aria-hidden="true" style="background:rgba(0,0,0,0.75);align-items:flex-start;padding-top:20px;overflow-y:auto">
-        <div style="background:var(--panel);border-radius:12px;max-width:500px;width:90%;margin:0 auto;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.4);color:var(--text)">
+        <div style="background:var(--panel);border-radius:12px;max-width:980px;width:94%;margin:0 auto;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.4);color:var(--text)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
                 <h2 style="margin:0;font-size:1.4rem;color:var(--text)">Administração</h2>
                 <div style="display:flex;align-items:center;gap:10px">
                     <a id="lnkAdminChatHostModal" href="/chat/admin" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);text-decoration:none;font-size:.85rem;font-weight:600;cursor:pointer;">Chat (Admin)</a>
                     <button id="adminModalClose" style="background:none;border:none;font-size:1.8rem;color:var(--muted);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center" aria-label="Fechar">×</button>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start">
+                <aside aria-label="Menu Admin" style="border:1px solid var(--border);background:var(--bg);border-radius:10px;padding:12px;position:sticky;top:20px">
+                    <div style="font-weight:800;color:var(--text);margin-bottom:10px">Menu</div>
+                    <a href="/pages/admin/questionForm.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Cadastrar questão</a>
+                    <a href="/pages/admin/questionBulk.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Cadastrar questão bulk</a>
+                    <a href="/pages/admin/flashcards.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Flashcards</a>
+                    <a href="/pages/admin/dicas.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Dicas</a>
+                    <a href="/pages/admin/feedbackResponses.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Responder feedbacks</a>
+                    <a href="/pages/admin/notifications.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Notificações</a>
+                    <a href="/pages/admin/dataExplorer.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Data Explorer</a>
+                    <a href="/index.html" style="display:block;margin-top:10px;padding:10px 10px;border-radius:10px;color:var(--muted);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Voltar para Home</a>
+                    <div style="font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.3">Dica: o Data Explorer não aceita SQL livre; é um construtor seguro.</div>
+                </aside>
+
+                <div>
+
+            <!-- Accordion: Health Check (on-demand) -->
+            <div class="admin-accordion" id="adminHealthAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+                <button class="admin-accordion-header" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+                    <span style="font-size:1rem;font-weight:600;color:var(--text)">Health check</span>
+                    <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="admin-accordion-content" style="display:none;padding:16px">
+                    <p style="font-size:0.9rem;color:var(--muted);margin:0 0 12px;line-height:1.5">Diagnóstico de sessão/admin (RBAC + headers).</p>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <button id="adminHealthCheckBtn" type="button" style="flex:1;min-width:220px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Rodar Health Check</button>
+                        <button id="adminHealthCopyBtn" type="button" style="flex:1;min-width:220px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s">Copiar resultado</button>
+                    </div>
+                    <div id="adminHealthCheckOutput" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.8rem;color:var(--text);max-height:240px;overflow-y:auto;display:none;white-space:pre-wrap"></div>
                 </div>
             </div>
             
@@ -2034,6 +2148,33 @@
                     </div>
                 </div>
             </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dica do dia Modal -->
+    <div id="dicaModal" class="overlay dica-modal" aria-hidden="true">
+        <div class="dica-card" role="dialog" aria-modal="true" aria-label="Dica do dia">
+            <div class="dica-header">
+                <div class="dica-title">
+                    <div class="dica-bulb" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: rgba(245,158,11,0.95)">
+                            <path d="M9 18h6" />
+                            <path d="M10 22h4" />
+                            <path d="M8 14c-1.5-1.2-2.5-3-2.5-5a6.5 6.5 0 1 1 13 0c0 2-1 3.8-2.5 5-.8.7-1.5 1.8-1.5 3H11c0-1.2-.7-2.3-1.5-3z" />
+                        </svg>
+                    </div>
+                    <span>Dica do dia</span>
+                </div>
+                <button id="dicaModalClose" type="button" class="dica-close" aria-label="Fechar">×</button>
+            </div>
+            <div id="dicaModalMeta" class="dica-meta"></div>
+            <div id="dicaModalText" class="dica-text">Carregando...</div>
+            <div class="dica-footer">
+                <button id="dicaModalAnother" type="button" class="dica-btn">Outra dica</button>
+                <button id="dicaModalCopy" type="button" class="dica-btn primary">Copiar</button>
+            </div>
         </div>
     </div>
 
@@ -2059,6 +2200,78 @@
             const fullImg = document.getElementById('fullImg');
             const backBtn = document.getElementById('backBtn');
 
+            // Early fallback: allow Dica do dia to work even if other init fails/hasn't run yet.
+            function getDicaHeadersEarly(){
+                try {
+                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                        return window.Auth.getAuthHeaders({ acceptJson: true });
+                    }
+                } catch(_){ }
+                const headers = { 'Accept': 'application/json' };
+                try {
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const identity = token || nomeUsuario;
+                    if (identity) headers['X-Session-Token'] = identity;
+                } catch(_){ }
+                try {
+                    const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                } catch(_){ }
+                return headers;
+            }
+
+            async function openDicaDoDiaModalEarly(){
+                const dicaModal = document.getElementById('dicaModal');
+                const dicaModalText = document.getElementById('dicaModalText');
+                const dicaModalMeta = document.getElementById('dicaModalMeta');
+                if (!dicaModal) {
+                    try { if (window.showToast) window.showToast('Modal de dica não encontrado no DOM.'); else alert('Modal de dica não encontrado no DOM.'); } catch(_){ }
+                    return;
+                }
+                try {
+                    dicaModal.classList.add('active');
+                    dicaModal.setAttribute('aria-hidden', 'false');
+                    const navHide = document.querySelector('.bottom-nav');
+                    if (navHide) navHide.style.display='none';
+                    document.body.style.overflow = 'hidden';
+                } catch(_){ }
+
+                if (dicaModalText) dicaModalText.textContent = 'Carregando...';
+                if (dicaModalMeta) dicaModalMeta.textContent = '';
+
+                try {
+                    const url = '/api/dicas/today?_ts=' + Date.now();
+                    const r = await fetch(url, { method: 'GET', headers: getDicaHeadersEarly(), cache: 'no-store', credentials: 'include' });
+                    const data = await r.json().catch(()=>null);
+                    if (!r.ok) {
+                        const errText = data && (data.message || data.error) ? String(data.message || data.error) : ('Falha ao carregar dica (HTTP ' + r.status + ')');
+                        if (dicaModalText) dicaModalText.textContent = errText;
+                        return;
+                    }
+                    const item = data && (data.item || data);
+                    const txt = item && item.descricao != null ? String(item.descricao) : '';
+                    const metaBits = [];
+                    try {
+                        if (item && item.versao_code) metaBits.push('Versão: ' + String(item.versao_code));
+                        else if (item && item.id_versao_pmbok != null) metaBits.push('Versão #' + String(item.id_versao_pmbok));
+                    } catch(_){ }
+                    try { if (item && item.id != null) metaBits.push('ID: ' + String(item.id)); } catch(_){ }
+                    if (dicaModalMeta) dicaModalMeta.textContent = metaBits.join(' • ');
+                    if (dicaModalText) dicaModalText.textContent = txt || 'Dica vazia.';
+                    try { dicaModal.dataset.lastDica = txt || ''; } catch(_){ }
+                } catch(_){
+                    if (dicaModalText) dicaModalText.textContent = 'Erro ao carregar dica.';
+                }
+            }
+
+            try {
+                if (typeof window.openDicaDoDiaModal !== 'function') {
+                    window.openDicaDoDiaModal = openDicaDoDiaModalEarly;
+                }
+            } catch(_){ }
+
             function updateDebug(name){ if (debugEls[name]) debugEls[name].textContent = 'Cliques: ' + counters[name]; }
 
             function setActive(target){
@@ -2081,8 +2294,22 @@
             document.addEventListener('click', (e) => {
                 const card = e.target.closest && e.target.closest('.card');
                 if (!card) return;
-                
-                logger.info('[index.html] Card clicado:', card.id, card.getAttribute('data-card'));
+
+                // Dica do dia: abre modal com dica aleatória (não navega para examSetup.html)
+                const isDicaDoDia =
+                    (card.id === 'card-dica-do-dia') ||
+                    (card.getAttribute('data-card') === 'dica-do-dia') ||
+                    (String(card.getAttribute('aria-label') || '').trim().toLowerCase() === 'dica do dia');
+                if (isDicaDoDia) {
+                    try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                    try { if (typeof window.openDicaDoDiaModal === 'function') window.openDicaDoDiaModal(); } catch(_){ }
+                    return;
+                }
+
+                try {
+                    const log = (typeof logger !== 'undefined') ? logger : console;
+                    if (log && typeof log.info === 'function') log.info('[index.html] Card clicado:', card.id, card.getAttribute('data-card'));
+                } catch(_){ }
                 
                 // Prioridade: interceptar clique no exame completo (mock) antes do handler genérico
                 if (card.id === 'card-exam-mock' || card.getAttribute('data-card') === 'exam-mock'){
@@ -2293,6 +2520,150 @@
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) backBtn.click();
             });
+
+            // Dica do dia modal handlers
+            const dicaModal = document.getElementById('dicaModal');
+            const dicaModalClose = document.getElementById('dicaModalClose');
+            const dicaModalAnother = document.getElementById('dicaModalAnother');
+            const dicaModalCopy = document.getElementById('dicaModalCopy');
+            const dicaModalText = document.getElementById('dicaModalText');
+            const dicaModalMeta = document.getElementById('dicaModalMeta');
+
+            // Direct fallback listeners (extra robustness)
+            try {
+                const dicaCard = document.getElementById('card-dica-do-dia');
+                if (dicaCard) {
+                    dicaCard.addEventListener('click', (ev) => {
+                        try { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(_){ }
+                        try { if (typeof window.openDicaDoDiaModal === 'function') window.openDicaDoDiaModal(); } catch(_){ }
+                    }, true);
+                    dicaCard.addEventListener('keydown', (ev) => {
+                        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+                        try { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(_){ }
+                        try { if (typeof window.openDicaDoDiaModal === 'function') window.openDicaDoDiaModal(); } catch(_){ }
+                    }, true);
+                }
+            } catch(_){ }
+
+            function getUserHeaders(){
+                try {
+                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                        return window.Auth.getAuthHeaders({ acceptJson: true });
+                    }
+                } catch(_){ }
+                const headers = { 'Accept': 'application/json' };
+                try {
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const sessionForHeader = token || nomeUsuario;
+                    if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+                } catch(_){ }
+                try {
+                    const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                } catch(_){ }
+                return headers;
+            }
+
+            function escapeHtmlDica(s){
+                return String(s ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+            function renderMarkdownLinksSafeDica(raw){
+                const escaped = escapeHtmlDica(raw ?? '');
+                return escaped.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, text, url) => {
+                    const u = String(url || '').trim();
+                    if (!/^https?:\/\//i.test(u)) return m;
+                    return `<a href="${escapeHtmlDica(u)}" target="_blank" rel="noopener noreferrer">${escapeHtmlDica(text)}</a>`;
+                });
+            }
+
+            function setDicaModalOpen(open){
+                if (!dicaModal) return;
+                if (open) {
+                    dicaModal.classList.add('active');
+                    dicaModal.setAttribute('aria-hidden', 'false');
+                    const navHide = document.querySelector('.bottom-nav');
+                    if (navHide) navHide.style.display='none';
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    dicaModal.classList.remove('active');
+                    dicaModal.setAttribute('aria-hidden', 'true');
+                    const navShow = document.querySelector('.bottom-nav');
+                    if (navShow) navShow.style.display='';
+                    document.body.style.overflow = '';
+                }
+            }
+
+            async function loadRandomDica(){
+                if (dicaModalText) dicaModalText.textContent = 'Carregando...';
+                if (dicaModalMeta) dicaModalMeta.textContent = '';
+                if (dicaModalAnother) dicaModalAnother.disabled = true;
+                if (dicaModalCopy) dicaModalCopy.disabled = true;
+
+                try {
+                    const url = '/api/dicas/today?_ts=' + Date.now();
+                    const r = await fetch(url, { method: 'GET', headers: getUserHeaders(), cache: 'no-store', credentials: 'include' });
+                    if (!r.ok) {
+                        const msg = (await r.json().catch(()=>null)) || null;
+                        const errText = msg && (msg.message || msg.error) ? String(msg.message || msg.error) : ('Falha ao carregar dica (HTTP ' + r.status + ')');
+                        if (dicaModalText) dicaModalText.textContent = errText;
+                        return;
+                    }
+                    const data = await r.json().catch(()=>null);
+                    const item = data && (data.item || data);
+                    const txt = item && item.descricao != null ? String(item.descricao) : '';
+                    const metaBits = [];
+                    try {
+                        if (item && item.versao_code) metaBits.push('Versão: ' + String(item.versao_code));
+                        else if (item && item.id_versao_pmbok != null) metaBits.push('Versão #' + String(item.id_versao_pmbok));
+                    } catch(_){ }
+                    try { if (item && item.id != null) metaBits.push('ID: ' + String(item.id)); } catch(_){ }
+                    if (dicaModalMeta) dicaModalMeta.textContent = metaBits.join(' • ');
+                    if (dicaModalText) dicaModalText.innerHTML = renderMarkdownLinksSafeDica(txt || 'Dica vazia.');
+                    try { if (dicaModal && dicaModal.dataset) dicaModal.dataset.lastDica = txt || ''; } catch(_){ }
+                } catch (err) {
+                    if (dicaModalText) dicaModalText.textContent = 'Erro ao carregar dica.';
+                } finally {
+                    if (dicaModalAnother) dicaModalAnother.disabled = false;
+                    if (dicaModalCopy) dicaModalCopy.disabled = false;
+                }
+            }
+
+            if (typeof window.openDicaDoDiaModal !== 'function') {
+                window.openDicaDoDiaModal = function(){
+                    setDicaModalOpen(true);
+                    loadRandomDica();
+                };
+            }
+
+            if (dicaModalClose) dicaModalClose.addEventListener('click', () => setDicaModalOpen(false));
+            if (dicaModal) dicaModal.addEventListener('click', (e) => { if (e.target === dicaModal) setDicaModalOpen(false); });
+            if (dicaModalAnother) dicaModalAnother.addEventListener('click', () => loadRandomDica());
+            if (dicaModalCopy) dicaModalCopy.addEventListener('click', async () => {
+                try {
+                    const txt = (dicaModal && dicaModal.dataset && dicaModal.dataset.lastDica) ? String(dicaModal.dataset.lastDica) : (dicaModalText ? String(dicaModalText.textContent || '') : '');
+                    if (!txt) return;
+                    await navigator.clipboard.writeText(txt);
+                    try { if (window.showToast) window.showToast('Dica copiada.'); } catch(_){ }
+                } catch(_){
+                    try { if (window.showToast) window.showToast('Falha ao copiar.'); } catch(_){ }
+                }
+            });
+            document.addEventListener('keydown', (e) => {
+                if (!dicaModal) return;
+                const open = dicaModal.classList && dicaModal.classList.contains('active');
+                if (!open) return;
+                if (e.key === 'Escape') {
+                    try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
+                    setDicaModalOpen(false);
+                }
+            });
             
             // Admin Modal handlers
             const adminModal = document.getElementById('adminModal');
@@ -2303,6 +2674,11 @@
             const reconcileToDate = document.getElementById('reconcileToDate');
             const reconcileMode = document.getElementById('reconcileMode');
             const reconcileDryRun = document.getElementById('reconcileDryRun');
+
+            // Admin health check controls
+            const adminHealthCheckBtn = document.getElementById('adminHealthCheckBtn');
+            const adminHealthCopyBtn = document.getElementById('adminHealthCopyBtn');
+            const adminHealthCheckOutput = document.getElementById('adminHealthCheckOutput');
 
             // Exam content version (ECO) admin controls
             const adminExamTypeSelect = document.getElementById('adminExamTypeSelect');
@@ -2363,7 +2739,7 @@
 
                     // Primary: probe admin-only endpoint (aligns with backend RBAC).
                     try {
-                        const probeUrl = base + '/api/admin/exams/probe?sessionToken=' + encodeURIComponent(sessionForHeader || '');
+                        const probeUrl = base + '/api/admin/data-explorer/tables?sessionToken=' + encodeURIComponent(sessionForHeader || '');
                         const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include' });
                         if (probeResp.ok || probeResp.status === 204) {
                             try { window.__isAdmin = true; } catch(_){ }
@@ -2398,6 +2774,178 @@
                 try { if (window.showToast) { window.showToast('Acesso restrito: somente admin.'); return; } } catch(_){ }
                 try { alert('Acesso restrito: somente admin.'); } catch(_){ }
             }
+
+            function getAdminHeaders(){
+                try {
+                    if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                        return window.Auth.getAuthHeaders({ acceptJson: true });
+                    }
+                } catch(_){ }
+                const headers = { 'Accept': 'application/json' };
+                try {
+                    const token = (localStorage.getItem('sessionToken') || '').trim();
+                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+                    const sessionForHeader = token || nomeUsuario;
+                    if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
+                } catch(_){ }
+                try {
+                    const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+                    if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+                } catch(_){ }
+                return headers;
+            }
+
+            function fmtHealthLine(k, v){
+                const key = String(k || '').padEnd(18, ' ');
+                return `${key}: ${v}`;
+            }
+
+            async function runAdminHealthCheck(){
+                const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+                const headers = getAdminHeaders();
+                const identity = (window.Auth && typeof window.Auth.getSessionIdentity === 'function')
+                    ? window.Auth.getSessionIdentity()
+                    : ((localStorage.getItem('sessionToken') || '').trim() || (localStorage.getItem('nomeUsuario') || '').trim());
+
+                const outLines = [];
+                outLines.push('[admin-health] ' + new Date().toISOString());
+                outLines.push(fmtHealthLine('base', base));
+                outLines.push(fmtHealthLine('identity', identity ? String(identity) : '(none)'));
+                outLines.push(fmtHealthLine('hasJWT', headers['Authorization'] ? 'yes' : 'no'));
+                outLines.push(fmtHealthLine('hasX-Session', headers['X-Session-Token'] ? 'yes' : 'no'));
+
+                // Sidebar version (helps diagnose cache/stale HTML)
+                try {
+                    const uiBase = (function(){
+                        try { return String(window.location.origin || '').replace(/\/$/, ''); } catch(_){ return ''; }
+                    })();
+                    const sidebarMount = document.getElementById('sidebarMount');
+                    const domHtml = sidebarMount ? String(sidebarMount.innerHTML || '') : '';
+                    const domLen = domHtml.length;
+
+                    let domVersion = '(none)';
+                    try {
+                        const aside = sidebarMount ? sidebarMount.querySelector('aside.sidebar[data-sidebar-version]') : null;
+                        domVersion = aside ? String(aside.getAttribute('data-sidebar-version') || '(none)') : '(none)';
+                    } catch(_){ domVersion = '(none)'; }
+
+                    let remoteLen = '(n/a)';
+                    let remoteVersion = '(n/a)';
+                    try {
+                        const resp = await fetch(uiBase + '/components/sidebar.html?v=' + Date.now(), { method: 'GET', cache: 'no-store', credentials: 'include' });
+                        if (resp.ok) {
+                            const txt = await resp.text();
+                            remoteLen = txt.length;
+                            const m = txt.match(/data-sidebar-version\s*=\s*"([^"]+)"/i);
+                            remoteVersion = m && m[1] ? String(m[1]) : '(missing)';
+                        } else {
+                            remoteLen = '(http ' + resp.status + ')';
+                            remoteVersion = '(http ' + resp.status + ')';
+                        }
+                    } catch(_){ }
+
+                    const versionMatch = (domVersion !== '(none)' && remoteVersion !== '(n/a)' && remoteVersion !== '(missing)' && remoteVersion !== '(none)')
+                        ? (String(domVersion) === String(remoteVersion) ? 'yes' : 'no')
+                        : '(n/a)';
+
+                    outLines.push('');
+                    outLines.push('[sidebar]');
+                    outLines.push(fmtHealthLine('uiBase', uiBase || '(none)'));
+                    outLines.push(fmtHealthLine('mounted', (sidebarMount && sidebarMount.hasChildNodes()) ? 'yes' : 'no'));
+                    outLines.push(fmtHealthLine('domLen', domLen));
+                    outLines.push(fmtHealthLine('domVersion', domVersion));
+                    outLines.push(fmtHealthLine('remoteLen', remoteLen));
+                    outLines.push(fmtHealthLine('remoteVersion', remoteVersion));
+                    outLines.push(fmtHealthLine('match', versionMatch));
+                } catch(_){ }
+
+                // 1) /api/users/me
+                try {
+                    const resp = await fetch(base + '/api/users/me', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+                    const body = await resp.json().catch(() => null);
+                    outLines.push('');
+                    outLines.push('[users/me]');
+                    outLines.push(fmtHealthLine('status', resp.status));
+                    outLines.push(fmtHealthLine('TipoUsuario', body && (body.TipoUsuario || body.tipoUsuario) ? (body.TipoUsuario || body.tipoUsuario) : '(none)'));
+                    outLines.push(fmtHealthLine('Id', body && body.Id != null ? body.Id : '(none)'));
+                    outLines.push(fmtHealthLine('Email', body && body.Email ? body.Email : '(none)'));
+                } catch (e) {
+                    outLines.push('');
+                    outLines.push('[users/me] ERROR: ' + (e && e.message ? e.message : String(e)));
+                }
+
+                // 2) Admin probe (RBAC)
+                try {
+                    const probeUrl = base + '/api/admin/data-explorer/tables' + (identity ? ('?sessionToken=' + encodeURIComponent(identity)) : '');
+                    const resp = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+                    outLines.push('');
+                    outLines.push('[admin/data-explorer/tables]');
+                    outLines.push(fmtHealthLine('status', resp.status));
+                    outLines.push(fmtHealthLine('ok', (resp.ok || resp.status === 204) ? 'yes' : 'no'));
+                } catch (e) {
+                    outLines.push('');
+                    outLines.push('[admin/data-explorer/tables] ERROR: ' + (e && e.message ? e.message : String(e)));
+                }
+
+                const text = outLines.join('\n');
+                if (adminHealthCheckOutput) {
+                    adminHealthCheckOutput.style.display = 'block';
+                    adminHealthCheckOutput.textContent = text;
+                }
+
+                const ok = /\[admin\/data-explorer\/tables\][\s\S]*ok\s*: yes/i.test(text) || /\[users\/me\][\s\S]*TipoUsuario\s*: admin/i.test(text);
+                try {
+                    if (window.showToast) window.showToast(ok ? 'Health check OK (admin)' : 'Health check: atenção (não-admin)');
+                } catch(_){ }
+                return ok;
+            }
+
+            window.runAdminHealthCheck = runAdminHealthCheck;
+
+            // Allow other pages (sidebar) to redirect to /index.html and request opening a specific
+            // admin modal section (e.g., fixture/reconcile).
+            (function consumeAdminModalIntent(){
+                let intent = '';
+                try { intent = String(sessionStorage.getItem('adminModalIntent') || '').trim().toLowerCase(); } catch(_){ intent = ''; }
+                if (!intent) return;
+                try { sessionStorage.removeItem('adminModalIntent'); } catch(_){ }
+
+                // Trigger open (may be async due to ensureAdminAccess())
+                try { openAdminModal(); } catch(_){ }
+
+                const startedAt = Date.now();
+                const timer = setInterval(() => {
+                    const m = document.getElementById('adminModal');
+                    const isOpen = !!(m && m.classList.contains('active') && m.getAttribute('aria-hidden') === 'false');
+                    if (!isOpen) {
+                        if (Date.now() - startedAt > 6000) clearInterval(timer);
+                        return;
+                    }
+
+                    try {
+                        if (intent === 'fixture') {
+                            const userField = document.getElementById('fxUserId');
+                            if (userField) {
+                                userField.focus();
+                                userField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            } else {
+                                const heading = Array.from(m.querySelectorAll('h3')).find(h => /Gerar\s+Tentativa\s+Fixture/i.test(h.textContent||''));
+                                if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                        } else if (intent === 'reconcile') {
+                            const heading = Array.from(m.querySelectorAll('h3')).find(h => /Reconcilia/i.test(h.textContent||''));
+                            if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        } else if (intent === 'health-check' || intent === 'health') {
+                            const acc = document.getElementById('adminHealthAccordion');
+                            if (acc) acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            try { if (typeof window.runAdminHealthCheck === 'function') window.runAdminHealthCheck(); } catch(_){ }
+                        }
+                    } catch(_){ }
+
+                    clearInterval(timer);
+                }, 120);
+            })();
 
             // Unified modal open/close to avoid click-through caused by lingering `inert`.
             function openAdminModal(){
@@ -2475,6 +3023,65 @@
                     logger.warn('Admin check failed:', e);
                 }
             })();
+
+            // Hook health check button
+            if (adminHealthCheckBtn) {
+                adminHealthCheckBtn.addEventListener('click', async () => {
+                    const old = adminHealthCheckBtn.textContent;
+                    adminHealthCheckBtn.disabled = true;
+                    adminHealthCheckBtn.textContent = 'Rodando...';
+                    try {
+                        await runAdminHealthCheck();
+                    } finally {
+                        adminHealthCheckBtn.disabled = false;
+                        adminHealthCheckBtn.textContent = old;
+                    }
+                });
+            }
+
+            // Copy health check output
+            if (adminHealthCopyBtn) {
+                adminHealthCopyBtn.addEventListener('click', async () => {
+                    const text = (adminHealthCheckOutput && adminHealthCheckOutput.textContent)
+                        ? String(adminHealthCheckOutput.textContent)
+                        : '';
+                    if (!text.trim()) {
+                        try { if (window.showToast) window.showToast('Nada para copiar. Rode o health check primeiro.'); } catch(_){ }
+                        return;
+                    }
+
+                    const old = adminHealthCopyBtn.textContent;
+                    adminHealthCopyBtn.disabled = true;
+                    adminHealthCopyBtn.textContent = 'Copiando...';
+
+                    let ok = false;
+                    try {
+                        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                            await navigator.clipboard.writeText(text);
+                            ok = true;
+                        }
+                    } catch(_){ ok = false; }
+
+                    if (!ok) {
+                        try {
+                            const ta = document.createElement('textarea');
+                            ta.value = text;
+                            ta.setAttribute('readonly', '');
+                            ta.style.position = 'fixed';
+                            ta.style.left = '-9999px';
+                            ta.style.top = '0';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            ok = document.execCommand('copy');
+                            ta.remove();
+                        } catch(_){ ok = false; }
+                    }
+
+                    try { if (window.showToast) window.showToast(ok ? 'Resultado copiado.' : 'Falha ao copiar.'); } catch(_){ }
+                    adminHealthCopyBtn.disabled = false;
+                    adminHealthCopyBtn.textContent = old;
+                });
+            }
 
             // Admin: view daily snapshots recorded from /api/ai/insights
             (function initAdminSnapshots(){
@@ -2781,7 +3388,7 @@
 
                     // Primary: RBAC/requireAdmin probe (aligns with backend enforcement)
                     try {
-                        const resp = await fetch(base + '/api/admin/exams/probe', { method: 'GET', headers, credentials: 'include' });
+                        const resp = await fetch(base + '/api/admin/data-explorer/tables', { method: 'GET', headers, credentials: 'include' });
                         if (resp.ok || resp.status === 204) {
                             try { window.__isAdmin = true; } catch(_){ }
                             return true;

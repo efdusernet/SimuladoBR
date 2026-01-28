@@ -23,6 +23,7 @@
 </head>
 <body>
   <div style="position:fixed; top:8px; right:8px; z-index:1000; display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+  <script src="/utils/auth.js"></script>
     <button id="exitReviewBtn" class="primary-btn" style="background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Encerrar revisão</button>
     <button id="deleteHistoryBtn" class="primary-btn" type="button" hidden style="display:none !important; background:#dc2626; border:none; padding:8px 14px; border-radius:6px; color:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.15);">Excluir histórico</button>
     <button id="openGridReviewBtn" type="button" class="primary-btn" style="padding:8px 14px; border-radius:6px; font-size:13px;">Navegar questões</button>
@@ -166,15 +167,13 @@
 
       async function isAdmin(){
         try {
-          const token = (localStorage.getItem('sessionToken') || '').trim();
-          const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-          const sessionForHeader = token || nomeUsuario;
+          const sessionForHeader = (window.Auth && typeof window.Auth.getSessionIdentity === 'function')
+            ? window.Auth.getSessionIdentity()
+            : '';
           if (!sessionForHeader) return false;
-          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-          const headers = {};
-          if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
-          if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+          const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+            ? window.Auth.getAuthHeaders()
+            : {};
           const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
           const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
           return r && r.ok;
@@ -201,17 +200,26 @@
           const ok = confirm(`Excluir histórico (tentativa ID ${attemptId})?\n\nEsta ação apaga definitivamente respostas e registros da tentativa.`);
           if (!ok) return;
           try {
-            const token = (localStorage.getItem('sessionToken') || '').trim();
-            const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-            const sessionForHeader = token || nomeUsuario;
-            const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-            const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-            const headers = { 'Content-Type': 'application/json' };
-            if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
-            if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-
             const csrfTok = await ensureCsrfToken();
-            if (csrfTok) headers['X-CSRF-Token'] = csrfTok;
+            const headers = (() => {
+              const extra = {};
+              try { if (csrfTok) extra['X-CSRF-Token'] = csrfTok; } catch(_){ }
+              try {
+                if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                  return window.Auth.getAuthHeaders({ contentType: 'application/json', extra });
+                }
+              } catch(_){ }
+              const token = (localStorage.getItem('sessionToken') || '').trim();
+              const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+              const sessionForHeader = token || nomeUsuario;
+              const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+              const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+              const h = { 'Content-Type': 'application/json' };
+              if (sessionForHeader) h['X-Session-Token'] = sessionForHeader;
+              if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+              Object.assign(h, extra);
+              return h;
+            })();
 
             const url = `/api/admin/exams/attempts/${encodeURIComponent(String(attemptId))}`;
             btn.disabled = true;
@@ -234,13 +242,21 @@
 
       async function loadResult(){
         try {
-          const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
-          const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-          const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
           const url = `/api/exams/result/${encodeURIComponent(examId)}`;
-          const headers = {};
-          if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
-          if (sessionTok) headers['X-Session-Token'] = sessionTok;
+          const headers = (() => {
+            try {
+              if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                return window.Auth.getAuthHeaders({ acceptJson: true });
+              }
+            } catch(_){ }
+            const sessionTok = (localStorage.getItem('sessionToken')||'').trim();
+            const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+            const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+            const h = {};
+            if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+            if (sessionTok) h['X-Session-Token'] = sessionTok;
+            return h;
+          })();
           const r = await fetch(url, { headers });
           if (!r.ok) throw new Error('Falha ao carregar resultado');
           const data = await r.json();

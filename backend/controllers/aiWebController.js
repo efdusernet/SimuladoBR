@@ -345,9 +345,9 @@ function normalizeCurrentSelections(current) {
   const c = current || {};
   return {
     iddominiogeral: toIntOrNull(c.iddominiogeral),
-    iddominio: toIntOrNull(c.iddominio),
+    iddominio_desempenho: toIntOrNull(c.iddominio_desempenho),
     idprincipio: toIntOrNull(c.idprincipio),
-    codigocategoria: toIntOrNull(c.codigocategoria),
+    id_abordagem: toIntOrNull(c.id_abordagem),
     codgrupoprocesso: toIntOrNull(c.codgrupoprocesso),
     id_task: toIntOrNull(c.id_task),
   };
@@ -461,26 +461,26 @@ async function classifyQuestion(req, res, next) {
     const mdTopK = clampInt(process.env.AI_CLASSIFY_MASTERDATA_TOP_K, 40, { min: 10, max: 120 });
     const masterdataForPrompt = {
       iddominiogeral: pickTopMasterdata(masterdata.iddominiogeral, questionTextForMatch, { topK: mdTopK, forceIncludeIds: [current.iddominiogeral] }),
-      iddominio: pickTopMasterdata(masterdata.iddominio, questionTextForMatch, { topK: mdTopK, forceIncludeIds: [current.iddominio] }),
+      iddominio_desempenho: pickTopMasterdata(masterdata.iddominio_desempenho, questionTextForMatch, { topK: mdTopK, forceIncludeIds: [current.iddominio_desempenho] }),
       idprincipio: pickTopMasterdata(masterdata.idprincipio, questionTextForMatch, { topK: mdTopK, forceIncludeIds: [current.idprincipio] }),
-      codigocategoria: pickTopMasterdata(masterdata.codigocategoria, questionTextForMatch, { topK: mdTopK, forceIncludeIds: [current.codigocategoria] }),
+      id_abordagem: pickTopMasterdata(masterdata.id_abordagem, questionTextForMatch, { topK: mdTopK, forceIncludeIds: [current.id_abordagem] }),
       codgrupoprocesso: pickTopMasterdata(masterdata.codgrupoprocesso, questionTextForMatch, { topK: mdTopK, forceIncludeIds: [current.codgrupoprocesso] }),
       id_task: pickTopMasterdata(masterdata.id_task, questionTextForMatch, { topK: mdTopK, forceIncludeIds: [current.id_task] }),
     };
     const allowed = {
       iddominiogeral: buildAllowedIdSet(masterdata.iddominiogeral),
-      iddominio: buildAllowedIdSet(masterdata.iddominio),
+      iddominio_desempenho: buildAllowedIdSet(masterdata.iddominio_desempenho),
       idprincipio: buildAllowedIdSet(masterdata.idprincipio),
-      codigocategoria: buildAllowedIdSet(masterdata.codigocategoria),
+      id_abordagem: buildAllowedIdSet(masterdata.id_abordagem),
       codgrupoprocesso: buildAllowedIdSet(masterdata.codgrupoprocesso),
       id_task: buildAllowedIdSet(masterdata.id_task),
     };
 
     const masterdataByKey = {
       iddominiogeral: masterdata.iddominiogeral,
-      iddominio: masterdata.iddominio,
+      iddominio_desempenho: masterdata.iddominio_desempenho,
       idprincipio: masterdata.idprincipio,
-      codigocategoria: masterdata.codigocategoria,
+      id_abordagem: masterdata.id_abordagem,
       codgrupoprocesso: masterdata.codgrupoprocesso,
       id_task: masterdata.id_task,
     };
@@ -519,9 +519,9 @@ async function classifyQuestion(req, res, next) {
           context: { summary: `string (ideal 200–400 chars; máx ${contextSummaryMaxChars})`, tags: 'string[] (curtas)' },
           fields: {
             iddominiogeral: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
-            iddominio: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
+            iddominio_desempenho: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
             idprincipio: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
-            codigocategoria: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
+            id_abordagem: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
             codgrupoprocesso: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
             id_task: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
           },
@@ -631,7 +631,7 @@ async function classifyQuestion(req, res, next) {
       };
     }
 
-    for (const k of ['iddominiogeral', 'iddominio', 'idprincipio', 'codigocategoria', 'codgrupoprocesso', 'id_task']) {
+    for (const k of ['iddominiogeral', 'iddominio_desempenho', 'idprincipio', 'id_abordagem', 'codgrupoprocesso', 'id_task']) {
       validateField(k);
     }
 
@@ -649,7 +649,7 @@ async function classifyQuestion(req, res, next) {
       );
     };
     const lowKeys = enableReasonRefine
-      ? ['iddominiogeral', 'iddominio', 'idprincipio', 'codigocategoria', 'codgrupoprocesso', 'id_task']
+      ? ['iddominiogeral', 'iddominio_desempenho', 'idprincipio', 'id_abordagem', 'codgrupoprocesso', 'id_task']
         .filter(k => {
           const f = out.fields && out.fields[k] ? out.fields[k] : null;
           if (!f) return false;
@@ -704,9 +704,9 @@ async function classifyQuestion(req, res, next) {
           outputSchema: {
             fields: {
               iddominiogeral: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
-              iddominio: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
+              iddominio_desempenho: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
               idprincipio: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
-              codigocategoria: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
+              id_abordagem: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
               codgrupoprocesso: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
               id_task: '{suggestedId:number|null, reason:string, confidence:low|medium|high}',
             }
@@ -753,7 +753,7 @@ async function classifyQuestion(req, res, next) {
 
     // Final fallback: if reason is still generic/empty, build a deterministic justification
     // based on question keywords + chosen masterdata explicacao.
-    for (const k of ['iddominiogeral', 'iddominio', 'idprincipio', 'codigocategoria', 'codgrupoprocesso', 'id_task']) {
+    for (const k of ['iddominiogeral', 'iddominio_desempenho', 'idprincipio', 'id_abordagem', 'codgrupoprocesso', 'id_task']) {
       const f = out.fields && out.fields[k] ? out.fields[k] : null;
       if (!f) continue;
       if (!isGenericReason(f.reason)) continue;

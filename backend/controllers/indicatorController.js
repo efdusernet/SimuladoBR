@@ -163,7 +163,7 @@ async function getAbordagemStats(req, res, next){
       WITH pq AS (
         SELECT
           aq.id AS aqid,
-          q.codigocategoria AS abordagem_id,
+          q.id_abordagem AS abordagem_id,
           cq.descricao AS abordagem_nome,
           COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
           COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
@@ -171,14 +171,14 @@ async function getAbordagemStats(req, res, next){
         FROM exam_attempt_question aq
         LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
         JOIN questao q ON q.id = aq.question_id
-        LEFT JOIN public.abordagem cq ON cq.id = q.codigocategoria
+        LEFT JOIN public.abordagem cq ON cq.id = q.id_abordagem
         LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
         LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
         JOIN exam_attempt a ON a.id = aq.attempt_id
         WHERE aq.attempt_id = :idExame
-          AND q.codigocategoria IS NOT NULL
+          AND q.id_abordagem IS NOT NULL
           ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
-        GROUP BY aq.id, q.codigocategoria, cq.descricao
+        GROUP BY aq.id, q.id_abordagem, cq.descricao
       )
       SELECT
         abordagem_id,

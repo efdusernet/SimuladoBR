@@ -51,6 +51,7 @@
   <h3>Probabilidade de passar no exame</h3>
   <div id="passProbabilityMount" aria-live="polite"></div>
 </div>
+<script src="/utils/auth.js"></script>
 <script src="/components/sb-hbar.js"></script>
 <script>
   (function initPassProbability(){
@@ -60,16 +61,26 @@
         if (lsVal === 'true') return false;
         if (lsVal === 'false') return true;
 
-        const token = (localStorage.getItem('sessionToken') || '').trim();
-        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-        const identity = (token || nomeUsuario).trim();
-        if (!identity) return false;
+        const identity = (window.Auth && typeof window.Auth.getSessionIdentity === 'function')
+          ? (window.Auth.getSessionIdentity() || '')
+          : ((localStorage.getItem('sessionToken') || '').trim() || (localStorage.getItem('nomeUsuario') || '').trim());
+        if (!String(identity || '').trim()) return false;
 
-        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-        const headers = { 'Accept':'application/json' };
-        headers['X-Session-Token'] = identity;
-        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+        const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+          ? window.Auth.getAuthHeaders({ acceptJson: true })
+          : (() => {
+              const h = { 'Accept': 'application/json' };
+              try {
+                const tok = (localStorage.getItem('sessionToken') || '').trim();
+                const nome = (localStorage.getItem('nomeUsuario') || '').trim();
+                const sess = (tok || nome).trim();
+                const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
+                const jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+                if (sess) h['X-Session-Token'] = sess;
+                if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+              } catch(_){ }
+              return h;
+            })();
 
         const resp = await fetch('/api/users/me', { method:'GET', headers, credentials:'include' });
         if (!resp.ok) return false;
@@ -151,9 +162,21 @@
 
     async function fetchInd12(){
       try {
-        const headers = { 'Accept': 'application/json' };
-        if (sessionToken) headers['X-Session-Token'] = sessionToken;
-        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+        const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
+          ? window.Auth.getAuthHeaders({ acceptJson: true })
+          : (() => {
+              const h = { 'Accept': 'application/json' };
+              try {
+                const tok = (localStorage.getItem('sessionToken') || '').trim();
+                const nome = (localStorage.getItem('nomeUsuario') || '').trim();
+                const sess = (tok || nome).trim();
+                const jwtTok2 = (localStorage.getItem('jwtToken') || '').trim();
+                const jwtType2 = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
+                if (sess) h['X-Session-Token'] = sess;
+                if (jwtTok2) h['Authorization'] = `${jwtType2} ${jwtTok2}`;
+              } catch(_){ }
+              return h;
+            })();
         const resp = await fetch(baseUrl, { cache: 'no-store', headers, credentials: 'include' });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         return await resp.json();

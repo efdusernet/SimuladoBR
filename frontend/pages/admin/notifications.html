@@ -24,6 +24,7 @@
 </head>
 <body>
   <div class="wrap">
+  <script src="/utils/auth.js"></script>
     <h1 style="margin:0 0 10px;">Notificações</h1>
     <p style="color:#94a3b8">Crie e dispare notificações para todos os usuários ou individualmente.</p>
 
@@ -117,7 +118,15 @@
       }
       // Constrói cabeçalhos de autorização replicando a lógica do index.html (usa nomeUsuario como fallback)
       function headers(){
-        const h = {};
+        const h = (() => {
+          try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+              return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+            }
+          } catch(_){ }
+          return { 'Content-Type': 'application/json' };
+        })();
+
         const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
         const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
         const lsSession = (localStorage.getItem('sessionToken')||'').trim();
@@ -127,15 +136,18 @@
         const qpSession = (urlParams.get('sessionToken')||'').trim();
         // Se query param parece um JWT, preferir para Authorization
         const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/;
+
+        // Authorization: query param JWT wins when local JWT is absent
         if (!jwtTok && jwtRegex.test(qpSession)) {
           h['Authorization'] = jwtType + ' ' + qpSession;
         } else if (jwtTok) {
           h['Authorization'] = jwtType + ' ' + jwtTok;
         }
+
         // Identidade para X-Session-Token: nomeUsuario > session localStorage > query param
+        // (preserve legacy behavior for shared links)
         const identity = nomeUsuario || lsSession || (jwtRegex.test(qpSession)? '' : qpSession);
         if (identity) h['X-Session-Token'] = identity;
-        h['Content-Type'] = 'application/json';
         return h;
       }
       async function loadList(){

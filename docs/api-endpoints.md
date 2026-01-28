@@ -12,6 +12,11 @@ Observações gerais
 - Header legado suportado: `X-Session-Token: <token>` (conteúdo é **JWT**, não e-mail/id).
 - Responses em JSON; erros comuns: 400 (payload inválido), 404 (não encontrado), 500 (erro interno).
 
+Docs relacionadas (fora de `/api/exams`):
+- `docs/admin-data-explorer.md`
+- `docs/dicas.md`
+- `docs/flashcards-admin.md`
+
 ## GET /api/ai/insights?days=30
 Retorna um “dashboard” de insights: KPIs agregados do período + série diária + recomendações geradas (Ollama quando habilitado; fallback por regras quando não).
 

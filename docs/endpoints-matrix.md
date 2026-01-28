@@ -107,6 +107,51 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 ---
 
+## Dicas (`/api/dicas`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/dicas/today` | JWT | Query: `versionId?` (default 2), `anyVersion?` (`true` ignora versionId) | `{ item: { id, descricao, id_versao_pmbok, versao_code? } }` | Retorna uma dica aleatória (`public.dicas`). |
+
+---
+
+## Admin — Dicas (`/api/admin/dicas`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/dicas` | Admin | Query: `versionId?`, `q?`, `limit?`, `offset?` | `{ items, meta }` | Lista dicas (filtro por versão e busca em `descricao`). |
+| GET | `/api/admin/dicas/versions` | Admin | — | `{ items: [{ id, code }] }` | Lista versões em `exam_content_version`. |
+| POST | `/api/admin/dicas` | Admin | Body: `{ descricao, id_versao_pmbok? }` | *(201)* item | Cria dica. |
+| PUT | `/api/admin/dicas/:id` | Admin | Body: `{ descricao, id_versao_pmbok? }` | item | Atualiza dica. |
+| DELETE | `/api/admin/dicas/:id` | Admin | Path: `id` | `{ ok, id }` | Remove dica. |
+
+---
+
+## Admin — Data Explorer (`/api/admin/data-explorer`)
+
+**Nota:** builder seguro (sem SQL livre). Bloqueia tabelas sensíveis por denylist.
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/data-explorer/tables` | Admin | — | `{ tables: string[] }` | Lista tabelas `public` permitidas. |
+| GET | `/api/admin/data-explorer/tables/:table/columns` | Admin | Path: `table` | `{ table, columns: [{ name, type }] }` | Lista colunas e tipos da tabela. |
+| POST | `/api/admin/data-explorer/preview` | Admin | Body: builder JSON | `{ sqlPreview, sqlPreviewExpanded, bind, meta }` | Gera preview do SELECT (não executa). |
+| POST | `/api/admin/data-explorer/query` | Admin | Body: builder JSON | `{ rows, hasMore, sqlPreview, sqlPreviewExpanded, bind, meta }` | Executa SELECT e retorna linhas. |
+
+---
+
+## Admin — Flashcards (`/api/admin/flashcards`)
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/flashcards` | Admin | Query: `versionId?`, `q?`, `limit?`, `offset?` | `{ items, meta }` | Lista flashcards (filtro por versão + busca em `pergunta`/`resposta`). |
+| GET | `/api/admin/flashcards/versions` | Admin | — | `{ items: [{ id, code }] }` | Lista versões em `exam_content_version`. |
+| POST | `/api/admin/flashcards` | Admin | Body: `{ pergunta, resposta, id_versao_pmbok?, idprincipio?, iddominio_desempenho?, basics?, active? }` | *(201)* item | Cria flashcard. |
+| PUT | `/api/admin/flashcards/:id` | Admin | Body: `{ pergunta, resposta, id_versao_pmbok?, idprincipio?, iddominio_desempenho?, basics?, active? }` | item | Atualiza flashcard. |
+| DELETE | `/api/admin/flashcards/:id` | Admin | Path: `id` | `{ ok, id }` | Remove flashcard. |
+
+---
+
 ## Feedback (`/api/feedback`)
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
@@ -129,7 +174,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
-| POST | `/api/questions` | Admin | Body: `{ descricao, tiposlug?, multiplaescolha?, examTypeSlug?, examTypeId?, iddominio?, codareaconhecimento?, codgrupoprocesso?, dica?, options?: [{ descricao, correta?, explicacao? }], explicacao?, imagem_url? }` | `{ questionId, message, optionsCreated }` | Cria questão unitária com alternativas (explicação por alternativa via `options[].explicacao`; `explicacao` é legado/fallback). |
+| POST | `/api/questions` | Admin | Body: `{ descricao, tiposlug?, multiplaescolha?, examTypeSlug?, examTypeId?, iddominio_desempenho?, codareaconhecimento?, codgrupoprocesso?, dica?, options?: [{ descricao, correta?, explicacao? }], explicacao?, imagem_url? }` | `{ questionId, message, optionsCreated }` | Cria questão unitária com alternativas (explicação por alternativa via `options[].explicacao`; `explicacao` é legado/fallback). |
 | GET | `/api/questions` | Admin | Query: `limit`, `offset` | `[{ Id, Descricao, TipoSlug, ExamTypeId, ... }]` | Lista questões (admin). |
 | GET | `/api/questions/:id` | Admin | Path: `id` | `{ Id, Descricao, TipoSlug, ExamTypeId, Options: [...], ... }` | Busca questão por ID (admin). |
 | GET | `/api/questions/view/:id` | JWT | Path: `id` | `{ Id, Descricao, TipoSlug, Options: [...], ... }` | Busca questão por ID (usuário autenticado, sem admin). |
@@ -144,10 +189,10 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 |--------|----------|------|--------|----------|-----------|
 | GET | `/api/meta/areas` | None | — | `[{ CodAreaConhecimento, Descricao }]` | Lista áreas de conhecimento. |
 | GET | `/api/meta/grupos` | None | — | `[{ CodGrupoProcesso, Descricao }]` | Lista grupos de processos. |
-| GET | `/api/meta/dominios` | None | — | `[{ IdDominio, Descricao }]` | Lista domínios (área técnica). |
+| GET | `/api/meta/ddesempenho` | None | — | `[{ id, descricao }]` | Lista domínios de desempenho. |
 | GET | `/api/meta/dominios-geral` | None | — | `[{ IdDominioGeral, Descricao }]` | Lista domínios gerais (Pessoas, Processos, Negócios). |
 | GET | `/api/meta/principios` | None | — | `[{ IdPrincipio, Descricao }]` | Lista princípios. |
-| GET | `/api/meta/abordagens` | None | — | `[{ CodigoCategoria, Descricao }]` | Lista abordagens de questão (alias legado: `/api/meta/categorias`). |
+| GET | `/api/meta/abordagens` | None | — | `[{ id, descricao }]` | Lista abordagens de questão (alias legado: `/api/meta/categorias`). |
 | GET | `/api/meta/niveis-dificuldade` | None | — | `[{ IdNivel, Descricao }]` | Lista níveis de dificuldade. |
 | GET | `/api/meta/tasks` | None | — | `[{ IdTask, Descricao }]` | Lista tarefas. |
 | GET | `/api/meta/config` | None | — | `{ ... }` | Configurações gerais da aplicação. |
@@ -211,6 +256,9 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Descrição |
 |--------|----------|------|-----------|
+| GET | `/pages/admin/dataExplorer.html` | Admin | Admin Data Explorer (builder seguro + preview ao vivo). |
+| GET | `/pages/admin/flashcards.html` | Admin | CRUD de flashcards (admin). |
+| GET | `/pages/admin/dicas.html` | Admin | CRUD de dicas (admin). |
 | GET | `/pages/admin/questionForm.html` | Admin | Formulário de cadastro unitário de questão. |
 | GET | `/pages/admin/questionBulk.html` | Admin | Interface de importação em massa (JSON/XML). |
 | GET | `/admin/questions/form` | Admin | Alias amigável para `questionForm.html`. |
@@ -250,7 +298,7 @@ Endpoints de listagem (ex: `/api/questions`, `/api/indicators/attempts-history-e
 
 ### Formatos de Bulk Upload
 - **JSON (array)**: `[{ descricao, tiposlug, examTypeSlug, options, ... }]`
-- **JSON (objeto com defaults)**: `{ examTypeSlug, iddominio, questions: [...] }`
+- **JSON (objeto com defaults)**: `{ examTypeSlug, iddominio_desempenho, questions: [...] }`
 - **XML (multipart)**: campo `file` com estrutura `<questions examType="..."><question>...</question></questions>`
 
 ### Metadados de Fixture

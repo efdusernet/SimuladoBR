@@ -60,7 +60,7 @@ Observação: permissões de schema do Postgres precisam permitir CREATE/ALTER n
 ```
 {
   "examType": "pmp",                 // ou examTypeSlug / examTypeId
-  "iddominio": 1,                     // (opcional) padrão do lote
+  "iddominio_desempenho": 1,          // (opcional) padrão do lote
   "codareaconhecimento": 1,
   "codgrupoprocesso": 1,
   "dica": "opcional",
@@ -74,7 +74,7 @@ Observação: permissões de schema do Postgres precisam permitir CREATE/ALTER n
       ],
       "explicacao": "(legado) opcional; fallback para a alternativa correta",
       // overrides do lote
-      "iddominio": 1,
+      "iddominio_desempenho": 1,
       "codareaconhecimento": 2,
       "codgrupoprocesso": 3
     }

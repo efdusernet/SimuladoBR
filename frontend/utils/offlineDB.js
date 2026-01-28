@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'SimuladosBR';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // Stores
 const STORES = {
@@ -50,9 +50,23 @@ class OfflineDB {
         if (!db.objectStoreNames.contains(STORES.QUESTIONS)) {
           const questionsStore = db.createObjectStore(STORES.QUESTIONS, { keyPath: 'id' });
           questionsStore.createIndex('examType', 'examType', { unique: false });
-          questionsStore.createIndex('domain', 'iddominio', { unique: false });
+          questionsStore.createIndex('domain', 'iddominio_desempenho', { unique: false });
           questionsStore.createIndex('cached', 'cachedAt', { unique: false });
           logger.info('[OfflineDB] Store "questions" criado');
+        } else {
+          // Migration: update domain index keyPath to `iddominio_desempenho`
+          try {
+            const tx = event.target.transaction;
+            const questionsStore = tx.objectStore(STORES.QUESTIONS);
+            if (questionsStore && questionsStore.indexNames && questionsStore.indexNames.contains('domain')) {
+              try { questionsStore.deleteIndex('domain'); } catch (_) {}
+            }
+            if (questionsStore && questionsStore.createIndex) {
+              questionsStore.createIndex('domain', 'iddominio_desempenho', { unique: false });
+            }
+          } catch (_) {
+            // Best-effort: if migration fails, cache still works via full scan filter.
+          }
         }
 
         // Store: Attempts (tentativas offline)
@@ -134,7 +148,7 @@ class OfflineDB {
           questions = questions.filter(q => q.examType === filters.examType);
         }
         if (filters.domain) {
-          questions = questions.filter(q => q.iddominio === filters.domain);
+          questions = questions.filter(q => q.iddominio_desempenho === filters.domain);
         }
         if (filters.limit) {
           questions = questions.slice(0, filters.limit);

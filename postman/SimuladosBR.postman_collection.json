@@ -704,7 +704,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"question\": {\n    \"descricao\": \"{{classifyDescricao}}\",\n    \"alternativas\": [\"{{classifyAltA}}\", \"{{classifyAltB}}\", \"{{classifyAltC}}\", \"{{classifyAltD}}\"],\n    \"correta\": \"{{classifyCorreta}}\"\n  },\n  \"current\": {\n    \"iddominiogeral\": {{classifyCurrentDominioGeral}},\n    \"iddominio\": {{classifyCurrentDominio}},\n    \"idprincipio\": {{classifyCurrentPrincipio}},\n    \"codigocategoria\": {{classifyCurrentCategoria}},\n    \"codgrupoprocesso\": {{classifyCurrentGrupoProcesso}},\n    \"id_task\": {{classifyCurrentTask}}\n  },\n  \"dicaMaxChars\": {{classifyDicaMaxChars}}\n}"
+              "raw": "{\n  \"question\": {\n    \"descricao\": \"{{classifyDescricao}}\",\n    \"alternativas\": [\"{{classifyAltA}}\", \"{{classifyAltB}}\", \"{{classifyAltC}}\", \"{{classifyAltD}}\"],\n    \"correta\": \"{{classifyCorreta}}\"\n  },\n  \"current\": {\n    \"iddominiogeral\": {{classifyCurrentDominioGeral}},\n    \"iddominio_desempenho\": {{classifyCurrentDominio}},\n    \"idprincipio\": {{classifyCurrentPrincipio}},\n    \"id_abordagem\": {{classifyCurrentAbordagem}},\n    \"codgrupoprocesso\": {{classifyCurrentGrupoProcesso}},\n    \"id_task\": {{classifyCurrentTask}}\n  },\n  \"dicaMaxChars\": {{classifyDicaMaxChars}}\n}"
             },
             "url": {
               "raw": "{{BACKEND_BASE}}/api/ai/question-classify",

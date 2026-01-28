@@ -192,12 +192,12 @@ exports.createQuestion = async (req, res, next) => {
 
 		// Audit: usuário criador para respostaopcao (criadousuario / alteradousuario)
 		const createdByUserId = Number.isFinite(Number(b.createdByUserId)) ? Number(b.createdByUserId) : null;
-	const iddominio = Number.isFinite(Number(b.iddominio)) ? Number(b.iddominio) : 1;
+	const iddominioDesempenho = Number.isFinite(Number(b.iddominio_desempenho)) ? Number(b.iddominio_desempenho) : 1;
 	const codareaconhecimento = (b.codareaconhecimento != null && b.codareaconhecimento !== '') ? Number(b.codareaconhecimento) : null;
 	const codgrupoprocesso = (b.codgrupoprocesso != null && b.codgrupoprocesso !== '') ? Number(b.codgrupoprocesso) : null;
 	const iddominiogeral = (b.iddominiogeral != null && b.iddominiogeral !== '') ? Number(b.iddominiogeral) : null;
 	const idprincipio = (b.idprincipio != null && b.idprincipio !== '') ? Number(b.idprincipio) : null;
-	const codigocategoria = (b.codigocategoria != null && b.codigocategoria !== '') ? Number(b.codigocategoria) : null;
+	const id_abordagem = (b.id_abordagem != null && b.id_abordagem !== '') ? Number(b.id_abordagem) : null;
 	const codniveldificuldade = (b.codniveldificuldade != null && b.codniveldificuldade !== '') ? Number(b.codniveldificuldade) : null;
 	const id_task = (b.id_task != null && b.id_task !== '') ? Number(b.id_task) : null;
 	const dica = (b.dica || null);
@@ -253,15 +253,15 @@ exports.createQuestion = async (req, res, next) => {
 		const hasQuestaoInteracao = qCols && qCols.has('interacaospec');
 		const hasQuestaoPretest = qCols && qCols.has('is_pretest');
 		const insertQ = `INSERT INTO public.questao (
-			iddominio, idstatus, descricao, datacadastro, dataalteracao,
+			iddominio_desempenho, idstatus, descricao, datacadastro, dataalteracao,
 			criadousuario, alteradousuario, excluido, seed, nivel,
-			idprincipio, dica, multiplaescolha, codigocategoria, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame${hasQuestaoPretest ? ', is_pretest' : ''}${hasQuestaoInteracao ? ', interacaospec' : ''}${hasQuestaoExp ? ', explicacao' : ''}${hasQuestaoRef ? ', referencia' : ''}
+			idprincipio, dica, multiplaescolha, id_abordagem, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame${hasQuestaoPretest ? ', is_pretest' : ''}${hasQuestaoInteracao ? ', interacaospec' : ''}${hasQuestaoExp ? ', explicacao' : ''}${hasQuestaoRef ? ', referencia' : ''}
 		) VALUES (
-			:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+			:iddominio_desempenho, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 			:createdByUserId, :createdByUserId, false, :seed, 1,
-			:idprincipio, :dica, :multipla, :codigocategoria, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame${hasQuestaoPretest ? ', :is_pretest' : ''}${hasQuestaoInteracao ? ', :interacaospec' : ''}${hasQuestaoExp ? ', :explicacao' : ''}${hasQuestaoRef ? ', :referencia' : ''}
+			:idprincipio, :dica, :multipla, :id_abordagem, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame${hasQuestaoPretest ? ', :is_pretest' : ''}${hasQuestaoInteracao ? ', :interacaospec' : ''}${hasQuestaoExp ? ', :explicacao' : ''}${hasQuestaoRef ? ', :referencia' : ''}
 		) RETURNING id`;
-		const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, seed, codgrupoprocesso, codigocategoria, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, is_pretest, createdByUserId, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: referencia || null }, type: sequelize.QueryTypes.INSERT, transaction: t });
+		const r = await sequelize.query(insertQ, { replacements: { iddominio_desempenho: iddominioDesempenho, descricao, dica, multipla, seed, codgrupoprocesso, id_abordagem, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, is_pretest, createdByUserId, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: referencia || null }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
 			// Safer: fetch with SELECT currval... but RETURNING should give us id in r[0][0].id depending on dialect
 			const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
@@ -368,7 +368,7 @@ exports.getQuestionById = async (req, res, next) => {
 		const hasQuestaoInteracao = qCols && qCols.has('interacaospec');
 		const hasQuestaoPretest = qCols && qCols.has('is_pretest');
 
-	const qsql = `SELECT q.id, q.descricao, q.tiposlug, ${hasQuestaoInteracao ? 'q.interacaospec,' : ''} ${hasQuestaoPretest ? 'q.is_pretest,' : ''} q.iddominio, NULL AS codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.codigocategoria,
+	const qsql = `SELECT q.id, q.descricao, q.tiposlug, ${hasQuestaoInteracao ? 'q.interacaospec,' : ''} ${hasQuestaoPretest ? 'q.is_pretest,' : ''} q.iddominio_desempenho, NULL AS codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.id_abordagem,
 						 q.seed,
 									 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
 									 ${hasQuestaoExp ? 'q.explicacao,' : ''}
@@ -414,12 +414,12 @@ exports.getQuestionById = async (req, res, next) => {
 			interacao,
 			is_pretest: (hasQuestaoPretest ? (base.is_pretest === true || base.is_pretest === 't') : false),
 			seed: base.seed === true || base.seed === 't',
-			iddominio: base.iddominio,
+			iddominio_desempenho: base.iddominio_desempenho,
 			codareaconhecimento: base.codareaconhecimento,
 			codgrupoprocesso: base.codgrupoprocesso,
 			iddominiogeral: base.iddominiogeral,
 			idprincipio: base.idprincipio,
-			codigocategoria: base.codigocategoria,
+			id_abordagem: base.id_abordagem,
 			codniveldificuldade: base.codniveldificuldade,
 			id_task: base.id_task,
 			dica: base.dica,
@@ -518,12 +518,12 @@ exports.updateQuestion = async (req, res, next) => {
 		}
 		// IMPORTANT: sequelize.query replacements cannot safely bind plain objects; serialize JSONB payloads.
 		const interacaospecParam = interacaospec != null ? JSON.stringify(interacaospec) : null;
-		const iddominio = (b.iddominio != null && b.iddominio !== '') ? Number(b.iddominio) : null;
+		const iddominioDesempenho = (b.iddominio_desempenho != null && b.iddominio_desempenho !== '') ? Number(b.iddominio_desempenho) : null;
 		const codareaconhecimento = (b.codareaconhecimento != null && b.codareaconhecimento !== '') ? Number(b.codareaconhecimento) : null;
 		const codgrupoprocesso = (b.codgrupoprocesso != null && b.codgrupoprocesso !== '') ? Number(b.codgrupoprocesso) : null;
 		const iddominiogeral = (b.iddominiogeral != null && b.iddominiogeral !== '') ? Number(b.iddominiogeral) : null;
 		const idprincipio = (b.idprincipio != null && b.idprincipio !== '') ? Number(b.idprincipio) : null;
-	const codigocategoria = (b.codigocategoria != null && b.codigocategoria !== '') ? Number(b.codigocategoria) : null;
+	const id_abordagem = (b.id_abordagem != null && b.id_abordagem !== '') ? Number(b.id_abordagem) : null;
 	const codniveldificuldade = (b.codniveldificuldade != null && b.codniveldificuldade !== '') ? Number(b.codniveldificuldade) : null;
 	const id_task = (b.id_task != null && b.id_task !== '') ? Number(b.id_task) : null;
 	const dica = (b.dica || null);
@@ -579,11 +579,11 @@ exports.updateQuestion = async (req, res, next) => {
 				tiposlug = :tiposlug,
 				multiplaescolha = :multipla,
 				seed = :seed,
-				iddominio = :iddominio,
+				iddominio_desempenho = :iddominio_desempenho,
 				codgrupoprocesso = :codgrupoprocesso,
 				iddominiogeral = :iddominiogeral,
 				idprincipio = :idprincipio,
-				codigocategoria = :codigocategoria,
+				id_abordagem = :id_abordagem,
 				dica = :dica,
 				imagem_url = :imagem_url,
 				codniveldificuldade = :codniveldificuldade,
@@ -593,7 +593,7 @@ exports.updateQuestion = async (req, res, next) => {
 				alteradousuario = :updatedByUserId,
 				dataalteracao = CURRENT_TIMESTAMP
 			WHERE id = :id`;
-			await sequelize.query(upQ, { replacements: { id, descricao, is_pretest, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: (referencia != null ? String(referencia) : null), tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio, codgrupoprocesso, iddominiogeral, idprincipio, codigocategoria, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+			await sequelize.query(upQ, { replacements: { id, descricao, is_pretest, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: (referencia != null ? String(referencia) : null), tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio_desempenho: iddominioDesempenho, codgrupoprocesso, iddominiogeral, idprincipio, id_abordagem, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
 			// Opções (respostaopcao) + explicações (explicacaoguia)
 			// Regra:
@@ -912,7 +912,7 @@ exports.existsQuestion = async (req, res, next) => {
 function normalizeQuestionJson(item, defaults){
 	const o = item || {};
 	const tiposlug = (o.tiposlug || o.tipo || '').toString().toLowerCase() || null;
-	const iddominio = (o.iddominio != null ? Number(o.iddominio) : defaults.iddominio);
+	const iddominio_desempenho = (o.iddominio_desempenho != null ? Number(o.iddominio_desempenho) : defaults.iddominio_desempenho);
 	const codareaconhecimento = (o.codareaconhecimento != null ? Number(o.codareaconhecimento) : defaults.codareaconhecimento);
 	const codgrupoprocesso = (o.codgrupoprocesso != null ? Number(o.codgrupoprocesso) : defaults.codgrupoprocesso);
 	const iddominiogeral = (o.iddominiogeral != null ? Number(o.iddominiogeral) : defaults.iddominiogeral);
@@ -923,7 +923,7 @@ function normalizeQuestionJson(item, defaults){
 	const descricao = String(o.descricao || o.texto || o.enunciado || '');
 	const options = Array.isArray(o.options) ? o.options : (Array.isArray(o.alternativas) ? o.alternativas.map(a=>({ descricao: a.texto||a.descricao||'', correta: !!a.correta })) : []);
 	const explicacao = (o.explicacao != null) ? String(o.explicacao) : null;
-	return { descricao, tiposlug, iddominio, codareaconhecimento, codgrupoprocesso, iddominiogeral, id_task, dica, options, examTypeSlug, examTypeId, explicacao };
+	return { descricao, tiposlug, iddominio_desempenho, codareaconhecimento, codgrupoprocesso, iddominiogeral, id_task, dica, options, examTypeSlug, examTypeId, explicacao };
 }
 
 // Helper: parse XML payload into array of normalized questions
@@ -935,7 +935,7 @@ function parseQuestionsFromXml(xmlText){
 	if (!root) return { defaults: {}, items: [] };
 	const defaults = {
 		examTypeSlug: (root.examType || root.exam_type || root.tipo || '').toString().toLowerCase() || '',
-		iddominio: root.iddominio != null ? Number(root.iddominio) : undefined,
+		iddominio_desempenho: root.iddominio_desempenho != null ? Number(root.iddominio_desempenho) : undefined,
 		codareaconhecimento: root.codareaconhecimento != null ? Number(root.codareaconhecimento) : undefined,
 		codgrupoprocesso: root.codgrupoprocesso != null ? Number(root.codgrupoprocesso) : undefined,
 		iddominiogeral: root.iddominiogeral != null ? Number(root.iddominiogeral) : undefined,
@@ -956,7 +956,7 @@ function parseQuestionsFromXml(xmlText){
 		return {
 			descricao: String(q.descricao || q.texto || q.enunciado || ''),
 			tiposlug: (q.tiposlug || q.tipo || '').toString().toLowerCase() || '',
-			iddominio: q.iddominio != null ? Number(q.iddominio) : undefined,
+			iddominio_desempenho: q.iddominio_desempenho != null ? Number(q.iddominio_desempenho) : undefined,
 			codareaconhecimento: q.codareaconhecimento != null ? Number(q.codareaconhecimento) : undefined,
 			codgrupoprocesso: q.codgrupoprocesso != null ? Number(q.codgrupoprocesso) : undefined,
 			iddominiogeral: q.iddominiogeral != null ? Number(q.iddominiogeral) : undefined,
@@ -990,13 +990,13 @@ exports.bulkCreateQuestions = async (req, res, next) => {
 		}
 
 		// Normalize JSON payload
-		let defaults = { iddominio: undefined, codareaconhecimento: undefined, codgrupoprocesso: undefined, id_task: undefined, dica: undefined, examTypeSlug: undefined, examTypeId: undefined };
+		let defaults = { iddominio_desempenho: undefined, codareaconhecimento: undefined, codgrupoprocesso: undefined, id_task: undefined, dica: undefined, examTypeSlug: undefined, examTypeId: undefined };
 		let items = [];
 		if (Array.isArray(payload)) {
 			items = payload.map(q => normalizeQuestionJson(q, defaults));
 		} else if (payload && typeof payload === 'object') {
 			defaults = {
-				iddominio: payload.iddominio != null ? Number(payload.iddominio) : undefined,
+				iddominio_desempenho: payload.iddominio_desempenho != null ? Number(payload.iddominio_desempenho) : undefined,
 				codareaconhecimento: payload.codareaconhecimento != null ? Number(payload.codareaconhecimento) : undefined,
 				codgrupoprocesso: payload.codgrupoprocesso != null ? Number(payload.codgrupoprocesso) : undefined,
 				id_task: payload.id_task != null ? Number(payload.id_task) : undefined,
@@ -1058,7 +1058,7 @@ exports.bulkCreateQuestions = async (req, res, next) => {
 						if (['multi','multiple','checkbox'].includes(tiposlug)) multipla = true; else if (['single','radio'].includes(tiposlug)) multipla = false;
 					}
 					if (multipla == null) multipla = false;
-				const iddominio = (q.iddominio != null ? Number(q.iddominio) : 1);
+				const iddominioDesempenho = (q.iddominio_desempenho != null ? Number(q.iddominio_desempenho) : 1);
 				const codgrupoprocesso = (q.codgrupoprocesso != null ? Number(q.codgrupoprocesso) : null);
 				const iddominiogeral = (q.iddominiogeral != null ? Number(q.iddominiogeral) : null);
 				const id_task = (q.id_task != null ? Number(q.id_task) : null);
@@ -1068,15 +1068,15 @@ exports.bulkCreateQuestions = async (req, res, next) => {
 
 				// Insert question
 				const insertQ = `INSERT INTO public.questao (
-					iddominio, idstatus, descricao, datacadastro, dataalteracao,
+					iddominio_desempenho, idstatus, descricao, datacadastro, dataalteracao,
 					criadousuario, alteradousuario, excluido, seed, nivel,
-					idprincipio, dica, multiplaescolha, codigocategoria, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, id_task${hasQuestaoExp ? ', explicacao' : ''}
+					idprincipio, dica, multiplaescolha, id_abordagem, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, id_task${hasQuestaoExp ? ', explicacao' : ''}
 				) VALUES (
-					:iddominio, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+					:iddominio_desempenho, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 					1, 1, false, false, 1,
 					NULL, :dica, :multipla, NULL, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :id_task${hasQuestaoExp ? ', :explicacao' : ''}
 				) RETURNING id`;
-				const r = await sequelize.query(insertQ, { replacements: { iddominio, descricao, dica, multipla, codgrupoprocesso, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: examTypeId, iddominiogeral, id_task, explicacao: q.explicacao != null ? String(q.explicacao) : null }, type: sequelize.QueryTypes.INSERT, transaction: t });
+				const r = await sequelize.query(insertQ, { replacements: { iddominio_desempenho: iddominioDesempenho, descricao, dica, multipla, codgrupoprocesso, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: examTypeId, iddominiogeral, id_task, explicacao: q.explicacao != null ? String(q.explicacao) : null }, type: sequelize.QueryTypes.INSERT, transaction: t });
 					const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
 					const qid = insertedRow && insertedRow.id ? Number(insertedRow.id) : null;
 					if (!qid) throw new Error('Could not retrieve question id');

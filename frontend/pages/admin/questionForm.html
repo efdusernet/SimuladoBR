@@ -163,8 +163,8 @@
         <select id="iddominiogeral"></select>
       </div>
       <div>
-        <label for="iddominio">Domínio desempenho</label>
-        <select id="iddominio"></select>
+        <label for="iddominio_desempenho">Domínio desempenho</label>
+        <select id="iddominio_desempenho"></select>
       </div>
       <!-- Área do conhecimento desativada -->
       <div>
@@ -176,8 +176,8 @@
         <select id="idprincipio"></select>
       </div>
       <div>
-        <label for="codigocategoria">Categoria</label>
-        <select id="codigocategoria"></select>
+        <label for="id_abordagem">Abordagem</label>
+        <select id="id_abordagem"></select>
       </div>
       <div>
         <label for="codniveldificuldade">Nível de Dificuldade</label>
@@ -330,8 +330,8 @@
           <select id="iddominiogeralNav"></select>
         </div>
         <div>
-          <label for="iddominioNav">Domínio desempenho</label>
-          <select id="iddominioNav"></select>
+          <label for="iddominio_desempenhoNav">Domínio desempenho</label>
+          <select id="iddominio_desempenhoNav"></select>
         </div>
         <!-- Área do conhecimento desativada -->
         <div>
@@ -343,8 +343,8 @@
           <select id="idprincipioNav"></select>
         </div>
         <div>
-          <label for="codigocategoriaNav">Categoria</label>
-          <select id="codigocategoriaNav"></select>
+          <label for="id_abordagemNav">Abordagem</label>
+          <select id="id_abordagemNav"></select>
         </div>
         <div>
           <label for="codniveldificuldadeNav">Nível de Dificuldade</label>
@@ -756,9 +756,9 @@
     function fieldLabel(fieldKey){
       const map = {
         iddominiogeral: 'Domínio Geral',
-        iddominio: 'Domínio',
+        iddominio_desempenho: 'Domínio desempenho',
         idprincipio: 'Princípio',
-        codigocategoria: 'Categoria',
+        id_abordagem: 'Abordagem',
         codgrupoprocesso: 'Grupo de processo',
         id_task: 'Task',
       };
@@ -817,7 +817,7 @@
       table.appendChild(thead);
 
       const tbody = document.createElement('tbody');
-      const keys = ['iddominiogeral', 'iddominio', 'idprincipio', 'codigocategoria', 'codgrupoprocesso', 'id_task'];
+      const keys = ['iddominiogeral', 'iddominio_desempenho', 'idprincipio', 'id_abordagem', 'codgrupoprocesso', 'id_task'];
       keys.forEach(k => {
         const item = f[k] || {};
         const currentId = item.currentId;
@@ -900,9 +900,9 @@
 
         const current = {
           iddominiogeral: ($('iddominiogeralNav').value || '').trim() || null,
-          iddominio: ($('iddominioNav').value || '').trim() || null,
+          iddominio_desempenho: ($('iddominio_desempenhoNav').value || '').trim() || null,
           idprincipio: ($('idprincipioNav').value || '').trim() || null,
-          codigocategoria: ($('codigocategoriaNav').value || '').trim() || null,
+          id_abordagem: ($('id_abordagemNav').value || '').trim() || null,
           codgrupoprocesso: ($('grupoNav').value || '').trim() || null,
           id_task: ($('idtaskNav').value || '').trim() || null,
         };
@@ -1240,7 +1240,7 @@
       }
     }
 
-    async function loadDominios(targetId = 'iddominio'){
+    async function loadDominios(targetId = 'iddominio_desempenho'){
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
@@ -1310,7 +1310,7 @@
       }
     }
 
-    async function loadCategorias(targetId = 'codigocategoria'){
+    async function loadAbordagens(targetId = 'id_abordagem'){
       try {
         const sel = $(targetId);
         sel.innerHTML = '<option value="">Carregando...</option>';
@@ -1327,7 +1327,7 @@
           sel.appendChild(o);
         });
       } catch(e) {
-        logger.error('[loadCategorias] error:', e);
+        logger.error('[loadAbordagens] error:', e);
       }
     }
 
@@ -1403,12 +1403,12 @@
       const descricao = $('descricao').value.trim();
       const tiposlug = $('tipo').value;
       const examTypeId = ($('examType').value || '').trim();
-      const iddominio = ($('iddominio').value || '').trim();
+      const iddominio_desempenho = ($('iddominio_desempenho').value || '').trim();
       const versao_exame = ($('versaoExame').value || '').trim();
       const grupo = ($('grupo').value || '').trim();
       const iddominiogeral = ($('iddominiogeral').value || '').trim();
       const idprincipio = ($('idprincipio').value || '').trim();
-      const codigocategoria = ($('codigocategoria').value || '').trim();
+      const id_abordagem = ($('id_abordagem').value || '').trim();
       const codniveldificuldade = ($('codniveldificuldade').value || '').trim();
       const id_task = ($('idtask').value || '').trim();
       const dica = $('dica').value.trim();
@@ -1418,8 +1418,8 @@
         if (!descricao){ alert('Informe o enunciado'); return; }
         if (!examTypeId){ alert('Selecione o tipo de exame'); return; }
         if (!iddominiogeral){ alert('Selecione o domínio geral'); return; }
-        if (!iddominio){ alert('Selecione o domínio'); return; }
-        if (!codigocategoria){ alert('Selecione a categoria'); return; }
+        if (!iddominio_desempenho){ alert('Selecione o domínio desempenho'); return; }
+        if (!id_abordagem){ alert('Selecione a abordagem'); return; }
         if (!codniveldificuldade){ alert('Selecione o nível de dificuldade'); return; }
       // Checagem duplicata (usa função compartilhada; aborta se existir)
       const dupId = await checkDuplicate(true);
@@ -1481,11 +1481,11 @@
         is_pretest: !!$('isPretest').checked,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
-        iddominio: iddominio ? Number(iddominio) : undefined,
+        iddominio_desempenho: iddominio_desempenho ? Number(iddominio_desempenho) : undefined,
         codgrupoprocesso: grupo ? Number(grupo) : undefined,
         iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
-        codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
+        id_abordagem: id_abordagem ? Number(id_abordagem) : undefined,
         codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
         id_task: id_task ? Number(id_task) : undefined,
         dica: dica || undefined,
@@ -1536,10 +1536,10 @@
       try { $('versaoExame').value = ''; } catch{}
       try { $('tipo').value = 'single'; } catch{}
       try { $('iddominiogeral').value = ''; } catch{}
-      try { $('iddominio').value = ''; } catch{}
+      try { $('iddominio_desempenho').value = ''; } catch{}
       try { $('grupo').value = ''; } catch{}
       try { $('idprincipio').value = ''; } catch{}
-      try { $('codigocategoria').value = ''; } catch{}
+      try { $('id_abordagem').value = ''; } catch{}
       try { $('codniveldificuldade').value = ''; } catch{}
       try { $('imagemFile').value = ''; } catch{}
       // Limpar filtro de tasks e textarea de colagem de alternativas
@@ -1626,10 +1626,10 @@
         'seedNav',
         'isPretestNav',
         'iddominiogeralNav',
-        'iddominioNav',
+        'iddominio_desempenhoNav',
         'grupoNav',
         'idprincipioNav',
-        'codigocategoriaNav',
+        'id_abordagemNav',
         'codniveldificuldadeNav',
         'idtaskNavFilter',
         'idtaskNav',
@@ -1793,19 +1793,19 @@
         
         // Wait for selects to be populated before setting values
         await Promise.all([
-          loadDominios('iddominioNav'),
+          loadDominios('iddominio_desempenhoNav'),
           loadGrupos('grupoNav'),
           loadPrincipios('idprincipioNav'),
-          loadCategorias('codigocategoriaNav'),
+          loadAbordagens('id_abordagemNav'),
           loadNiveisDificuldade('codniveldificuldadeNav'),
           loadTasks('idtaskNav')
         ]);
         
-        $('iddominioNav').value = q.iddominio != null ? String(q.iddominio) : '';
+        $('iddominio_desempenhoNav').value = q.iddominio_desempenho != null ? String(q.iddominio_desempenho) : '';
         $('grupoNav').value = q.codgrupoprocesso != null ? String(q.codgrupoprocesso) : '';
         $('iddominiogeralNav').value = q.iddominiogeral != null ? String(q.iddominiogeral) : '';
         $('idprincipioNav').value = q.idprincipio != null ? String(q.idprincipio) : '';
-        $('codigocategoriaNav').value = q.codigocategoria != null ? String(q.codigocategoria) : '';
+        $('id_abordagemNav').value = q.id_abordagem != null ? String(q.id_abordagem) : '';
         $('codniveldificuldadeNav').value = q.codniveldificuldade != null ? String(q.codniveldificuldade) : '';
         $('idtaskNav').value = q.id_task != null ? String(q.id_task) : '';
         $('dicaNav').value = q.dica || '';
@@ -2031,12 +2031,12 @@
       const descricao = $('descricaoNav').value.trim();
       const tiposlug = $('tipoNav').value;
       const examTypeId = ($('examTypeNav').value || '').trim();
-      const iddominio = ($('iddominioNav').value || '').trim();
+      const iddominio_desempenho = ($('iddominio_desempenhoNav').value || '').trim();
       const versao_exame = ($('versaoExameNav').value || '').trim();
       const grupo = ($('grupoNav').value || '').trim();
       const iddominiogeral = ($('iddominiogeralNav').value || '').trim();
       const idprincipio = ($('idprincipioNav').value || '').trim();
-      const codigocategoria = ($('codigocategoriaNav').value || '').trim();
+      const id_abordagem = ($('id_abordagemNav').value || '').trim();
       const codniveldificuldade = ($('codniveldificuldadeNav').value || '').trim();
       const id_task = ($('idtaskNav').value || '').trim();
       const dica = $('dicaNav').value.trim();
@@ -2090,11 +2090,11 @@
         is_pretest: !!$('isPretestNav').checked,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
-        iddominio: iddominio ? Number(iddominio) : undefined,
+        iddominio_desempenho: iddominio_desempenho ? Number(iddominio_desempenho) : undefined,
         codgrupoprocesso: grupo ? Number(grupo) : undefined,
         iddominiogeral: iddominiogeral ? Number(iddominiogeral) : undefined,
         idprincipio: idprincipio ? Number(idprincipio) : undefined,
-        codigocategoria: codigocategoria ? Number(codigocategoria) : undefined,
+        id_abordagem: id_abordagem ? Number(id_abordagem) : undefined,
         codniveldificuldade: codniveldificuldade ? Number(codniveldificuldade) : undefined,
         id_task: id_task ? Number(id_task) : undefined,
         dica: dica || undefined,
@@ -2156,10 +2156,10 @@
     loadExamTypes();
     loadVersoesExame('versaoExame');
     loadDominioGeral();
-    loadDominios('iddominio');
+    loadDominios('iddominio_desempenho');
     loadGrupos('grupo');
     loadPrincipios('idprincipio');
-    loadCategorias('codigocategoria');
+    loadAbordagens('id_abordagem');
     loadNiveisDificuldade('codniveldificuldade');
     loadTasks('idtask');
     ensureAtLeastTwo();
@@ -2170,10 +2170,10 @@
     // init nav - prepare controls but don't load yet
     loadExamTypes('examTypeNav');
     loadDominioGeral('iddominiogeralNav');
-    loadDominios('iddominioNav');
+    loadDominios('iddominio_desempenhoNav');
     loadGrupos('grupoNav');
     loadPrincipios('idprincipioNav');
-    loadCategorias('codigocategoriaNav');
+    loadAbordagens('id_abordagemNav');
     loadNiveisDificuldade('codniveldificuldadeNav');
     loadTasks('idtaskNav');
     setupImageUpload('imagemFileNav', 'imagemUrlNav', 'imagemPreviewNav');

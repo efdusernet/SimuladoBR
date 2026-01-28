@@ -174,7 +174,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
-| POST | `/api/questions` | Admin | Body: `{ descricao, tiposlug?, multiplaescolha?, examTypeSlug?, examTypeId?, iddominio?, codareaconhecimento?, codgrupoprocesso?, dica?, options?: [{ descricao, correta?, explicacao? }], explicacao?, imagem_url? }` | `{ questionId, message, optionsCreated }` | Cria questão unitária com alternativas (explicação por alternativa via `options[].explicacao`; `explicacao` é legado/fallback). |
+| POST | `/api/questions` | Admin | Body: `{ descricao, tiposlug?, multiplaescolha?, examTypeSlug?, examTypeId?, iddominio_desempenho?, codareaconhecimento?, codgrupoprocesso?, dica?, options?: [{ descricao, correta?, explicacao? }], explicacao?, imagem_url? }` | `{ questionId, message, optionsCreated }` | Cria questão unitária com alternativas (explicação por alternativa via `options[].explicacao`; `explicacao` é legado/fallback). |
 | GET | `/api/questions` | Admin | Query: `limit`, `offset` | `[{ Id, Descricao, TipoSlug, ExamTypeId, ... }]` | Lista questões (admin). |
 | GET | `/api/questions/:id` | Admin | Path: `id` | `{ Id, Descricao, TipoSlug, ExamTypeId, Options: [...], ... }` | Busca questão por ID (admin). |
 | GET | `/api/questions/view/:id` | JWT | Path: `id` | `{ Id, Descricao, TipoSlug, Options: [...], ... }` | Busca questão por ID (usuário autenticado, sem admin). |
@@ -189,10 +189,10 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 |--------|----------|------|--------|----------|-----------|
 | GET | `/api/meta/areas` | None | — | `[{ CodAreaConhecimento, Descricao }]` | Lista áreas de conhecimento. |
 | GET | `/api/meta/grupos` | None | — | `[{ CodGrupoProcesso, Descricao }]` | Lista grupos de processos. |
-| GET | `/api/meta/dominios` | None | — | `[{ IdDominio, Descricao }]` | Lista domínios (área técnica). |
+| GET | `/api/meta/ddesempenho` | None | — | `[{ id, descricao }]` | Lista domínios de desempenho. |
 | GET | `/api/meta/dominios-geral` | None | — | `[{ IdDominioGeral, Descricao }]` | Lista domínios gerais (Pessoas, Processos, Negócios). |
 | GET | `/api/meta/principios` | None | — | `[{ IdPrincipio, Descricao }]` | Lista princípios. |
-| GET | `/api/meta/abordagens` | None | — | `[{ CodigoCategoria, Descricao }]` | Lista abordagens de questão (alias legado: `/api/meta/categorias`). |
+| GET | `/api/meta/abordagens` | None | — | `[{ id, descricao }]` | Lista abordagens de questão (alias legado: `/api/meta/categorias`). |
 | GET | `/api/meta/niveis-dificuldade` | None | — | `[{ IdNivel, Descricao }]` | Lista níveis de dificuldade. |
 | GET | `/api/meta/tasks` | None | — | `[{ IdTask, Descricao }]` | Lista tarefas. |
 | GET | `/api/meta/config` | None | — | `{ ... }` | Configurações gerais da aplicação. |
@@ -298,7 +298,7 @@ Endpoints de listagem (ex: `/api/questions`, `/api/indicators/attempts-history-e
 
 ### Formatos de Bulk Upload
 - **JSON (array)**: `[{ descricao, tiposlug, examTypeSlug, options, ... }]`
-- **JSON (objeto com defaults)**: `{ examTypeSlug, iddominio, questions: [...] }`
+- **JSON (objeto com defaults)**: `{ examTypeSlug, iddominio_desempenho, questions: [...] }`
 - **XML (multipart)**: campo `file` com estrutura `<questions examType="..."><question>...</question></questions>`
 
 ### Metadados de Fixture

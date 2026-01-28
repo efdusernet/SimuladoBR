@@ -19,9 +19,9 @@ A IA deve, para cada questão:
 Campos cobertos (e somente estes):
 
 - `iddominiogeral` (Domínio Geral)
-- `iddominio` (Domínio)
+- `iddominio_desempenho` (Domínio desempenho)
 - `idprincipio` (Princípio)
-- `codigocategoria` (Categoria)
+- `id_abordagem` (Abordagem)
 - `codgrupoprocesso` (Grupo de processo)
 - `id_task` (Task)
 - `dica` (texto curto)
@@ -56,9 +56,9 @@ Para evitar prompt “hard-coded” e permitir evolução das tabelas sem interv
   "meta": { "scope": "question-classification", "fetchedAt": "2025-12-31T00:00:00.000Z" },
   "masterdata": {
     "iddominiogeral": [{"id": 1, "descricao": "Pessoas"}],
-    "iddominio": [{"id": 1, "descricao": "Partes Interessadas"}],
+    "iddominio_desempenho": [{"id": 1, "descricao": "Partes Interessadas"}],
     "idprincipio": [{"id": 1, "descricao": "Administração"}],
-    "codigocategoria": [{"id": 1, "descricao": "Ágil"}],
+    "id_abordagem": [{"id": 1, "descricao": "Ágil"}],
     "codgrupoprocesso": [{"id": 1, "descricao": "Iniciação"}],
     "id_task": [{"id": 1, "descricao": "..."}]
   }
@@ -85,9 +85,9 @@ Observação: por padrão, o masterdata retornado considera apenas registros com
   },
   "current": {
     "iddominiogeral": 2,
-    "iddominio": 4,
+    "iddominio_desempenho": 4,
     "idprincipio": 7,
-    "codigocategoria": 3,
+    "id_abordagem": 3,
     "codgrupoprocesso": 2,
     "id_task": 20
   },
@@ -129,7 +129,7 @@ Exemplo (parcial):
   "result": {
     "context": { "summary": "...", "tags": ["..."] },
     "fields": {
-      "iddominio": {
+      "iddominio_desempenho": {
         "suggestedId": 4,
         "currentId": 4,
         "differsFromCurrent": false,
@@ -174,7 +174,7 @@ Comportamento:
   - `descricao`
   - `alternativas` (texto das alternativas preenchidas)
   - `correta` (letra A/B/C/D com base na alternativa marcada)
-  - `current`: valores atuais dos selects (`iddominiogeral`, `iddominio`, `idprincipio`, `codigocategoria`, `grupo`→`codgrupoprocesso`, `idtask`→`id_task`)
+  - `current`: valores atuais dos selects (`iddominiogeral`, `iddominio_desempenho`, `idprincipio`, `id_abordagem`, `grupo`→`codgrupoprocesso`, `idtask`→`id_task`)
 - Mostra painel com:
   - resumo/tags
   - tabela “Atual vs Sugestão” e marcação **(diverge)**
@@ -191,7 +191,7 @@ curl -H "X-Session-Token: <token_admin>" \
 
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token_admin>" \
-  -d '{"question":{"descricao":"...","alternativas":["A","B","C","D"],"correta":"A"},"current":{"iddominiogeral":2,"iddominio":4,"idprincipio":7,"codigocategoria":3,"codgrupoprocesso":2,"id_task":20},"dicaMaxChars":180}' \
+  -d '{"question":{"descricao":"...","alternativas":["A","B","C","D"],"correta":"A"},"current":{"iddominiogeral":2,"iddominio_desempenho":4,"idprincipio":7,"id_abordagem":3,"codgrupoprocesso":2,"id_task":20},"dicaMaxChars":180}' \
   http://localhost:3000/api/ai/question-classify
 ```
 

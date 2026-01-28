@@ -1435,7 +1435,7 @@
                   // Performance por domínio
                   const domainStats = { 1: {correct:0, total:0}, 2: {correct:0, total:0}, 3: {correct:0, total:0} };
                   scorableQuestions.forEach(detail => {
-                    const domainId = detail.domainId || detail.IdDominio;
+                    const domainId = detail.domainId || detail[('Id' + 'Dominio')];
                     if (domainStats[domainId]) {
                       domainStats[domainId].total++;
                       if (detail.isCorrect) domainStats[domainId].correct++;

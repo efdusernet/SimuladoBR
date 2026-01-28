@@ -201,9 +201,9 @@ Response (exemplo):
   "meta": { "scope": "question-classification", "fetchedAt": "2025-12-31T00:00:00.000Z" },
   "masterdata": {
     "iddominiogeral": [{"id": 1, "descricao": "Pessoas"}],
-    "iddominio": [{"id": 1, "descricao": "Partes Interessadas"}],
+    "iddominio_desempenho": [{"id": 1, "descricao": "Partes Interessadas"}],
     "idprincipio": [{"id": 1, "descricao": "Administração"}],
-    "codigocategoria": [{"id": 1, "descricao": "Ágil"}],
+    "id_abordagem": [{"id": 1, "descricao": "Ágil"}],
     "codgrupoprocesso": [{"id": 1, "descricao": "Iniciação"}],
     "id_task": [{"id": 1, "descricao": "..."}]
   }
@@ -214,9 +214,9 @@ Response (exemplo):
 
 Classifica a questão e sugere valores para **apenas** estes campos:
 
-- `iddominio`
+- `iddominio_desempenho`
 - `idprincipio`
-- `codigocategoria`
+- `id_abordagem`
 - `codgrupoprocesso`
 - `iddominiogeral`
 - `id_task`
@@ -236,9 +236,9 @@ O backend valida a resposta: se a IA sugerir um ID fora do dicionário retornado
   },
   "current": {
     "iddominiogeral": 2,
-    "iddominio": 4,
+    "iddominio_desempenho": 4,
     "idprincipio": 7,
-    "codigocategoria": 3,
+    "id_abordagem": 3,
     "codgrupoprocesso": 2,
     "id_task": 20
   },
@@ -262,7 +262,7 @@ Response (exemplo):
   "result": {
     "context": { "summary": "...", "tags": ["..."] },
     "fields": {
-      "iddominio": { "suggestedId": 4, "currentId": 4, "differsFromCurrent": false, "confidence": "high", "reason": "..." },
+      "iddominio_desempenho": { "suggestedId": 4, "currentId": 4, "differsFromCurrent": false, "confidence": "high", "reason": "..." },
       "idprincipio": { "suggestedId": 10, "currentId": 7, "differsFromCurrent": true, "confidence": "medium", "reason": "..." }
     },
     "dica": { "text": "...", "reason": "..." }
@@ -309,7 +309,7 @@ curl -H "X-Session-Token: <token>" \
 
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
-  -d '{"question":{"descricao":"...","alternativas":["A","B","C","D"],"correta":"A"},"current":{"iddominiogeral":2,"iddominio":4,"idprincipio":7,"codigocategoria":3,"codgrupoprocesso":2,"id_task":20},"dicaMaxChars":180}' \
+  -d '{"question":{"descricao":"...","alternativas":["A","B","C","D"],"correta":"A"},"current":{"iddominiogeral":2,"iddominio_desempenho":4,"idprincipio":7,"id_abordagem":3,"codgrupoprocesso":2,"id_task":20},"dicaMaxChars":180}' \
   http://localhost:3000/api/ai/question-classify
 ```
 

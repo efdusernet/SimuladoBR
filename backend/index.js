@@ -301,7 +301,11 @@ app.use((req, res, next) => {
 		// Allow chat-service proxy routes (widget/assets/API) without redirecting to /login
 		if (req.path.startsWith('/chat/')) return next();
 		// Allow login and static asset files without auth
-		const allowPaths = new Set(['/login', '/login.html', '/manifest.json']);
+		const allowPaths = new Set([
+			'/login',
+			'/login.html',
+			'/manifest.json',
+		]);
 		const isAsset = /\.(css|js|png|jpg|jpeg|gif|svg|ico|json|webmanifest|map)$/i.test(req.path);
 		if (allowPaths.has(req.path) || isAsset) return next();
 		const hasCookie = !!(req.cookies && (req.cookies.sessionToken || req.cookies.jwtToken));

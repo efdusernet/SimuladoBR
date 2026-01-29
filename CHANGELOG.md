@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
+## [1.2.2] - 2026-01-29
+
+### Added
+- Home: card “Estou pronto?” agora abre um modal com análise automática baseada nos **últimos 3 simulados completos** (consistência ≥80% com tratamento para <3 tentativas).
+- Indicadores (IND10 Domínios): layout com radar + barras horizontais (`<sb-hbar>`) exibindo os mesmos percentuais do gráfico.
+
+### Changed
+- Admin (frontend): checagem de permissão admin centralizada em `window.ensureAdminAccess` com cache por identidade (token) + TTL, invalidação por mudanças de credenciais e revalidação em navegações do sidebar.
+
+### Fixed
+- Modal “Estou pronto?”: correção de interação (clique/fechar/backdrop) evitando travas por `inert` e usando bloqueio de scroll.
+
 ## [1.2.0] - 2026-01-17
 
 ### Added

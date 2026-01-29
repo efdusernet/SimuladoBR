@@ -122,9 +122,8 @@
   <div class="tabs-bar">
     <div class="tabs" role="tablist" aria-label="Categorias de Indicadores">
       <button class="tab-btn active" data-tab="geral" role="tab" aria-selected="true">Visão Geral</button>
-      <button class="tab-btn" data-tab="grupos" role="tab" aria-selected="false">Grupo Processos</button>
+      <button class="tab-btn" data-tab="dist" role="tab" aria-selected="false">Distribuição</button>
       <!-- Aba "Tópico" desativada (Área de conhecimento) -->
-        <button class="tab-btn" data-tab="abordagem" role="tab" aria-selected="false">Abordagem</button>
         <button class="tab-btn" data-tab="detalhes" role="tab" aria-selected="false">Detalhes</button>
         <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false">Estatísticas</button>
         <button class="tab-btn" data-tab="dominios" role="tab" aria-selected="false">Domínios</button>
@@ -238,12 +237,15 @@
         <button type="button" id="attemptsExportCsv" style="margin-left:auto; padding:4px 10px; border:1px solid #3b82f6; background:#3b82f6; color:#fff; border-radius:6px; cursor:pointer; font-weight:600;">Exportar CSV</button>
       </div>
     </section>
-    <section id="sec-grupos" class="section" aria-labelledby="tab-grupos">
-      <div id="processGroupsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
-    </section>
-    <!-- Seção "Tópico" desativada (Área de conhecimento) -->
-    <section id="sec-abordagem" class="section" aria-labelledby="tab-abordagem">
-      <div id="approachContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+    <section id="sec-dist" class="section" aria-labelledby="tab-dist">
+      <div id="dist-grupos" style="margin-bottom:14px;">
+        <div style="font-weight:800; font-size:0.9rem; color:#0f172a; margin:0 0 8px;">Grupo de Processos</div>
+        <div id="processGroupsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+      </div>
+      <div id="dist-abordagem">
+        <div style="font-weight:800; font-size:0.9rem; color:#0f172a; margin:12px 0 8px;">Abordagem</div>
+        <div id="approachContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+      </div>
     </section>
       <section id="sec-detalhes" class="section" aria-labelledby="tab-detalhes">
         <div class="ov-wrapper">
@@ -442,8 +444,7 @@
     const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
     const sectionsMap = {
       geral: document.getElementById('sec-geral'),
-      grupos: document.getElementById('sec-grupos'),
-      abordagem: document.getElementById('sec-abordagem'),
+      dist: document.getElementById('sec-dist'),
       detalhes: document.getElementById('sec-detalhes'),
       dashboard: document.getElementById('sec-dashboard'),
       dominios: document.getElementById('sec-dominios'),
@@ -458,7 +459,7 @@
         Object.values(sectionsMap).forEach(sec => sec && sec.classList.remove('active'));
         if (sectionsMap[tab]) {
           sectionsMap[tab].classList.add('active');
-          if (tab === 'abordagem') loadAbordagemStats();
+          if (tab === 'dist') { loadProcessGroupStats(); loadAbordagemStats(); }
           if (tab === 'detalhes') loadDetailsLast();
           if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
           if (tab === 'dominios') loadDominiosLazy();
@@ -470,8 +471,9 @@
     // Public helper: programmatically activate a tab and trigger loaders
     window.activateTab = function(tab){
       try {
-        const allowed = ['geral','grupos','abordagem','detalhes','dashboard','dominios','prob','flashcards'];
-        const key = String(tab||'').toLowerCase();
+        const raw = String(tab||'').toLowerCase();
+        const key = (raw === 'grupos' || raw === 'abordagem') ? 'dist' : raw;
+        const allowed = ['geral','dist','detalhes','dashboard','dominios','prob','flashcards'];
         if (!allowed.includes(key)) return false;
         const target = document.querySelector(`.tab-btn[data-tab="${key}"]`) || document.getElementById(`tab-${key}`);
         if (target && typeof target.click === 'function') { target.click(); return true; }
@@ -481,7 +483,7 @@
         if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
         Object.keys(sectionsMap).forEach(k => sectionsMap[k] && sectionsMap[k].classList.remove('active'));
         if (sectionsMap[key]) sectionsMap[key].classList.add('active');
-        if (key === 'abordagem') loadAbordagemStats();
+        if (key === 'dist') { loadProcessGroupStats(); loadAbordagemStats(); }
         if (key === 'detalhes') loadDetailsLast();
         if (key === 'dashboard' && !_dashLoadedOnce) loadDashboard();
         if (key === 'dominios') loadDominiosLazy();
@@ -648,8 +650,14 @@
     (function initTabFromQuery(){
       try {
         const qs = new URLSearchParams(window.location.search);
-        const tabParam = String(qs.get('tab')||'').toLowerCase();
-        if (!tabParam) return;
+        const tabParamRaw = String(qs.get('tab')||'').toLowerCase();
+        if (!tabParamRaw) return;
+
+        const focus = (tabParamRaw === 'grupos') ? 'dist-grupos'
+          : (tabParamRaw === 'abordagem') ? 'dist-abordagem'
+          : null;
+
+        const tabParam = (tabParamRaw === 'grupos' || tabParamRaw === 'abordagem') ? 'dist' : tabParamRaw;
         const ok = window.activateTab(tabParam);
         if (!ok) {
           setTimeout(() => {
@@ -659,8 +667,8 @@
             }
           }, 150);
         }
-        const sec = document.getElementById(`sec-${tabParam}`);
-        if (sec && typeof sec.scrollIntoView === 'function') sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const anchor = focus ? document.getElementById(focus) : document.getElementById(`sec-${tabParam}`);
+        if (anchor && typeof anchor.scrollIntoView === 'function') anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch(_){ }
     })();
 
@@ -779,8 +787,7 @@
       const tab = activeBtn.getAttribute('data-tab');
       // Only call loader for the initial tab if it's NOT 'detalhes'
       if (tab === 'geral') loadOverview();
-      if (tab === 'grupos') loadProcessGroupStats();
-      if (tab === 'abordagem') loadAbordagemStats();
+      if (tab === 'dist') { loadProcessGroupStats(); loadAbordagemStats(); }
       if (tab === 'dashboard') loadDashboard();
       if (tab === 'dominios') loadDominiosLazy();
       if (tab === 'prob') loadProbabilityCards();

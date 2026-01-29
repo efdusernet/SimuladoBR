@@ -301,9 +301,8 @@
       </button>
       <div class="sidebar-accordion-content">
         <a class="sidebar-accordion-item" href="/index.html">Visão Geral</a>
-        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=grupos">Grupo de Processos</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dist">Distribuição</a>
         <!-- "Tópico" desativado (Área de conhecimento) -->
-        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=abordagem">Abordagem</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=detalhes">Detalhes</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dashboard">Estatísticas</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dominios">Domínios</a>
@@ -893,7 +892,7 @@
       try { alert(msg); } catch(_){ }
     }
 
-    const premiumTabs = new Set(['grupos','abordagem','detalhes','dashboard','dominios','prob']);
+    const premiumTabs = new Set(['dist','detalhes','dashboard','dominios','prob']);
     const indicadoresItems = document.querySelectorAll('#sidebarIndicadoresAccordion .sidebar-accordion-content .sidebar-accordion-item');
     indicadoresItems.forEach(item => {
       item.addEventListener('click', async (e) => {
@@ -923,7 +922,9 @@
         }
 
         const m = href.match(/tab=([a-zA-Z0-9_-]+)/);
-        const tab = m ? m[1] : 'geral';
+        let tab = m ? m[1] : 'geral';
+        // Back-compat: old links/bookmarks
+        if (/^(grupos|abordagem|grupo-processos|processos)$/i.test(String(tab||''))) tab = 'dist';
 
         // Premium-only Indicadores tabs
         if (premiumTabs.has(String(tab || '').toLowerCase())) {
@@ -1261,13 +1262,69 @@
       // Render per tab
       if (key === 'geral') {
         await renderOverview(indicadoresSection);
-      } else if (key === 'grupo-processos' || key === 'grupos' || key === 'processos') {
-        await renderProcessGroups(indicadoresSection);
+      } else if (key === 'dist' || key === 'grupo-processos' || key === 'grupos' || key === 'processos' || key === 'abordagem') {
+        // Unified view: Process Groups + Abordagem together
+        indicadoresSection.innerHTML = '';
+
+        const grpHost = document.createElement('div');
+        const abrHost = document.createElement('div');
+        indicadoresSection.appendChild(grpHost);
+        indicadoresSection.appendChild(abrHost);
+
+        await renderProcessGroups(grpHost);
+        await renderAbordagem(abrHost);
+
+        // Ensure the main header reflects the unified tab
+        try {
+          const hdr = document.getElementById('sectionHeaderStrip');
+          if (hdr) {
+            hdr.innerHTML = '';
+            const headerStrip = document.createElement('div');
+            headerStrip.setAttribute('aria-label', 'Cabeçalho Distribuição');
+            headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
+            headerStrip.style.color = '#ffffff';
+            headerStrip.style.padding = '12px 14px';
+            headerStrip.style.borderRadius = '8px';
+            headerStrip.style.margin = '0 0 10px 0';
+            headerStrip.style.display = 'flex';
+            headerStrip.style.alignItems = 'center';
+            headerStrip.style.justifyContent = 'space-between';
+            const headerTitle = document.createElement('div');
+            headerTitle.textContent = 'Distribuição';
+            headerTitle.style.fontSize = '0.95rem';
+            headerTitle.style.fontWeight = '700';
+            headerTitle.style.letterSpacing = '0.3px';
+            headerStrip.appendChild(headerTitle);
+            hdr.appendChild(headerStrip);
+          }
+        } catch(_){ }
+
+        // Add local headings inside each block for clarity
+        try {
+          const sec1 = grpHost.querySelector('#sec-grupo-processos');
+          if (sec1) {
+            const h = document.createElement('div');
+            h.textContent = 'Grupo de Processos';
+            h.style.fontWeight = '800';
+            h.style.fontSize = '0.9rem';
+            h.style.color = '#f3f4f6';
+            h.style.margin = '0 0 8px 0';
+            sec1.insertBefore(h, sec1.firstChild);
+          }
+          const sec2 = abrHost.querySelector('#sec-abordagem');
+          if (sec2) {
+            const h = document.createElement('div');
+            h.textContent = 'Abordagem';
+            h.style.fontWeight = '800';
+            h.style.fontSize = '0.9rem';
+            h.style.color = '#f3f4f6';
+            h.style.margin = '14px 0 8px 0';
+            sec2.insertBefore(h, sec2.firstChild);
+          }
+        } catch(_){ }
       } else if (key === 'topico' || key === 'tópico') {
         // Desativado: Área de conhecimento (Tópico)
         indicadoresSection.innerHTML = '<div class="panel"><h3>Indisponível</h3><p>Esta aba foi desativada.</p></div>';
-      } else if (key === 'abordagem') {
-        await renderAbordagem(indicadoresSection);
       } else if (key === 'detalhes') {
         await renderDetalhes(indicadoresSection);
       } else if (key === 'dashboard' || key === 'estatisticas') {
@@ -2395,7 +2452,7 @@
       intro.innerHTML = `
         <strong style="display:block; font-size:0.7rem; margin-bottom:4px;">Como interpretar estes indicadores</strong>
         <span style="display:block; margin-bottom:4px;">Exames e quizzes em <em>Visão Geral</em> abrangem tentativas completas ("Exames realizados") e tentativas rápidas/parciais ("Quiz realizados") nos últimos períodos (30d e 60d). Colunas Apr% e Rep%: aprovação / reprovação.</span>
-        <span style="display:block; margin-bottom:4px;">As abas <em>Grupo Processos</em>, <em>Tópico</em> e <em>Abordagem</em> mostram distribuição de acertos/erros. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
+        <span style="display:block; margin-bottom:4px;">A aba <em>Distribuição</em> mostra a distribuição de acertos/erros por <em>Grupo de Processos</em> e por <em>Abordagem</em>. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
         <span style="display:block; margin-bottom:4px;">Esta aba <em>Estatísticas</em> usa agregação diária persistente (mesmo após expurgos). Fórmulas: Abandono = abandonadas / iniciadas; Conclusão = finalizadas / iniciadas; Expurgo = expurgadas / abandonadas. Score médio é ponderado pelo número de questões respondidas no dia.</span>
         <span style="display:block; margin-bottom:4px;">Abandono pode ser classificado como <em>Timeout</em> (inatividade excede limite), <em>Baixo progresso</em> (poucas questões após tempo mínimo) ou abandono manual. Expurgo remove tentativas abandonadas antigas preservando métricas.</span>
         <span style="display:block;">Limites de tempo e janelas são definidos pela política interna e já aplicados nos cálculos exibidos.</span>`;
@@ -3084,6 +3141,12 @@
       }
     })();
     const isInsightsIaPage = /\/pages\/InsightsIA\.html$/i.test(currentPath);
+
+    // Normalize Indicadores subsection (tabs)
+    if (section === 'indicadores' && subsection) {
+      const s = String(subsection).toLowerCase();
+      if (['grupos','abordagem','grupo-processos','processos'].includes(s)) subsection = 'dist';
+    }
 
     // Save current navigation state
     try {

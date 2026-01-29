@@ -374,8 +374,8 @@ router.get('/me/eco-version', async (req, res, next) => {
  */
 router.get('/me/stats/daily', async (req, res, next) => {
     try {
-        const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
+        const sessionToken = extractTokenFromRequest(req);
+        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
         const authRes = await verifyJwtAndGetActiveUser(sessionToken);
         if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
         const user = authRes.user;
@@ -396,8 +396,8 @@ router.get('/me/stats/daily', async (req, res, next) => {
  */
 router.get('/me/stats/summary', async (req, res, next) => {
     try {
-        const sessionToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-        if (!sessionToken) return next(badRequest('X-Session-Token required', 'SESSION_TOKEN_REQUIRED'));
+        const sessionToken = extractTokenFromRequest(req);
+        if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
         const authRes = await verifyJwtAndGetActiveUser(sessionToken);
         if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
         const user = authRes.user;

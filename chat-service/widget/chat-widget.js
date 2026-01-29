@@ -22,16 +22,6 @@
   var apiBase = (script.getAttribute('data-chat-api') || '').replace(/\/+$/, '');
   if (!apiBase) return;
 
-  function getHostSessionToken() {
-    try {
-      var tok = localStorage.getItem('sessionToken') || '';
-      tok = String(tok || '').trim();
-      return tok;
-    } catch (e) {
-      return '';
-    }
-  }
-
   // Identify the customer in the admin host.
   // SimuladosBR stores the real user name in storage; prefer the explicit session key "nome".
   function getHostUserName() {
@@ -88,38 +78,10 @@
     }
   }
 
-  function shouldAttachHostSessionToken() {
-    // Only attach when the widget is configured to use the SimuladosBR reverse proxy.
-    // This prevents leaking the host app session token to a third-party chat-service.
-    try {
-      if (!apiBase) return false;
-      if (String(apiBase).indexOf('/chat') === 0) return true;
-      var u = new URL(String(apiBase), window.location.href);
-      return u.origin === window.location.origin && String(u.pathname || '').indexOf('/chat') === 0;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  var attachHostSessionToken = shouldAttachHostSessionToken();
-  var hostSessionToken = attachHostSessionToken ? getHostSessionToken() : '';
-
   function withHostSessionToken(url) {
-    if (!attachHostSessionToken || !hostSessionToken) return url;
-    try {
-      var u = new URL(String(url), window.location.href);
-      if (!u.searchParams.get('sessionToken')) u.searchParams.set('sessionToken', hostSessionToken);
-      return u.toString();
-    } catch (e) {
-      // Best-effort fallback for relative URLs.
-      try {
-        var s = String(url);
-        if (s.indexOf('sessionToken=') !== -1) return s;
-        return s + (s.indexOf('?') === -1 ? '?' : '&') + 'sessionToken=' + encodeURIComponent(hostSessionToken);
-      } catch (e2) {
-        return url;
-      }
-    }
+    // Legacy helper kept for compatibility, but never append auth tokens to URLs.
+    // The SimuladosBR reverse proxy uses same-origin cookies for auth/premium checks.
+    return url;
   }
 
   var title = script.getAttribute('data-chat-title') || 'Suporte';

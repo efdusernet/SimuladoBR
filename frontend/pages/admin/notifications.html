@@ -290,7 +290,7 @@
     const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
     const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
     const headers = {}; if (identity) headers['X-Session-Token'] = identity; if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
-    fetch('/api/admin/exams/probe?sessionToken='+encodeURIComponent(identity), { headers }).then(r => {
+    fetch('/api/admin/exams/probe', { headers }).then(r => {
       if (!r.ok) return; // não admin
       btn.style.display='inline-flex';
       function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
@@ -307,8 +307,7 @@
         const h = { 'Content-Type':'application/json' };
         if (identity2) h['X-Session-Token'] = identity2;
         if (jwtTok2) h['Authorization'] = `${jwtType2} ${jwtTok2}`;
-        const url = path + (path.includes('?')?'&':'?') + 'sessionToken=' + encodeURIComponent(identity2);
-        const resp = await fetch(url,{method:'POST',headers:h});
+        const resp = await fetch(path,{method:'POST',headers:h});
         const data = await resp.json().catch(()=>({}));
         return { ok: resp.ok, status: resp.status, data };
       }

@@ -141,6 +141,50 @@ const logger = winston.createLogger({
   exitOnError: false,
 });
 
+function sanitizeUrlForLogs(rawUrl) {
+  try {
+    const input = String(rawUrl || '');
+    if (!input) return input;
+
+    // Support relative URLs by providing a dummy base.
+    const u = new URL(input, 'http://log.local');
+
+    const SENSITIVE_KEYS = new Set([
+      'sessiontoken',
+      'session',
+      'token',
+      'jwt',
+      'jwttoken',
+      'access_token',
+      'refresh_token',
+      'authtoken',
+      '_csrf',
+      'csrf',
+      'csrfToken',
+      'password',
+      'senha',
+      'secret',
+    ].map(s => String(s).toLowerCase()));
+
+    // Redact known sensitive params
+    for (const key of Array.from(u.searchParams.keys())) {
+      if (SENSITIVE_KEYS.has(String(key).toLowerCase())) {
+        u.searchParams.set(key, '[REDACTED]');
+      }
+    }
+
+    const out = u.pathname + (u.search || '') + (u.hash || '');
+    return out;
+  } catch (_) {
+    // Fallback: strip obvious tokens in query without parsing
+    try {
+      return String(rawUrl || '').replace(/([?&](?:sessionToken|session|token|jwt|jwtToken|authToken|access_token|refresh_token|_csrf|csrf)=)[^&#]*/gi, '$1[REDACTED]');
+    } catch (__){
+      return String(rawUrl || '');
+    }
+  }
+}
+
 /**
  * Helper function to extract context from Express request
  */
@@ -148,7 +192,7 @@ function getRequestContext(req) {
   return {
     requestId: req.id || req.headers['x-request-id'],
     method: req.method,
-    url: req.originalUrl || req.url,
+    url: sanitizeUrlForLogs(req.originalUrl || req.url),
     ip: req.ip || req.connection?.remoteAddress,
     userAgent: req.headers['user-agent'],
     userId: req.user?.Id || req.user?.id,

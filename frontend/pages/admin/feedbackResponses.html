@@ -72,19 +72,7 @@
       const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
       const sessionForHeader = token || nomeUsuario;
       if (!token) return;
-      function applyTokenFallback(){
-        try {
-          const q = encodeURIComponent(token);
-          ['lnkAdminCadastrar','lnkAdminBulk','lnkAdminFeedbackResp'].forEach(id => {
-            const a = document.getElementById(id); if (!a) return;
-            const href = a.getAttribute('href') || '';
-            if (href.includes('sessionToken=')) return;
-            const sep = href.includes('?') ? '&' : '?';
-            a.setAttribute('href', href + sep + 'sessionToken=' + q);
-          });
-        } catch(_){}
-      }
-      const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+      const probeUrl = `/api/admin/exams/probe`;
       const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
       const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
       const probeHeaders = (() => {
@@ -102,7 +90,6 @@
         .then(r => {
           if (!r.ok) return Promise.reject('Not admin');
           btn.style.display = 'inline-flex';
-          applyTokenFallback();
           function close(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); }
           function open(){ panel.style.display='block'; panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); }
           btn.addEventListener('click', e => { e.stopPropagation(); if (panel.style.display === 'block') close(); else open(); });
@@ -137,8 +124,7 @@
               return h;
             })();
             if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-            const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity);
-            const resp = await fetch(url,{method:'POST',headers});
+            const resp = await fetch(path,{method:'POST',headers});
             const data = await resp.json().catch(()=>({}));
             return {ok:resp.ok,status:resp.status,data};
           }

@@ -15,7 +15,9 @@
         <li class="nav-item"><a class="nav-link" href="/#planos">Planos</a></li>
         <li class="nav-item"><a class="nav-link" href="/#faq">FAQ</a></li>
         <li class="nav-item ms-lg-2"><a class="btn btn-primary" href="/#checkout">Comprar</a></li>
-        <li class="nav-item ms-2"><a class="btn btn-access" href="http://app.localhost:3000/">Acesso</a></li>
+        <% const _appBase = (typeof appBaseUrl === 'string' && appBaseUrl) ? appBaseUrl : ((typeof baseUrl === 'string' && baseUrl) ? baseUrl : 'http://app.localhost:3000'); %>
+        <% const _appHref = String(_appBase).replace(/\/+$/, '') + '/'; %>
+        <li class="nav-item ms-2"><a class="btn btn-access" href="<%= _appHref %>">Acesso</a></li>
       </ul>
     </div>
   </div>

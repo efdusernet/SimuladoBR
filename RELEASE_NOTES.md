@@ -177,3 +177,23 @@ Date: 2026-01-29
 
 ## Links
 - Tag: v1.2.2 (pending tagging)
+
+---
+
+# v1.2.3
+
+Date: 2026-01-29
+
+## Security
+- Redução de vazamento de token: remoção sistemática de `sessionToken` em querystring no frontend (admin probes/actions agora usam headers/cookies).
+- Backend: URLs logadas passam por redaction de parâmetros sensíveis (ex.: `sessionToken`, `token`, `_csrf`).
+- Backend: transporte inseguro de token via query/body desabilitado em produção por padrão; compatibilidade apenas via `ALLOW_INSECURE_TOKEN_TRANSPORT=true`.
+- Redirect `localhost` → `app.localhost`: token é movido para fragment (`#sessionToken=...`), evitando envio ao servidor/logs/referrer.
+- Chat widget: não adiciona mais `sessionToken` em URLs do chat (depende de cookies same-origin via `/chat`).
+
+## Product Site
+- Botão “Acesso” do site marketing configurável via `APP_PUBLIC_BASE_URL` / `APP_BASE_URL`.
+
+## Links
+- Tag: v1.2.3 (pending tagging)
+- Compare: v1.2.2..v1.2.3

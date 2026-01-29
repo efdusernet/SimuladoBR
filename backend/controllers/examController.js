@@ -3,7 +3,7 @@ const { logger } = require('../utils/logger');
 const sequelize = require('../config/database');
 const { badRequest, unauthorized, forbidden, notFound, internalError } = require('../middleware/errors');
 const { AppError } = require('../middleware/errorHandler');
-const { verifyJwtAndGetActiveUser } = require('../utils/singleSession');
+const { extractTokenFromRequest, verifyJwtAndGetActiveUser } = require('../utils/singleSession');
 const matchColumns = require('../utils/matchColumns');
 // Daily user exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
@@ -1625,13 +1625,9 @@ exports.resumeSession = async (req, res, next) => {
   // Used by: frontend/index.html (loadLastExamResults) para alimentar o gauge de "Último exame"
   exports.lastAttemptSummary = async (req, res, next) => {
     try {
-      // Resolve user using the same policy applied in selection endpoints
-      const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-      const authHeader = (req.get('Authorization') || '').trim();
-      let bearerToken = '';
-      if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
-      const sessionToken = bearerToken || legacyToken;
-      if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
+      // Resolve user session via centralized policy (cookie/header/bearer; query/body gated)
+      const sessionToken = extractTokenFromRequest(req);
+      if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
 
       const authRes = await verifyJwtAndGetActiveUser(sessionToken);
       if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
@@ -1695,12 +1691,8 @@ exports.resumeSession = async (req, res, next) => {
       const rawStatus = String(req.query.status || 'finished').trim().toLowerCase();
       const status = (rawStatus === 'abandoned' || rawStatus === 'finished' || rawStatus === 'in_progress' || rawStatus === 'unfinished') ? rawStatus : 'finished';
       
-      const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-      const authHeader = (req.get('Authorization') || '').trim();
-      let bearerToken = '';
-      if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
-      const sessionToken = bearerToken || legacyToken;
-      if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
+      const sessionToken = extractTokenFromRequest(req);
+      if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
 
       const authRes = await verifyJwtAndGetActiveUser(sessionToken);
       if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
@@ -1858,13 +1850,9 @@ exports.getAttemptResult = async (req, res, next) => {
     const attemptId = Number(req.params.attemptId);
     if (!Number.isFinite(attemptId) || attemptId <= 0) return next(badRequest('invalid attemptId', 'INVALID_ATTEMPT_ID'));
 
-    // Resolve user using Authorization Bearer or X-Session-Token (same policy as history)
-    const legacyToken = (req.get('X-Session-Token') || req.query.sessionToken || '').trim();
-    const authHeader = (req.get('Authorization') || '').trim();
-    let bearerToken = '';
-    if (/^bearer /i.test(authHeader)) bearerToken = authHeader.replace(/^bearer /i,'').trim();
-    const sessionToken = bearerToken || legacyToken;
-    if (!sessionToken) return next(badRequest('X-Session-Token or Authorization required', 'SESSION_TOKEN_OR_AUTH_REQUIRED'));
+    // Resolve user session via centralized policy (cookie/header/bearer; query/body gated)
+    const sessionToken = extractTokenFromRequest(req);
+    if (!sessionToken) return next(badRequest('Session token required', 'SESSION_TOKEN_REQUIRED'));
 
     const authRes = await verifyJwtAndGetActiveUser(sessionToken);
     if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));

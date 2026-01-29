@@ -16,6 +16,18 @@ This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 ### Fixed
 - Modal “Estou pronto?”: correção de interação (clique/fechar/backdrop) evitando travas por `inert` e usando bloqueio de scroll.
 
+## [1.2.3] - 2026-01-29
+
+### Security
+- Backend: URLs logadas agora redigem query params sensíveis (ex.: `sessionToken`, `token`, `jwt`, `_csrf`).
+- Backend: transporte inseguro de token via query/body desabilitado em produção por padrão (reativação apenas com `ALLOW_INSECURE_TOKEN_TRANSPORT=true`).
+- Backend: redirects `localhost` → `app.localhost` movem `sessionToken` para o fragment (`#sessionToken=...`) para evitar vazamento em logs/referrer.
+- Frontend/Admin: removida a prática de anexar `sessionToken` na URL; ações/probes passam a usar headers/cookies.
+- Chat widget: não anexa mais `sessionToken` em URLs do chat (usa cookies same-origin via `/chat` proxy).
+
+### Changed
+- Site marketing: botão “Acesso” agora é configurável por `APP_PUBLIC_BASE_URL` / `APP_BASE_URL`.
+
 ## [1.2.0] - 2026-01-17
 
 ### Added

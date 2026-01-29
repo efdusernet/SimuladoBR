@@ -158,3 +158,22 @@ Date: 2026-01-17
 
 ## Links
 - Tag: v1.2.0 (pending tagging)
+
+---
+
+# v1.2.2
+
+Date: 2026-01-29
+
+## Highlights
+- Home: card “Estou pronto?” agora abre um modal com análise automática de prontidão baseada nos últimos simulados completos (regra de consistência ≥80% nos últimos 3, com mensagens para casos com 0/1/2 simulados).
+- Indicadores (IND10 Domínios): UI aprimorada com radar + barras horizontais (`<sb-hbar>`) exibindo os mesmos percentuais do radar.
+
+## Security/Robustness
+- Admin (frontend): checagem de permissão admin centralizada em `window.ensureAdminAccess`, com cache por identidade (amarrado ao token) + TTL e invalidação quando credenciais mudam; sidebar revalida em navegações para evitar “vazamento” de UI admin para não-admin.
+
+## Fixes
+- Modal “Estou pronto?”: interação de clique/fechar/backdrop corrigida (evita travas por `inert`).
+
+## Links
+- Tag: v1.2.2 (pending tagging)

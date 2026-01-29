@@ -98,6 +98,115 @@ class SafeRedirect {
     }
 }
 
+// Centralized admin access check used across the app (sidebar, modals, etc.)
+// Keeps a single source of truth for headers + caching.
+(() => {
+    if (typeof window.ensureAdminAccess === 'function') return;
+
+    function getSessionKeyFromStorage() {
+        try {
+            const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+            const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+            const token = (localStorage.getItem('sessionToken') || '').trim();
+            const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+            const xSession = (token || nomeUsuario).trim();
+            const parts = [];
+            if (jwtTok) parts.push(`jwt:${jwtType}:${jwtTok.slice(0, 24)}`);
+            if (xSession) parts.push(`xs:${xSession}`);
+            return parts.join('|') || '';
+        } catch(_){
+            return '';
+        }
+    }
+
+    function buildAuthHeaders() {
+        try {
+            if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                return window.Auth.getAuthHeaders({ acceptJson: true });
+            }
+        } catch(_){ }
+
+        const h = { 'Accept': 'application/json' };
+        try {
+            const token = (localStorage.getItem('sessionToken') || '').trim();
+            const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+            const sessionForHeader = (token || nomeUsuario).trim();
+            const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+            const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+            if (sessionForHeader) h['X-Session-Token'] = sessionForHeader;
+            if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
+        } catch(_){ }
+        return h;
+    }
+
+    async function computeAdminNow(headers) {
+        const base = String((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '').trim() || '';
+        const baseUrl = base ? base.replace(/\/$/, '') : '';
+
+        // 1) Preferred: probe admin-only endpoint (aligns with backend RBAC, avoids false positives).
+        try {
+            const identity = (headers && headers['X-Session-Token']) ? String(headers['X-Session-Token']) : '';
+            if (identity) {
+                const probeUrl = (baseUrl || '') + '/api/admin/data-explorer/tables?sessionToken=' + encodeURIComponent(identity);
+                const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include', cache: 'no-store' });
+                if (probeResp.ok || probeResp.status === 204) return true;
+            }
+        } catch(_){ }
+
+        // 2) Fallback: /api/users/me legacy role field.
+        try {
+            const url = (baseUrl || '') + '/api/users/me';
+            const resp = await fetch(url, { headers, credentials: 'include', cache: 'no-store' });
+            if (!resp.ok) return false;
+            const user = await resp.json().catch(() => null);
+            return !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
+        } catch(_){
+            return false;
+        }
+    }
+
+    window.ensureAdminAccess = async function ensureAdminAccess(opts) {
+        const options = (opts && typeof opts === 'object') ? opts : {};
+        const force = options.force === true;
+        const maxAgeMs = Number.isFinite(Number(options.maxAgeMs)) ? Number(options.maxAgeMs) : 30_000;
+
+        const key = getSessionKeyFromStorage();
+        if (!key) {
+            // No identity -> definitely not admin.
+            try { window.__isAdmin = false; } catch(_){ }
+            try { window.__adminAccessCache = { key: '', isAdmin: false, checkedAt: Date.now() }; } catch(_){ }
+            return false;
+        }
+
+        const cache = (() => { try { return window.__adminAccessCache; } catch(_){ return null; } })();
+        const now = Date.now();
+        if (!force && cache && cache.key === key && typeof cache.isAdmin === 'boolean' && Number.isFinite(cache.checkedAt)) {
+            if ((now - cache.checkedAt) <= maxAgeMs) {
+                try { window.__isAdmin = cache.isAdmin; } catch(_){ }
+                return cache.isAdmin;
+            }
+        }
+
+        const headers = buildAuthHeaders();
+        const isAdmin = await computeAdminNow(headers);
+        try { window.__adminAccessCache = { key, isAdmin, checkedAt: now }; } catch(_){ }
+        try { window.__isAdmin = isAdmin; } catch(_){ }
+        return isAdmin;
+    };
+
+    // Invalidate cache when tokens change in another tab/window.
+    try {
+        window.addEventListener('storage', (ev) => {
+            const k = String(ev && ev.key || '');
+            if (!k) return;
+            if (k === 'jwtToken' || k === 'jwtTokenType' || k === 'jwt' || k === 'jwt_type' || k === 'sessionToken' || k === 'nomeUsuario') {
+                try { window.__adminAccessCache = null; } catch(_){ }
+                try { window.__isAdmin = false; } catch(_){ }
+            }
+        });
+    } catch(_){ }
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     // Hard no-cache mode: remove any existing Service Worker + Cache Storage.
     // This prevents stale JS/HTML from being served even if a SW was registered in the past.
@@ -356,28 +465,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminModal = document.getElementById('adminModal');
     const adminModalOpen = document.getElementById('adminModalOpen');
     const adminModalClose = document.getElementById('adminModalClose');
-
-    async function ensureAdminAccess(){
-        try { if (window.__isAdmin === true) return true; } catch(_){ }
-        try {
-            const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
-              ? window.Auth.getAuthHeaders({ acceptJson: true })
-              : {};
-            const resp = await fetch('/api/users/me', { headers, credentials: 'include' });
-            if (!resp.ok) return false;
-            const user = await resp.json().catch(() => null);
-            const ok = !!(user && user.TipoUsuario === 'admin');
-            if (ok) { try { window.__isAdmin = true; } catch(_){ } }
-            return ok;
-        } catch (_e) {
-            return false;
-        }
-    }
     if (adminModal && adminModalOpen) {
         adminModalOpen.addEventListener('click', (e) => {
             e.preventDefault();
             // Never open admin UI unless confirmed admin.
-            ensureAdminAccess().then((ok) => {
+            window.ensureAdminAccess().then((ok) => {
                 if (!ok) {
                     try { if (window.showToast) { window.showToast('Acesso restrito: somente admin.'); return; } } catch(_){ }
                     alert('Acesso restrito: somente admin.');

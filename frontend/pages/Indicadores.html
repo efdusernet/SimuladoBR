@@ -296,7 +296,17 @@
         <div style="font-size:0.65rem; color:#64748b;">Taxas: abandono = abandonadas / iniciadas; conclusão = finalizadas / iniciadas; expurgo = expurgadas / abandonadas.</div>
       </section>
       <section id="sec-dominios" class="section" aria-labelledby="tab-dominios">
-        <div style="max-width:364px;margin:10px auto 20px;background:#fff;padding:14px 22px 18px 30px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.06); border:1px solid #e2e8f0;">
+        <style>
+          #sec-dominios .dom-card{ max-width:860px; margin:10px auto 20px; background:#fff; padding:14px 22px 18px 30px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.06); border:1px solid #e2e8f0; }
+          #sec-dominios .dom-layout{ display:grid; grid-template-columns: minmax(260px, 1fr) 320px; gap:12px; align-items:start; }
+          #sec-dominios .dom-bars{ background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 10px 12px; }
+          #sec-dominios .dom-bars h3{ margin:0 0 8px; font-size:0.72rem; font-weight:800; color:#0f172a; text-align:center; }
+          #sec-dominios #domBars{ --sb-hbar-text:#0f172a; --sb-hbar-label:#0f172a; --sb-hbar-value:#0f172a; --sb-hbar-tooltip-color:#0f172a; --sb-hbar-tooltip-shadow:none; }
+          @media (max-width: 820px){
+            #sec-dominios .dom-layout{ grid-template-columns: 1fr; }
+          }
+        </style>
+        <div class="dom-card">
           <h2 style="text-align:center;font-size:0.92rem;margin:0 0 12px;color:#0f172a;">Domínios de Conhecimento</h2>
           <div style="text-align:center;margin-bottom:10px;">
             <label for="domSelModo" style="font-size:0.65rem;color:#334155;font-weight:600;margin-right:5px;">Visualizar:</label>
@@ -305,27 +315,38 @@
               <option value="last" selected>Meu último exame</option>
             </select>
           </div>
-          <svg id="domRadar" viewBox="0 0 400 400" style="width:100%;height:auto;max-width:280px;margin:0 auto;display:block;transform:scale(0.90);transform-origin:200px 200px;overflow:visible;">
-            <circle cx="200" cy="200" r="150" fill="none" stroke="#e2e8f0" stroke-width="1"/>
-            <circle cx="200" cy="200" r="120" fill="none" stroke="#e2e8f0" stroke-width="1"/>
-            <circle cx="200" cy="200" r="90" fill="none" stroke="#e2e8f0" stroke-width="1"/>
-            <circle cx="200" cy="200" r="60" fill="none" stroke="#e2e8f0" stroke-width="1"/>
-            <circle cx="200" cy="200" r="30" fill="none" stroke="#e2e8f0" stroke-width="1"/>
-            <line x1="200" y1="200" x2="200" y2="50" stroke="#cbd5e1" stroke-width="1"/>
-            <line x1="200" y1="200" x2="329.9" y2="275" stroke="#cbd5e1" stroke-width="1"/>
-            <line x1="200" y1="200" x2="70.1" y2="275" stroke="#cbd5e1" stroke-width="1"/>
-            <polygon id="domPoly" points="200,50 329.9,275 70.1,275" fill="rgba(59,130,246,0.20)" stroke="#3b82f6" stroke-width="2"/>
-            <circle id="domP1" cx="200" cy="50" r="5" fill="#3b82f6"/>
-            <circle id="domP2" cx="329.9" cy="275" r="5" fill="#3b82f6"/>
-            <circle id="domP3" cx="70.1" cy="275" r="5" fill="#3b82f6"/>
-            <text x="200" y="35" text-anchor="middle" font-size="13" font-weight="600" fill="#0f172a">Pessoas</text>
-            <text id="domV1" x="200" y="20" text-anchor="middle" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
-            <text x="345" y="290" text-anchor="start" font-size="13" font-weight="600" fill="#0f172a">Processos</text>
-            <text id="domV2" x="345" y="305" text-anchor="start" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
-            <text x="70" y="290" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Ambiente de</text>
-            <text x="70" y="305" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Negócios</text>
-            <text id="domV3" x="70" y="320" text-anchor="end" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
-          </svg>
+          <div class="dom-layout">
+            <div>
+              <svg id="domRadar" viewBox="0 0 400 400" style="width:100%;height:auto;max-width:320px;margin:0 auto;display:block;transform:scale(0.90);transform-origin:200px 200px;overflow:visible;">
+                <circle cx="200" cy="200" r="150" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+                <circle cx="200" cy="200" r="120" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+                <circle cx="200" cy="200" r="90" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+                <circle cx="200" cy="200" r="60" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+                <circle cx="200" cy="200" r="30" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+                <line x1="200" y1="200" x2="200" y2="50" stroke="#cbd5e1" stroke-width="1"/>
+                <line x1="200" y1="200" x2="329.9" y2="275" stroke="#cbd5e1" stroke-width="1"/>
+                <line x1="200" y1="200" x2="70.1" y2="275" stroke="#cbd5e1" stroke-width="1"/>
+                <polygon id="domPoly" points="200,50 329.9,275 70.1,275" fill="rgba(59,130,246,0.20)" stroke="#3b82f6" stroke-width="2"/>
+                <circle id="domP1" cx="200" cy="50" r="5" fill="#3b82f6"/>
+                <circle id="domP2" cx="329.9" cy="275" r="5" fill="#3b82f6"/>
+                <circle id="domP3" cx="70.1" cy="275" r="5" fill="#3b82f6"/>
+                <text x="200" y="35" text-anchor="middle" font-size="13" font-weight="600" fill="#0f172a">Pessoas</text>
+                <text id="domV1" x="200" y="20" text-anchor="middle" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+                <text x="345" y="290" text-anchor="start" font-size="13" font-weight="600" fill="#0f172a">Processos</text>
+                <text id="domV2" x="345" y="305" text-anchor="start" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+                <text x="70" y="290" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Ambiente de</text>
+                <text x="70" y="305" text-anchor="end" font-size="13" font-weight="600" fill="#0f172a">Negócios</text>
+                <text id="domV3" x="70" y="320" text-anchor="end" font-size="11" fill="#3b82f6" font-weight="600">0%</text>
+              </svg>
+            </div>
+            <div class="dom-bars" aria-label="Gráfico de barras por domínio">
+              <h3>Desempenho geral</h3>
+              <sb-hbar id="domBars" height="12" show-percent unit="%" percent-decimals="1" percent-rounding="floor"></sb-hbar>
+              <div style="margin-top:8px; font-size:0.60rem; color:#64748b; line-height:1.2;">
+                As barras repetem os mesmos percentuais do gráfico ao lado.
+              </div>
+            </div>
+          </div>
           <div id="domAnalysis" style="margin-top:12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:10px 12px; font-size:0.62rem; color:#334155; line-height:1.2;">
             <strong style="display:block; font-size:0.65rem; margin-bottom:5px; color:#0f172a;">Análise automática</strong>
             <div class="dom-analysis-body" style="display:flex; flex-direction:column; gap:3px;">
@@ -1497,6 +1518,25 @@
       const v2 = document.getElementById('domV2'); if (v2) v2.textContent = `${values.processos.toFixed(1)}%`;
       const v3 = document.getElementById('domV3'); if (v3) v3.textContent = `${values.ambienteNegocios.toFixed(1)}%`;
     }
+
+    function domRenderBars(values){
+      const el = document.getElementById('domBars');
+      if (!el) return;
+      const safe = {
+        pessoas: Number.isFinite(Number(values?.pessoas)) ? Number(values.pessoas) : 0,
+        processos: Number.isFinite(Number(values?.processos)) ? Number(values.processos) : 0,
+        ambienteNegocios: Number.isFinite(Number(values?.ambienteNegocios)) ? Number(values.ambienteNegocios) : 0
+      };
+      const items = [
+        { label: 'Pessoas', value: safe.pessoas, max: 100, color: '#2563eb', unit: '%' },
+        { label: 'Processos', value: safe.processos, max: 100, color: '#16a34a', unit: '%' },
+        { label: 'Ambiente de negócios', value: safe.ambienteNegocios, max: 100, color: '#f59e0b', unit: '%' }
+      ];
+      el.setAttribute('data', JSON.stringify(items));
+      el.setAttribute('show-percent', '');
+      el.setAttribute('height', '12');
+      el.setAttribute('unit', '%');
+    }
     function domNormalize(domains){
       const out = { pessoas:0, processos:0, ambienteNegocios:0 };
       domains.forEach(d => {
@@ -1584,7 +1624,12 @@
       const examMode = sel.value;
       let sessionToken = '';
       try { sessionToken = (localStorage.getItem('sessionToken')||'').trim(); } catch(_){ }
-      if (!sessionToken){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+      if (!sessionToken){
+        const empty = { pessoas:0, processos:0, ambienteNegocios:0 };
+        domRenderPolygon(empty);
+        domRenderBars(empty);
+        return;
+      }
       try {
         // Prefer JWT Authorization if available
         let jwtTok = '';
@@ -1594,15 +1639,25 @@
         if (jwtTok) { headers['Authorization'] = `${jwtType} ${jwtTok}`; }
         if (sessionToken) { headers['X-Session-Token'] = sessionToken; }
         const resp = await fetch(`/api/indicators/IND10?examMode=${encodeURIComponent(examMode)}`, { headers });
-        if (!resp.ok){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+        if (!resp.ok){
+          const empty = { pessoas:0, processos:0, ambienteNegocios:0 };
+          domRenderPolygon(empty);
+          domRenderBars(empty);
+          return;
+        }
         const data = await resp.json();
         const domains = Array.isArray(data.domains) ? data.domains : [];
         const normVals = domNormalize(domains);
         domRenderPolygon(normVals);
+        domRenderBars(normVals);
         domGenerateInsights(domains);
         const info = document.getElementById('domInfoExam');
         if (info) info.textContent = `Exame: ${data.examAttemptId ? (data.examAttemptId + (data.examDate ? ' - ' + (data.examDate||'').slice(0,10) : '')) : 'nenhum'} (${examMode})`;
-      } catch(_){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); }
+      } catch(_){
+        const empty = { pessoas:0, processos:0, ambienteNegocios:0 };
+        domRenderPolygon(empty);
+        domRenderBars(empty);
+      }
     }
     function loadDominiosLazy(){ if (!_domLoadedOnce){ _domLoadedOnce = true; loadDominios(); const sel = document.getElementById('domSelModo'); if (sel) sel.addEventListener('change', ()=> loadDominios()); } }
   </script>

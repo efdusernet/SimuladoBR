@@ -376,6 +376,40 @@
                 </div>
             </div>
         </div>
+
+    <!-- Modal "Estou pronto?" (análise baseada nos últimos simulados completos) -->
+        <div id="readinessModal" class="overlay" aria-hidden="true" style="display:none;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:12px;max-width:560px;width:92%;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.35);color:#111827">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                        <h2 style="margin:0;font-size:1.2rem;">Estou pronto?</h2>
+                        <div id="readinessSubtitle" style="font-size:.9rem;color:#334155">Análise automática com base no seu histórico</div>
+                    </div>
+                    <button id="readinessClose" type="button" aria-label="Fechar" style="background:none;border:none;font-size:1.6rem;color:#64748b;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center">×</button>
+                </div>
+
+                <div id="readinessBody" style="display:grid;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                        <div id="readinessBadge" style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;font-weight:800;font-size:.85rem;">
+                            Analisando...
+                        </div>
+                        <div id="readinessMeta" style="font-size:.9rem;color:#334155"></div>
+                    </div>
+
+                    <div id="readinessText" style="line-height:1.5;color:#0f172a;font-size:.98rem"></div>
+
+                    <div style="border-top:1px solid #e2e8f0;padding-top:10px;display:grid;gap:8px">
+                        <div style="font-size:.9rem;color:#334155;font-weight:800">Últimos simulados completos considerados</div>
+                        <div id="readinessList" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto"></div>
+                    </div>
+
+                    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px">
+                        <button id="readinessStartFull" type="button" style="padding:10px 12px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;cursor:pointer;font-weight:800">Fazer simulado completo agora</button>
+                        <button id="readinessGoIndicators" type="button" style="padding:10px 12px;border-radius:10px;border:none;background:linear-gradient(135deg,#2563eb,#22c55e);color:#06101f;cursor:pointer;font-weight:900">Ver Indicadores</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     <!-- Auth guard: redirect to login if no session token -->
     <script>
     (function authGuard(){
@@ -410,6 +444,7 @@
                 const modalsToClose = [
                     'adminModal',
                     'examResultsModal',
+                    'readinessModal',
                     'examSetupModal'
                 ];
                 
@@ -1290,6 +1325,300 @@
                     document.addEventListener('DOMContentLoaded', applyFeatureFlags);
                 } else {
                     applyFeatureFlags();
+                }
+            })();
+        </script>
+
+        <!-- "Estou pronto?" readiness modal logic -->
+        <script>
+            (function(){
+                const modal = document.getElementById('readinessModal');
+                const closeBtn = document.getElementById('readinessClose');
+                const badgeEl = document.getElementById('readinessBadge');
+                const metaEl = document.getElementById('readinessMeta');
+                const textEl = document.getElementById('readinessText');
+                const listEl = document.getElementById('readinessList');
+                const btnStartFull = document.getElementById('readinessStartFull');
+                const btnIndicators = document.getElementById('readinessGoIndicators');
+                if (!modal || !closeBtn || !badgeEl || !textEl || !listEl) return;
+
+                let _prevBodyOverflow = '';
+
+                function open(){
+                    modal.style.display = 'flex';
+                    modal.setAttribute('aria-hidden','false');
+                    try { closeBtn.focus(); } catch(_){ }
+                    try {
+                        _prevBodyOverflow = document.body.style.overflow || '';
+                        document.body.style.overflow = 'hidden';
+                    } catch(_){ }
+                }
+                function close(){
+                    try {
+                        if (document.activeElement && modal.contains(document.activeElement)) {
+                            document.activeElement.blur();
+                        }
+                    } catch(_){ }
+                    modal.style.display = 'none';
+                    modal.setAttribute('aria-hidden','true');
+                    try { document.body.style.overflow = _prevBodyOverflow || ''; } catch(_){ }
+                }
+                closeBtn.addEventListener('click', (e)=>{ try{ e.preventDefault(); }catch(_){ } close(); });
+                modal.addEventListener('click', (e)=>{ if (e.target === modal) close(); });
+
+                function fmtPct(n){
+                    const v = Number(n);
+                    if (!Number.isFinite(v)) return '—';
+                    return v.toFixed(1).replace('.', ',') + '%';
+                }
+                function fmtDate(d){
+                    try {
+                        const dt = new Date(d);
+                        if (!dt || !Number.isFinite(dt.getTime())) return '';
+                        return dt.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                    } catch(_){ return ''; }
+                }
+                function setBadge(kind, label){
+                    // kind: loading|ready|almost|not|nodata
+                    const styles = {
+                        loading: { bg:'#f8fafc', bd:'#e2e8f0', fg:'#0f172a' },
+                        ready:   { bg:'#ecfdf5', bd:'#34d399', fg:'#065f46' },
+                        almost:  { bg:'#fffbeb', bd:'#f59e0b', fg:'#92400e' },
+                        not:     { bg:'#fef2f2', bd:'#f87171', fg:'#991b1b' },
+                        nodata:  { bg:'#f1f5f9', bd:'#cbd5e1', fg:'#0f172a' }
+                    };
+                    const s = styles[kind] || styles.loading;
+                    badgeEl.textContent = label;
+                    badgeEl.style.background = s.bg;
+                    badgeEl.style.borderColor = s.bd;
+                    badgeEl.style.color = s.fg;
+                }
+
+                async function fetchFinishedHistory(limit){
+                    const base = ((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000').replace(/\/$/,'');
+                    const url = base + '/api/exams/history?limit=' + encodeURIComponent(String(limit || 10)) + '&status=finished&_ts=' + Date.now();
+                    const rawSession = (sessionStorage.getItem('X-Session-Token') || localStorage.getItem('sessionToken') || '').trim();
+                    const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
+                    const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
+                    const headers = {};
+                    if (jwtTok) headers['Authorization'] = jwtType + ' ' + jwtTok;
+                    if (rawSession) headers['X-Session-Token'] = rawSession;
+                    const r = await fetch(url, { headers, cache: 'no-store', credentials: 'include' });
+                    if (!r.ok) return [];
+                    const list = await r.json().catch(()=>[]);
+                    return Array.isArray(list) ? list : [];
+                }
+
+                function isFullAttempt(a){
+                    const mode = String((a && a.examMode) || '').trim().toLowerCase();
+                    if (mode === 'full') return true;
+                    // Fallback heuristic for older rows without ExamMode
+                    const total = Number(a && (a.total != null ? a.total : a.Total));
+                    return Number.isFinite(total) && total >= 150;
+                }
+
+                function buildAnalysis(fullAttempts){
+                    const threshold = 80;
+                    const considered = fullAttempts.slice(0, 3);
+                    const scores = considered.map(a => Number(a.scorePercent)).filter(Number.isFinite);
+
+                    if (!considered.length || !scores.length) {
+                        return {
+                            kind: 'nodata',
+                            label: 'Sem dados suficientes',
+                            meta: 'Nenhum simulado completo finalizado encontrado',
+                            text: 'Eu ainda não tenho simulados completos finalizados o suficiente para dizer com segurança. Faça pelo menos 1 simulado completo para eu começar a medir sua prontidão, e idealmente 3 para confirmar consistência.',
+                            considered
+                        };
+                    }
+
+                    const allAbove = scores.length >= 3 && scores.every(s => s >= threshold);
+                    const avg = scores.reduce((acc, v)=>acc+v, 0) / scores.length;
+                    const aboveCount = scores.filter(s => s >= threshold).length;
+
+                    if (scores.length >= 3 && allAbove) {
+                        return {
+                            kind: 'ready',
+                            label: 'Pronto para o exame',
+                            meta: `Consistência alta: ${aboveCount}/3 ≥ ${threshold}%`,
+                            text: 'Pelos seus últimos 3 simulados completos, sua pontuação está consistentemente acima de 80%. Isso é um ótimo sinal de prontidão. Mantenha o ritmo e revise pontos fracos pontuais para chegar ainda mais confiante.',
+                            considered
+                        };
+                    }
+
+                    if (scores.length === 2) {
+                        if (scores.every(s => s >= threshold)) {
+                            return {
+                                kind: 'almost',
+                                label: 'Bem encaminhado',
+                                meta: `2/2 ≥ ${threshold}% (faltam mais dados)`,
+                                text: 'Seus 2 últimos simulados completos ficaram acima de 80% — excelente. Ainda faltam dados para “consistência de 3”, então minha recomendação é fazer mais 1 simulado completo. Se repetir ≥80%, aí sim dá para dizer que está pronto com mais segurança.',
+                                considered
+                            };
+                        }
+                        if (aboveCount === 1) {
+                            return {
+                                kind: 'almost',
+                                label: 'Meio termo',
+                                meta: `1/2 ≥ ${threshold}% (consistência ainda baixa)`,
+                                text: 'Você já bateu 80% em um simulado completo, mas ainda não está consistente. Antes de marcar “pronto”, eu buscaria 2 simulados seguidos ≥80%. Foque em revisar os tópicos que mais erraram e faça mais 1 completo para confirmar tendência.',
+                                considered
+                            };
+                        }
+                    }
+
+                    if (scores.length === 1) {
+                        if (scores[0] >= threshold) {
+                            return {
+                                kind: 'almost',
+                                label: 'Bom começo',
+                                meta: `1 simulado completo ≥ ${threshold}%`,
+                                text: 'Seu último simulado completo foi acima de 80% — ótimo começo. Como é só 1 dado, eu colocaria como “provavelmente pronto, mas ainda sem confirmação de consistência”. Faça mais 2 simulados completos para confirmar.',
+                                considered
+                            };
+                        }
+                        return {
+                            kind: 'not',
+                            label: 'Ainda não',
+                            meta: `1 simulado completo abaixo de ${threshold}%`,
+                            text: 'Com base no seu último simulado completo, você ainda não está acima de 80%. Eu recomendaria revisar os tópicos mais errados e fazer mais simulados completos até estabilizar acima de 80%.',
+                            considered
+                        };
+                    }
+
+                    // 3+ attempts but not all above threshold
+                    if (scores.length >= 3) {
+                        const last = scores[0];
+                        const prev = scores[1];
+                        const trend = (Number.isFinite(last) && Number.isFinite(prev)) ? (last - prev) : null;
+                        const trendTxt = trend == null ? '' : (trend >= 0 ? ` (tendência +${trend.toFixed(1).replace('.', ',')} p.p.)` : ` (tendência ${trend.toFixed(1).replace('.', ',')} p.p.)`);
+
+                        if (aboveCount === 2 && avg >= 78) {
+                            return {
+                                kind: 'almost',
+                                label: 'Quase lá',
+                                meta: `Média ${fmtPct(avg)}; ${aboveCount}/3 ≥ ${threshold}%${trendTxt}`,
+                                text: 'Você está muito perto: 2 dos últimos 3 simulados completos ficaram ≥80%, mas houve uma queda em um deles. Eu consideraria “quase pronto”. Faça mais 1 simulado completo e tente manter ≥80% — se estabilizar, aí sim “pronto”.',
+                                considered
+                            };
+                        }
+
+                        return {
+                            kind: 'not',
+                            label: 'Ainda não (inconsistente)',
+                            meta: `Média ${fmtPct(avg)}; ${aboveCount}/3 ≥ ${threshold}%${trendTxt}`,
+                            text: 'Seu histórico recente de simulados completos ainda não está consistentemente acima de 80%. Recomendo: (1) revisar os tópicos com mais erros, (2) fazer 1 simulado completo por semana, e (3) buscar 3 simulados seguidos ≥80% para confirmar prontidão.',
+                            considered
+                        };
+                    }
+
+                    // Fallback
+                    return {
+                        kind: 'nodata',
+                        label: 'Sem dados suficientes',
+                        meta: `Média ${fmtPct(avg)}`,
+                        text: 'Ainda não tenho dados suficientes para concluir com segurança. Faça mais simulados completos para eu medir consistência.',
+                        considered
+                    };
+                }
+
+                function renderList(items){
+                    listEl.innerHTML = '';
+                    (items || []).forEach((a, idx) => {
+                        const score = fmtPct(a && a.scorePercent);
+                        const when = fmtDate(a && a.finishedAt);
+                        const total = (a && a.total != null) ? Number(a.total) : null;
+                        const correct = (a && a.correct != null) ? Number(a.correct) : null;
+                        const sub = [
+                            when ? `Finalizado: ${when}` : null,
+                            (Number.isFinite(correct) && Number.isFinite(total) && total > 0) ? `Acertos: ${correct}/${total}` : null,
+                            `Pontuação: ${score}`
+                        ].filter(Boolean).join(' • ');
+
+                        const row = document.createElement('div');
+                        row.style.border = '1px solid #e2e8f0';
+                        row.style.borderRadius = '10px';
+                        row.style.padding = '10px 12px';
+                        row.style.display = 'grid';
+                        row.style.gap = '4px';
+
+                        const top = document.createElement('div');
+                        top.style.display = 'flex';
+                        top.style.alignItems = 'center';
+                        top.style.justifyContent = 'space-between';
+                        top.style.gap = '10px';
+
+                        const title = document.createElement('div');
+                        title.style.fontWeight = '900';
+                        title.style.color = '#0f172a';
+                        title.textContent = `Simulado completo #${idx+1}`;
+
+                        const scoreEl = document.createElement('div');
+                        scoreEl.style.fontWeight = '900';
+                        scoreEl.style.color = '#0f172a';
+                        scoreEl.textContent = score;
+
+                        top.appendChild(title);
+                        top.appendChild(scoreEl);
+
+                        const subEl = document.createElement('div');
+                        subEl.style.fontSize = '.88rem';
+                        subEl.style.color = '#334155';
+                        subEl.textContent = sub;
+
+                        row.appendChild(top);
+                        row.appendChild(subEl);
+                        listEl.appendChild(row);
+                    });
+                    if (!items || !items.length) {
+                        const empty = document.createElement('div');
+                        empty.style.fontSize = '.92rem';
+                        empty.style.color = '#334155';
+                        empty.textContent = 'Nenhum simulado completo encontrado ainda.';
+                        listEl.appendChild(empty);
+                    }
+                }
+
+                async function loadReadiness(){
+                    setBadge('loading','Analisando...');
+                    if (metaEl) metaEl.textContent = '';
+                    textEl.textContent = 'Carregando seus últimos simulados e calculando consistência...';
+                    listEl.innerHTML = '';
+
+                    let list = [];
+                    try { list = await fetchFinishedHistory(20); } catch(_){ list = []; }
+
+                    const full = (list || []).filter(isFullAttempt);
+                    const analysis = buildAnalysis(full);
+                    setBadge(analysis.kind, analysis.label);
+                    if (metaEl) metaEl.textContent = analysis.meta || '';
+                    textEl.textContent = analysis.text || '';
+                    renderList(analysis.considered || []);
+                }
+
+                // Expose global opener for the card click handler
+                window.openReadinessModal = function(){
+                    open();
+                    loadReadiness();
+                };
+
+                if (btnStartFull) {
+                    btnStartFull.addEventListener('click', (e)=>{
+                        try { e.preventDefault(); } catch(_){ }
+                        // Reuse the same flow as the "Exame completo (Mock)" card
+                        const card = document.getElementById('card-exam-mock');
+                        if (card) { try { card.click(); } catch(_){ } }
+                    });
+                }
+                if (btnIndicators) {
+                    btnIndicators.addEventListener('click', (e)=>{
+                        try { e.preventDefault(); } catch(_){ }
+                        try {
+                            const card = document.getElementById('card-indicadores');
+                            if (card) { card.click(); return; }
+                        } catch(_){ }
+                        window.location.assign('/pages/Indicadores.html');
+                    });
                 }
             })();
         </script>
@@ -2345,6 +2674,19 @@
                 }
                 // Se for o card do Simulador, usar fluxo do script.js
                 if (card.classList.contains('card--simulador') || card.classList.contains('card--settings')){
+                    // "Estou pronto?": abre análise (não navega para examSetup)
+                    const isEstouPronto = (String(card.getAttribute('aria-label') || '').trim().toLowerCase() === 'estou pronto?');
+                    if (isEstouPronto) {
+                        try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                        try {
+                            if (typeof window.openReadinessModal === 'function') {
+                                window.openReadinessModal();
+                            } else {
+                                window.showToast && window.showToast('Carregando análise...');
+                            }
+                        } catch(_){ }
+                        return;
+                    }
                     // Configurações: intercepta e redireciona para página de settings (com verificação de senha)
                     const isSettings = (card.id === 'card-settings') || (card.id === 'card-profile-settings') || (card.getAttribute('data-card') === 'settings') || (card.getAttribute('data-card') === 'profile-settings');
                     if (isSettings) {
@@ -2729,7 +3071,7 @@
             const commRefreshRecipientsBtn = document.getElementById('commRefreshRecipientsBtn');
 
             async function ensureAdminAccess(){
-                try { if (window.__isAdmin === true) return true; } catch(_){ }
+                // Never trust stale global flag across logins/navigation; always revalidate.
 
                 try {
                     const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
@@ -2766,10 +3108,17 @@
 
                     // Fallback: /api/users/me for legacy setups.
                     const resp = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
-                    if (!resp.ok) return false;
+                    if (!resp.ok) {
+                        try { window.__isAdmin = false; } catch(_){ }
+                        try {
+                            const adminCard = document.getElementById('card-admin');
+                            if (adminCard) adminCard.style.display = 'none';
+                        } catch(_){ }
+                        return false;
+                    }
                     const user = await resp.json().catch(()=>null);
                     const ok = !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
-                    if (ok) { try { window.__isAdmin = true; } catch(_){ } }
+                    try { window.__isAdmin = ok; } catch(_){ }
 
                     // Keep admin entry hidden unless confirmed.
                     try {
@@ -2779,6 +3128,7 @@
 
                     return ok;
                 } catch(_){
+                    try { window.__isAdmin = false; } catch(_){ }
                     return false;
                 }
             }

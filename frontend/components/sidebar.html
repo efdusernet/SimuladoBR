@@ -2688,7 +2688,7 @@
 
       // Card container
       const card = document.createElement('div');
-      card.style.maxWidth = '364px'; card.style.margin = '10px auto 20px'; card.style.background = '#fff';
+      card.style.maxWidth = '860px'; card.style.margin = '10px auto 20px'; card.style.background = '#fff';
       card.style.padding = '14px 22px 18px 30px'; card.style.borderRadius = '10px';
       card.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'; card.style.border = '1px solid #e2e8f0';
 
@@ -2706,9 +2706,63 @@
         </select>`;
       card.appendChild(selWrap);
 
+      // Layout: radar + bars
+      const layout = document.createElement('div');
+      layout.style.display = 'flex';
+      layout.style.gap = '12px';
+      layout.style.alignItems = 'flex-start';
+      layout.style.justifyContent = 'center';
+      layout.style.flexWrap = 'wrap';
+      card.appendChild(layout);
+
+      const radarWrap = document.createElement('div');
+      radarWrap.style.flex = '1 1 320px';
+      radarWrap.style.minWidth = '260px';
+      layout.appendChild(radarWrap);
+
+      const barsWrap = document.createElement('div');
+      barsWrap.style.width = '320px';
+      barsWrap.style.maxWidth = '100%';
+      barsWrap.style.background = '#ffffff';
+      barsWrap.style.border = '1px solid #e2e8f0';
+      barsWrap.style.borderRadius = '10px';
+      barsWrap.style.padding = '10px 10px 12px';
+      layout.appendChild(barsWrap);
+
+      const barsTitle = document.createElement('div');
+      barsTitle.textContent = 'Desempenho geral';
+      barsTitle.style.margin = '0 0 8px';
+      barsTitle.style.fontSize = '0.72rem';
+      barsTitle.style.fontWeight = '800';
+      barsTitle.style.color = '#0f172a';
+      barsTitle.style.textAlign = 'center';
+      barsWrap.appendChild(barsTitle);
+
+      const domBars = document.createElement('sb-hbar');
+      domBars.id = 'domBars';
+      domBars.setAttribute('height', '12');
+      domBars.setAttribute('show-percent', '');
+      domBars.setAttribute('unit', '%');
+      domBars.setAttribute('percent-decimals', '1');
+      domBars.setAttribute('percent-rounding', 'floor');
+      domBars.style.setProperty('--sb-hbar-text', '#0f172a');
+      domBars.style.setProperty('--sb-hbar-label', '#0f172a');
+      domBars.style.setProperty('--sb-hbar-value', '#0f172a');
+      domBars.style.setProperty('--sb-hbar-tooltip-color', '#0f172a');
+      domBars.style.setProperty('--sb-hbar-tooltip-shadow', 'none');
+      barsWrap.appendChild(domBars);
+
+      const barsHelp = document.createElement('div');
+      barsHelp.textContent = 'As barras repetem os mesmos percentuais do gráfico ao lado.';
+      barsHelp.style.marginTop = '8px';
+      barsHelp.style.fontSize = '0.60rem';
+      barsHelp.style.color = '#64748b';
+      barsHelp.style.lineHeight = '1.2';
+      barsWrap.appendChild(barsHelp);
+
       const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
       svg.setAttribute('id','domRadar'); svg.setAttribute('viewBox','0 0 400 400');
-      svg.setAttribute('style','width:100%;height:auto;max-width:280px;margin:0 auto;display:block;transform:scale(0.90);transform-origin:200px 200px;overflow:visible;');
+      svg.setAttribute('style','width:100%;height:auto;max-width:320px;margin:0 auto;display:block;transform:scale(0.90);transform-origin:200px 200px;overflow:visible;');
       function addCircle(r){ const c = document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('cx','200'); c.setAttribute('cy','200'); c.setAttribute('r', String(r)); c.setAttribute('fill','none'); c.setAttribute('stroke','#e2e8f0'); c.setAttribute('stroke-width','1'); svg.appendChild(c); }
       [150,120,90,60,30].forEach(addCircle);
       function addLine(x2,y2){ const l = document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1','200'); l.setAttribute('y1','200'); l.setAttribute('x2',String(x2)); l.setAttribute('y2',String(y2)); l.setAttribute('stroke','#cbd5e1'); l.setAttribute('stroke-width','1'); svg.appendChild(l); }
@@ -2724,7 +2778,7 @@
       addText(200,20,'0%',{ id:'domV1','text-anchor':'middle','font-size':'11','fill':'#3b82f6','font-weight':'600' });
       addText(345,305,'0%',{ id:'domV2','text-anchor':'start','font-size':'11','fill':'#3b82f6','font-weight':'600' });
       addText(70,320,'0%',{ id:'domV3','text-anchor':'end','font-size':'11','fill':'#3b82f6','font-weight':'600' });
-      card.appendChild(svg);
+      radarWrap.appendChild(svg);
 
       // Analysis block
       const analysis = document.createElement('div');
@@ -2741,6 +2795,25 @@
       // Logic ported from Indicadores.html
       function domGetPoint(angleDeg, percent){ const maxR = 150; const r = (percent/100)*maxR; const rad = (angleDeg - 90) * Math.PI/180; return { x:200 + r*Math.cos(rad), y:200 + r*Math.sin(rad) }; }
       function domRenderPolygon(values){ const p1 = domGetPoint(0, values.pessoas); const p2 = domGetPoint(120, values.processos); const p3 = domGetPoint(240, values.ambienteNegocios); const polyEl = document.getElementById('domPoly'); if (polyEl) polyEl.setAttribute('points', `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`); const el1 = document.getElementById('domP1'); if (el1){ el1.setAttribute('cx', p1.x); el1.setAttribute('cy', p1.y); } const el2 = document.getElementById('domP2'); if (el2){ el2.setAttribute('cx', p2.x); el2.setAttribute('cy', p2.y); } const el3 = document.getElementById('domP3'); if (el3){ el3.setAttribute('cx', p3.x); el3.setAttribute('cy', p3.y); } const v1 = document.getElementById('domV1'); if (v1) v1.textContent = `${values.pessoas.toFixed(1)}%`; const v2 = document.getElementById('domV2'); if (v2) v2.textContent = `${values.processos.toFixed(1)}%`; const v3 = document.getElementById('domV3'); if (v3) v3.textContent = `${values.ambienteNegocios.toFixed(1)}%`; }
+
+      function domRenderBars(values){
+        const el = document.getElementById('domBars');
+        if (!el) return;
+        const safe = {
+          pessoas: Number.isFinite(Number(values?.pessoas)) ? Number(values.pessoas) : 0,
+          processos: Number.isFinite(Number(values?.processos)) ? Number(values.processos) : 0,
+          ambienteNegocios: Number.isFinite(Number(values?.ambienteNegocios)) ? Number(values.ambienteNegocios) : 0
+        };
+        const items = [
+          { label: 'Pessoas', value: safe.pessoas, max: 100, color: '#2563eb', unit: '%' },
+          { label: 'Processos', value: safe.processos, max: 100, color: '#16a34a', unit: '%' },
+          { label: 'Ambiente de negócios', value: safe.ambienteNegocios, max: 100, color: '#f59e0b', unit: '%' }
+        ];
+        el.setAttribute('data', JSON.stringify(items));
+        el.setAttribute('show-percent', '');
+        el.setAttribute('height', '12');
+        el.setAttribute('unit', '%');
+      }
       function domNormalize(domains){ const out = { pessoas:0, processos:0, ambienteNegocios:0 }; domains.forEach(d => { const nm = String(d.name||'').toLowerCase(); const pct = Number(d.percentage||0); if (nm.includes('pessoa')) out.pessoas = pct; else if (nm.includes('processo')) out.processos = pct; else if (nm.includes('ambiente') || nm.includes('negó') || nm.includes('negócio')) out.ambienteNegocios = pct; }); return out; }
       function domGenerateInsights(domains){ const norm = domNormalize(domains); const vals = [norm.pessoas, norm.processos, norm.ambienteNegocios]; const namesMap = { pessoas:'Pessoas', processos:'Processos', ambienteNegocios:'Ambiente de Negócios' }; const classifications = {}; function classify(p){ if (p < 60) return 'Crítico'; if (p < 75) return 'Atenção'; if (p < 85) return 'Regular'; if (p < 95) return 'Bom'; return 'Excelente'; } Object.entries(norm).forEach(([k,v])=> classifications[k] = classify(v)); const max = Math.max(...vals); const min = Math.min(...vals); const amplitude = max - min; const allBelow75 = vals.every(v => v < 75); const allAbove85 = vals.every(v => v >= 85); const anyCritical = vals.some(v => v < 60); const weakerKeys = Object.entries(norm).filter(([k,v]) => v < 75); const strongerKeys = Object.entries(norm).filter(([k,v]) => v >= 75); const insights = []; if (domains.length === 0){ insights.push('Nenhum exame disponível para análise de domínios.'); } else if (allBelow75){ insights.push('⚠️ Desempenho geral abaixo de 75% nos três domínios. Foque em revisão ampla dos conceitos fundamentais.'); } else { if (anyCritical){ Object.entries(norm).filter(([k,v])=> v < 60).forEach(([k,v])=>{ insights.push(`🎯 Prioridade: ${namesMap[k]} está em nível crítico (${v.toFixed(1)}%). Reforce estudo direcionado neste domínio.`); }); } if (!anyCritical && weakerKeys.length === 1 && strongerKeys.length === 2){ const [k,v] = weakerKeys[0]; const strongerAvg = strongerKeys.reduce((a,b)=> a + b[1], 0) / strongerKeys.length; insights.push(`📊 Foco sugerido: ${namesMap[k]} (${v.toFixed(1)}%) está abaixo dos demais (${strongerAvg.toFixed(1)}% média). Ajustar este domínio trará ganho rápido de equilíbrio.`); } if (amplitude >= 25){ const weakest = Object.entries(norm).reduce((a,b)=> a[1] <= b[1] ? a : b); const strongest = Object.entries(norm).reduce((a,b)=> a[1] >= b[1] ? a : b); insights.push(`⚖️ Desequilíbrio: diferença de ${amplitude.toFixed(1)} p.p. entre ${namesMap[strongest[0]]} (${strongest[1].toFixed(1)}%) e ${namesMap[weakest[0]]} (${weakest[1].toFixed(1)}%). Busque nivelar para aumentar consistência.`); } if (allAbove85){ insights.push('✅ Excelente equilíbrio: todos os domínios acima de 85%. Mantenha ritmo e considere aprofundar questões mais complexas.'); } Object.entries(norm).filter(([k,v])=> v >= 70 && v < 75).forEach(([k,v])=>{ insights.push(`🔜 Quase lá: ${namesMap[k]} em ${v.toFixed(1)}%. Pequenas revisões podem ultrapassar 75%.`); }); } if (!insights.length){ insights.push('Sem pontos críticos identificados. Continue acompanhando para detectar tendências.'); } const containerAnalysis = document.getElementById('domAnalysis'); if (containerAnalysis){ const body = containerAnalysis.querySelector('.dom-analysis-body'); if (body){ body.innerHTML = ''; insights.slice(0,5).forEach(msg => { const line = document.createElement('div'); line.textContent = msg; body.appendChild(line); }); const summary = document.createElement('div'); summary.style.marginTop = '6px'; summary.style.color = '#64748b'; summary.textContent = `Classificação: Pessoas ${classifications.pessoas}, Processos ${classifications.processos}, Ambiente de Negócios ${classifications.ambienteNegocios}.`; body.appendChild(summary); } }
       }
@@ -2750,7 +2823,12 @@
         const examMode = sel.value;
         let sessionToken = '';
         try { sessionToken = (localStorage.getItem('sessionToken')||'').trim(); } catch(_){ }
-        if (!sessionToken){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+        if (!sessionToken){
+          const empty = { pessoas:0, processos:0, ambienteNegocios:0 };
+          domRenderPolygon(empty);
+          domRenderBars(empty);
+          return;
+        }
         try {
           let jwtTok = ''; let jwtType = 'Bearer';
           try { jwtTok = (localStorage.getItem('jwtToken')||'').trim(); jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer'; } catch(_){ }
@@ -2758,15 +2836,25 @@
           if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
           if (sessionToken) headers['X-Session-Token'] = sessionToken;
           const resp = await fetch(`/api/indicators/IND10?examMode=${encodeURIComponent(examMode)}`, { headers });
-          if (!resp.ok){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); return; }
+          if (!resp.ok){
+            const empty = { pessoas:0, processos:0, ambienteNegocios:0 };
+            domRenderPolygon(empty);
+            domRenderBars(empty);
+            return;
+          }
           const data = await resp.json();
           const domains = Array.isArray(data.domains) ? data.domains : [];
           const normVals = domNormalize(domains);
           domRenderPolygon(normVals);
+          domRenderBars(normVals);
           domGenerateInsights(domains);
           const info = document.getElementById('domInfoExam');
           if (info) info.textContent = `Exame: ${data.examAttemptId ? (data.examAttemptId + (data.examDate ? ' - ' + (data.examDate||'').slice(0,10) : '')) : 'nenhum'} (${examMode})`;
-        } catch(_){ domRenderPolygon({ pessoas:0, processos:0, ambienteNegocios:0 }); }
+        } catch(_){
+          const empty = { pessoas:0, processos:0, ambienteNegocios:0 };
+          domRenderPolygon(empty);
+          domRenderBars(empty);
+        }
       }
 
       // Initial load and controls
@@ -3133,6 +3221,8 @@
 
   // Navigate to section (integrates with existing index.html navigation)
   function navigateToSection(section, subsection) {
+    // Keep Admin UI accurate on every navigation.
+    try { if (typeof checkAdminAccess === 'function') checkAdminAccess(); } catch(_){ }
     const currentPath = (() => {
       try {
         return (window.location.pathname || '').replace(/\/+$/, '') || '/';
@@ -3336,36 +3426,15 @@
   }
 
   async function ensureAdminAccess() {
-    try { if (window.__isAdmin === true) return true; } catch(_){ }
-
+    // Centralized helper lives in frontend/script.js
     try {
-      const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
-        ? window.Auth.getAuthHeaders({ acceptJson: true })
-        : (() => {
-            const h = { 'Accept': 'application/json' };
-            try {
-              const token = (localStorage.getItem('sessionToken') || '').trim();
-              const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-              const sessionForHeader = (token || nomeUsuario).trim();
-              const jwtTok = (localStorage.getItem('jwtToken') || '').trim();
-              const jwtType = (localStorage.getItem('jwtTokenType') || 'Bearer').trim() || 'Bearer';
-              if (sessionForHeader) h['X-Session-Token'] = sessionForHeader;
-              if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
-            } catch(_){ }
-            return h;
-          })();
-
-      const resp = await fetch('/api/users/me', { headers, credentials: 'include' });
-      if (!resp.ok) return false;
-      const user = await resp.json().catch(() => null);
-      const ok = !!(user && user.TipoUsuario === 'admin');
-      if (ok) {
-        try { window.__isAdmin = true; } catch(_){ }
+      if (typeof window.ensureAdminAccess === 'function' && window.ensureAdminAccess !== ensureAdminAccess) {
+        // Forward any options (force/maxAgeMs) to the global helper.
+        return await window.ensureAdminAccess.apply(window, arguments);
       }
-      return ok;
-    } catch (_e) {
-      return false;
-    }
+    } catch(_){ }
+    // Safe default: deny if helper is unavailable.
+    return false;
   }
 
   function showAdminDenied() {
@@ -3577,7 +3646,8 @@
       const adminAccordion = document.getElementById('sidebarAdminAccordion');
       if (adminAccordion) adminAccordion.style.display = 'none';
 
-      const ok = await ensureAdminAccess();
+      // Force refresh when session identity changes; otherwise allow short cache.
+      const ok = await ensureAdminAccess({ maxAgeMs: 15000 });
       if (!ok) return;
 
       if (adminAccordion) adminAccordion.style.display = 'block';

@@ -9,6 +9,9 @@
 // Notes:
 // - Each item supports: { label, value, max=100, color, bg, unit, tooltip }
 // - Component attributes (single bar mode): value, max, label, color, background, height, radius, striped, animated, show-percent, unit
+// - Percent formatting (when show-percent is enabled):
+//   - percent-decimals: number of decimal places (default: 0)
+//   - percent-rounding: 'round' (default) | 'floor' | 'ceil'
 // - Accessible: uses role=group/progressbar and ARIA attributes.
 
 (function(){
@@ -32,10 +35,33 @@
   `;
 
   function toNumber(v, d){ const n = Number(v); return Number.isFinite(n) ? n : d; }
+  function toInt(v, d){ const n = parseInt(v, 10); return Number.isFinite(n) ? n : d; }
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 
+  function roundToMode(value, mode){
+    if (mode === 'floor') return Math.floor(value);
+    if (mode === 'ceil') return Math.ceil(value);
+    return Math.round(value);
+  }
+
+  function formatPercent(pct, decimals){
+    const d = Math.min(6, Math.max(0, toInt(decimals, 0)));
+    return Number(pct).toFixed(d);
+  }
+
+  function computePercent(value, max, decimals, roundingMode){
+    const ratio = max > 0 ? clamp01(value / max) : 0;
+    const pctRaw = ratio * 100;
+    const d = Math.min(6, Math.max(0, toInt(decimals, 0)));
+    const factor = Math.pow(10, d);
+    const scaled = pctRaw * factor;
+    const scaledRounded = roundToMode(scaled, roundingMode || 'round');
+    const pct = scaledRounded / factor;
+    return { pct, d };
+  }
+
   class SBHBar extends HTMLElement{
-    static get observedAttributes(){ return ['value','max','label','color','background','height','radius','striped','animated','show-percent','unit','data']; }
+    static get observedAttributes(){ return ['value','max','label','color','background','height','radius','striped','animated','show-percent','unit','data','percent-decimals','percent-rounding']; }
     constructor(){
       super();
       this._root = this.attachShadow({ mode:'open' });
@@ -65,6 +91,8 @@
       const radius = this.getAttribute('radius');
       const heightAttr = this.getAttribute('height');
       const bg = this.getAttribute('background');
+      const percentDecimalsAttr = toInt(this.getAttribute('percent-decimals'), 0);
+      const percentRoundingAttr = (this.getAttribute('percent-rounding') || 'round').toLowerCase();
 
       // Clear
       this._wrap.innerHTML = '';
@@ -76,6 +104,8 @@
           const max = toNumber((it && it.max) ?? this.getAttribute('max'), 100);
           const unit = (it && it.unit) || this.getAttribute('unit') || '';
           const trackBg = (it && (it.bg || it.background)) || bg || '#e5e7eb';
+          const percentDecimals = Number.isFinite(parseInt(it && it.percentDecimals, 10)) ? parseInt(it.percentDecimals, 10) : percentDecimalsAttr;
+          const percentRounding = String((it && it.percentRounding) || percentRoundingAttr || 'round').toLowerCase();
 
           const row = document.createElement('div'); row.className='row'; row.setAttribute('part','row');
           const lab = document.createElement('div'); lab.className='label'; lab.textContent = label; lab.setAttribute('part','label');
@@ -90,14 +120,17 @@
             segments.forEach((seg, idx) => {
               const sval = toNumber(seg && seg.value, 0);
               const scolor = (seg && seg.color) || this.getAttribute('color') || '#16a34a';
-              const pct = max > 0 ? Math.round((clamp01(sval / max)) * 100) : 0;
+              const computed = computePercent(sval, max, percentDecimals, percentRounding);
+              const pct = computed.pct;
               const left = accPct;
-              accPct = Math.min(100, accPct + pct);
-              if (idx === 0) primaryPct = pct;
+              const remaining = Math.max(0, 100 - left);
+              const width = Math.min(Math.max(0, pct), remaining);
+              accPct = Math.min(100, left + width);
+              if (idx === 0) primaryPct = width;
 
               const bar = document.createElement('div'); bar.className='bar'; bar.style.setProperty('--sb-hbar-color', scolor);
               if (striped) bar.classList.add('striped'); if (animated) bar.classList.add('animated');
-              bar.style.width = pct + '%';
+              bar.style.width = width + '%';
               bar.style.left = left + '%';
               if (radius) { bar.style.borderRadius = radius; }
               bar.setAttribute('role','progressbar');
@@ -107,7 +140,7 @@
               const segLabel = (seg && (seg.label ?? seg.nome ?? seg.name)) || '';
               bar.setAttribute('aria-label', segLabel || 'Segmento');
               if (showPercent) {
-                const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${pct}${unit || '%'}`; bar.appendChild(tip);
+                const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${formatPercent(width, percentDecimals)}${unit || '%'}`; bar.appendChild(tip);
               }
               track.appendChild(bar);
             });
@@ -116,7 +149,7 @@
             if (showPercent) {
               const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
               const p = (primaryPct == null) ? Math.min(accPct, 100) : primaryPct;
-              val.textContent = `${p}${unit || '%'}`;
+              val.textContent = `${formatPercent(p, percentDecimals)}${unit || '%'}`;
               row.appendChild(val);
             }
             this._wrap.appendChild(row);
@@ -124,7 +157,8 @@
             // Default single bar per row
             const value = toNumber(it && it.value, 0);
             const color = (it && it.color) || this.getAttribute('color') || '#16a34a';
-            const pct = max > 0 ? Math.round((clamp01(value / max)) * 100) : 0;
+            const computed = computePercent(value, max, percentDecimals, percentRounding);
+            const pct = computed.pct;
             const bar = document.createElement('div'); bar.className='bar'; bar.style.setProperty('--sb-hbar-color', color);
             if (striped) bar.classList.add('striped'); if (animated) bar.classList.add('animated');
             bar.style.width = pct + '%';
@@ -135,8 +169,8 @@
             bar.setAttribute('aria-valuenow', String(value));
             bar.setAttribute('aria-label', label || 'Barra');
             const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
-            val.textContent = showPercent ? `${pct}${unit || '%'}` : `${value}${unit}`;
-            if (showPercent) { const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${pct}${unit || '%'}`; bar.appendChild(tip); }
+            val.textContent = showPercent ? `${formatPercent(pct, percentDecimals)}${unit || '%'}` : `${value}${unit}`;
+            if (showPercent) { const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${formatPercent(pct, percentDecimals)}${unit || '%'}`; bar.appendChild(tip); }
             track.appendChild(bar);
             row.appendChild(lab);
             row.appendChild(track);
@@ -151,7 +185,8 @@
         const unit = this.getAttribute('unit') || '';
         const color = this.getAttribute('color') || '#16a34a';
         const trackBg = bg || '#e5e7eb';
-        const pct = max > 0 ? Math.round((clamp01(value / max)) * 100) : 0;
+        const computed = computePercent(value, max, percentDecimalsAttr, percentRoundingAttr);
+        const pct = computed.pct;
 
         const row = document.createElement('div'); row.className='row'; row.setAttribute('part','row');
         const lab = document.createElement('div'); lab.className='label'; lab.textContent = label; lab.setAttribute('part','label');
@@ -168,8 +203,8 @@
         bar.setAttribute('aria-label', label || 'Barra');
 
         const val = document.createElement('div'); val.className='val'; val.setAttribute('part','value');
-        val.textContent = showPercent ? `${pct}${unit || '%'}` : `${value}${unit}`;
-        if (showPercent) { const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${pct}${unit || '%'}`; bar.appendChild(tip); }
+        val.textContent = showPercent ? `${formatPercent(pct, percentDecimalsAttr)}${unit || '%'}` : `${value}${unit}`;
+        if (showPercent) { const tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = `${formatPercent(pct, percentDecimalsAttr)}${unit || '%'}`; bar.appendChild(tip); }
 
         track.appendChild(bar);
         row.appendChild(lab);

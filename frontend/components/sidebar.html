@@ -1841,7 +1841,7 @@
               .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
               @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
               .val{ flex: 0 0 auto; color:inherit; font-size:12px; min-width:36px; text-align:right; }
-              .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }`;
+              .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color: var(--sb-hbar-tooltip-color, currentColor); font-size:11px; text-shadow: var(--sb-hbar-tooltip-shadow, 0 1px 1px rgba(0,0,0,.35)); }`;
               root.appendChild(style);
               const wrap = document.createElement('div');
               wrap.className = 'wrap';
@@ -2071,7 +2071,7 @@
               .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
               @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
               .val{ flex: 0 0 auto; color:inherit; font-size:12px; min-width:36px; text-align:right; }
-              .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }`;
+              .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color: var(--sb-hbar-tooltip-color, currentColor); font-size:11px; text-shadow: var(--sb-hbar-tooltip-shadow, 0 1px 1px rgba(0,0,0,.35)); }`;
               root.appendChild(style);
               const wrap = document.createElement('div');
               wrap.className = 'wrap';
@@ -2764,7 +2764,7 @@
 
       // Ensure sb-hbar component exists (frontend registers one; fallback minimal implementation)
       if (!window.customElements.get('sb-hbar')) {
-        class SbHbar extends HTMLElement { connectedCallback(){ const v=Number(this.getAttribute('value')||0); const max=Number(this.getAttribute('max')||100); const pct=Math.max(0,Math.min(100,(max? (v*100/max):0))); const root=this.attachShadow({mode:'open'}); const wrap=document.createElement('div'); wrap.style.cssText='height:16px;background:#e5e7eb;border-radius:999px;position:relative;'; const bar=document.createElement('div'); bar.style.cssText=`height:100%;width:${pct}%;background:${this.getAttribute('color')||'#22c55e'};border-radius:999px;transition:width .3s`; const tip=document.createElement('span'); tip.textContent=`${pct.toFixed(0)}%`; tip.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);font:600 11px/1 system-ui;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)'; bar.appendChild(tip); wrap.appendChild(bar); root.appendChild(wrap); } }
+        class SbHbar extends HTMLElement { connectedCallback(){ const v=Number(this.getAttribute('value')||0); const max=Number(this.getAttribute('max')||100); const pct=Math.max(0,Math.min(100,(max? (v*100/max):0))); const root=this.attachShadow({mode:'open'}); const wrap=document.createElement('div'); wrap.style.cssText='height:16px;background:#e5e7eb;border-radius:999px;position:relative;color:inherit;'; const bar=document.createElement('div'); bar.style.cssText=`height:100%;width:${pct}%;background:${this.getAttribute('color')||'#22c55e'};border-radius:999px;transition:width .3s`; const tip=document.createElement('span'); tip.textContent=`${pct.toFixed(0)}%`; tip.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);font:600 11px/1 system-ui;color:inherit;text-shadow:0 1px 1px rgba(0,0,0,.35)'; bar.appendChild(tip); wrap.appendChild(bar); root.appendChild(wrap); } }
         customElements.define('sb-hbar', SbHbar);
       }
 

@@ -340,6 +340,7 @@
       <section id="sec-prob" class="section" aria-labelledby="tab-prob">
         <style id="probCardsStyles">
           #sec-prob #probCards { display:grid; width:100%; grid-template-columns: repeat(3, minmax(320px, 1fr)); gap:12px; align-items:stretch; color:#b91c1c; }
+          #sec-prob sb-hbar { --sb-hbar-text:#0f172a; --sb-hbar-label:#0f172a; --sb-hbar-value:#0f172a; --sb-hbar-tooltip-color:#0f172a; --sb-hbar-tooltip-shadow:none; }
           @media (max-width: 1200px) { #sec-prob #probCards { grid-template-columns: repeat(3, minmax(280px, 1fr)); } }
           @media (max-width: 1024px) { #sec-prob #probCards { grid-template-columns: repeat(2, minmax(280px, 1fr)); } }
           @media (max-width: 640px) { #sec-prob #probCards { grid-template-columns: 1fr; } }
@@ -1624,8 +1625,52 @@
       const dominiosSorted = order.map(name => map[name]).filter(Boolean);
       container.innerHTML = '';
 
-      // Ensure custom element is defined before rendering bars
-      await (window.customElements?.whenDefined ? window.customElements.whenDefined('sb-hbar') : Promise.resolve());
+      function probColor(pct){
+        if (pct >= 75) return '#166534';
+        if (pct >= 60) return '#f59e0b';
+        return '#dc2626';
+      }
+
+      function makeProbBar(pct){
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '10px';
+
+        const track = document.createElement('div');
+        track.style.flex = '1 1 auto';
+        track.style.height = '14px';
+        track.style.background = '#cbd5e1';
+        track.style.borderRadius = '999px';
+        track.style.overflow = 'hidden';
+        track.style.position = 'relative';
+
+        const bar = document.createElement('div');
+        bar.style.height = '100%';
+        bar.style.width = `${Math.max(0, Math.min(100, Number(pct)||0))}%`;
+        bar.style.background = probColor(Number(pct)||0);
+        bar.style.borderRadius = '999px';
+        bar.style.transition = 'width .3s ease';
+        track.appendChild(bar);
+
+        const value = document.createElement('div');
+        value.textContent = `${Math.round(Number(pct)||0)}%`;
+        value.style.position = 'absolute';
+        value.style.right = '6px';
+        value.style.top = '50%';
+        value.style.transform = 'translateY(-50%)';
+        value.style.fontSize = '11px';
+        value.style.fontWeight = '800';
+        value.style.color = '#0f172a';
+        value.style.background = 'rgba(255,255,255,0.78)';
+        value.style.padding = '1px 6px';
+        value.style.borderRadius = '999px';
+        value.style.pointerEvents = 'none';
+        track.appendChild(value);
+
+        row.appendChild(track);
+        return row;
+      }
 
       dominiosSorted.forEach(d => {
         const card = document.createElement('div');
@@ -1646,13 +1691,9 @@
         info.style.color = '#475569';
         info.style.marginBottom = '6px';
         card.appendChild(info);
-        const bar = document.createElement('sb-hbar');
-        bar.setAttribute('value', String(d.percent || 0));
-        bar.setAttribute('max', '100');
-        bar.setAttribute('label', 'Aproveitamento');
-        bar.setAttribute('show-percent', '');
-        if ((d.percent||0) >= 75) bar.setAttribute('color', '#2b8a3e');
-        card.appendChild(bar);
+        const pct = Number(d.percent || 0);
+        const barRow = makeProbBar(pct);
+        card.appendChild(barRow);
         container.appendChild(card);
       });
 
@@ -1681,13 +1722,8 @@
       subtitle.style.color = '#475569';
       subtitle.style.marginBottom = '8px';
       block.appendChild(subtitle);
-      const bar2 = document.createElement('sb-hbar');
-      bar2.setAttribute('value', String(probability));
-      bar2.setAttribute('max', '100');
-      bar2.setAttribute('label', 'Probabilidade de aprovação');
-      bar2.setAttribute('show-percent', '');
-      if ((probability||0) >= 75) bar2.setAttribute('color', '#2b8a3e');
-      block.appendChild(bar2);
+      const bar2row = makeProbBar(probability);
+      block.appendChild(bar2row);
       // Formula display
       const formula = document.createElement('div');
       formula.style.marginTop = '10px';

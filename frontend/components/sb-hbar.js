@@ -25,7 +25,7 @@
       .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
       @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
       .val{ flex: 0 0 auto; color: var(--sb-hbar-value, inherit); font-size:12px; min-width:36px; text-align:right; }
-      .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
+      .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color: var(--sb-hbar-tooltip-color, currentColor); font-size:11px; text-shadow: var(--sb-hbar-tooltip-shadow, 0 1px 1px rgba(0,0,0,.35)); }
       .sr-only{ position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
     </style>
     <div class="wrap" part="wrap"></div>

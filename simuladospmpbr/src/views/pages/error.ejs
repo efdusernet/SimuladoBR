@@ -1,0 +1,15 @@
+<%- include('../partials/head', { title }) %>
+<%- include('../partials/nav') %>
+
+<div class="container py-5" style="max-width: 860px;">
+  <h1 class="fw-bold">Erro</h1>
+  <p class="text-secondary"><%= message %></p>
+  <% if (requestId) { %>
+    <div class="text-secondary small">Request ID: <%= requestId %></div>
+  <% } %>
+  <div class="mt-3">
+    <a class="btn btn-primary" href="/">Ir para o início</a>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

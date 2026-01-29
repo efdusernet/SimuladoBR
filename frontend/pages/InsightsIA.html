@@ -13,13 +13,15 @@
   <link rel="stylesheet" href="/layouts/fullscreen-layout.css">
   <style>
     :root{
-      --primary: #0b5ed7;
-      --muted: #6c757d;
-      --bg: #f8fafc;
-      --panel: #ffffff;
-      --border: #e2e8f0;
-      --text: #0f172a;
-      --subtext: #334155;
+      --primary: #22c55e;
+      --primary-2: #16a34a;
+      --chart-muted: #ef4444;
+      --muted: rgba(243,244,246,0.72);
+      --bg: #363636;
+      --panel: #2b2b2b;
+      --border: rgba(255,255,255,0.12);
+      --text: #f3f4f6;
+      --subtext: rgba(243,244,246,0.84);
     }
     body{ margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
     h1{ font-size:1rem; margin:12px 8px; font-weight:600; padding-left:8px; }
@@ -28,23 +30,23 @@
       position: fixed; top: 8px; left: 8px; z-index: 1100;
       display: inline-flex; align-items: center; justify-content: center;
       width: 32px; height: 32px; border-radius: 8px;
-      border: 1px solid #d6d9e0; background:#fff; cursor:pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border: 1px solid var(--border); background: rgba(0,0,0,0.18); cursor:pointer;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
     }
-    .menu-toggle:hover{ background:#f7f9fc; }
+    .menu-toggle:hover{ background: rgba(0,0,0,0.26); }
     .ui-menu-icon-set-hamburger-mobile{
-      display:inline-block; width: 18px; height: 2px; background: #333; border-radius: 2px;
-      box-shadow: 0 6px 0 0 #333, 0 -6px 0 0 #333;
+      display:inline-block; width: 18px; height: 2px; background: #e5e7eb; border-radius: 2px;
+      box-shadow: 0 6px 0 0 #e5e7eb, 0 -6px 0 0 #e5e7eb;
     }
     .menu-panel{
       position: fixed; top: 44px; left: 8px; z-index: 1099;
-      background:#fff; border:1px solid #d6d9e0; border-radius:10px;
-      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      background: rgba(43,43,43,0.96); border:1px solid var(--border); border-radius:10px;
+      box-shadow: 0 16px 32px rgba(0,0,0,0.45);
       min-width: 180px; padding: 6px; display:none;
     }
     .menu-panel.open{ display:block; }
-    .menu-panel a{ display:block; padding: 6px 8px; color:#222; text-decoration:none; border-radius:6px; }
-    .menu-panel a:hover{ background:#f4f7fb; }
+    .menu-panel a{ display:block; padding: 6px 8px; color: rgba(243,244,246,0.92); text-decoration:none; border-radius:6px; }
+    .menu-panel a:hover{ background: rgba(255,255,255,0.08); }
 
     /* Quando estiver no desktop (layout com sidebar), este menu mobile não deve aparecer */
     body[data-layout='desktop'] .menu-toggle{ display: none !important; }
@@ -53,9 +55,9 @@
     /* Igual ao background de .content no index.html (mobile/fullscreen): gradiente escuro */
     .wrap{
       padding: 0 8px 16px;
-      background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
-                  radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
-                  linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
+      background: radial-gradient(1200px 600px at 12% -10%, rgba(34,197,94,.18), transparent 55%),
+                  radial-gradient(900px 520px at 90% 8%, rgba(0,0,0,.28), transparent 60%),
+                  linear-gradient(180deg, #3a3a3a 0%, #2b2b2b 100%) !important;
     }
 
     .controls{
@@ -73,11 +75,12 @@
     .controls input,
     .controls select{
       padding: 8px 10px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid rgba(255,255,255,0.14);
       border-radius: 8px;
       font-size: 0.85rem;
       min-width: 220px;
-      background: #fff;
+      background: rgba(255,255,255,0.06);
+      color: #fff;
     }
     .controls input[type='number']{ min-width: 140px; }
     .controls button{
@@ -90,6 +93,7 @@
       font-weight: 700;
       font-size: 0.8rem;
     }
+    .controls button:hover{ background: var(--primary-2); border-color: var(--primary-2); }
     .controls button:disabled{
       opacity: 0.65;
       cursor: not-allowed;
@@ -191,6 +195,17 @@
     /* Desktop layout (LayoutManager): manter aparência clara dentro de .content */
     body[data-layout='desktop'] .content{ background: var(--bg) !important; color: var(--text) !important; }
 
+    /*
+      Desktop layout (desktop-layout.css) aplica .card com fundo claro (cinza/white gradients)
+      e pode herdar texto branco de .content. Para evitar "branco no claro", forçamos texto escuro
+      especificamente para os cards dentro desta página.
+    */
+    body[data-layout='desktop'] .wrap .card,
+    body[data-layout='desktop'] .wrap .card *{
+      color: #0f172a !important;
+    }
+    body[data-layout='desktop'] .wrap .card a{ color: #0f172a !important; }
+
     /* KPI cards: manter valor abaixo do texto mesmo no desktop-layout global (.card flex-row) */
     body[data-layout='desktop'] .grid .kpi-card{
       display: block !important;
@@ -208,13 +223,13 @@
 
     /* Highlight ao navegar por âncoras (explicabilidade) */
     @keyframes anchorFlashPulse{
-      0%{ box-shadow: 0 0 0 0 rgba(11,94,215,.0); outline-color: rgba(11,94,215,.0); }
-      20%{ box-shadow: 0 0 0 6px rgba(11,94,215,.16); outline-color: rgba(11,94,215,.55); }
-      60%{ box-shadow: 0 0 0 10px rgba(11,94,215,.10); outline-color: rgba(11,94,215,.30); }
-      100%{ box-shadow: 0 0 0 0 rgba(11,94,215,.0); outline-color: rgba(11,94,215,.0); }
+      0%{ box-shadow: 0 0 0 0 rgba(34,197,94,.0); outline-color: rgba(34,197,94,.0); }
+      20%{ box-shadow: 0 0 0 6px rgba(34,197,94,.16); outline-color: rgba(34,197,94,.55); }
+      60%{ box-shadow: 0 0 0 10px rgba(34,197,94,.10); outline-color: rgba(34,197,94,.30); }
+      100%{ box-shadow: 0 0 0 0 rgba(34,197,94,.0); outline-color: rgba(34,197,94,.0); }
     }
     .flash-target{
-      outline: 3px solid rgba(11,94,215,.0);
+      outline: 3px solid rgba(34,197,94,.0);
       outline-offset: 4px;
       border-radius: 10px;
       animation: anchorFlashPulse 1.25s ease-out 1;
@@ -235,7 +250,7 @@
     </nav>
 
     <div class="wrap">
-      <div aria-label="Cabeçalho Insights da IA" style="background: linear-gradient(135deg, rgb(79, 70, 229), rgb(67, 56, 202)); color: rgb(255, 255, 255); padding: 12px 14px; border-radius: 8px; margin: 0px 0px 10px; display: flex; align-items: center; justify-content: space-between; position: relative; top: 5px;"><div style="font-size: 0.92rem; font-weight: 700; ">Insights da IA</div></div>
+      <div aria-label="Cabeçalho Insights da IA" style="background: linear-gradient(135deg, rgb(64, 64, 64), rgb(43, 43, 43)); color: rgb(255, 255, 255); padding: 12px 14px; border-radius: 8px; margin: 0px 0px 10px; display: flex; align-items: center; justify-content: space-between; position: relative; top: 5px;"><div style="font-size: 0.92rem; font-weight: 700; ">Insights da IA</div></div>
 
       <div class="controls" aria-label="Controles">
         <button id="btnCarregar" type="button">Atualizar</button>

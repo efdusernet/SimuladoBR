@@ -194,7 +194,7 @@
   <!-- Backend configuration (must be set before script.js and script_exam.js) -->
   <script>
     window.SIMULADOS_CONFIG = window.SIMULADOS_CONFIG || {};
-    window.SIMULADOS_CONFIG.BACKEND_BASE = window.SIMULADOS_CONFIG.BACKEND_BASE || 'http://localhost:3000';
+    window.SIMULADOS_CONFIG.BACKEND_BASE = window.SIMULADOS_CONFIG.BACKEND_BASE || (window.location && window.location.origin) || 'http://app.localhost:3000';
   </script>
 
   <!-- registration/session script must run before exam script; prefer non-minified for safety with removed #status/#autosaveIndicator -->

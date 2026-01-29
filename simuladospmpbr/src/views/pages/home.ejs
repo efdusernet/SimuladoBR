@@ -1,0 +1,461 @@
+<%- include('../partials/head', { title }) %>
+<%- include('../partials/nav') %>
+
+<div id="app" data-focus-section="<%= typeof focusSection !== 'undefined' && focusSection ? focusSection : '' %>">
+  <section id="top" class="hero section-anchor">
+    <div class="container hero-inner">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+          <div class="eyebrow">PMP • Simulados • Revisão guiada</div>
+          <h1 class="display-5 fw-bold hero-title">Estude para PMP com simulados e revisão que aceleram a sua aprovação</h1>
+          <p class="lead text-secondary hero-subtitle">O <strong><%= productName %></strong> combina simulados (quiz e completo), histórico de tentativas, indicadores e páginas de revisão para você evoluir com clareza.</p>
+
+          <div class="d-flex gap-2 flex-wrap mt-3">
+            <a class="btn btn-primary btn-lg" href="#checkout">Quero comprar</a>
+            <a class="btn btn-outline-primary btn-lg" href="#produto">Ver o produto</a>
+          </div>
+
+          <div class="trustbar mt-4">
+            <div class="trustitem">2 modos de simulado</div>
+            <div class="trustitem">Indicadores e diagnóstico</div>
+            <div class="trustitem">Revisão guiada</div>
+            <div class="trustitem">Acesso por tempo do plano</div>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="hero-card">
+            <div class="hero-card-head">
+              <div class="hero-card-kicker">Em poucos minutos você terá</div>
+              <div class="hero-card-title">Um plano de ação para melhorar</div>
+            </div>
+
+            <ul class="feature-list">
+              <li><span class="feature-bullet" aria-hidden="true">✓</span> Simulados (quiz e completo)</li>
+              <li><span class="feature-bullet" aria-hidden="true">✓</span> Retomada e histórico de tentativas</li>
+              <li><span class="feature-bullet" aria-hidden="true">✓</span> Indicadores por desempenho</li>
+              <li><span class="feature-bullet" aria-hidden="true">✓</span> Review focado nos seus gaps</li>
+            </ul>
+
+            <div class="hero-card-foot">
+              <a class="btn btn-primary w-100" href="#checkout">Ver planos e checkout</a>
+              <div class="text-secondary small mt-2">Você pode começar pelo plano START para conhecer.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="produto" class="py-5 section-anchor">
+    <div class="container">
+      <div class="text-center mb-4">
+        <h2 class="h3 fw-bold mb-2">Produto</h2>
+        <p class="text-secondary mb-0">Como o <strong><%= productName %></strong> acelera sua preparação para o PMP.</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="card h-100 feature-card">
+            <div class="card-body">
+              <div class="feature-icon" aria-hidden="true">🎯</div>
+              <h3 class="h5 mt-3">Simulados</h3>
+              <ul class="mb-0">
+                <li>Modo quiz e simulado completo</li>
+                <li>Submissão, retomada e histórico</li>
+                <li>Revisão com dados da tentativa</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card h-100 feature-card">
+            <div class="card-body">
+              <div class="feature-icon" aria-hidden="true">📈</div>
+              <h3 class="h5 mt-3">Insights</h3>
+              <ul class="mb-0">
+                <li>Indicadores e evolução por tentativas</li>
+                <li>Feedback por categoria de questão</li>
+                <li>Fluxo de review para corrigir lacunas</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex justify-content-center">
+        <a class="btn btn-primary" href="#checkout">Comprar agora</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="diferenciais" class="py-5 section-muted section-anchor">
+    <div class="container">
+      <div class="text-center mb-4">
+        <h2 class="h3 fw-bold mb-2">Diferenciais</h2>
+        <p class="text-secondary mb-0">Do simulado ao diagnóstico e revisão — sem achismo.</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="card h-100 lift-card">
+            <div class="card-body">
+              <div class="mini-icon" aria-hidden="true">🧭</div>
+              <h3 class="h6 fw-semibold mt-3">Revisão prática</h3>
+              <p class="text-secondary mb-0">Páginas específicas de review para quiz e simulado completo, baseadas no resultado da tentativa.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card h-100 lift-card">
+            <div class="card-body">
+              <div class="mini-icon" aria-hidden="true">🗂️</div>
+              <h3 class="h6 fw-semibold mt-3">Persistência real</h3>
+              <p class="text-secondary mb-0">Suporte a retomada e histórico consistente de tentativas, com Postgres no backend.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card h-100 lift-card">
+            <div class="card-body">
+              <div class="mini-icon" aria-hidden="true">🔁</div>
+              <h3 class="h6 fw-semibold mt-3">Ciclo completo</h3>
+              <p class="text-secondary mb-0">Do simulado ao diagnóstico e feedback: o fluxo foi pensado para evolução, não só para “acertar questões”.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="como-funciona" class="py-5 section-anchor">
+    <div class="container" style="max-width: 1100px;">
+      <div class="text-center mb-4">
+        <h2 class="h3 fw-bold mb-2">Como funciona</h2>
+        <p class="text-secondary mb-0">Um fluxo simples para estudar com foco e consistência.</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="step-card h-100">
+            <div class="step-badge">01</div>
+            <h3 class="h6 fw-semibold mt-3">Faça um simulado</h3>
+            <p class="text-secondary mb-0">Escolha quiz ou completo e rode uma tentativa para medir seu nível atual.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="step-card h-100">
+            <div class="step-badge">02</div>
+            <h3 class="h6 fw-semibold mt-3">Veja os indicadores</h3>
+            <p class="text-secondary mb-0">Entenda onde você está errando e quais tópicos precisam de atenção primeiro.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="step-card h-100">
+            <div class="step-badge">03</div>
+            <h3 class="h6 fw-semibold mt-3">Revise e evolua</h3>
+            <p class="text-secondary mb-0">Use o review para corrigir lacunas e volte para uma nova tentativa com estratégia.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex justify-content-center">
+        <a class="btn btn-primary" href="#planos">Ver planos</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="planos" class="py-5 section-anchor">
+    <div class="container">
+      <div class="planos-hero text-center mb-4">
+        <div class="planos-hero-title">80% dos aprovados no exame PMP® são aprovados na primeira tentativa!</div>
+        <div class="planos-hero-subtitle">Escolha o plano ideal para você.</div>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 align-items-end justify-content-between">
+        <div>
+          <h2 class="h3 fw-bold mb-2">Planos</h2>
+          <p class="text-secondary mb-0">Escolha o formato ideal para o seu ritmo de estudo.</p>
+        </div>
+        <div>
+          <a class="btn btn-primary" href="#checkout">Ir para checkout</a>
+        </div>
+      </div>
+
+      <div class="row g-4 mt-2">
+        <% (plans || []).forEach(function(plan) { %>
+          <% const isFeatured = (!plan.is_free && plan.access_duration_days && Number(plan.access_duration_days) >= 60); %>
+          <div class="col-md-4">
+            <div class="pricing-card h-100 <%= isFeatured ? 'pricing-card--featured' : '' %>">
+              <div class="pricing-card-body">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                  <div>
+                    <h3 class="h5 mb-1"><%= plan.name %></h3>
+                    <div class="text-secondary"><%= plan.description %></div>
+                  </div>
+                  <% if (isFeatured) { %>
+                    <span class="badge text-bg-primary rounded-pill">Mais escolhido</span>
+                  <% } %>
+                </div>
+
+                <div class="pricing-price mt-3">
+                  <% if (plan.is_free) { %>
+                    <span class="pricing-amount">R$ 0</span>
+                  <% } else { %>
+                    <span class="pricing-amount">R$ <%= (plan.price_cents / 100).toFixed(2).replace('.', ',') %></span>
+                  <% } %>
+                  <div class="pricing-meta text-secondary">
+                    Acesso: <strong>
+                      <% if (plan.is_free || plan.access_duration_days === null) { %>
+                        vitalício
+                      <% } else { %>
+                        <%= plan.access_duration_days %> dias
+                      <% } %>
+                    </strong>
+                  </div>
+                </div>
+
+                <ul class="pricing-list mt-3">
+                  <li><span class="feature-bullet" aria-hidden="true">✓</span> Simulados (quiz e completo)</li>
+                  <li><span class="feature-bullet" aria-hidden="true">✓</span> Indicadores e evolução</li>
+                  <li><span class="feature-bullet" aria-hidden="true">✓</span> Review da tentativa</li>
+                  <li><span class="feature-bullet" aria-hidden="true">✓</span> Suporte por e-mail</li>
+                </ul>
+              </div>
+
+              <div class="pricing-card-foot">
+                <% if (!plan.is_free) { %>
+                  <a class="btn <%= isFeatured ? 'btn-primary' : 'btn-outline-primary' %> w-100 js-select-plan" href="#checkout" data-plan-id="<%= plan.id %>">Escolher plano</a>
+                <% } else { %>
+                  <a class="btn btn-outline-secondary w-100 js-select-plan" href="#checkout" data-plan-id="<%= plan.id %>">Começar grátis</a>
+                <% } %>
+                <div class="text-secondary small mt-2">Sem fidelidade. Acesso por tempo do plano.</div>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+
+      <section class="mt-5 pt-4">
+        <div class="text-center mb-4">
+          <div class="text-uppercase small text-secondary fw-semibold">O que inclui</div>
+          <h3 class="fw-bold">Recursos do simulador</h3>
+        </div>
+
+        <div class="row g-4 text-center">
+          <div class="col-md-4">
+            <div class="sim-include">
+              <div class="sim-include-icon" aria-hidden="true">
+                <span class="sim-include-check">✓</span>
+              </div>
+              <h4 class="h5 fw-semibold mt-3">Simulados realistas</h4>
+              <p class="text-secondary mb-0">Experiência com tempo, marcação e revisão por blocos para treinar como prova.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="sim-include">
+              <div class="sim-include-icon" aria-hidden="true">
+                <span class="sim-include-check">✓</span>
+              </div>
+              <h4 class="h5 fw-semibold mt-3">Indicadores por tentativa</h4>
+              <p class="text-secondary mb-0">Acompanhe sua evolução e entenda seus pontos de melhoria.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="sim-include">
+              <div class="sim-include-icon" aria-hidden="true">
+                <span class="sim-include-check">✓</span>
+              </div>
+              <h4 class="h5 fw-semibold mt-3">Revisão guiada</h4>
+              <p class="text-secondary mb-0">Fluxo de review para corrigir gaps a partir do seu resultado.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="sim-include">
+              <div class="sim-include-icon" aria-hidden="true">
+                <span class="sim-include-check">✓</span>
+              </div>
+              <h4 class="h5 fw-semibold mt-3">Retomada do simulado</h4>
+              <p class="text-secondary mb-0">Pausa e continuidade para estudar no seu ritmo.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="sim-include">
+              <div class="sim-include-icon" aria-hidden="true">
+                <span class="sim-include-check">✓</span>
+              </div>
+              <h4 class="h5 fw-semibold mt-3">Questões e variações</h4>
+              <p class="text-secondary mb-0">Treine múltipla escolha e formatos comuns do exame.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="sim-include">
+              <div class="sim-include-icon" aria-hidden="true">
+                <span class="sim-include-check">✓</span>
+              </div>
+              <h4 class="h5 fw-semibold mt-3">Checklist de evolução</h4>
+              <p class="text-secondary mb-0">Use seus resultados para decidir o que revisar antes da próxima tentativa.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mt-5">
+        <div class="planos-info p-4 p-md-5">
+          <h3 class="planos-info-title mb-3">Planos</h3>
+          <p class="planos-info-text mb-3">
+            A certificação Project Management Professional (PMP®) não apenas comprova suas habilidades, como também proporciona
+            aprendizado essencial para a gestão de pessoas, processos e prioridades de negócios.
+          </p>
+          <p class="planos-info-text mb-3">
+            Reconhecida em diversos setores ao redor do mundo, a certificação PMP® abre portas para novas funções,
+            responsabilidades, salários mais altos e reconhecimento como líder de projetos.
+          </p>
+          <p class="planos-info-text mb-0">
+            Se você é um gerente de projetos com 3 a 5 anos de experiência e já possui a certificação CAPM®, o próximo passo é
+            conquistar a certificação PMP®.
+          </p>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <section id="faq" class="py-5 section-muted section-anchor">
+    <div class="container" style="max-width: 960px;">
+      <div class="text-center mb-4">
+        <h2 class="h3 fw-bold mb-2">FAQ</h2>
+        <p class="text-secondary mb-0">Dúvidas comuns sobre acesso, licenciamento e suporte.</p>
+      </div>
+
+      <div class="accordion" id="faqAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q1">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#a1" aria-expanded="true" aria-controls="a1">
+              O que está incluído no acesso?
+            </button>
+          </h2>
+          <div id="a1" class="accordion-collapse collapse show" aria-labelledby="q1" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+              Acesso ao Simulados Brasil - PMP, pelo tempo determinado de acordo com a escolha do seu pacote.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q2">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a2" aria-expanded="false" aria-controls="a2">
+              Como funciona o licenciamento?
+            </button>
+          </h2>
+          <div id="a2" class="accordion-collapse collapse" aria-labelledby="q2" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+              Você escolhe um plano. Após o checkout, o time entra em contato para ativar a licença e instruções de pagamento (integração automatizada vem na próxima etapa).
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q3">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a3" aria-expanded="false" aria-controls="a3">
+              Posso falar com suporte?
+            </button>
+          </h2>
+          <div id="a3" class="accordion-collapse collapse" aria-labelledby="q3" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+              Sim: <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="checkout" class="py-5 section-anchor">
+    <div class="container" style="max-width: 960px;">
+      <div class="d-flex flex-wrap gap-2 align-items-end justify-content-between">
+        <div>
+          <h2 class="h3 fw-bold mb-2">Checkout</h2>
+          <p class="text-secondary mb-0">Preencha seus dados para reservar o plano e iniciar a ativação.</p>
+        </div>
+      </div>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-danger mt-3"><%= error %></div>
+      <% } %>
+
+      <div class="row g-4 mt-1">
+        <div class="col-lg-7">
+          <form method="post" action="/checkout" class="card">
+            <div class="card-body">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+              <div class="mb-3">
+                <label class="form-label">Nome</label>
+                <input class="form-control" name="firstName" value="<%= form?.firstName ?? '' %>" required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Sobrenome</label>
+                <input class="form-control" name="lastName" value="<%= form?.lastName ?? '' %>" required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input class="form-control" name="email" type="email" value="<%= form?.email ?? '' %>" required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">CPF/CNPJ</label>
+                <input class="form-control" name="cpfCnpj" value="<%= form?.cpfCnpj ?? '' %>" inputmode="numeric" autocomplete="off" placeholder="Somente números" maxlength="18" />
+                <div class="text-secondary small mt-1">Necessário para gerar cobrança no Asaas (Pix/Boleto/Cartão).</div>
+                <div class="invalid-feedback">CPF/CNPJ inválido.</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Plano</label>
+                <select class="form-select" name="planId" required>
+                  <% (plans || []).forEach(function(p) { %>
+                    <option value="<%= p.id %>" data-is-free="<%= p.is_free ? '1' : '0' %>" <%= (form?.planId === p.id ? 'selected' : '') %>><%= p.name %> — R$ <%= (p.price_cents/100).toFixed(2).replace('.', ',') %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Método de pagamento</label>
+                <select class="form-select" name="paymentMethod">
+                  <option value="pix" <%= (form?.paymentMethod === 'pix' ? 'selected' : '') %>>Pix (liberação após confirmação)</option>
+                  <option value="credit_card" <%= (form?.paymentMethod === 'credit_card' ? 'selected' : '') %>>Cartão de crédito (até 10x)</option>
+                  <option value="boleto" <%= (form?.paymentMethod === 'boleto' ? 'selected' : '') %>>Boleto (prazo 7 dias)</option>
+                </select>
+                <div class="text-secondary small mt-2">No cartão, o parcelamento (até 10x) e juros seguem as regras do checkout do Asaas.</div>
+              </div>
+
+              <button class="btn btn-primary btn-lg w-100" type="submit">Confirmar</button>
+              <div class="text-secondary small mt-2">Ao confirmar, você concorda em receber contato para ativação/licenciamento.</div>
+            </div>
+          </form>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="card">
+            <div class="card-body">
+              <h3 class="h6 fw-semibold">O que acontece depois?</h3>
+              <ol class="text-secondary mb-0">
+                <li>Registramos seu pedido.</li>
+                <li>Entramos em contato para ativação e pagamento.</li>
+                <li>Você recebe instruções e acesso.</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<%- include('../partials/footer') %>

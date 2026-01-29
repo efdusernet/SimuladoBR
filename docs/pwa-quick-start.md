@@ -24,8 +24,10 @@ Badge no canto superior direito mostra status de conexão
 cd backend
 npm start
 
-# Acesse: http://localhost:3000
+# Acesse: http://app.localhost:3000
 ```
+
+Dica: para configurar `app.localhost` no Windows (hosts + scripts), veja `docs/app-localhost.md`.
 
 ### Passo 2: Ativar o Service Worker
 1. Abra o app no navegador

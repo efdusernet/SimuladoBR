@@ -1,0 +1,37 @@
+<%- include('../partials/head', { title }) %>
+<%- include('../partials/nav') %>
+
+<div class="container py-5" style="max-width: 900px;">
+  <h1 class="fw-bold mb-2">Pagamento</h1>
+  <p class="text-secondary">Finalize o pagamento no Asaas para ativarmos sua licença.</p>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-md-6"><span class="text-secondary">Plano</span><div class="fw-semibold"><%= order.plan_name %></div></div>
+        <div class="col-md-6"><span class="text-secondary">Valor</span><div class="fw-semibold">R$ <%= (order.amount_cents/100).toFixed(2).replace('.', ',') %></div></div>
+        <div class="col-md-6"><span class="text-secondary">Email</span><div class="fw-semibold"><%= order.buyer_email %></div></div>
+        <div class="col-md-6"><span class="text-secondary">Status</span><div class="fw-semibold"><%= order.status %></div></div>
+      </div>
+
+      <% if (order.payment_method === 'boleto' && order.due_date) { %>
+        <div class="text-secondary small mt-2">Boleto vence em: <%= order.due_date %></div>
+      <% } %>
+
+      <hr />
+
+      <% if (order.payment_url) { %>
+        <a class="btn btn-primary btn-lg" href="<%= order.payment_url %>" target="_blank" rel="noopener">Abrir pagamento no Asaas</a>
+        <div class="text-secondary small mt-2">Se a página não abrir, copie o link: <%= order.payment_url %></div>
+      <% } else { %>
+        <div class="alert alert-warning mb-0">Ainda não geramos o link de pagamento.</div>
+      <% } %>
+
+      <div class="mt-3">
+        <a class="btn btn-outline-secondary" href="/checkout/sucesso?order=<%= order.id %>">Já paguei / ver confirmação</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

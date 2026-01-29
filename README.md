@@ -52,12 +52,27 @@ Pré‑requisitos: Node.js 18+, PostgreSQL acessível com as credenciais em `.en
 	 - `npm start`
 	 - Alternativa com sync automático de modelos (dev): `npm run start:sync` (define também `DB_SYNC=true` se necessário)
 
+### Rodando em app.localhost (subdomínio local) + PWA
+
+Para simular o cenário de produção em subdomínio (ex.: `app.seudominio.com`) localmente, rode o app em `http://app.localhost:3000`.
+
+1) (Windows) Registre `app.localhost` no arquivo hosts (precisa Admin):
+	 - `powershell -ExecutionPolicy Bypass -File .\scripts\setup-app-localhost.ps1`
+
+2) Inicie o servidor já configurado para `app.localhost:3000`:
+	 - `powershell -ExecutionPolicy Bypass -File .\scripts\start-app-localhost.ps1`
+
+3) Acesse:
+	 - `http://app.localhost:3000`
+
+Observação (PWA/Service Worker): `localhost:3000` e `app.localhost:3000` são origens diferentes; se estiver alternando entre eles, pode precisar limpar cache/unregister do SW no DevTools (Application).
+
 Observações de ambiente:
 - Se quiser forçar a leitura de tipos do DB (e não cair em fallback estático), defina `EXAM_TYPES_DISABLE_FALLBACK=true` no ambiente do backend.
 
 ## Endpoints principais e filtros por exam_type
 
-Base: `http://localhost:3000`
+Base (dev): `http://app.localhost:3000`
 
 Observação: as rotas também existem em `/api/v1/*` (preferencial). O prefixo `/api/*` permanece por compatibilidade.
 
@@ -223,7 +238,7 @@ Coleção e instruções em: `postman/README.md`
 - Erros Conhecidos: docs/known-errors.md
 
 ### Dicas de desenvolvimento local
-- Preferir servir o frontend pelo backend (mesma origem) ou ajustar `SIMULADOS_CONFIG.BACKEND_BASE` para apontar ao backend (ex.: `http://localhost:3000`).
+- Preferir servir o frontend pelo backend (mesma origem) ou ajustar `SIMULADOS_CONFIG.BACKEND_BASE` para apontar ao backend (ex.: `http://app.localhost:3000`).
 - Garanta que `frontend/utils/csrf.js` carregue antes de `frontend/script_exam.js` nas páginas de exame.
 - Se o POST `/api/exams/select` retornar 403, verifique que o cabeçalho `X-CSRF-Token` está presente e o cookie `csrfToken` está sendo enviado; consulte docs/known-errors.md.
 

@@ -3,7 +3,7 @@
 .sidebar {
   width: 280px;
   height: 100vh;
-  background: #1e293b;
+  background: #2f2f2f;
   color: #e2e8f0;
   display: flex;
   flex-direction: column;
@@ -22,7 +22,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: linear-gradient(135deg, #4f46e5, #4338ca);
+  background: linear-gradient(135deg, #404040, #2b2b2b);
 }
 
 .sidebar-avatar {
@@ -88,14 +88,14 @@
 }
 
 .sidebar-nav-item:hover {
-  background: #334155;
+  background: #3b3b3b;
   color: white;
 }
 
 .sidebar-nav-item.active {
-  background: #334155;
+  background: #3b3b3b;
   color: white;
-  border-left-color: #4f46e5;
+  border-left-color: #22c55e;
 }
 
 .sidebar-nav-icon {
@@ -133,7 +133,7 @@
 }
 
 .sidebar-accordion-header:hover {
-  background: #334155;
+  background: #3b3b3b;
   color: white;
 }
 
@@ -152,7 +152,7 @@
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease;
-  background: #0f172a;
+  background: #262626;
 }
 
 .sidebar-accordion.expanded .sidebar-accordion-content {
@@ -176,12 +176,12 @@
 }
 
 .sidebar-accordion-item:hover {
-  background: #1e293b;
+  background: #2f2f2f;
   color: #e2e8f0;
 }
 
 .sidebar-accordion-item.active {
-  color: #4f46e5;
+  color: #22c55e;
   font-weight: 500;
 }
 
@@ -189,7 +189,7 @@
 /* Indicadores Submenu styles (inside accordion content) */
 @media (min-width: 1024px) {
   #sidebarIndicadoresAccordion .sidebar-accordion-content {
-    background: #0f172a;
+    background: #262626;
   }
 }
 
@@ -227,16 +227,16 @@
 }
 
 .sidebar::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #262626;
 }
 
 .sidebar::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #3b3b3b;
   border-radius: 3px;
 }
 
 .sidebar::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #4a4a4a;
 }
 </style>
 
@@ -1303,7 +1303,7 @@
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
         headerStrip.setAttribute('aria-label', 'Cabeçalho Visão Geral');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
         headerStrip.style.borderRadius = '8px';
@@ -1790,7 +1790,7 @@
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
         headerStrip.setAttribute('aria-label', 'Cabeçalho Grupo de Processos');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
         headerStrip.style.borderRadius = '8px';
@@ -1834,13 +1834,13 @@
               style.textContent = `:host{ display:block; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
               .wrap{ display:flex; flex-direction:column; gap:6px; }
               .row{ display:flex; align-items:center; gap:8px; min-height:18px; }
-              .label{ flex:0 0 auto; color:#374151; font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+              .label{ flex:0 0 auto; color:inherit; font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
               .track{ position:relative; flex:1 1 auto; height:${height}px; background: var(--sb-hbar-track, #e5e7eb); border-radius: 999px; overflow:hidden; }
-              .bar{ position:absolute; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #4f46e5); border-radius:999px; transition: width .45s ease; }
+              .bar{ position:absolute; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #22c55e); border-radius:999px; transition: width .45s ease; }
               .bar.striped{ background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 8px, transparent 8px 16px); }
               .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
               @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
-              .val{ flex: 0 0 auto; color:#111827; font-size:12px; min-width:36px; text-align:right; }
+              .val{ flex: 0 0 auto; color:inherit; font-size:12px; min-width:36px; text-align:right; }
               .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }`;
               root.appendChild(style);
               const wrap = document.createElement('div');
@@ -1867,7 +1867,7 @@
                 bar.setAttribute('aria-label', seg.label || '');
                 bar.style.left = left + '%';
                 bar.style.width = v + '%';
-                bar.style.setProperty('--sb-hbar-color', seg.color || '#4f46e5');
+                bar.style.setProperty('--sb-hbar-color', seg.color || '#22c55e');
                 const tip = document.createElement('div');
                 tip.className = 'tooltip';
                 tip.textContent = `${v}%`;
@@ -1900,14 +1900,17 @@
         rowWrap.style.alignItems = 'center';
         rowWrap.style.gap = '12px';
         rowWrap.style.flexWrap = 'wrap';
+        // Ensure readable text on dark app theme (affects sb-hbar label/value via inherit)
+        rowWrap.style.color = '#f3f4f6';
         const label = document.createElement('div');
         label.style.fontWeight = '600';
         label.style.minWidth = '180px';
         label.style.fontSize = '0.9rem';
+        label.style.color = '#f3f4f6';
         label.textContent = name;
         const count = document.createElement('div');
         count.style.fontSize = '0.85rem';
-        count.style.color = '#475569';
+        count.style.color = 'inherit';
         count.style.minWidth = '64px';
         count.style.textAlign = 'center';
         count.textContent = `${answered}/${total}`;
@@ -1915,6 +1918,12 @@
         barBox.style.flex = '1 1 0%';
         barBox.style.minWidth = '300px';
         const hbar = document.createElement('sb-hbar');
+        // Prefer CSS variables when the shared sb-hbar.js is used
+        try {
+          hbar.style.setProperty('--sb-hbar-text', '#f3f4f6');
+          hbar.style.setProperty('--sb-hbar-label', '#f3f4f6');
+          hbar.style.setProperty('--sb-hbar-value', '#f3f4f6');
+        } catch(_){ }
         const data = [{ label:'', max:100, segments:[
           { label:'Acertos', value:Number(acertosPct)||0, color:'#2b8a3e' },
           { label:'Erros', value:Number(errosPct)||0, color:'#dc3545' }
@@ -2012,7 +2021,7 @@
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
         headerStrip.setAttribute('aria-label', 'Cabeçalho Abordagem');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
         headerStrip.style.borderRadius = '8px';
@@ -2052,16 +2061,16 @@
               const showPercent = this.hasAttribute('show-percent');
               const data = JSON.parse(dataAttr || '[]');
               const style = document.createElement('style');
-              style.textContent = `:host{ display:block; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
+              style.textContent = `:host{ display:block; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; color:inherit; }
               .wrap{ display:flex; flex-direction:column; gap:6px; }
               .row{ display:flex; align-items:center; gap:8px; min-height:18px; }
-              .label{ flex:0 0 auto; color:#374151; font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+              .label{ flex:0 0 auto; color:inherit; font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
               .track{ position:relative; flex:1 1 auto; height:${height}px; background: var(--sb-hbar-track, #e5e7eb); border-radius: 999px; overflow:hidden; }
-              .bar{ position:absolute; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #4f46e5); border-radius:999px; transition: width .45s ease; }
+              .bar{ position:absolute; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #22c55e); border-radius:999px; transition: width .45s ease; }
               .bar.striped{ background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 8px, transparent 8px 16px); }
               .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
               @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
-              .val{ flex: 0 0 auto; color:#111827; font-size:12px; min-width:36px; text-align:right; }
+              .val{ flex: 0 0 auto; color:inherit; font-size:12px; min-width:36px; text-align:right; }
               .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }`;
               root.appendChild(style);
               const wrap = document.createElement('div');
@@ -2087,7 +2096,7 @@
                 bar.setAttribute('aria-label', seg.label || '');
                 bar.style.left = left + '%';
                 bar.style.width = v + '%';
-                bar.style.setProperty('--sb-hbar-color', seg.color || '#4f46e5');
+                bar.style.setProperty('--sb-hbar-color', seg.color || '#22c55e');
                 const tip = document.createElement('div');
                 tip.className = 'tooltip';
                 tip.textContent = `${v}%`;
@@ -2117,14 +2126,17 @@
         row.style.alignItems = 'center';
         row.style.gap = '12px';
         row.style.flexWrap = 'wrap';
+        // Ensure readable text on dark app theme (affects sb-hbar label/value via inherit)
+        row.style.color = '#f3f4f6';
         const label = document.createElement('div');
         label.style.fontWeight = '600';
         label.style.minWidth = '180px';
         label.style.fontSize = '0.9rem';
+        label.style.color = '#f3f4f6';
         label.textContent = `${id} - ${descricao}`;
         const counts = document.createElement('div');
         counts.style.fontSize = '0.85rem';
-        counts.style.color = '#475569';
+        counts.style.color = 'inherit';
         counts.style.minWidth = '64px';
         counts.style.textAlign = 'center';
         counts.textContent = `${acertos}/${erros}`;
@@ -2132,6 +2144,12 @@
         chartWrapper.style.flex = '1';
         chartWrapper.style.minWidth = '300px';
         const chart = document.createElement('sb-hbar');
+        // Prefer CSS variables when the shared sb-hbar.js is used
+        try {
+          chart.style.setProperty('--sb-hbar-text', '#f3f4f6');
+          chart.style.setProperty('--sb-hbar-label', '#f3f4f6');
+          chart.style.setProperty('--sb-hbar-value', '#f3f4f6');
+        } catch(_){ }
         const item = {
           label: '',
           max: 100,
@@ -2228,7 +2246,7 @@
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
         headerStrip.setAttribute('aria-label', 'Cabeçalho Detalhes');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
         headerStrip.style.borderRadius = '8px';
@@ -2345,7 +2363,7 @@
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
         headerStrip.setAttribute('aria-label', 'Cabeçalho Estatísticas');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
         headerStrip.style.borderRadius = '8px';
@@ -2517,7 +2535,7 @@
         const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
         target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
           <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
-          <path d="${pathScores}" fill="none" stroke="#6366f1" stroke-width="2" />
+          <path d="${pathScores}" fill="none" stroke="#22c55e" stroke-width="2" />
           ${tickEls}${xLabs}
         </svg>`;
       }
@@ -2594,7 +2612,7 @@
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
         headerStrip.setAttribute('aria-label', 'Cabeçalho Domínios');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
         headerStrip.style.borderRadius = '8px';
@@ -2715,7 +2733,7 @@
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
         headerStrip.setAttribute('aria-label', 'Cabeçalho Probabilidade de Sucesso');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
         headerStrip.style.borderRadius = '8px';
@@ -2746,7 +2764,7 @@
 
       // Ensure sb-hbar component exists (frontend registers one; fallback minimal implementation)
       if (!window.customElements.get('sb-hbar')) {
-        class SbHbar extends HTMLElement { connectedCallback(){ const v=Number(this.getAttribute('value')||0); const max=Number(this.getAttribute('max')||100); const pct=Math.max(0,Math.min(100,(max? (v*100/max):0))); const root=this.attachShadow({mode:'open'}); const wrap=document.createElement('div'); wrap.style.cssText='height:16px;background:#e5e7eb;border-radius:999px;position:relative;'; const bar=document.createElement('div'); bar.style.cssText=`height:100%;width:${pct}%;background:${this.getAttribute('color')||'#4f46e5'};border-radius:999px;transition:width .3s`; const tip=document.createElement('span'); tip.textContent=`${pct.toFixed(0)}%`; tip.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);font:600 11px/1 system-ui;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)'; bar.appendChild(tip); wrap.appendChild(bar); root.appendChild(wrap); } }
+        class SbHbar extends HTMLElement { connectedCallback(){ const v=Number(this.getAttribute('value')||0); const max=Number(this.getAttribute('max')||100); const pct=Math.max(0,Math.min(100,(max? (v*100/max):0))); const root=this.attachShadow({mode:'open'}); const wrap=document.createElement('div'); wrap.style.cssText='height:16px;background:#e5e7eb;border-radius:999px;position:relative;'; const bar=document.createElement('div'); bar.style.cssText=`height:100%;width:${pct}%;background:${this.getAttribute('color')||'#22c55e'};border-radius:999px;transition:width .3s`; const tip=document.createElement('span'); tip.textContent=`${pct.toFixed(0)}%`; tip.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);font:600 11px/1 system-ui;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)'; bar.appendChild(tip); wrap.appendChild(bar); root.appendChild(wrap); } }
         customElements.define('sb-hbar', SbHbar);
       }
 
@@ -2834,7 +2852,7 @@
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
         headerStrip.setAttribute('aria-label', 'Cabeçalho Flashcards');
-        headerStrip.style.background = 'linear-gradient(135deg, #4f46e5, #4338ca)';
+        headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
         headerStrip.style.borderRadius = '8px';

@@ -279,7 +279,7 @@ Response (exemplo):
 - Search:
 
 ```bash
-curl -H "X-Session-Token: <token>" "http://localhost:3000/api/ai/web/search?q=PMBOK%207%20tailoring&k=5"
+curl -H "X-Session-Token: <token>" "http://app.localhost:3000/api/ai/web/search?q=PMBOK%207%20tailoring&k=5"
 ```
 
 - Fetch:
@@ -287,7 +287,7 @@ curl -H "X-Session-Token: <token>" "http://localhost:3000/api/ai/web/search?q=PM
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
   -d '{"url":"https://en.wikipedia.org/wiki/Project_management"}' \
-  http://localhost:3000/api/ai/web/fetch
+  http://app.localhost:3000/api/ai/web/fetch
 ```
 
 - Audit:
@@ -295,14 +295,14 @@ curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
   -d '{"question":{"descricao":"...","examType":"pmp","alternativas":["A","B","C","D"],"correta":"A"},"web":{"enabled":true,"maxSources":4}}' \
-  http://localhost:3000/api/ai/question-audit
+  http://app.localhost:3000/api/ai/question-audit
 ```
 
 - Masterdata (question classification):
 
 ```bash
 curl -H "X-Session-Token: <token>" \
-  http://localhost:3000/api/ai/masterdata/question-classification
+  http://app.localhost:3000/api/ai/masterdata/question-classification
 ```
 
 - Classify:
@@ -310,7 +310,7 @@ curl -H "X-Session-Token: <token>" \
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token>" \
   -d '{"question":{"descricao":"...","alternativas":["A","B","C","D"],"correta":"A"},"current":{"iddominiogeral":2,"iddominio_desempenho":4,"idprincipio":7,"id_abordagem":3,"codgrupoprocesso":2,"id_task":20},"dicaMaxChars":180}' \
-  http://localhost:3000/api/ai/question-classify
+  http://app.localhost:3000/api/ai/question-classify
 ```
 
 ## Implementação (referências)

@@ -50,7 +50,7 @@ function parseNamedTokens(raw) {
 const env = {
   NODE_ENV: getEnv('NODE_ENV', 'development'),
   PORT: getEnvInt('PORT', 4010, { min: 1, max: 65535 }),
-  CORS_ORIGINS: parseCsv(getEnv('CORS_ORIGINS', 'http://localhost:3000')),
+  CORS_ORIGINS: parseCsv(getEnv('CORS_ORIGINS', 'http://app.localhost:3000,http://localhost:3000')),
 
   // Admin panel (required for /v1/admin/*)
   ADMIN_TOKEN: getEnv('ADMIN_TOKEN', ''),

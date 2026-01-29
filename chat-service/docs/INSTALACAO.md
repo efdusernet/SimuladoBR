@@ -51,7 +51,7 @@ Exemplo de `DATABASE_URL`:
 
 `CORS_ORIGINS` precisa incluir o host que vai embedar o widget no browser. Em dev:
 
-- `http://localhost:3000`
+- `http://app.localhost:3000`
 
 > Dica: o `.env` é ignorado pelo git (não versionar).
 

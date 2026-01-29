@@ -148,7 +148,7 @@ headers: {
 
 ```bash
 # Backend (.env)
-FRONTEND_URL=http://localhost:3000    # Origem permitida para CSRF
+FRONTEND_URL=http://app.localhost:3000    # Origem permitida para CSRF
 NODE_ENV=production                   # Habilita secure cookies
 ```
 
@@ -188,14 +188,14 @@ async function getToken(token) {
 1. **Token Válido:**
    ```bash
    # Obter token
-   curl -c cookies.txt http://localhost:3000/api/csrf-token
+  curl -c cookies.txt http://app.localhost:3000/api/csrf-token
    
    # Usar token
    curl -b cookies.txt \
      -H "X-CSRF-Token: <token-do-response>" \
      -H "Content-Type: application/json" \
      -d '{"Email":"test@test.com"}' \
-     http://localhost:3000/api/users
+    http://app.localhost:3000/api/users
    ```
 
 2. **Token Inválido (deve falhar):**
@@ -203,7 +203,7 @@ async function getToken(token) {
    curl -H "X-CSRF-Token: fake-token" \
      -H "Content-Type: application/json" \
      -d '{"Email":"test@test.com"}' \
-     http://localhost:3000/api/users
+    http://app.localhost:3000/api/users
    
    # Response: 403 Forbidden
    # {"error":"CSRF token invalid","code":"CSRF_INVALID"}
@@ -213,7 +213,7 @@ async function getToken(token) {
    ```bash
    curl -H "Origin: https://evil.com" \
      -H "X-CSRF-Token: <valid-token>" \
-     http://localhost:3000/api/users
+    http://app.localhost:3000/api/users
    
    # Response: 403 Forbidden
    # {"error":"Invalid origin","code":"CSRF_ORIGIN_MISMATCH"}

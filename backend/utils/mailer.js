@@ -27,7 +27,9 @@ const createTransporter = () => {
 
 async function sendVerificationEmail(toEmail, token, context = 'verificação de e-mail') {
   const transporter = createTransporter();
-  const appBase = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+  const port = process.env.PORT || 3000;
+  const defaultHost = process.env.APP_HOST || process.env.HOST || 'localhost';
+  const appBase = process.env.APP_BASE_URL || `http://${defaultHost}:${port}`;
   const verifyUrl = `${appBase.replace(/\/$/, '')}/api/auth/verify?token=${encodeURIComponent(token)}`;
 
   let subject, text, html;

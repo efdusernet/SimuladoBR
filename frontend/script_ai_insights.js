@@ -236,7 +236,9 @@
       return;
     }
 
-    const chip = (txt) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:#f8fafc;font-size:.72rem;font-weight:800;color:var(--subtext);">${escapeHtml(String(txt))}</span>`;
+    // Chips can be rendered over light backgrounds (#f8fafc). Force dark text for readability
+    // even when the page theme uses light/white text.
+    const chip = (txt) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;border:1px solid rgba(15,23,42,0.10);background:#f8fafc;font-size:.72rem;font-weight:800;color:#0f172a;">${escapeHtml(String(txt))}</span>`;
 
     function anchorForBasedOn(b){
       const src = (b && b.source) ? String(b.source) : '';
@@ -287,10 +289,10 @@
             const thr = (b && b.threshold != null) ? String(b.threshold) : '';
             const details = (b && b.details) ? String(b.details) : '';
             const anchor = anchorForBasedOn(b);
-            const thrTxt = thr ? ` <span class="muted">(limite: ${escapeHtml(thr)}${escapeHtml(unit)})</span>` : '';
-            const detTxt = details ? `<div class="muted" style="margin-top:4px;white-space:normal">${escapeHtml(details)}</div>` : '';
+            const thrTxt = thr ? ` <span style="color:#475569;font-weight:700">(limite: ${escapeHtml(thr)}${escapeHtml(unit)})</span>` : '';
+            const detTxt = details ? `<div style="margin-top:4px;white-space:normal;color:#475569">${escapeHtml(details)}</div>` : '';
             return `
-              <div style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:8px;white-space:normal">
+              <div style="padding:8px 10px;border:1px solid rgba(15,23,42,0.10);border-radius:8px;background:#fff;margin-top:8px;white-space:normal;color:#0f172a">
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline">
                   ${linkify(anchor, chip(src))}
                   ${linkify(anchor, `<span style="font-weight:800">${escapeHtml(label)}</span>`)}
@@ -512,7 +514,12 @@
       const pad = 6;
       const barH = 10;
       const gap = 6;
-      const primary = cssVar(colorCssVar, cssVar('--primary', '#0b5ed7'));
+      // NOTE: In InsightsIA the CSS variable --muted is used for muted *text* and is very light.
+      // Using it as a chart series color produces almost-white bars with no contrast on light tracks.
+      // Therefore, map muted series to a dedicated high-contrast chart color.
+      const primary = (colorCssVar === '--muted')
+        ? cssVar('--chart-muted', '#ef4444')
+        : cssVar(colorCssVar, cssVar('--primary', '#0b5ed7'));
       const bg = '#f1f5f9';
       const stroke = '#e2e8f0';
 
@@ -744,7 +751,8 @@
     }
 
     const primary = cssVar('--primary', '#0b5ed7');
-    const muted = cssVar('--muted', '#6c757d');
+    // --muted may be a light text color on dark themes; use a chart-specific color for contrast.
+    const muted = cssVar('--chart-muted', '#ef4444');
 
     const ticks = [0, 50, 100];
     const tickEls = ticks.map(t => `<text x="${pad-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#64748b">${t}%</text>`).join('');

@@ -27,7 +27,7 @@
 
     // Call backend logout endpoint to clear httpOnly cookies
     try {
-      const BACKEND_BASE = window.SIMULADOS_CONFIG?.BACKEND_BASE || 'http://localhost:3000';
+      const BACKEND_BASE = window.SIMULADOS_CONFIG?.BACKEND_BASE || (window.location && window.location.origin) || 'http://app.localhost:3000';
       await fetch(`${BACKEND_BASE}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include' // Important: send cookies

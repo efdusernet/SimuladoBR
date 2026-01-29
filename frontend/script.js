@@ -147,7 +147,7 @@ class SafeRedirect {
         try {
             const identity = (headers && headers['X-Session-Token']) ? String(headers['X-Session-Token']) : '';
             if (identity) {
-                const probeUrl = (baseUrl || '') + '/api/admin/data-explorer/tables?sessionToken=' + encodeURIComponent(identity);
+                const probeUrl = (baseUrl || '') + '/api/admin/data-explorer/tables';
                 const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include', cache: 'no-store' });
                 if (probeResp.ok || probeResp.status === 204) return true;
             }

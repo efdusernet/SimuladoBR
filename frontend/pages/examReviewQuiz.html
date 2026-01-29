@@ -170,7 +170,7 @@
           const headers = (window.Auth && typeof window.Auth.getAuthHeaders === 'function')
             ? window.Auth.getAuthHeaders()
             : {};
-          const probeUrl = `/api/admin/exams/probe?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+          const probeUrl = `/api/admin/exams/probe`;
           const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
           return r && r.ok;
         } catch(_){

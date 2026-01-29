@@ -55,7 +55,10 @@ function createProductSite({ productRoot, getCsrfToken }) {
 	app.use((req, res, next) => {
 		res.locals.productName = process.env.PRODUCT_NAME || 'SimuladosBrasil';
 		res.locals.supportEmail = process.env.SUPPORT_EMAIL || 'suporte@exemplo.com';
-		res.locals.baseUrl = 'http://localhost:3000';
+		// Base URL for the app (used by the "Acesso" button in the marketing site)
+		res.locals.appBaseUrl = process.env.APP_PUBLIC_BASE_URL || process.env.APP_BASE_URL || 'http://app.localhost:3000';
+		// Legacy name kept for compatibility with older templates
+		res.locals.baseUrl = res.locals.appBaseUrl;
 		return next();
 	});
 

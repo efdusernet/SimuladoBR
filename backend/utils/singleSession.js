@@ -11,11 +11,16 @@ function extractTokenFromRequest(req) {
   const authHeader = (req.headers && req.headers.authorization) ? String(req.headers.authorization).trim() : '';
   const bearer = /^Bearer\s+/i.test(authHeader) ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
 
+  const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+  // Legacy/insecure token transports (body/query) are disabled in production by default.
+  // They can be explicitly re-enabled (discouraged) for compatibility.
+  const allowInsecureTransports = !isProd || String(process.env.ALLOW_INSECURE_TOKEN_TRANSPORT || '').toLowerCase() === 'true';
+
   let token = (
     (req.cookies && req.cookies.sessionToken) ||
     (req.get && req.get('X-Session-Token')) ||
-    (req.body && req.body.sessionToken) ||
-    (req.query && (req.query.sessionToken || req.query.session || req.query.token)) ||
+    (allowInsecureTransports && req.body && req.body.sessionToken) ||
+    (allowInsecureTransports && req.query && (req.query.sessionToken || req.query.session || req.query.token)) ||
     ''
   ).toString().trim();
 

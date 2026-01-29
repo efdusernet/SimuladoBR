@@ -2079,7 +2079,10 @@
                     const alt = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || '';
                     if (alt) { try { localStorage.setItem('sessionToken', alt); } catch(e){} token = alt; }
                   }
-                  logger.debug('[exam] using sessionToken=', token);
+                  try {
+                    const redacted = token ? (String(token).slice(0, 6) + '…') : '';
+                    logger.debug('[exam] using sessionToken=', redacted);
+                  } catch(_) {}
                   const fetchUrl = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE || '') + '/api/exams/select';
                   logger.debug('[exam] fetching questions from', fetchUrl, 'count=', count);
                   // attach optional filters saved by examSetup (bypass when full exam)

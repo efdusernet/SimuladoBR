@@ -255,8 +255,19 @@ app.use((req, res, next) => {
 
 		// If a sessionToken arrives on localhost, it must be set on the app origin.
 		if (req.method === 'GET' && req.query && req.query.sessionToken) {
-			const target = `http://app.localhost:3000${req.originalUrl || req.url || '/'}`;
-			return res.redirect(302, target);
+			try {
+				const original = String(req.originalUrl || req.url || '/');
+				const u = new URL(original, 'http://localhost');
+				const token = String(u.searchParams.get('sessionToken') || '').trim();
+				u.searchParams.delete('sessionToken');
+				// Put token in fragment so it is not sent to server/logs/referrer.
+				const frag = token ? ('sessionToken=' + encodeURIComponent(token)) : '';
+				const target = `http://app.localhost:3000${u.pathname}${u.search}${frag ? ('#' + frag) : ''}`;
+				return res.redirect(302, target);
+			} catch (_) {
+				const target = `http://app.localhost:3000${req.path || '/'}`;
+				return res.redirect(302, target);
+			}
 		}
 
 		// If simulator-specific paths are requested on localhost, redirect to app.localhost.
@@ -364,6 +375,10 @@ app.use((req, res, next) => {
 		const raw = (req.query && req.query.sessionToken) ? String(req.query.sessionToken).trim() : '';
 		if (!raw) return next();
 
+		const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+		// Legacy/insecure token transport via query is disabled in production by default.
+		const allowInsecureTransports = !isProd || String(process.env.ALLOW_INSECURE_TOKEN_TRANSPORT || '').toLowerCase() === 'true';
+
 		// Build clean URL without the sessionToken parameter
 		let cleanPath = req.path;
 		let cleanSearch = '';
@@ -386,7 +401,7 @@ app.use((req, res, next) => {
 		}
 
 		const looksJwt = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(raw);
-		if (looksJwt) {
+		if (allowInsecureTransports && looksJwt) {
 			const cookieOptions = {
 				httpOnly: true,
 				secure: process.env.NODE_ENV === 'production',

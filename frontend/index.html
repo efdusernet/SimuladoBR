@@ -552,7 +552,7 @@
                         headers['X-Session-Token'] = identity;
                         if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
 
-                        const probeUrl = `/api/admin/data-explorer/tables?sessionToken=${encodeURIComponent(identity)}`;
+                        const probeUrl = `/api/admin/data-explorer/tables`;
                         const r = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include' });
                         window.__historyModalIsAdmin = !!r.ok;
                         return window.__historyModalIsAdmin;
@@ -676,7 +676,7 @@
                                     if (identity) h['X-Session-Token'] = identity;
                                     if (jwtTok) h['Authorization'] = `${jwtType} ${jwtTok}`;
 
-                                    const delUrl = base + '/api/admin/exams/attempts/' + encodeURIComponent(String(id)) + '?sessionToken=' + encodeURIComponent(identity);
+                                    const delUrl = base + '/api/admin/exams/attempts/' + encodeURIComponent(String(id));
                                     const resp = await fetch(delUrl, { method: 'DELETE', headers: h, credentials: 'include' });
                                     if (!resp.ok) {
                                         const msg = await resp.text().catch(()=> '');
@@ -885,7 +885,7 @@
                     : {};
 
                 // Primary: RBAC probe.
-                const probeUrl = `/api/admin/data-explorer/tables?sessionToken=${encodeURIComponent(sessionForHeader)}`;
+                const probeUrl = `/api/admin/data-explorer/tables`;
                 fetch(probeUrl, { headers, method: 'GET', credentials: 'include' })
                     .then(async (r) => {
                         let isAdmin = !!(r && (r.ok || r.status === 204));
@@ -930,8 +930,7 @@
                     ? window.Auth.getAuthHeaders({ contentType: 'application/json' })
                     : { 'Content-Type': 'application/json' };
                   if (!headers['X-Session-Token'] && identity) headers['X-Session-Token'] = identity;
-                  const url = path + (path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity);
-                  const resp = await fetch(url,{method:'POST',headers, credentials: 'include'});
+                  const resp = await fetch(path,{method:'POST',headers, credentials: 'include'});
                   const data = await resp.json().catch(()=>({}));
                   return {ok:resp.ok,status:resp.status,data};
               }
@@ -3094,7 +3093,7 @@
 
                     // Primary: probe admin-only endpoint (aligns with backend RBAC).
                     try {
-                        const probeUrl = base + '/api/admin/data-explorer/tables?sessionToken=' + encodeURIComponent(sessionForHeader || '');
+                        const probeUrl = base + '/api/admin/data-explorer/tables';
                         const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include' });
                         if (probeResp.ok || probeResp.status === 204) {
                             try { window.__isAdmin = true; } catch(_){ }
@@ -3240,7 +3239,7 @@
 
                 // 2) Admin probe (RBAC)
                 try {
-                    const probeUrl = base + '/api/admin/data-explorer/tables' + (identity ? ('?sessionToken=' + encodeURIComponent(identity)) : '');
+                    const probeUrl = base + '/api/admin/data-explorer/tables';
                     const resp = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
                     outLines.push('');
                     outLines.push('[admin/data-explorer/tables]');
@@ -3907,7 +3906,7 @@
                         if (csrf) headers['X-CSRF-Token'] = csrf;
                     }
 
-                    const url = base + path + (identity ? ((path.includes('?') ? '&' : '?') + 'sessionToken=' + encodeURIComponent(identity)) : '');
+                    const url = base + path;
 
                     const resp = await fetch(url, {
                         method,

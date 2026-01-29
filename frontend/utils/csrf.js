@@ -34,7 +34,7 @@ class CSRFManager {
     try {
       const isHttpOrigin = /^https?:/i.test(window.location.origin);
       if (!isHttpOrigin) {
-        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || (window.location && window.location.origin) || 'http://app.localhost:3000';
         const u = new URL('/api/csrf-token', base);
         tokenUrl = u.toString();
       }
@@ -132,13 +132,14 @@ window.fetch = async function(url, options = {}) {
   const isSameOrigin = reqOrigin === window.location.origin;
   const isAPI = reqPath.startsWith('/api/');
 
-  // Build trusted backend origins from config; default to localhost:3000
+  // Build trusted backend origins from config; default to same-origin
   let trustedOrigins = new Set();
   try {
-    const cfgBase = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
+    const cfgBase = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || (window.location && window.location.origin) || 'http://app.localhost:3000';
     const baseUrl = new URL(cfgBase, window.location.origin);
     trustedOrigins.add(baseUrl.origin);
   } catch(e) {
+    try { trustedOrigins.add(window.location.origin); } catch(_) {}
     trustedOrigins.add('http://localhost:3000');
   }
 

@@ -89,7 +89,7 @@ SecureStorage.migrateFromLocalStorage(); // Remove tokens antigos
 ### 3. Configuração
 
 #### `backend/.env`
-- ✅ Adicionado `FRONTEND_URL=http://localhost:3000` para CORS
+- ✅ Adicionado `FRONTEND_URL=http://app.localhost:3000` para CORS
 
 #### `backend/package.json`
 - ✅ Instalado `cookie-parser` package
@@ -140,13 +140,13 @@ SecureStorage.migrateFromLocalStorage(); // Remove tokens antigos
 ### Backend
 ```bash
 # Teste login com cookie
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://app.localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"Email":"test@example.com","SenhaHash":"hash"}' \
   -c cookies.txt -v
 
 # Teste logout
-curl -X POST http://localhost:3000/api/auth/logout \
+curl -X POST http://app.localhost:3000/api/auth/logout \
   -b cookies.txt -v
 ```
 

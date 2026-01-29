@@ -41,7 +41,9 @@ Como usar:
    - Se você estiver em um ambiente de desenvolvimento que intercepta TLS com um certificado autoassinado (ex.: proxies corporativos), adicione a variável `SMTP_ALLOW_SELF_SIGNED=true` no arquivo `backend/.env` apenas para debug local e reinicie o backend. NÃO use essa opção em produção.
    - O endpoint de debug (`Send test email`) retorna um objeto `mailer` que pode incluir `verifyError` quando a verificação TLS falha mas o envio foi tentado; verifique esse campo para diagnóstico.
 
-Observação: a coleção pressupõe que a API está disponível em `{{BACKEND_BASE}}` (ex: `http://localhost:3000`).
+Observação: a coleção pressupõe que a API está disponível em `{{BACKEND_BASE}}` (ex: `http://app.localhost:3000`).
+
+Se você estiver rodando em `app.localhost`, veja `docs/app-localhost.md`.
 
 CSRF:
 - Para métodos state-changing (`POST/PUT/PATCH/DELETE`) em `/api/*`, o backend exige `X-CSRF-Token` compatível com o cookie `csrfToken`.

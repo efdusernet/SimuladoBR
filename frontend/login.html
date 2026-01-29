@@ -7,7 +7,7 @@
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Simulados completos para certificação PMP com questões reais e indicadores detalhados">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#363636">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -23,11 +23,13 @@
   <link rel="stylesheet" href="/styles.css">
   <style>
     :root {
-      --brand: #4f46e5;
-      --brand-700: #4338ca;
-      --brand-900: #312e81;
-      --bg: #0b1020;
-      --card: #111827;
+      --brand: #22c55e;
+      --brand-700: #16a34a;
+      --brand-900: #166534;
+      --bg: #363636;
+      --bg-top: #404040;
+      --bg-bottom: #2b2b2b;
+      --card: #2f2f2f;
       --text: #e5e7eb;
       --muted: #9ca3af;
       --danger: #ef4444;
@@ -39,9 +41,9 @@
     html, body { height: 100%; }
     body {
       margin: 0;
-      background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
-                  radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
-                  linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(255,255,255,.12), transparent),
+                  radial-gradient(900px 500px at 90% 10%, rgba(0,0,0,.55), transparent),
+                  linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
       color: var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji";
       display: grid;
@@ -58,7 +60,7 @@
 
     .modal-content {
       width: 100%; max-width: 420px;
-      background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+      background: linear-gradient(180deg, #3f3f3f 0%, #2a2a2a 100%);
       border: 1px solid rgba(255,255,255,.06);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
@@ -75,7 +77,7 @@
 
     .modal-content input {
       width: 100%; height: 44px;
-      background: #0b1221;
+      background: #2a2a2a;
       border: 1px solid rgba(255,255,255,.08);
       color: var(--text);
       border-radius: 12px;
@@ -84,7 +86,7 @@
       transition: border-color .15s ease, box-shadow .15s ease;
     }
     .modal-content input::placeholder { color: #7b8499; }
-    .modal-content input:focus { border-color: rgba(79,70,229,.6); box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+    .modal-content input:focus { border-color: rgba(34,197,94,.65); box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
 
     .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
     .modal-actions button {
@@ -95,12 +97,12 @@
     #submitEmail {
       background: linear-gradient(180deg, var(--brand) 0%, var(--brand-700) 100%);
       color: white;
-      box-shadow: 0 10px 22px rgba(79,70,229,.35);
+      box-shadow: 0 10px 22px rgba(34,197,94,.28);
     }
     #submitEmail:hover { filter: brightness(1.05); }
     #submitEmail:active { transform: translateY(1px); }
-    .secondary-btn { background: #0b1221; color: var(--text); border-color: rgba(255,255,255,.08); }
-    .secondary-btn:hover { background: #0d1526; }
+    .secondary-btn { background: #2a2a2a; color: var(--text); border-color: rgba(255,255,255,.10); }
+    .secondary-btn:hover { background: #313131; }
     .secondary-btn:active { transform: translateY(1px); }
 
     #forgotPasswordLink { color: var(--brand); text-decoration: none; }
@@ -111,7 +113,7 @@
     /* Subtle animated accent */
     .modal-content::before {
       content: ""; position: absolute; inset: -1px; border-radius: inherit;
-      background: radial-gradient(800px 200px at 0% 0%, rgba(79,70,229,.12), transparent);
+      background: radial-gradient(800px 200px at 0% 0%, rgba(34,197,94,.10), transparent);
       pointer-events: none;
     }
 
@@ -151,7 +153,7 @@
         <button id="submitEmail">Entrar</button>
         <button id="toggleModeBtn" class="secondary-btn" type="button">Criar conta</button>
       </div>
-      <a id="forgotPasswordLink" href="#" style="display:block;text-align:center;margin-top:8px;font-size:0.875rem;color:#4f46e5;text-decoration:none;">Esqueci minha senha</a>
+      <a id="forgotPasswordLink" href="#" style="display:block;text-align:center;margin-top:8px;font-size:0.875rem;color:#22c55e;text-decoration:none;">Esqueci minha senha</a>
       <p id="modalError" style="color:crimson;display:none;"></p>
     </div>
   </div>

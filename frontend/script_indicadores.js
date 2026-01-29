@@ -116,7 +116,7 @@
     const xLabels = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
     const svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
       <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
-      <path d="${pathScores}" fill="none" stroke="#6366f1" stroke-width="2" />
+      <path d="${pathScores}" fill="none" stroke="#22c55e" stroke-width="2" />
       ${tickEls}
       ${xLabels}
     </svg>`;

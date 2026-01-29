@@ -150,7 +150,7 @@ body[data-layout="fullscreen"][data-fullscreen-page="exam"] {
 }
 
 body[data-layout="fullscreen"][data-fullscreen-page="exam"] .fullscreen-header {
-  background: #4f46e5;
+  background: #16a34a;
   color: white;
   border-bottom: none;
 }
@@ -364,7 +364,7 @@ body[data-layout="fullscreen"] .fullscreen-content::-webkit-scrollbar-thumb:hove
 
 /* Acessibilidade */
 body[data-layout="fullscreen"] :focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid #22c55e;
   outline-offset: 2px;
 }
 

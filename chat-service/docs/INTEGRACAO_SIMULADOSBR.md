@@ -95,7 +95,7 @@ Exemplos de origins comuns:
 - `https://simuladosbr.com`
 - `https://www.simuladosbr.com`
 - `https://app.simuladosbr.com`
-- `http://localhost:3000` (dev)
+- `http://app.localhost:3000` (dev)
 
 Ajuste `CORS_ORIGINS` para o seu caso.
 

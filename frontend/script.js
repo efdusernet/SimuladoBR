@@ -264,11 +264,20 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 
     // Configuration: allow overriding from the page by setting window.SIMULADOS_CONFIG
-    // Example (optional): window.SIMULADOS_CONFIG = { BACKEND_BASE: 'http://localhost:3000', EXAM_PATH: '/pages/exam.html' };
-    const SIMULADOS_CONFIG = window.SIMULADOS_CONFIG || {
-        BACKEND_BASE: 'http://localhost:3000',
+    // Example (optional): window.SIMULADOS_CONFIG = { BACKEND_BASE: window.location.origin, EXAM_PATH: '/pages/exam.html' };
+    // Default to same-origin (works for app.localhost:3000 and production subdomains).
+    const DEFAULT_BACKEND_BASE = (() => {
+        try {
+            const o = String(window.location && window.location.origin || '');
+            if (/^https?:/i.test(o)) return o;
+        } catch(_){ }
+        return 'http://app.localhost:3000';
+    })();
+    window.SIMULADOS_CONFIG = window.SIMULADOS_CONFIG || {
+        BACKEND_BASE: DEFAULT_BACKEND_BASE,
         EXAM_PATH: '/pages/exam.html'
     };
+    const SIMULADOS_CONFIG = window.SIMULADOS_CONFIG;
 
     // Force login modal rendering when on login page, regardless of session state
     try {

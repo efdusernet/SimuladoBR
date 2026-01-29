@@ -667,7 +667,7 @@ redis-cli KEYS exam:session:*
 
 ```bash
 # 1. Iniciar exame
-curl -X POST http://localhost:3000/api/exams/select \
+curl -X POST http://app.localhost:3000/api/exams/select \
   -H "Cookie: sessionToken=abc" \
   -H "Content-Type: application/json" \
   -d '{"examType":"pmp","mode":"practice"}'
@@ -681,7 +681,7 @@ redis-cli GET exam:session:s-xyz123
 pm2 restart backend
 
 # 4. Recuperar sessão
-curl http://localhost:3000/api/exams/s-xyz123/pause/status
+curl http://app.localhost:3000/api/exams/s-xyz123/pause/status
 
 # ✅ Sessão ainda existe!
 ```

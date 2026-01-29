@@ -85,11 +85,15 @@ function csrfProtection(req, res, next) {
 
   // Validate origin/referer for additional security (relaxed for localhost and file:// testing)
   const origin = req.headers.origin || req.headers.referer;
-  const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigin = process.env.FRONTEND_URL || 'http://app.localhost:3000';
+  const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+  const isNullOrigin = String(origin || '').trim().toLowerCase() === 'null';
   const isLocalhost = (o) => {
     try {
       const u = new URL(o);
-      return u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '::1';
+      const h = (u.hostname || '').toLowerCase();
+      // Treat *.localhost as local loopback (common dev pattern: app.localhost, api.localhost)
+      return h === 'localhost' || h.endsWith('.localhost') || h === '127.0.0.1' || h === '::1';
     } catch (_) {
       return false;
     }
@@ -98,6 +102,7 @@ function csrfProtection(req, res, next) {
     !origin ||
     origin.startsWith(allowedOrigin) ||
     origin.startsWith('file://') ||
+    (!isProd && isNullOrigin) ||
     isLocalhost(origin) // allow any localhost port for development
   );
   if (!isAllowed) {
@@ -128,7 +133,8 @@ function generateCsrfToken(req, res) {
     const origin = req.headers.origin || req.headers.referer || '';
     const isHttpOrigin = /^https?:/i.test(origin);
     const host = isHttpOrigin ? new URL(origin).hostname : '';
-    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    const h = String(host || '').toLowerCase();
+    const isLocal = h === 'localhost' || h.endsWith('.localhost') || h === '127.0.0.1' || h === '::1';
     if (!isHttpOrigin || isLocal) {
       sameSite = 'lax';
     }

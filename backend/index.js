@@ -110,9 +110,43 @@ app.use(compression({
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
 // CORS configuration with credentials support for cookies
+// Note: when frontend+backend are served from the same origin (recommended), CORS is not used by browsers.
+// We still keep a safe allowlist here for cases where a separate dev origin is used.
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+	origin: (origin, callback) => {
+		// Non-browser clients (curl/Postman) often omit Origin.
+		if (!origin) return callback(null, true);
+		const originStr = String(origin || '').trim();
+
+		const allowlist = new Set();
+		if (process.env.FRONTEND_URL) allowlist.add(String(process.env.FRONTEND_URL));
+
+		const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+		// Some environments send Origin: null (e.g. file://, sandboxed iframes, some extensions)
+		// Allow it only during development.
+		if (!isProd && originStr.toLowerCase() === 'null') return callback(null, true);
+		if (!isProd) {
+			// Common dev origins
+			allowlist.add('http://localhost:3000');
+			allowlist.add('http://app.localhost:3000');
+		}
+
+		if (allowlist.has(originStr)) return callback(null, true);
+
+		if (!isProd) {
+			// Accept any localhost / *.localhost origin during development.
+			try {
+				const u = new URL(origin);
+				const h = String(u.hostname || '').toLowerCase();
+				if (h === 'localhost' || h.endsWith('.localhost') || h === '127.0.0.1' || h === '::1') {
+					return callback(null, true);
+				}
+			} catch (_) {}
+		}
+
+		return callback(new Error(`Not allowed by CORS: ${originStr}`));
+	},
+	credentials: true
 }));
 
 // Cookie parser for reading httpOnly cookies
@@ -173,6 +207,21 @@ app.use(`${API_BASE}`, (req, res, next) => {
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const fs = require('fs');
+const { createProductSite } = require('./productSite');
+
+function getHostname(req) {
+	try {
+		const raw = String(req.get('host') || '');
+		return raw.split(':')[0].trim().toLowerCase();
+	} catch (_) {
+		return '';
+	}
+}
+
+function isLocalhostHost(req) {
+	const h = getHostname(req);
+	return h === 'localhost' || h === '127.0.0.1' || h === '::1';
+}
 
 function setNoCacheHeaders(res) {
 	try {
@@ -181,6 +230,60 @@ function setNoCacheHeaders(res) {
 		res.setHeader('Expires', '0');
 	} catch (_) {}
 }
+
+// Product home (localhost:3000) - served from the imported simuladospmpbr project.
+const PRODUCT_ROOT = path.join(__dirname, '..', 'simuladospmpbr');
+const productSite = createProductSite({
+	productRoot: PRODUCT_ROOT,
+	getCsrfToken: (req) => {
+		try {
+			return (typeof req.csrfToken === 'function') ? req.csrfToken() : '';
+		} catch (_) {
+			return '';
+		}
+	},
+});
+
+// Mount product home only for localhost host.
+app.use((req, res, next) => {
+	try {
+		if (!isLocalhostHost(req)) return next();
+		// Don't hijack API or chat proxy routes on localhost.
+		if (req.path && (req.path === '/api' || req.path.startsWith('/api/'))) return next();
+		if (req.path && (req.path === '/api/v1' || req.path.startsWith('/api/v1/'))) return next();
+		if (req.path && req.path.startsWith('/chat/')) return next();
+
+		// If a sessionToken arrives on localhost, it must be set on the app origin.
+		if (req.method === 'GET' && req.query && req.query.sessionToken) {
+			const target = `http://app.localhost:3000${req.originalUrl || req.url || '/'}`;
+			return res.redirect(302, target);
+		}
+
+		// If simulator-specific paths are requested on localhost, redirect to app.localhost.
+		if (req.method === 'GET') {
+			const p = String(req.path || '');
+			const isSimulatorPath = (
+				p === '/login' ||
+				p === '/login.html' ||
+				p.startsWith('/pages/') ||
+				p.startsWith('/utils/') ||
+				/^\/script.*\.js$/i.test(p) ||
+				p === '/manifest.json' ||
+				p === '/sw.js' ||
+				p === '/offline.html'
+			);
+			if (isSimulatorPath) {
+				const target = `http://app.localhost:3000${req.originalUrl || req.url || '/'}`;
+				return res.redirect(302, target);
+			}
+		}
+
+		setNoCacheHeaders(res);
+		return productSite(req, res, next);
+	} catch (_) {
+		return next();
+	}
+});
 
 // IMPORTANT: when dist exists, it can contain stale copies of critical exam scripts/pages.
 // Always serve these from the source frontend/ folder to avoid mismatched client logic.
@@ -213,7 +316,13 @@ app.get('/pages/admin/', (req, res) => res.redirect('/login'));
 app.use('/pages/admin', requireAdmin, express.static(path.join(FRONTEND_DIR, 'pages', 'admin'), {
 	etag: false,
 	lastModified: false,
-	setHeaders: (res) => setNoCacheHeaders(res)
+	setHeaders: (res, filePath, stat) => {
+		setNoCacheHeaders(res);
+		try {
+			res.setHeader('X-SimuladosBR-Static-File', path.basename(String(filePath || '')));
+			res.setHeader('X-SimuladosBR-Static-Mtime', stat && stat.mtime ? stat.mtime.toISOString() : '');
+		} catch(_){ }
+	}
 }));
 
 // Friendly aliases for admin pages (HTML), protected
@@ -236,7 +345,13 @@ if (fs.existsSync(FRONTEND_DIST) && SERVE_DIST) {
 	app.use(express.static(FRONTEND_DIST, {
 		etag: false,
 		lastModified: false,
-		setHeaders: (res) => setNoCacheHeaders(res)
+		setHeaders: (res, filePath, stat) => {
+			setNoCacheHeaders(res);
+			try {
+				res.setHeader('X-SimuladosBR-Static-File', path.basename(String(filePath || '')));
+				res.setHeader('X-SimuladosBR-Static-Mtime', stat && stat.mtime ? stat.mtime.toISOString() : '');
+			} catch(_){ }
+		}
 	}));
 }
 
@@ -300,6 +415,8 @@ app.use((req, res, next) => {
 		if (req.path.startsWith('/api/')) return next();
 		// Allow chat-service proxy routes (widget/assets/API) without redirecting to /login
 		if (req.path.startsWith('/chat/')) return next();
+		// Product home on localhost:3000 is public
+		if (isLocalhostHost(req)) return next();
 		// Allow login and static asset files without auth
 		const allowPaths = new Set([
 			'/login',
@@ -319,7 +436,13 @@ app.use((req, res, next) => {
 app.use(express.static(FRONTEND_DIR, {
 	etag: false,
 	lastModified: false,
-	setHeaders: (res) => setNoCacheHeaders(res)
+	setHeaders: (res, filePath, stat) => {
+		setNoCacheHeaders(res);
+		try {
+			res.setHeader('X-SimuladosBR-Static-File', path.basename(String(filePath || '')));
+			res.setHeader('X-SimuladosBR-Static-Mtime', stat && stat.mtime ? stat.mtime.toISOString() : '');
+		} catch(_){ }
+	}
 }));
 
 // Chat-service reverse proxy (widget + API). Must be before SPA fallback.
@@ -414,6 +537,8 @@ app.use(`${API_BASE}/flashcards`, require('./routes/flashcards'));
 app.use((req, res, next) => {
 		if (req.path.startsWith('/api/')) return next();
 		if (req.path.startsWith('/chat/')) return next();
+		// Do not serve simulator SPA fallback on localhost (product site owns localhost).
+		if (isLocalhostHost(req)) return next();
 	// Only serve index.html for GET navigation requests
 	if (req.method !== 'GET') return next();
 			// Use o index.html da pasta frontend (não copiamos HTMLs para dist)

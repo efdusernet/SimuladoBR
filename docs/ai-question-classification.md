@@ -186,13 +186,13 @@ Importante: a UI **não aplica automaticamente** as sugestões nos selects; ela 
 
 ```bash
 curl -H "X-Session-Token: <token_admin>" \
-  http://localhost:3000/api/ai/masterdata/question-classification
+  http://app.localhost:3000/api/ai/masterdata/question-classification
 ```
 
 ```bash
 curl -X POST -H "Content-Type: application/json" -H "X-Session-Token: <token_admin>" \
   -d '{"question":{"descricao":"...","alternativas":["A","B","C","D"],"correta":"A"},"current":{"iddominiogeral":2,"iddominio_desempenho":4,"idprincipio":7,"id_abordagem":3,"codgrupoprocesso":2,"id_task":20},"dicaMaxChars":180}' \
-  http://localhost:3000/api/ai/question-classify
+  http://app.localhost:3000/api/ai/question-classify
 ```
 
 ## Referências de implementação

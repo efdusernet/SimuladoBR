@@ -1,0 +1,40 @@
+<%- include('../partials/head', { title }) %>
+<%- include('../partials/nav') %>
+
+<div class="container py-5" style="max-width: 900px;">
+  <% if (!order) { %>
+    <div class="alert alert-success">
+      <h1 class="h4 fw-semibold mb-1">Acesso liberado!</h1>
+      <div>Seu plano gratuito foi ativado para <strong><%= freeEmail %></strong>.</div>
+    </div>
+  <% } else { %>
+    <div class="alert alert-success">
+      <h1 class="h4 fw-semibold mb-1">Pedido recebido!</h1>
+      <div>Obrigado, <strong><%= order.buyer_first_name %> <%= order.buyer_last_name %></strong>. Seu pedido foi registrado.</div>
+    </div>
+  <% } %>
+
+  <% if (order) { %>
+  <div class="card">
+    <div class="card-body">
+      <h2 class="h6 fw-semibold">Resumo</h2>
+      <div class="row g-2">
+        <div class="col-md-6"><span class="text-secondary">Plano</span><div class="fw-semibold"><%= order.plan_name %></div></div>
+        <div class="col-md-6"><span class="text-secondary">Valor</span><div class="fw-semibold">R$ <%= (order.amount_cents/100).toFixed(2).replace('.', ',') %></div></div>
+        <div class="col-md-6"><span class="text-secondary">Email</span><div class="fw-semibold"><%= order.buyer_email %></div></div>
+        <div class="col-md-6"><span class="text-secondary">Status</span><div class="fw-semibold"><%= order.status %></div></div>
+      </div>
+
+      <hr />
+      <div class="text-secondary small">ID do pedido: <%= order.id %></div>
+
+      <div class="mt-3 d-flex gap-2 flex-wrap">
+        <a class="btn btn-primary" href="/">Voltar ao início</a>
+        <a class="btn btn-outline-secondary" href="mailto:<%= supportEmail %>">Falar com suporte</a>
+      </div>
+    </div>
+  </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

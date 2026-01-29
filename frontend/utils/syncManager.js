@@ -164,7 +164,7 @@ class SyncManager {
    * Sincroniza resposta individual
    */
   async syncAnswer(data) {
-    const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || 'http://localhost:3000';
+    const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || (window.location && window.location.origin) || 'http://app.localhost:3000';
 
     const headers = this.buildAuthHeaders('application/json');
 
@@ -185,7 +185,7 @@ class SyncManager {
    * Sincroniza submissão de exame
    */
   async syncExamSubmit(data) {
-    const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || 'http://localhost:3000';
+    const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || (window.location && window.location.origin) || 'http://app.localhost:3000';
 
     const headers = this.buildAuthHeaders('application/json');
 
@@ -206,7 +206,7 @@ class SyncManager {
    * Sincroniza progresso
    */
   async syncProgress(data) {
-    const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || 'http://localhost:3000';
+    const baseUrl = window.SIMULADOS_CONFIG?.BACKEND_BASE || (window.location && window.location.origin) || 'http://app.localhost:3000';
 
     const headers = this.buildAuthHeaders('application/json');
 

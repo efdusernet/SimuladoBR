@@ -739,7 +739,6 @@
 
     // Populate overview grid from /api/indicators/overview (uses JWT if present)
     async function loadOverview(){
-    console.log('[DIAG] loadOverview chamada');
     // Always resolve the current Visão Geral section from the live DOM
     const target = document.getElementById('sec-geral')
       || document.querySelector('#indicadores #sec-geral')
@@ -751,7 +750,6 @@
     try {
       const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
       const res = await fetch('/api/indicators/overview', { headers });
-      console.log('[DIAG] loadOverview fetch status:', res.status);
       if (res.status === 401 || res.status === 403) {
         try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
         window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
@@ -759,7 +757,6 @@
       }
       if (!res.ok) return;
       const data = await res.json();
-      console.log('[DIAG] loadOverview dados recebidos:', data);
       const getByPath = (obj, path) => path.split('.').reduce((o,k) => (o && typeof o === 'object') ? o[k] : undefined, obj);
       cells.forEach(c => {
         const key = c.getAttribute('data-key');
@@ -770,7 +767,7 @@
         if (fmt === 'percent') text = `${text}%`;
         c.textContent = text;
       });
-    } catch(e) { console.error('[DIAG] loadOverview erro:', e); }
+    } catch(e) { logger.error('[Indicadores.html] loadOverview erro:', e); }
     }
 
 
@@ -1130,13 +1127,13 @@
         return;
       }
       if (!res.ok) {
-        container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por grupo de processos.</div>';
+        container.innerHTML = '<div style="color:rgba(243,244,246,0.72); padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por grupo de processos.</div>';
         return;
       }
       const data = await res.json();
       const grupos = data && data.grupos ? data.grupos : [];
       if (grupos.length === 0) {
-        container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum grupo de processos encontrado.</div>';
+        container.innerHTML = '<div style="color:rgba(243,244,246,0.72); padding:12px;">Nenhum grupo de processos encontrado.</div>';
         return;
       }
       grupos.forEach(g => {
@@ -1145,10 +1142,16 @@
         row.style.alignItems = 'center';
         row.style.gap = '12px';
         row.style.flexWrap = 'wrap';
+        row.style.color = '#f3f4f6';
+        row.style.background = 'rgba(0,0,0,0.18)';
+        row.style.border = '1px solid rgba(255,255,255,0.10)';
+        row.style.borderRadius = '12px';
+        row.style.padding = '10px 12px';
         const label = document.createElement('div');
         label.style.fontWeight = '600';
         label.style.minWidth = '180px';
         label.style.fontSize = '0.9rem';
+        label.style.color = '#f3f4f6';
         label.textContent = (g && (g.descricao || g.grupo)) ? (g.descricao || String(g.grupo)) : 'Desconhecido';
         const chartWrapper = document.createElement('div');
         chartWrapper.style.flex = '1';
@@ -1173,7 +1176,7 @@
         row.appendChild(label);
         const counts = document.createElement('div');
         counts.style.fontSize = '0.85rem';
-        counts.style.color = '#475569';
+        counts.style.setProperty('color', '#f3f4f6', 'important');
         counts.style.minWidth = '64px';
         counts.style.textAlign = 'center';
         counts.textContent = `${cAcertos}/${cErros}`;
@@ -1182,7 +1185,7 @@
         container.appendChild(row);
       });
     } catch(err) {
-      container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de grupos de processos.</div>';
+      container.innerHTML = '<div style="color:#fecaca; padding:12px;">Erro ao carregar dados de grupos de processos.</div>';
     }
     }
 
@@ -1197,17 +1200,6 @@
 
     // IND9: % Acertos/Erros por Abordagem (abordagem)
     async function loadAbordagemStats(){
-        console.log('[DIAG] loadAbordagemStats chamada');
-        try {
-          const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
-          // Corrigido: endpoint atualizado para approach-stats
-          const examTypeId = await getCurrentExamTypeId();
-          const url = examTypeId ? `/api/indicators/approach-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/approach-stats';
-          const res = await fetch(url, { headers });
-          console.log('[DIAG] loadAbordagemStats fetch status:', res.status);
-          const data = await res.json().catch(()=>null);
-          console.log('[DIAG] loadAbordagemStats dados recebidos:', data);
-        } catch(e) { console.error('[DIAG] loadAbordagemStats erro:', e); }
       const container = document.getElementById('approachContainer');
       if (!container) return;
       container.innerHTML = '';
@@ -1222,13 +1214,13 @@
           return;
         }
         if (!res.ok) {
-          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por abordagem.</div>';
+          container.innerHTML = '<div style="color:rgba(243,244,246,0.72); padding:12px;">Nenhum dado disponível ainda. Complete um simulado completo para ver suas estatísticas por abordagem.</div>';
           return;
         }
         const data = await res.json();
         let items = data && data.abordagens ? data.abordagens : [];
         if (items.length === 0) {
-          container.innerHTML = '<div style="color:#64748b; padding:12px;">Nenhuma abordagem encontrada.</div>';
+          container.innerHTML = '<div style="color:rgba(243,244,246,0.72); padding:12px;">Nenhuma abordagem encontrada.</div>';
           return;
         }
         // Ordena pelo id
@@ -1239,11 +1231,17 @@
           row.style.alignItems = 'center';
           row.style.gap = '12px';
           row.style.flexWrap = 'wrap';
+          row.style.color = '#f3f4f6';
+          row.style.background = 'rgba(0,0,0,0.18)';
+          row.style.border = '1px solid rgba(255,255,255,0.10)';
+          row.style.borderRadius = '12px';
+          row.style.padding = '10px 12px';
 
           const label = document.createElement('div');
           label.style.fontWeight = '600';
           label.style.minWidth = '180px';
           label.style.fontSize = '0.9rem';
+          label.style.color = '#f3f4f6';
           label.textContent = `${a.id} - ${a.descricao || `Abordagem ${a.id}`}`;
 
           const chartWrapper = document.createElement('div');
@@ -1271,7 +1269,7 @@
           row.appendChild(label);
           const counts = document.createElement('div');
           counts.style.fontSize = '0.85rem';
-          counts.style.color = '#475569';
+          counts.style.setProperty('color', '#f3f4f6', 'important');
           counts.style.minWidth = '64px';
           counts.style.textAlign = 'center';
           counts.textContent = `${cAcertos}/${cErros}`;
@@ -1280,7 +1278,7 @@
           container.appendChild(row);
         });
       } catch(err) {
-        container.innerHTML = '<div style="color:#b91c1c; padding:12px;">Erro ao carregar dados de abordagens.</div>';
+        container.innerHTML = '<div style="color:#fecaca; padding:12px;">Erro ao carregar dados de abordagens.</div>';
       }
     }
 
@@ -1354,7 +1352,7 @@
       const xLabs = labels.map((l,i)=> `<text x="${x(i)}" y="${H-pad+14}" text-anchor="middle" font-size="10" fill="#64748b">${l}</text>`).join('');
       target.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
         <rect x="${pad}" y="${pad}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e2e8f0" />
-        <path d="${pathScores}" fill="none" stroke="#6366f1" stroke-width="2" />
+        <path d="${pathScores}" fill="none" stroke="#22c55e" stroke-width="2" />
         ${tickEls}${xLabs}
       </svg>`;
     }
@@ -1403,22 +1401,6 @@
       if (sel) sel.addEventListener('change', ()=> loadDashboard());
     })();
 
-    // Tab switching: Tópico desativado
-    tabButtons.forEach(btn => {
-      btn.addEventListener('click', function(){
-        const tab = btn.getAttribute('data-tab');
-        tabButtons.forEach(b => b.classList.toggle('active', b === btn));
-        Object.values(sectionsMap).forEach(sec => sec && sec.classList.remove('active'));
-        if (sectionsMap[tab]) {
-          sectionsMap[tab].classList.add('active');
-          if (tab === 'abordagem') loadAbordagemStats();
-          if (tab === 'detalhes') loadDetailsLast();
-          if (tab === 'dashboard' && !_dashLoadedOnce) loadDashboard();
-          if (tab === 'dominios') loadDominiosLazy();
-          if (tab === 'prob') loadProbabilityCards();
-        }
-      });
-    });
     // Removido script de injeção; marcadores exibidos via CSS ::after usando attr(data-cell)
     // Toggle de visibilidade dos marcadores via checkbox
     (function initMarkerToggle(){
@@ -1439,31 +1421,6 @@
 
     // Detalhes: última tentativa por grupo com ranking
     async function loadDetailsLast(){
-        console.log('[DIAG] loadDetailsLast chamada');
-          try {
-            const headers = getAuthHeadersLocal();
-            const examTypeId = await getCurrentExamTypeId();
-            const url = examTypeId
-              ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
-              : '/api/indicators/details-last?exam_mode=full';
-            const res = await fetch(url, { headers });
-            console.log('[DIAG] loadDetailsLast fetch status:', res.status);
-            const data = await res.json().catch(()=>null);
-            console.log('[DIAG] loadDetailsLast dados recebidos:', data);
-          } catch(e) { console.error('[DIAG] loadDetailsLast erro:', e); }
-          console.log('[DIAG] loadDashboard chamada');
-          try {
-            const sec = document.getElementById('sec-dashboard'); if (!sec) return;
-            const daysSel = document.getElementById('dashDays');
-            const days = daysSel ? Number(daysSel.value) : 30;
-            const headers = getAuthHeadersLocal();
-            const res = await fetch(`/api/users/me/stats/summary?days=${days}`, { headers });
-            console.log('[DIAG] loadDashboard fetch status:', res.status);
-            const data = await res.json().catch(()=>null);
-            console.log('[DIAG] loadDashboard dados recebidos:', data);
-          } catch(e) { console.error('[DIAG] loadDashboard erro:', e); }
-          console.log('[DIAG] loadDominiosLazy chamada');
-          // loader real é async, logs já estão lá
         const grid = document.querySelector('#sec-detalhes .det-grid');
         if (!grid) return;
       try {
@@ -1647,16 +1604,6 @@
     // Assign early to prevent ReferenceError
     window.loadProbabilityCards = loadProbabilityCards;
     async function loadProbabilityCards(){
-        console.log('[DIAG] loadProbabilityCards chamada');
-        try {
-          const examTypeId = await getCurrentExamTypeId();
-          const headers = buildAuthHeadersLocal();
-          const url = `/api/indicators/IND12` + (examTypeId ? `?exam_type=${encodeURIComponent(String(examTypeId))}` : '');
-          const res = await fetch(url, { headers, cache: 'no-store' });
-          console.log('[DIAG] loadProbabilityCards fetch status:', res.status);
-          const data = await res.json().catch(()=>null);
-          console.log('[DIAG] loadProbabilityCards dados recebidos:', data);
-        } catch(e) { console.error('[DIAG] loadProbabilityCards erro:', e); }
       if (_probLoadedOnce) return;
       const container = document.getElementById('probCards');
       if (!container) return;

@@ -7,7 +7,7 @@
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Simulados completos para certificação PMP com questões reais e indicadores detalhados">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#363636">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -25,6 +25,15 @@
     <script src="/utils/layoutManager.js"></script>
     <!-- Controlled Logging System (must load before other scripts) -->
     <script src="/utils/logger.js"></script>
+    <script>
+        (function(){
+            try {
+                var o = String((window.location && window.location.origin) || '');
+                var base = /^https?:/i.test(o) ? o : 'http://app.localhost:3000';
+                window.SIMULADOS_CONFIG = Object.assign({ BACKEND_BASE: base }, window.SIMULADOS_CONFIG || {});
+            } catch(_){ }
+        })();
+    </script>
     <script src="/utils/dicaDoDiaHello.js"></script>
     <script src="/utils/auth.js"></script>
     <!-- Logout Utility -->
@@ -42,12 +51,16 @@
     
     <style>
         :root{
-            --bg: #0f172a;
+            --bg: #363636;
+            --bg-top: #404040;
+            --bg-bottom: #2b2b2b;
+            --bg-glow: rgba(255,255,255,.12);
+            --bg-shade: rgba(0,0,0,.55);
             --panel: #111827;
             --text: #e5e7eb;
             --muted: #94a3b8;
-            --primary: #4f46e5;
-            --primary-press: #4338ca;
+            --primary: #22c55e;
+            --primary-press: #16a34a;
             --border: #1f2937;
             --shadow: 0 8px 20px rgba(0,0,0,.35);
         }
@@ -56,9 +69,9 @@
         body{
             margin: 0; padding: 0;
             display: flex; flex-direction: column; min-height: 100vh;
-            background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
-                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
-                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+            background: radial-gradient(1200px 600px at 10% -10%, var(--bg-glow), transparent),
+                        radial-gradient(900px 500px at 90% 10%, var(--bg-shade), transparent),
+                        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
             color: #111827;
             font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, 'Helvetica Neue', Arial, 'Apple Color Emoji','Segoe UI Emoji';
             touch-action: manipulation;
@@ -68,9 +81,9 @@
         /* === Card Grid (restored full styling with gradients) === */
         .content{
             flex:1 1 auto; overflow-y:auto; padding:10px 10px calc(env(safe-area-inset-bottom) + 20px) 10px;
-            background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
-                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
-                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+            background: radial-gradient(1200px 600px at 10% -10%, var(--bg-glow), transparent),
+                        radial-gradient(900px 500px at 90% 10%, var(--bg-shade), transparent),
+                        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
         }
         .section{display:none}
         .section.active{display:block}
@@ -122,12 +135,12 @@
             .card-grid{ grid-template-columns: 1fr 1fr 1fr; max-width:360px }
         }
         /* Gradient palette for first six cards */
-        .card-grid .card:nth-child(1){background:linear-gradient(135deg,#6366f1,#4338ca);}
+        .card-grid .card:nth-child(1){background:linear-gradient(135deg,#22c55e,#16a34a);}
         .card-grid .card:nth-child(2){background:linear-gradient(135deg,#0ea5e9,#0369a1);}
         .card-grid .card:nth-child(3){background:linear-gradient(135deg,#ec4899,#be185d);}
         .card-grid .card:nth-child(4){background:linear-gradient(135deg,#10b981,#047857);}
         .card-grid .card:nth-child(5){background:linear-gradient(135deg,#f59e0b,#b45309);}
-        .card-grid .card:nth-child(6){background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
+        .card-grid .card:nth-child(6){background:linear-gradient(135deg,#14b8a6,#0f766e);}
         .card-grid .card::after{content:""; position:absolute; inset:0; background:linear-gradient(to bottom,rgba(0,0,0,0.12),rgba(0,0,0,0.35)); mix-blend-mode:overlay; pointer-events:none;}
         
         /* Cards específicos com degradê cinza */
@@ -221,7 +234,7 @@
             min-width: 40px; min-height: 44px; padding: 1px 4px; border-radius: 8px; color: var(--muted);
             user-select: none; -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease, background .15s ease;
         }
-        .nav-item.active{ color: var(--primary); background: rgba(79,70,229,0.08) }
+        .nav-item.active{ color: var(--primary); background: rgba(34,197,94,0.10) }
         .nav-icon{ width: 16px; height: 16px; fill: currentColor; display: block }
         .nav-text{ display: none }
 
@@ -248,14 +261,14 @@
         .back-btn svg{ width: 22px; height: 22px; fill: #fff }
         /* Force gradient background across body and main.content */
         html body{ 
-            background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
-                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
-                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
+            background: radial-gradient(1200px 600px at 10% -10%, var(--bg-glow), transparent),
+                        radial-gradient(900px 500px at 90% 10%, var(--bg-shade), transparent),
+                        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%) !important;
         }
         body > main.content{
-            background: radial-gradient(1200px 600px at 10% -10%, rgba(79,70,229,.35), transparent),
-                        radial-gradient(900px 500px at 90% 10%, rgba(17,24,39,.7), transparent),
-                        linear-gradient(180deg, #0b1020 0%, #0f172a 100%) !important;
+            background: radial-gradient(1200px 600px at 10% -10%, var(--bg-glow), transparent),
+                        radial-gradient(900px 500px at 90% 10%, var(--bg-shade), transparent),
+                        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%) !important;
             color: #fff !important;
         }
 
@@ -285,7 +298,7 @@
             position: absolute;
             inset: -2px;
             border-radius: 18px;
-            background: linear-gradient(90deg, rgba(245,158,11,0.95), rgba(79,70,229,0.95), rgba(34,211,238,0.95));
+            background: linear-gradient(90deg, rgba(245,158,11,0.95), rgba(34,197,94,0.95), rgba(34,211,238,0.95));
             filter: drop-shadow(0 0 14px rgba(245,158,11,0.35));
             z-index: -1;
             opacity: 0.95;
@@ -334,7 +347,7 @@
         }
         .dica-btn.primary{
             border: none;
-            background: linear-gradient(135deg, rgba(79,70,229,1), rgba(34,211,238,0.95));
+            background: linear-gradient(135deg, rgba(34,197,94,1), rgba(34,211,238,0.95));
             color: #06101f;
         }
         .dica-btn:disabled{ opacity: .65; cursor: not-allowed; }
@@ -677,10 +690,10 @@
         <a id="lnkAdminNotifications" href="/pages/admin/notifications.html" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Notificações</a>
         <a id="lnkAdminChatHost" href="/chat/admin" target="_blank" rel="noopener noreferrer" style="display:block;padding:6px 8px;border-radius:6px;color:#111827;text-decoration:none;font-size:.85rem;">Chat (Admin)</a>
         <button id="btnAdminFixture" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#0d9488;font-size:.85rem;border-radius:6px;cursor:pointer;">Gerar tentativa fixture</button>
-        <button id="btnAdminReconcile" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#4f46e5;font-size:.85rem;border-radius:6px;cursor:pointer;">Reconciliar estatísticas</button>
+        <button id="btnAdminReconcile" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#16a34a;font-size:.85rem;border-radius:6px;cursor:pointer;">Reconciliar estatísticas</button>
         <button id="btnAdminPurge" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#b91c1c;font-size:.85rem;border-radius:6px;cursor:pointer;">Expurgar tentativas abandonadas</button>
         <button id="btnAdminMarkAbandoned" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#dc2626;font-size:.85rem;border-radius:6px;cursor:pointer;">Marcar abandonadas (inatividade)</button>
-        <button id="btnAdminResetPassword" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#7c3aed;font-size:.85rem;border-radius:6px;cursor:pointer;">Resetar senha de usuário</button>
+        <button id="btnAdminResetPassword" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f8fafc;color:#0f766e;font-size:.85rem;border-radius:6px;cursor:pointer;">Resetar senha de usuário</button>
         <button id="btnAdminLogout" type="button" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:#f1f5f9;color:#334155;font-size:.85rem;border-radius:6px;cursor:pointer;">Sair</button>
     </nav>
     <!-- i18n constants (can be extended or replaced per locale) -->
@@ -741,7 +754,7 @@
                     const row = document.createElement('div');
                     row.style.cssText='border-bottom:1px solid #e5e7eb;padding:6px 4px';
                     const cat = it.categoria||''; const t = it.titulo||''; const msg = it.mensagem||''; const read = !!it.readAt;
-                    row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:.85rem">${t}</strong><span style="font-size:.7rem;color:#6b7280">${cat}</span></div><div style="font-size:.80rem;color:#334155;margin-top:4px">${msg}</div><div style="margin-top:6px;"><button data-id="${it.id}" class="mark-read" style="background:${read?'#e5e7eb':'#4f46e5'};color:${read?'#111827':'#fff'};border:none;border-radius:6px;padding:4px 6px;font-size:.75rem;cursor:pointer">${read?'Lida':'Marcar como lida'}</button></div>`;
+                    row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:.85rem">${t}</strong><span style="font-size:.7rem;color:#6b7280">${cat}</span></div><div style="font-size:.80rem;color:#334155;margin-top:4px">${msg}</div><div style="margin-top:6px;"><button data-id="${it.id}" class="mark-read" style="background:${read?'#e5e7eb':'#22c55e'};color:${read?'#111827':'#052e16'};border:none;border-radius:6px;padding:4px 6px;font-size:.75rem;cursor:pointer">${read?'Lida':'Marcar como lida'}</button></div>`;
                     panel.appendChild(row);
                 }
                 panel.querySelectorAll('button.mark-read').forEach(btnEl => {

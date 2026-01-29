@@ -2,7 +2,7 @@
 // Horizontal bar (single or multiple) with JSON dataset support.
 // Usage examples:
 // 1) Single bar via attributes:
-//    <sb-hbar value="72" max="100" label="Aproveitamento" color="#2b8a3e" height="14" show-percent unit="%"></sb-hbar>
+//    <sb-hbar value="72" max="100" label="Aproveitamento" color="#16a34a" height="14" show-percent unit="%"></sb-hbar>
 // 2) Multiple bars via JSON dataset (attribute or property):
 //    <sb-hbar data='[{"label":"Domínio 1","value":45},{"label":"Domínio 2","value":80,"color":"#2563eb"}]' show-percent></sb-hbar>
 //    // or in JS: el.data = [{ label: 'D1', value: 30 }, { label:'D2', value: 60 }]
@@ -15,16 +15,16 @@
   const tpl = document.createElement('template');
   tpl.innerHTML = `
     <style>
-      :host{ display:block; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
+      :host{ display:block; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; color: var(--sb-hbar-text, inherit); }
       .wrap{ display:flex; flex-direction:column; gap:6px; }
       .row{ display:flex; align-items:center; gap:8px; min-height:18px; }
-      .label{ flex:0 0 auto; color:#374151; font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .label{ flex:0 0 auto; color: var(--sb-hbar-label, inherit); font-size:12px; min-width:72px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
       .track{ position:relative; flex:1 1 auto; height:12px; background: var(--sb-hbar-track, #e5e7eb); border-radius: 999px; overflow:hidden; }
-      .bar{ position:absolute; left:0; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #4f46e5); border-radius:999px; transition: width .45s ease; }
+      .bar{ position:absolute; left:0; top:0; bottom:0; width:0; background: var(--sb-hbar-color, #16a34a); border-radius:999px; transition: width .45s ease; }
       .bar.striped{ background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 8px, transparent 8px 16px); }
       .bar.animated{ animation: sbh-move 1s linear infinite; background-size: 16px 16px; }
       @keyframes sbh-move{ from { background-position: 0 0; } to { background-position: 16px 0; } }
-      .val{ flex: 0 0 auto; color:#111827; font-size:12px; min-width:36px; text-align:right; }
+      .val{ flex: 0 0 auto; color: var(--sb-hbar-value, inherit); font-size:12px; min-width:36px; text-align:right; }
       .tooltip{ position:absolute; right:6px; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
       .sr-only{ position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
     </style>
@@ -89,7 +89,7 @@
             let primaryPct = null; // show-only percentage (first segment)
             segments.forEach((seg, idx) => {
               const sval = toNumber(seg && seg.value, 0);
-              const scolor = (seg && seg.color) || this.getAttribute('color') || '#4f46e5';
+              const scolor = (seg && seg.color) || this.getAttribute('color') || '#16a34a';
               const pct = max > 0 ? Math.round((clamp01(sval / max)) * 100) : 0;
               const left = accPct;
               accPct = Math.min(100, accPct + pct);
@@ -123,7 +123,7 @@
           } else {
             // Default single bar per row
             const value = toNumber(it && it.value, 0);
-            const color = (it && it.color) || this.getAttribute('color') || '#4f46e5';
+            const color = (it && it.color) || this.getAttribute('color') || '#16a34a';
             const pct = max > 0 ? Math.round((clamp01(value / max)) * 100) : 0;
             const bar = document.createElement('div'); bar.className='bar'; bar.style.setProperty('--sb-hbar-color', color);
             if (striped) bar.classList.add('striped'); if (animated) bar.classList.add('animated');
@@ -149,7 +149,7 @@
         const value = toNumber(this.getAttribute('value'), 0);
         const max = toNumber(this.getAttribute('max'), 100);
         const unit = this.getAttribute('unit') || '';
-        const color = this.getAttribute('color') || '#4f46e5';
+        const color = this.getAttribute('color') || '#16a34a';
         const trackBg = bg || '#e5e7eb';
         const pct = max > 0 ? Math.round((clamp01(value / max)) * 100) : 0;
 

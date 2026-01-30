@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document.activeElement && !modal.contains(document.activeElement)) {
                 lastTrigger = document.activeElement;
             }
-            modal.removeAttribute('aria-hidden');
+            modal.setAttribute('aria-hidden', 'false');
             modal.removeAttribute('inert');
             if (getComputedStyle(modal).display === 'none') {
                 modal.style.display = 'flex';

@@ -33,6 +33,55 @@ function pickTopBottom(items, { valueKey, labelKey, topN = 5, bottomN = 5 }) {
   };
 }
 
+function summarizeInd14(ind14) {
+  if (!ind14 || typeof ind14 !== 'object') return null;
+
+  const lastItems = ind14.last && Array.isArray(ind14.last.itens) ? ind14.last.itens : [];
+  const prevItems = ind14.previous && Array.isArray(ind14.previous.itens) ? ind14.previous.itens : [];
+
+  const lastMap = new Map(lastItems.map((it) => [String(it && it.id != null ? it.id : ''), it]));
+  const prevMap = new Map(prevItems.map((it) => [String(it && it.id != null ? it.id : ''), it]));
+  const keys = new Set([...lastMap.keys(), ...prevMap.keys()].filter((k) => k));
+
+  const compare = [];
+  for (const key of keys) {
+    const l = lastMap.get(key);
+    const p = prevMap.get(key);
+
+    const label = (l && l.descricao != null) ? String(l.descricao)
+      : ((p && p.descricao != null) ? String(p.descricao) : String(key));
+
+    const last = (l && l.percentCorretas != null && Number.isFinite(Number(l.percentCorretas))) ? Number(l.percentCorretas) : null;
+    const previous = (p && p.percentCorretas != null && Number.isFinite(Number(p.percentCorretas))) ? Number(p.percentCorretas) : null;
+
+    // Keep compare compact: only rows that have at least one valid percentage.
+    if (last == null && previous == null) continue;
+
+    const delta = (last != null && previous != null) ? Number((last - previous).toFixed(2)) : null;
+    compare.push({ label, last, previous, delta });
+  }
+
+  const deltas = compare.filter((r) => r.delta != null && Number.isFinite(Number(r.delta)));
+  const biggestDrops = deltas.slice().sort((a, b) => a.delta - b.delta).slice(0, 5);
+  const biggestImprovements = deltas.slice().sort((a, b) => b.delta - a.delta).slice(0, 5);
+
+  const persistentWeak = compare
+    .filter((r) => r.last != null && r.previous != null && r.last < 70 && r.previous < 70)
+    .sort((a, b) => (a.last - b.last) || (a.previous - b.previous) || a.label.localeCompare(b.label, 'pt-BR'))
+    .slice(0, 8);
+
+  return {
+    examMode: ind14.examMode != null ? String(ind14.examMode) : null,
+    lastFinishedAt: ind14.last && ind14.last.finished_at ? ind14.last.finished_at : null,
+    previousFinishedAt: ind14.previous && ind14.previous.finished_at ? ind14.previous.finished_at : null,
+    last: pickTopBottom(lastItems, { valueKey: 'percentCorretas', labelKey: 'descricao', topN: 5, bottomN: 5 }),
+    previous: pickTopBottom(prevItems, { valueKey: 'percentCorretas', labelKey: 'descricao', topN: 5, bottomN: 5 }),
+    biggestDrops,
+    biggestImprovements,
+    persistentWeak,
+  };
+}
+
 async function runIndicator(controllerFn, { query = {}, user = {} } = {}) {
   return new Promise((resolve, reject) => {
     const req = { query, user };
@@ -618,7 +667,7 @@ function pct1(v) {
   return Math.round(n * 10) / 10;
 }
 
-function buildExplainabilityForRiskMessage(message, { kpis, examInfo } = {}) {
+function buildExplainabilityForRiskMessage(message, { kpis, examInfo, indicatorsSummary } = {}) {
   const msg = String(message || '').trim();
   if (!msg) return null;
 
@@ -641,6 +690,7 @@ function buildExplainabilityForRiskMessage(message, { kpis, examInfo } = {}) {
   const trendDelta = kpis && kpis.trendDeltaScore7d != null ? Number(kpis.trendDeltaScore7d) : null;
   const passProb = kpis && kpis.passProbabilityPercent != null ? Number(kpis.passProbabilityPercent) : null;
   const passOverall = kpis && kpis.passProbabilityOverallPercent != null ? Number(kpis.passProbabilityOverallPercent) : null;
+  const ind14 = indicatorsSummary && indicatorsSummary.IND14 ? indicatorsSummary.IND14 : null;
 
   const add = (entry) => { if (entry) basedOn.push(entry); };
 
@@ -713,6 +763,25 @@ function buildExplainabilityForRiskMessage(message, { kpis, examInfo } = {}) {
     });
   }
 
+  if (/Dom[ií]nios/i.test(msg) && (/pen[úu]ltim/i.test(msg) || /[úu]ltima vs\. pen[úu]ltima/i.test(msg) || /comparad[oa] \`?a pen[úu]ltim/i.test(msg) || /queda relevante/i.test(msg) || /consistentemente fracos/i.test(msg))) {
+    const worst = ind14 && Array.isArray(ind14.biggestDrops) && ind14.biggestDrops.length ? ind14.biggestDrops[0] : null;
+    const label = worst && worst.label ? String(worst.label) : null;
+    const last = worst && worst.last != null ? Number(worst.last) : null;
+    const previous = worst && worst.previous != null ? Number(worst.previous) : null;
+    const delta = worst && worst.delta != null ? Number(worst.delta) : null;
+
+    add({
+      source: 'IND14',
+      metric: 'domainsLastVsPrevious',
+      label: 'Domínios — última vs penúltima (DG-DET-LAST2)',
+      value: (delta != null && Number.isFinite(delta)) ? pct1(delta) : null,
+      unit: 'pp',
+      details: (label && last != null && previous != null)
+        ? `Maior queda recente: ${label} (${pct1(previous)}% → ${pct1(last)}%).`
+        : 'Comparação do % de corretas por domínio geral entre as 2 últimas tentativas concluídas.',
+    });
+  }
+
   // Severity (UI can use this to highlight)
   let severity = 'alert';
   if (/^Risco alto\b/i.test(msg)) severity = 'high';
@@ -728,14 +797,14 @@ function buildExplainabilityForRiskMessage(message, { kpis, examInfo } = {}) {
   };
 }
 
-function attachExplainability(ai, { kpis, examInfo } = {}) {
+function attachExplainability(ai, { kpis, examInfo, indicatorsSummary } = {}) {
   const out = ai && typeof ai === 'object' ? { ...ai } : {};
   const risks = Array.isArray(out.risks) ? out.risks : [];
   const alerts = [];
   let mergedRules = null;
 
   for (const r of risks) {
-    const a = buildExplainabilityForRiskMessage(r, { kpis, examInfo });
+    const a = buildExplainabilityForRiskMessage(r, { kpis, examInfo, indicatorsSummary });
     if (!a) continue;
     if (a.rules && !mergedRules) mergedRules = a.rules;
     alerts.push({ message: a.message, severity: a.severity, basedOn: a.basedOn });
@@ -758,7 +827,7 @@ function attachExplainability(ai, { kpis, examInfo } = {}) {
   return out;
 }
 
-function enrichAiWithRules(ai, { kpis, examInfo }) {
+function enrichAiWithRules(ai, { kpis, examInfo, indicatorsSummary } = {}) {
   const out = ai && typeof ai === 'object' ? { ...ai } : {};
   out.insights = Array.isArray(out.insights) ? out.insights.slice() : [];
   out.risks = Array.isArray(out.risks) ? out.risks.slice() : [];
@@ -771,6 +840,8 @@ function enrichAiWithRules(ai, { kpis, examInfo }) {
   const examVerySoon = daysToExam != null && daysToExam >= 0 && daysToExam <= 90;
   const passProb = (kpis && kpis.passProbabilityPercent != null) ? Number(kpis.passProbabilityPercent) : null;
   const passProb1 = (passProb != null && Number.isFinite(passProb)) ? Math.round(passProb * 10) / 10 : null;
+
+  const ind14 = indicatorsSummary && indicatorsSummary.IND14 ? indicatorsSummary.IND14 : null;
 
   // Comentário útil sobre os números (evita ficar só "o número")
   const commentary = buildKpiCommentary({ kpis, examInfo });
@@ -815,6 +886,35 @@ function enrichAiWithRules(ai, { kpis, examInfo }) {
   if (examSoon) target = Math.round(Math.min(90, Math.max(target, 50)));
   if (target > Math.round(completionPct)) {
     out.actions7d = addUnique(out.actions7d, `Aumentar taxa de conclusão para ${target}% (próximos 7 dias).`);
+  }
+
+  // IND14 (Domínios — última vs penúltima): recomendações de estabilidade por domínio.
+  if (ind14 && typeof ind14 === 'object') {
+    const drops = Array.isArray(ind14.biggestDrops) ? ind14.biggestDrops : [];
+    const imps = Array.isArray(ind14.biggestImprovements) ? ind14.biggestImprovements : [];
+    const weak = Array.isArray(ind14.persistentWeak) ? ind14.persistentWeak : [];
+
+    const worstDrop = drops.length ? drops[0] : null;
+    const worstDelta = worstDrop && worstDrop.delta != null ? Number(worstDrop.delta) : null;
+    if (worstDrop && Number.isFinite(worstDelta) && worstDelta <= -10) {
+      const top = drops.slice(0, 3).map(d => `${d.label} (Δ ${d.delta}pp)`).join(', ');
+      out.risks = addUnique(out.risks, `Queda relevante vs. penúltima tentativa em Domínios: ${top}. Priorize revisão dirigida nesses tópicos antes do próximo simulado.`);
+      out.actions7d = addUnique(out.actions7d, `Revisar 2 domínios com maior queda (última vs penúltima): ${drops.slice(0, 2).map(d => d.label).join(' e ')}.`);
+    } else if (worstDrop && Number.isFinite(worstDelta) && worstDelta <= -6) {
+      out.insights = addUnique(out.insights, `Oscilação recente por domínio (última vs penúltima): a maior queda foi em ${worstDrop.label} (Δ ${worstDrop.delta}pp).`);
+    }
+
+    if (weak.length) {
+      const list = weak.slice(0, 4).map(d => d.label).join(', ');
+      out.risks = addUnique(out.risks, `Domínios consistentemente fracos (<70% nas 2 últimas tentativas): ${list}.`);
+      out.actions7d = addUnique(out.actions7d, `Fazer revisão dirigida de 1–2 domínios consistentemente fracos: ${weak.slice(0, 2).map(d => d.label).join(' e ')}.`);
+    }
+
+    const bestImp = imps.length ? imps[0] : null;
+    const bestDelta = bestImp && bestImp.delta != null ? Number(bestImp.delta) : null;
+    if (bestImp && Number.isFinite(bestDelta) && bestDelta >= 10) {
+      out.insights = addUnique(out.insights, `Melhora relevante vs. penúltima tentativa em Domínios: ${imps.slice(0, 3).map(d => `${d.label} (+${d.delta}pp)`).join(', ')}.`);
+    }
   }
 
   return out;
@@ -909,6 +1009,8 @@ async function getInsightsDashboard(req, res, next) {
       safeRunIndicator('IND11', indicatorController.getAvgTimePerQuestion, { query: { days: String(days), idUsuario: String(userId), exam_mode: 'full' }, user: indicatorUser }),
       safeRunIndicator('IND12', indicatorController.getPerformancePorDominioAgregado, { query: { idUsuario: String(userId) }, user: indicatorUser }),
       safeRunIndicator('IND13', indicatorController.getPerformancePorTaskAgregado, { query: ind13Query, user: indicatorUser }),
+      // IND14: compara domínios (dominio geral) entre última e penúltima tentativa concluída
+      safeRunIndicator('IND14', indicatorController.getDominioGeralDetailsLastTwo, { query: { idUsuario: String(userId), exam_mode: 'full' }, user: indicatorUser }),
     ];
 
     const indicatorResults = await Promise.all(indicatorJobs);
@@ -990,7 +1092,7 @@ async function getInsightsDashboard(req, res, next) {
       periodDays: days,
       examDate: examInfo.examDateRaw,
       daysToExam: examInfo.daysToExam,
-      note: 'Dados agregados por dia; inclui indicadores IND1..IND7 e IND9..IND13 (valores resumidos); não inclui texto das questões.',
+      note: 'Dados agregados por dia; inclui indicadores IND1..IND7, IND9..IND14 (valores resumidos); não inclui texto das questões.',
       indicatorParams: {
         ind10ExamMode: 'best',
         ind456ExamTypeId: examTypeId456,
@@ -1027,6 +1129,7 @@ async function getInsightsDashboard(req, res, next) {
       },
       IND12: pickTopBottom(indicators.IND12?.dominios, { valueKey: 'percent', labelKey: 'descricao', topN: 5, bottomN: 5 }),
       IND13: pickTopBottom(indicators.IND13?.tasks, { valueKey: 'percent', labelKey: 'descricao', topN: 5, bottomN: 5 }),
+      IND14: summarizeInd14(indicators.IND14),
       PASS: {
         probabilityPercent: passProb.probabilityPercent,
         overallPercent: passProb.overallPercent,
@@ -1071,7 +1174,7 @@ async function getInsightsDashboard(req, res, next) {
 
     const llm = await generateJsonInsights({ context: contextForAi, kpis, timeseries: timeseriesForAi, indicators: indicatorsForAi });
     const baseAi = llm.insights || buildFallbackInsights({ kpis, trendDelta });
-    const ai = attachExplainability(enrichAiWithRules(baseAi, { kpis, examInfo }), { kpis, examInfo });
+    const ai = attachExplainability(enrichAiWithRules(baseAi, { kpis, examInfo, indicatorsSummary }), { kpis, examInfo, indicatorsSummary });
 
     // If no LLM, still present the plan as a concrete next step
     if (!llm.usedLlm && taskPlan && Array.isArray(taskPlan.items) && taskPlan.items.length) {

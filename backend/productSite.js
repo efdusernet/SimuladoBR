@@ -1,36 +1,23 @@
 const express = require('express');
 const path = require('path');
+const productPlansStore = require('./services/productPlansStore');
 
-function getDefaultPlans() {
-	return [
-		{
-			id: 'start',
-			name: 'START (Grátis)',
-			description: 'Acesso inicial para conhecer o simulador.',
-			price_cents: 0,
-			access_duration_days: null,
-			is_free: true,
-			is_active: true,
-		},
-		{
-			id: 'pro-30',
-			name: 'PRO 30 dias',
-			description: 'Acesso completo por 30 dias.',
-			price_cents: 19900,
-			access_duration_days: 30,
-			is_free: false,
-			is_active: true,
-		},
-		{
-			id: 'pro-60',
-			name: 'PRO 60 dias',
-			description: 'Acesso completo por 60 dias.',
-			price_cents: 29900,
-			access_duration_days: 60,
-			is_free: false,
-			is_active: true,
-		},
-	];
+const { getDefaultPlans } = require('./services/defaultProductPlans');
+
+async function getPlansForRender() {
+	const fallbackPlans = getDefaultPlans();
+	const result = await productPlansStore.loadPlans({ fallbackPlans });
+	let plans = Array.isArray(result.plans) ? result.plans : fallbackPlans;
+	// Keep inactive plans out of marketing render
+	plans = plans.filter((p) => p && p.is_active !== false);
+	// Sort
+	plans.sort((a, b) => {
+		const ao = Number.isFinite(Number(a.sort_order)) ? Number(a.sort_order) : 1000;
+		const bo = Number.isFinite(Number(b.sort_order)) ? Number(b.sort_order) : 1000;
+		if (ao !== bo) return ao - bo;
+		return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+	});
+	return plans;
 }
 
 function createProductSite({ productRoot, getCsrfToken }) {
@@ -64,8 +51,8 @@ function createProductSite({ productRoot, getCsrfToken }) {
 
 	app.get(['/index.html'], (req, res) => res.redirect('/'));
 
-	app.get('/', (req, res) => {
-		const plans = getDefaultPlans();
+	app.get('/', async (req, res) => {
+		const plans = await getPlansForRender();
 		const planFromQuery = (typeof req.query.plan === 'string') ? req.query.plan : null;
 		const focusSection = (typeof req.query.focus === 'string') ? req.query.focus : null;
 		const csrfToken = (typeof getCsrfToken === 'function') ? (getCsrfToken(req, res) || '') : '';
@@ -101,8 +88,8 @@ function createProductSite({ productRoot, getCsrfToken }) {
 	});
 
 	// Stub: checkout is not wired here yet (the real implementation lives in simuladospmpbr).
-	app.post('/checkout', (req, res) => {
-		const plans = getDefaultPlans();
+	app.post('/checkout', async (req, res) => {
+		const plans = await getPlansForRender();
 		const csrfToken = (typeof getCsrfToken === 'function') ? (getCsrfToken(req, res) || '') : '';
 
 		return res.status(503).render('pages/home', {

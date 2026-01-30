@@ -2322,13 +2322,8 @@
 
       const wrap = document.createElement('div');
       wrap.className = 'ov-wrapper';
-      const grid = document.createElement('div');
-      grid.className = 'det-grid';
-      grid.style.display = 'grid';
-      grid.style.gridTemplateColumns = 'repeat(4,minmax(140px,1fr))';
-      grid.style.border = '1px solid #e2e8f0';
-      grid.style.fontSize = '13px';
-      function addCell(cls, cellId, text){
+
+      function addCell(grid, cls, cellId, text){
         const d = document.createElement('div');
         d.className = cls ? `cell ${cls}` : 'cell';
         d.setAttribute('data-cell', cellId);
@@ -2337,13 +2332,49 @@
         d.style.textAlign = 'center';
         d.textContent = text;
         grid.appendChild(d);
+        return d;
       }
-      addCell('head','DET-R1C1','Última tentativa'); grid.lastElementChild.style.gridColumn = 'span 4';
-      addCell('colhead','DET-R2C1','Domínio');
-      addCell('colhead','DET-R2C2','Corretas %');
-      addCell('colhead','DET-R2C3','# Corretas');
-      addCell('colhead','DET-R2C4','Performance');
-      wrap.appendChild(grid);
+
+      function createDetailsGrid(prefix, title, firstColLabel, headerBg, colHeadBg){
+        const grid = document.createElement('div');
+        grid.className = 'det-grid';
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = 'repeat(4,minmax(140px,1fr))';
+        grid.style.border = '1px solid #e2e8f0';
+        grid.style.fontSize = '13px';
+
+        const head = addCell(grid, 'head', `${prefix}-R1C1`, title);
+        head.style.gridColumn = 'span 4';
+        if (headerBg) {
+          head.style.background = headerBg;
+          head.style.color = '#ffffff';
+        }
+        const ch1 = addCell(grid, 'colhead', `${prefix}-R2C1`, firstColLabel || 'Domínio');
+        const ch2 = addCell(grid, 'colhead', `${prefix}-R2C2`, 'Corretas %');
+        const ch3 = addCell(grid, 'colhead', `${prefix}-R2C3`, '# Corretas');
+        const ch4 = addCell(grid, 'colhead', `${prefix}-R2C4`, 'Performance');
+        if (colHeadBg) {
+          for (const el of [ch1, ch2, ch3, ch4]) {
+            try { el.style.background = colHeadBg; el.style.color = '#0f172a'; } catch(_){ }
+          }
+        }
+        return { grid, head };
+      }
+
+      const grpUi = createDetailsGrid('DETGRP', 'Ranking por Grupos de Processo', 'Grupo', '#0f172a', '#e2e8f0');
+      wrap.appendChild(grpUi.grid);
+      const spacer = document.createElement('div');
+      spacer.style.height = '10px';
+      wrap.appendChild(spacer);
+
+      const lastUi = createDetailsGrid('DET', 'Ranking por Domínios — Última tentativa', 'Domínio', '#1d4ed8', '#dbeafe');
+      wrap.appendChild(lastUi.grid);
+      const spacer2 = document.createElement('div');
+      spacer2.style.height = '10px';
+      wrap.appendChild(spacer2);
+      const prevUi = createDetailsGrid('DET2', 'Ranking por Domínios — Penúltima tentativa', 'Domínio', '#2563eb', '#eff6ff');
+      wrap.appendChild(prevUi.grid);
+
       sec.appendChild(wrap);
       container.appendChild(sec);
 
@@ -2376,31 +2407,134 @@
       // Fetch and render rows
       try {
         const examTypeId = await getExamTypeId();
-        const url = examTypeId
+
+        const urlGroup = examTypeId
           ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
           : '/api/indicators/details-last?exam_mode=full';
-        const res = await fetch(url, { headers, credentials: 'include' });
-        if (res.status === 401 || res.status === 403) {
+        const urlDom = examTypeId
+          ? `/api/indicators/dominiogeral-details-last2?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/dominiogeral-details-last2?exam_mode=full';
+
+        const [resGroup, resDom] = await Promise.all([
+          fetch(urlGroup, { headers, credentials: 'include', cache: 'no-store' }),
+          fetch(urlDom, { headers, credentials: 'include', cache: 'no-store' }),
+        ]);
+
+        if (
+          resGroup.status === 401 || resGroup.status === 403 ||
+          resDom.status === 401 || resDom.status === 403
+        ) {
           try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
           (window.top||window).location.assign('/login?redirect=' + encodeURIComponent((window.top||window).location.href));
           return;
         }
-        if (!res.ok) return;
-        const data = await res.json();
-        const itens = Array.isArray(data.itens) ? data.itens.slice() : [];
-        itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
-        let r = 3;
-        for (const it of itens) {
-          const nome = it.descricao || `Grupo ${it.id}`;
-          const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
-          const cor = String(Number(it.corretas || 0));
-          const rank = it.ranking == null ? '—' : String(it.ranking);
-          addCell('', `DET-R${r}C1`, nome);
-          addCell('', `DET-R${r}C2`, pct);
-          addCell('', `DET-R${r}C3`, cor);
-          addCell('', `DET-R${r}C4`, rank);
-          r += 1;
+
+        function clearRows(ui){
+          while (ui.grid.children.length > 5) ui.grid.removeChild(ui.grid.lastElementChild);
         }
+
+        function fmtDate(iso){
+          try {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            return d.toLocaleString('pt-BR');
+          } catch(_) { return ''; }
+        }
+
+        // Render DET-LAST (grupo)
+        if (resGroup.ok) {
+          const groupData = await resGroup.json();
+          clearRows(grpUi);
+          grpUi.head.textContent = 'Ranking por Grupos de Processo';
+          const itens = Array.isArray(groupData.itens) ? groupData.itens.slice() : [];
+          itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+          if (!itens.length) {
+            const c = addCell(grpUi.grid, 'rowlabel', 'DETGRP-R3C1', 'Sem tentativas concluídas.');
+            c.style.gridColumn = 'span 4';
+          } else {
+            let r = 3;
+            for (const it of itens) {
+              const nome = it.descricao || `Grupo ${it.id}`;
+              const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+              const pctVal = (it.percentCorretas == null ? null : Number(it.percentCorretas));
+              const cor = String(Number(it.corretas || 0));
+              const rank = it.ranking == null ? '—' : String(it.ranking);
+              addCell(grpUi.grid, '', `DETGRP-R${r}C1`, nome);
+              const pctEl = addCell(grpUi.grid, '', `DETGRP-R${r}C2`, pct);
+              if (pctVal != null && Number.isFinite(pctVal)) {
+                if (pctVal < 70) {
+                  pctEl.style.color = '#f97316';
+                  pctEl.style.fontWeight = '800';
+                } else if (pctVal >= 80) {
+                  pctEl.style.color = '#22c55e';
+                  pctEl.style.fontWeight = '800';
+                }
+              }
+              addCell(grpUi.grid, '', `DETGRP-R${r}C3`, cor);
+              addCell(grpUi.grid, '', `DETGRP-R${r}C4`, rank);
+              r += 1;
+            }
+          }
+        } else {
+          clearRows(grpUi);
+          const c = addCell(grpUi.grid, 'rowlabel', 'DETGRP-R3C1', 'Falha ao carregar indicador.');
+          c.style.gridColumn = 'span 4';
+        }
+
+        // Render Domínio Geral (última + penúltima)
+        if (!resDom.ok) {
+          clearRows(lastUi);
+          clearRows(prevUi);
+          addCell(lastUi.grid, 'rowlabel', 'DET-R3C1', 'Falha ao carregar indicador.').style.gridColumn = 'span 4';
+          addCell(prevUi.grid, 'rowlabel', 'DET2-R3C1', 'Falha ao carregar indicador.').style.gridColumn = 'span 4';
+          return;
+        }
+
+        const data = await resDom.json();
+
+        function renderAttempt(ui, prefix, title, attempt){
+          // Clear previous rows (keep first 5 header cells)
+          while (ui.grid.children.length > 5) ui.grid.removeChild(ui.grid.lastElementChild);
+          const dateTxt = attempt && attempt.finished_at ? fmtDate(attempt.finished_at) : '';
+          ui.head.textContent = dateTxt ? `${title} — ${dateTxt}` : title;
+
+          const itens = attempt && Array.isArray(attempt.itens) ? attempt.itens.slice() : [];
+          itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+          if (!itens.length) {
+            const c = addCell(ui.grid, 'rowlabel', `${prefix}-R3C1`, 'Sem tentativas concluídas.');
+            c.style.gridColumn = 'span 4';
+            return;
+          }
+
+          let r = 3;
+          for (const it of itens) {
+            const nome = it.descricao || `Domínio ${it.id}`;
+            const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+            const pctVal = (it.percentCorretas == null ? null : Number(it.percentCorretas));
+            const cor = Number(it.corretas || 0);
+            const tot = Number(it.total || 0);
+            const corTxt = tot > 0 ? `${cor}/${tot}` : String(cor);
+            const rank = it.ranking == null ? '—' : String(it.ranking);
+            addCell(ui.grid, '', `${prefix}-R${r}C1`, nome);
+            const pctEl = addCell(ui.grid, '', `${prefix}-R${r}C2`, pct);
+            if (pctVal != null && Number.isFinite(pctVal)) {
+              if (pctVal < 70) {
+                pctEl.style.color = '#f97316';
+                pctEl.style.fontWeight = '800';
+              } else if (pctVal >= 80) {
+                pctEl.style.color = '#22c55e';
+                pctEl.style.fontWeight = '800';
+              }
+            }
+            addCell(ui.grid, '', `${prefix}-R${r}C3`, corTxt);
+            addCell(ui.grid, '', `${prefix}-R${r}C4`, rank);
+            r += 1;
+          }
+        }
+
+        renderAttempt(lastUi, 'DET', 'Ranking por Domínios — Última tentativa', data && data.last ? data.last : null);
+        renderAttempt(prevUi, 'DET2', 'Ranking por Domínios — Penúltima tentativa', data && data.previous ? data.previous : null);
       } catch(err){ /* ignore */ }
     } catch(e){
       logger.error('[Sidebar] renderDetalhes error:', e);

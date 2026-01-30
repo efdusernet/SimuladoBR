@@ -1,0 +1,163 @@
+[
+  {
+    "id": "start",
+    "name": "Experiência Grátis",
+    "description": "Descubra seus gaps e comece sem risco.",
+    "price_cents": 0,
+    "access_duration_days": null,
+    "is_free": true,
+    "is_active": true,
+    "is_featured": false,
+    "sort_order": 100,
+    "tag": {
+      "text": "Comece agora - Zero risco",
+      "variant": "success"
+    },
+    "cta": {
+      "text": "Começar grátis",
+      "variant": "success"
+    },
+    "features": [
+      "Simulados (quiz 25 questões)",
+      "Indicadores e diagnóstico",
+      "Revisão detalhada (respostas com os porquês)",
+      "Acesso ilimitado"
+    ],
+    "updated_at": "2026-01-29T19:59:47.770Z"
+  },
+  {
+    "id": "pro-30",
+    "name": "PRO 30 dias",
+    "description": "Acesso completo por 30 dias.",
+    "price_cents": 19900,
+    "access_duration_days": 30,
+    "is_free": false,
+    "is_active": true,
+    "is_featured": false,
+    "sort_order": 200,
+    "tag": {
+      "text": "Preparação rápida",
+      "variant": "info"
+    },
+    "cta": {
+      "text": "Assinar 30 dias",
+      "variant": "info"
+    },
+    "features": [
+      "Simulados completos e quiz",
+      "Indicadores",
+      "--> Aprovação e Reprovação",
+      "--> Visão por Grupos de Processos e Domínios",
+      "Revisão guiada da tentativa",
+      "Suporte por e-mail"
+    ],
+    "updated_at": "2026-01-29T19:59:47.770Z"
+  },
+  {
+    "id": "pro-60",
+    "name": "PRO 60 dias",
+    "description": "Acesso completo por 60 dias.",
+    "price_cents": 29900,
+    "access_duration_days": 60,
+    "is_free": false,
+    "is_active": true,
+    "is_featured": false,
+    "sort_order": 300,
+    "tag": {
+      "text": "Evolução contínua",
+      "variant": "brand"
+    },
+    "cta": {
+      "text": "Assinar 60 dias",
+      "variant": "brand"
+    },
+    "features": [
+      "Simulados (quiz e completo)",
+      "Indicadores e diagnóstico",
+      "Revisão guiada da tentativa",
+      "Suporte por e-mail"
+    ],
+    "updated_at": "2026-01-29T19:59:47.770Z"
+  },
+  {
+    "id": "pro-90",
+    "name": "PRO 90 dias",
+    "description": "Acesso completo por 90 dias.",
+    "price_cents": 39600,
+    "access_duration_days": 90,
+    "is_free": false,
+    "is_active": true,
+    "is_featured": true,
+    "sort_order": 350,
+    "tag": {
+      "text": "Preparação intensiva",
+      "variant": "brand"
+    },
+    "cta": {
+      "text": "Assinar agora",
+      "variant": "featured"
+    },
+    "badge": {
+      "text": "Mais escolhido"
+    },
+    "features": [
+      "Simulados (quiz e completo)",
+      "Indicadores e diagnóstico",
+      "Revisão guiada da tentativa",
+      "Suporte por e-mail"
+    ],
+    "updated_at": "2026-01-29T19:59:47.770Z"
+  },
+  {
+    "id": "pro-120",
+    "name": "PRO 120 dias",
+    "description": "Acesso completo por 120 dias.",
+    "price_cents": 49600,
+    "access_duration_days": 120,
+    "is_free": false,
+    "is_active": true,
+    "is_featured": false,
+    "sort_order": 400,
+    "tag": {
+      "text": "Preparação avançada",
+      "variant": "purple"
+    },
+    "cta": {
+      "text": "Assinar 120 dias",
+      "variant": "purple"
+    },
+    "features": [
+      "Simulados (quiz e completo)",
+      "Indicadores e diagnóstico",
+      "Revisão guiada da tentativa",
+      "Suporte por e-mail"
+    ],
+    "updated_at": "2026-01-29T19:59:47.770Z"
+  },
+  {
+    "id": "pro-180",
+    "name": "PRO 180 dias",
+    "description": "Acesso completo por 180 dias.",
+    "price_cents": 69600,
+    "access_duration_days": 180,
+    "is_free": false,
+    "is_active": true,
+    "is_featured": false,
+    "sort_order": 500,
+    "tag": {
+      "text": "Máximo desconto",
+      "variant": "purple"
+    },
+    "cta": {
+      "text": "Assinar 180 dias",
+      "variant": "purple"
+    },
+    "features": [
+      "Simulados (quiz e completo)",
+      "Indicadores e diagnóstico",
+      "Revisão guiada da tentativa",
+      "Suporte por e-mail"
+    ],
+    "updated_at": "2026-01-29T19:59:47.770Z"
+  }
+]

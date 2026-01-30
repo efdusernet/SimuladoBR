@@ -744,6 +744,156 @@ async function getDetailsLast(req, res, next){
   }
 }
 
+// DG-DET-LAST2: Detalhes por Domínio Geral (última e penúltima tentativa concluída)
+// Regras:
+// - Considera as 2 últimas tentativas concluídas do usuário (exam_mode filtro; exam_type opcional)
+// - Uma questão é correta quando o conjunto de opções escolhidas == conjunto de opções corretas (respostaopcao.IsCorreta)
+// - Não respondidas contam como incorretas
+// - Percentual = (#corretas / total questões do domínio no exame) * 100
+// - Ranking: %Corretas desc, #Corretas desc, Descricao asc (dense rank)
+async function getDominioGeralDetailsLastTwo(req, res, next){
+  try {
+    const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
+    const userIdParam = parseInt(req.query.idUsuario, 10);
+    const userId = Number.isFinite(userIdParam) && userIdParam > 0
+      ? userIdParam
+      : (req.user && Number.isFinite(parseInt(req.user.sub, 10)) ? parseInt(req.user.sub, 10) : null);
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
+
+    // Map de dominiogeral (garante retorno com todos os domínios conhecidos)
+    let domainMap = {};
+    try {
+      const cols = await sequelize.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'dominiogeral'`,
+        { type: sequelize.QueryTypes.SELECT }
+      );
+      const names = new Set((cols || []).map((c) => c.column_name));
+      const hasStatus = names.has('status') || names.has('Status');
+      const hasExcl = names.has('excluido') || names.has('Excluido');
+      const exclCol = names.has('excluido') ? 'excluido' : (names.has('Excluido') ? '"Excluido"' : null);
+
+      const whereParts = [];
+      if (hasStatus) whereParts.push(`(status = true OR status IS NULL)`);
+      if (hasExcl && exclCol) whereParts.push(`(${exclCol} = false OR ${exclCol} IS NULL)`);
+      const whereSoft = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+      const mapRows = await sequelize.query(
+        `SELECT id AS id, descricao AS descricao FROM dominiogeral ${whereSoft}`,
+        { type: sequelize.QueryTypes.SELECT }
+      );
+      domainMap = (mapRows || []).reduce((acc, r) => {
+        const k = Number(r.id);
+        if (Number.isFinite(k)) acc[k] = r.descricao;
+        return acc;
+      }, {});
+    } catch(_) { /* ignore */ }
+
+    const domainIds = Object.keys(domainMap).map((k) => Number(k)).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+
+    // Descobrir as 2 últimas tentativas concluídas
+    const lastTwoSql = `SELECT a.id, a.finished_at
+                        FROM exam_attempt a
+                        WHERE a.user_id = :userId
+                          AND a.exam_mode = :examMode
+                          AND a.finished_at IS NOT NULL
+                          ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+                        ORDER BY a.finished_at DESC
+                        LIMIT 2`;
+    const lastRows = await sequelize.query(lastTwoSql, {
+      replacements: hasExamType ? { userId, examMode, examTypeId } : { userId, examMode },
+      type: sequelize.QueryTypes.SELECT,
+    });
+
+    if (!lastRows || !lastRows.length) {
+      return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, last: null, previous: null });
+    }
+
+    async function buildAttemptDetails(attemptId) {
+      const sql = `
+        WITH pq AS (
+          SELECT
+            aq.id AS aqid,
+            q.iddominiogeral AS dominio,
+            COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+            COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+            COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
+          FROM exam_attempt_question aq
+          LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+          JOIN questao q ON q.id = aq.question_id
+          LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+          LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
+          WHERE aq.attempt_id = :attemptId
+            AND q.iddominiogeral IS NOT NULL
+            AND q.iddominiogeral > 0
+          GROUP BY aq.id, q.iddominiogeral
+        )
+        SELECT
+          dominio AS dominio_id,
+          COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS corretas,
+          COUNT(*)::int AS total
+        FROM pq
+        GROUP BY dominio
+        ORDER BY dominio`;
+
+      const rows = await sequelize.query(sql, { replacements: { attemptId }, type: sequelize.QueryTypes.SELECT });
+      const byDom = new Map((rows || []).map((r) => [Number(r.dominio_id), { corretas: Number(r.corretas) || 0, total: Number(r.total) || 0 }]));
+
+      // If domainMap is empty (unexpected), fall back to the domains present in rows.
+      const domList = domainIds.length
+        ? domainIds
+        : (rows || []).map((r) => Number(r.dominio_id)).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+
+      const items = domList.map((id) => {
+        const rec = byDom.get(id) || { corretas: 0, total: 0 };
+        const pct = rec.total > 0 ? Number(((rec.corretas * 100) / rec.total).toFixed(2)) : null;
+        return { id, descricao: domainMap[id] || String(id), corretas: rec.corretas, total: rec.total, percentCorretas: pct };
+      });
+
+      const sorted = items.slice().sort((a, b) => {
+        const ap = a.percentCorretas; const bp = b.percentCorretas;
+        if (bp == null && ap != null) return -1;
+        if (ap == null && bp != null) return 1;
+        if (ap != null && bp != null && bp !== ap) return bp - ap;
+        if (b.corretas !== a.corretas) return b.corretas - a.corretas;
+        return String(a.descricao).localeCompare(String(b.descricao), 'pt-BR');
+      });
+      const rankMap = new Map();
+      let last = null; let rank = 0;
+      for (const it of sorted) {
+        const sig = JSON.stringify([
+          it.percentCorretas == null ? null : Number(it.percentCorretas),
+          it.corretas,
+          String(it.descricao).toLowerCase(),
+        ]);
+        if (sig !== last) { rank += 1; last = sig; }
+        rankMap.set(it.id, rank);
+      }
+      const itens = items.map((it) => ({ ...it, ranking: rankMap.get(it.id) || null }));
+      return itens;
+    }
+
+    const lastAttemptId = Number(lastRows[0].id);
+    const lastFinishedAt = lastRows[0].finished_at || null;
+    const prevAttemptId = lastRows[1] ? Number(lastRows[1].id) : null;
+    const prevFinishedAt = lastRows[1] ? (lastRows[1].finished_at || null) : null;
+
+    const lastItens = await buildAttemptDetails(lastAttemptId);
+    const prevItens = prevAttemptId ? await buildAttemptDetails(prevAttemptId) : null;
+
+    return res.json({
+      userId,
+      examMode,
+      examTypeId: hasExamType ? examTypeId : null,
+      last: { attemptId: lastAttemptId, finished_at: lastFinishedAt, itens: lastItens },
+      previous: prevAttemptId ? { attemptId: prevAttemptId, finished_at: prevFinishedAt, itens: prevItens } : null,
+    });
+  } catch (err) {
+    return next(internalError('Erro interno', 'DOMINIOGERAL_DETAILS_LAST2_ERROR', err));
+  }
+}
+
 // IND10 - Performance por Domínio
 async function getPerformancePorDominio(req, res, next){
   try {
@@ -1253,4 +1403,4 @@ async function getAttemptsHistoryExtended(req, res, next){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getPerformancePorDominio, getAvgTimePerQuestion, getPerformancePorDominioAgregado, getPerformancePorTaskAgregado, getAttemptsHistoryExtended };
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getDominioGeralDetailsLastTwo, getPerformancePorDominio, getAvgTimePerQuestion, getPerformancePorDominioAgregado, getPerformancePorTaskAgregado, getAttemptsHistoryExtended };

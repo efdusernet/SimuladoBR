@@ -41,6 +41,45 @@ require('./config/security');
 
 const app = express();
 
+// Optional: embed chat-service inside this backend (no separate :4010 process)
+const CHAT_SERVICE_EMBED = String(process.env.CHAT_SERVICE_EMBED || process.env.CHAT_SERVICE_EMBEDDED || '').trim().toLowerCase() === 'true';
+const CHAT_SERVICE_HOST = String(process.env.CHAT_SERVICE_HOST || 'chat.localhost').trim().toLowerCase();
+let chatEmbeddedApp = null;
+let chatEmbeddedWs = null;
+
+function mergeEnvFromFileIfBlank(envFilePath) {
+	try {
+		const fsLocal = require('fs');
+		if (!envFilePath) return;
+		if (!fsLocal.existsSync(envFilePath)) return;
+		const result = dotenv.config({ path: envFilePath });
+		if (result && result.parsed) {
+			for (const [key, value] of Object.entries(result.parsed)) {
+				const current = process.env[key];
+				if (current == null || String(current).trim() === '') {
+					process.env[key] = String(value);
+				}
+			}
+		}
+	} catch (_) {
+		// best-effort only
+	}
+}
+
+if (CHAT_SERVICE_EMBED) {
+	// In embedded mode, chat-service's env loader would otherwise read backend/.env (cwd).
+	// We load chat-service/.env explicitly and only fill missing/blank variables.
+	mergeEnvFromFileIfBlank(path.resolve(__dirname, '..', 'chat-service', '.env'));
+	try {
+		const { createApp } = require('../chat-service/src/app');
+		chatEmbeddedApp = createApp();
+		logger.info('Chat-service embedded mode enabled', { host: CHAT_SERVICE_HOST });
+	} catch (e) {
+		logger.warn('Chat-service embedded mode failed to initialize', { error: e && e.message ? String(e.message) : 'unknown' });
+		chatEmbeddedApp = null;
+	}
+}
+
 function getChatServiceBaseUrl() {
 	const raw = process.env.CHAT_SERVICE_BASE_URL || process.env.CHAT_SERVICE_URL || '';
 	return String(raw || '').trim().replace(/\/$/, '');
@@ -215,6 +254,14 @@ function getHostname(req) {
 		return raw.split(':')[0].trim().toLowerCase();
 	} catch (_) {
 		return '';
+	}
+}
+
+function isChatHost(req) {
+	try {
+		return getHostname(req) === CHAT_SERVICE_HOST;
+	} catch (_) {
+		return false;
 	}
 }
 
@@ -579,12 +626,28 @@ const PORT = process.env.PORT || 3000;
 
 const server = http.createServer(app);
 
+// Chat-service admin realtime (WebSocket) in embedded mode.
+// Standalone chat-service uses ws://<host>:4010/v1/admin/ws; embedded uses the same path on :3000.
+if (CHAT_SERVICE_EMBED) {
+	try {
+		const { attachAdminWebSocketServer } = require('../chat-service/src/realtime/adminWs');
+		chatEmbeddedWs = attachAdminWebSocketServer(server);
+		logger.info('Chat-service WebSocket attached (embedded)');
+	} catch (e) {
+		logger.warn('Chat-service WebSocket attach failed (embedded)', { error: e && e.message ? String(e.message) : 'unknown' });
+		chatEmbeddedWs = null;
+	}
+}
+
 // WebSocket proxy for chat-service admin panel realtime.
 // Browser connects to ws(s)://<host>/chat/v1/admin/ws, and we forward to chat-service /v1/admin/ws.
 server.on('upgrade', async (req, socket, head) => {
 	try {
 		const url = String(req.url || '');
 		if (!url.startsWith('/chat/v1/admin/ws')) return;
+		// In embedded mode, chat-service WS is attached to this server and can accept
+		// /chat/v1/admin/ws directly. Avoid double-handling the same socket.
+		if (CHAT_SERVICE_EMBED) return;
 
 		const target = getChatServiceBaseUrl();
 		if (!target) {
@@ -679,4 +742,18 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
 	logger.info('SIGINT signal received: closing HTTP server');
 	process.exit(0);
+});
+
+// If enabled, serve the chat-service app by hostname (ex.: http://chat.localhost:3000).
+// Important: do NOT call next() into the main app when chat host matches, to avoid
+// auth redirects / SPA fallbacks taking over.
+app.use((req, res, next) => {
+	try {
+		if (!CHAT_SERVICE_EMBED) return next();
+		if (!isChatHost(req)) return next();
+		if (!chatEmbeddedApp) return res.status(503).send('chat-service unavailable');
+		return chatEmbeddedApp(req, res);
+	} catch (_) {
+		return res.status(500).send('chat-service error');
+	}
 });

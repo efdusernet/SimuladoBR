@@ -6,6 +6,7 @@ const { adminEvents } = require('./adminEvents');
 const { authenticateAdminToken } = require('../middleware/adminAuth');
 
 const WS_PATH = '/v1/admin/ws';
+const WS_PATH_ALT = '/chat/v1/admin/ws';
 
 function isAllowedWsOrigin(origin, host) {
   const o = String(origin || '').trim();
@@ -64,7 +65,7 @@ function attachAdminWebSocketServer(server) {
     try {
       const host = String(req.headers.host || '').trim();
       const url = new URL(String(req.url || ''), `http://${host || 'localhost'}`);
-      if (url.pathname !== WS_PATH) return;
+      if (url.pathname !== WS_PATH && url.pathname !== WS_PATH_ALT) return;
 
       const origin = String(req.headers.origin || '').trim();
       if (!isAllowedWsOrigin(origin, host)) {
@@ -155,7 +156,9 @@ function attachAdminWebSocketServer(server) {
     });
 
     // Tell client where we are (useful for debugging without changing UI).
-    try { ws.send(JSON.stringify({ type: 'hello', path: WS_PATH })); } catch {}
+    try {
+      ws.send(JSON.stringify({ type: 'hello', path: WS_PATH, altPath: WS_PATH_ALT }));
+    } catch {}
   });
 
   return {
@@ -167,4 +170,4 @@ function attachAdminWebSocketServer(server) {
   };
 }
 
-module.exports = { attachAdminWebSocketServer, WS_PATH };
+module.exports = { attachAdminWebSocketServer, WS_PATH, WS_PATH_ALT };

@@ -13,6 +13,8 @@ Este guia configura o SimuladosBR para rodar como se estivesse em um subdomínio
 
 > Observação: na maioria dos ambientes, `*.localhost` resolve para loopback automaticamente. Se não resolver no seu Windows, use o script de `hosts` abaixo.
 
+> Chat-service (modo embedded): quando `CHAT_SERVICE_EMBED=true`, o backend também pode responder em `http://chat.localhost:3000` (host configurável via `CHAT_SERVICE_HOST`).
+
 ---
 
 ## Passo a passo (Windows)
@@ -29,6 +31,13 @@ Para remover a entrada:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\setup-app-localhost.ps1 -Remove
+```
+
+Se você estiver usando chat-service em modo embedded com host dedicado, pode ser necessário adicionar também `chat.localhost` manualmente no `hosts` (se `*.localhost` não resolver no seu Windows):
+
+```
+127.0.0.1 app.localhost
+127.0.0.1 chat.localhost
 ```
 
 ### 2) Iniciar o servidor em `app.localhost:3000`
@@ -48,6 +57,12 @@ Esse script define (apenas para o processo atual):
 
 - `http://app.localhost:3000`
 
+Se `CHAT_SERVICE_EMBED=true`, você também pode acessar o chat-service diretamente em:
+- `http://chat.localhost:3000`
+
+E a compatibilidade via mount continua disponível no host do app:
+- `http://app.localhost:3000/chat/`
+
 ---
 
 ## Impactos reais (o que muda ao sair de `localhost`)
@@ -66,6 +81,10 @@ Mesmo assim, o backend mantém uma allowlist segura para dev/prod (inclui `local
 
 - `localhost` e `app.localhost` são **hosts diferentes**.
 - Resultado esperado: cookies/sessões emitidos em `localhost` **não valem** para `app.localhost`.
+
+Da mesma forma, `chat.localhost` também é um host diferente:
+- cookies do SimuladosBR emitidos em `app.localhost` não são compartilhados com `chat.localhost` (e vice-versa).
+- isso é esperado e ajuda a detectar problemas reais de subdomínio.
 
 Isso é positivo (isolamento correto), mas durante testes dá a sensação de “perdi o login”.
 

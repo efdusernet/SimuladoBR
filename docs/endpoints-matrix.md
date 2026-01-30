@@ -152,6 +152,20 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 ---
 
+## Admin — Product Plans (`/api/admin/product-plans`)
+
+Planos exibidos na home do site-produto e usados para marketing/CTA. Persistidos em arquivo JSON no backend.
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/product-plans` | Admin | — | `{ ok, source, count, items }` | Lista planos (source: `file`/`defaults`). |
+| POST | `/api/admin/product-plans/seed-defaults?force=1` | Admin | Query: `force?` | `{ ok, written, count, filePath }` | Escreve defaults no arquivo (use `force=1` para sobrescrever). |
+| POST | `/api/admin/product-plans` | Admin | Body: `plan` | *(201)* `{ ok, item }` | Cria plano (valida/normaliza). |
+| PUT | `/api/admin/product-plans/:id` | Admin | Path: `id` + Body: `plan` | `{ ok, item }` | Atualiza plano (id é imposto pela URL). |
+| DELETE | `/api/admin/product-plans/:id` | Admin | Path: `id` | `{ ok, deleted }` | Remove plano por id. |
+
+---
+
 ## Feedback (`/api/feedback`)
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
@@ -161,12 +175,22 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 ---
 
-## Chat Proxy (`/chat`)
+## Chat-service (`/chat` e `chat.localhost`)
+
+O chat-service pode rodar de 2 formas:
+- **Proxy externo**: backend encaminha `/chat/*` para outro processo (ex.: `:4010`) via `CHAT_SERVICE_BASE_URL`.
+- **Embedded**: backend roda chat-service no mesmo processo/porta `:3000` (sem `:4010`).
+
+**Auth do admin do chat:** é do próprio chat-service (token admin), não é o `requireAdmin` do SimuladosBR.
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
 | GET | `/chat/` | None | — | `{ ok, proxy, mountedAt }` | Health/probe do reverse-proxy do chat-service. |
-| WS | `/chat/v1/admin/ws` | Admin | — | *(upgrade websocket)* | Proxy de WebSocket do painel admin do chat-service.
+| GET | `/chat/widget/chat-widget.js` | None | — | *(JS)* | Script do widget (público; precisa retornar JS). |
+| GET | `/chat/v1/support-topics` | None | — | `[...]` | Lista tópicos para o widget (público). |
+| POST | `/chat/v1/conversations` | None | Body | `{ ... }` | Cria conversa (fluxo visitante; público). |
+| GET | `/chat/admin/` | Chat admin token | — | *(HTML)* | Painel admin do chat-service sob o mount `/chat`.
+| WS | `/chat/v1/admin/ws` | Chat admin token | — | *(upgrade websocket)* | Realtime do painel admin sob o mount `/chat`.
 
 ---
 
@@ -217,6 +241,8 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | GET | `/api/indicators/area-knowledge-stats` | JWT | Query: `exam_mode?`, `idUsuario?`, `idExame?` | `{ userId, examMode, idExame, areas: [{ area, acertos, erros, total, percentAcertos, percentErros }] }` | Acertos/erros por área de conhecimento (último exame). |
 | GET | `/api/indicators/approach-stats` | JWT | Query: `exam_mode?`, `idUsuario?`, `idExame?` | `{ userId, examMode, idExame, abordagens: [{ abordagem, acertos, erros, total, percentAcertos, percentErros }] }` | Acertos/erros por abordagem/categoria (último exame). |
 | GET | `/api/indicators/details-last` | JWT | Query: `exam_mode?`, `idUsuario?` | `{ userId, examMode, attempt: { ... }, questions: [...] }` | Detalhes completos do último exame. |
+| GET | `/api/indicators/details-prev` | JWT | Query: `exam_mode?`, `exam_type?`, `idUsuario?` | `{ userId, examMode, examTypeId, idExame, itens: [{ id, descricao, corretas, total, percentCorretas, ranking }] }` | Detalhes por **grupo de processos** da penúltima tentativa concluída (dense rank). |
+| GET | `/api/indicators/dominiogeral-details-last2` | JWT | Query: `exam_mode?`, `exam_type?`, `idUsuario?` | `{ userId, examMode, examTypeId, last, previous }` | Detalhes por **domínio geral** (última e penúltima tentativa concluída). |
 | GET | `/api/indicators/IND10` | JWT | Query: `examMode` (`last`/`best`), `idUsuario?` | `{ userId, examMode, examAttemptId, examDate, domains: [{ id, name, corretas, total, percentage }] }` | Performance por domínio geral (último ou melhor exame). Usado pelo radar. |
 | GET | `/api/indicators/avg-time-per-question` | JWT | Query: `exam_mode?`, `idUsuario?` | `{ userId, examMode, avgSeconds, avgMinutes }` | Tempo médio por questão. |
 | GET | `/api/indicators/attempts-history-extended` | JWT | Query: `limit?`, `offset?`, `status?` | `{ total, attempts: [{ id, examTypeId, startedAt, finishedAt, total, corretas, scorePercent, status, ... }] }` | Histórico detalhado de tentativas com paginação e filtros. |

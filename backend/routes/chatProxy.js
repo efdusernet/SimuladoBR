@@ -3,10 +3,53 @@ const requireUserSession = require('../middleware/requireUserSession');
 const requireAdmin = require('../middleware/requireAdmin');
 const db = require('../models');
 const { unauthorized, forbidden, serviceUnavailable } = require('../middleware/errors');
+const path = require('path');
+const dotenv = require('dotenv');
 
 const router = express.Router();
 
 const premiumCache = new Map();
+
+// Optional: embed chat-service inside this backend process.
+// This allows keeping the existing /chat/* URLs working without a separate :4010 process.
+const CHAT_SERVICE_EMBED = String(process.env.CHAT_SERVICE_EMBED || process.env.CHAT_SERVICE_EMBEDDED || '').trim().toLowerCase() === 'true';
+let _embeddedChatApp = null;
+let _embeddedChatAppInitError = null;
+
+function mergeEnvFromFileIfBlank(envFilePath) {
+	try {
+		const fs = require('fs');
+		if (!envFilePath) return;
+		if (!fs.existsSync(envFilePath)) return;
+		const result = dotenv.config({ path: envFilePath });
+		if (result && result.parsed) {
+			for (const [key, value] of Object.entries(result.parsed)) {
+				const current = process.env[key];
+				if (current == null || String(current).trim() === '') {
+					process.env[key] = String(value);
+				}
+			}
+		}
+	} catch (_) {
+		// best-effort only
+	}
+}
+
+function getEmbeddedChatApp() {
+	if (!CHAT_SERVICE_EMBED) return null;
+	if (_embeddedChatApp) return _embeddedChatApp;
+	if (_embeddedChatAppInitError) return null;
+	try {
+		// Ensure chat-service/.env is loaded (its own env loader would read backend/.env due to cwd).
+		mergeEnvFromFileIfBlank(path.resolve(__dirname, '..', '..', 'chat-service', '.env'));
+		const { createApp } = require('../../chat-service/src/app');
+		_embeddedChatApp = createApp();
+		return _embeddedChatApp;
+	} catch (e) {
+		_embeddedChatAppInitError = e;
+		return null;
+	}
+}
 
 function cacheGet(key) {
 	const hit = premiumCache.get(key);
@@ -75,10 +118,21 @@ function requireChatAccess(req, res, next) {
 	// Allow health checks without auth/premium
 	if (req.method === 'GET' && (req.path === '/health' || req.path === '/health/')) return next();
 
+	// Public widget assets must always be loadable (script tag expects JS MIME type).
+	if (req.method === 'GET' && (req.path === '/widget' || req.path.startsWith('/widget/'))) return next();
+
+	// Public widget bootstrap data
+	if (req.method === 'GET' && (req.path === '/v1/support-topics' || req.path === '/v1/support-topics/')) return next();
+
+	// Public chat conversation flow (visitor-based). The chat-service itself enforces rate limits.
+	if (req.path === '/v1/conversations' || req.path.startsWith('/v1/conversations/')) return next();
+
 	const p = String(req.path || '');
-	// Protect chat-service admin UI and admin APIs with RBAC admin role
+	// IMPORTANT: When the chat-service is mounted under /chat (proxy or embedded),
+	// the admin panel authenticates using its own token model (Authorization: Bearer <token>).
+	// Do NOT gate it with SimuladosBR's requireAdmin, otherwise the chat panel login is blocked.
 	if (p === '/admin' || p.startsWith('/admin/') || p === '/v1/admin' || p.startsWith('/v1/admin/')) {
-		return requireAdmin(req, res, next);
+		return next();
 	}
 	// Default: premium-only access
 	return requirePremium(req, res, next);
@@ -166,6 +220,11 @@ function rewriteLocationHeader(value) {
 
 async function proxyToChatService(req, res, next) {
 	try {
+		const embedded = getEmbeddedChatApp();
+		if (embedded) {
+			return embedded(req, res);
+		}
+
 		const base = getChatServiceBaseUrl();
 		if (!base) {
 			return next(

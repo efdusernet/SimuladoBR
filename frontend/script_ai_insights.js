@@ -612,6 +612,63 @@
     ));
     parts.push(`</div>`);
 
+    // IND14: Domínios (última vs penúltima) usando DG-DET-LAST2
+    if (s.IND14) {
+      const ind14 = s.IND14;
+      const drops = ind14 && Array.isArray(ind14.biggestDrops) ? ind14.biggestDrops : [];
+      const imps = ind14 && Array.isArray(ind14.biggestImprovements) ? ind14.biggestImprovements : [];
+      const weak = ind14 && Array.isArray(ind14.persistentWeak) ? ind14.persistentWeak : [];
+
+      const fmtPp = (n) => {
+        const v = Number(n);
+        if (!Number.isFinite(v)) return '—';
+        const sgn = v > 0 ? '+' : '';
+        return sgn + v.toFixed(1) + 'pp';
+      };
+
+      const liDelta = (arr) => {
+        const list = Array.isArray(arr) ? arr : [];
+        if (!list.length) return '<li class="empty">—</li>';
+        return list.slice(0, 5).map(r => {
+          const last = r && r.last != null ? Number(r.last) : null;
+          const prev = r && r.previous != null ? Number(r.previous) : null;
+          const d = r && r.delta != null ? Number(r.delta) : null;
+          const lastTxt = (last != null && Number.isFinite(last)) ? last.toFixed(1) + '%' : '—';
+          const prevTxt = (prev != null && Number.isFinite(prev)) ? prev.toFixed(1) + '%' : '—';
+          return `<li>${escapeHtml(String(r.label || '—'))}: ${escapeHtml(prevTxt)} → ${escapeHtml(lastTxt)} (${escapeHtml(fmtPp(d))})</li>`;
+        }).join('');
+      };
+
+      const liWeak = (arr) => {
+        const list = Array.isArray(arr) ? arr : [];
+        if (!list.length) return '<li class="empty">—</li>';
+        return list.slice(0, 6).map(r => {
+          const last = r && r.last != null ? Number(r.last) : null;
+          const prev = r && r.previous != null ? Number(r.previous) : null;
+          const lastTxt = (last != null && Number.isFinite(last)) ? last.toFixed(1) + '%' : '—';
+          const prevTxt = (prev != null && Number.isFinite(prev)) ? prev.toFixed(1) + '%' : '—';
+          return `<li>${escapeHtml(String(r.label || '—'))}: ${escapeHtml(prevTxt)} → ${escapeHtml(lastTxt)}</li>`;
+        }).join('');
+      };
+
+      parts.push(`<div id="ind14"><div class="kv"><span class="k">IND14</span><span class="v">Domínios (última vs penúltima tentativa)</span></div>`);
+      parts.push(`<div class="tb-note muted small">Comparação do % de corretas por domínio geral entre as 2 últimas tentativas concluídas (modo full).</div>`);
+
+      parts.push(`<div class="kv"><span class="k">Última</span><span class="v">Piores/Melhores domínios na última tentativa</span></div>`);
+      parts.push(renderTopBottom(ind14.last, '%'));
+
+      parts.push(`<div class="kv"><span class="k">Penúltima</span><span class="v">Piores/Melhores domínios na penúltima tentativa</span></div>`);
+      parts.push(renderTopBottom(ind14.previous, '%'));
+
+      parts.push(`<div class="split">`);
+      parts.push(`<div class="card"><h3>Maiores quedas</h3><ul>${liDelta(drops)}</ul></div>`);
+      parts.push(`<div class="card"><h3>Maiores melhoras</h3><ul>${liDelta(imps)}</ul></div>`);
+      parts.push(`</div>`);
+
+      parts.push(`<div class="card"><h3>Consistentemente fracos (&lt;70% nas duas)</h3><ul>${liWeak(weak)}</ul></div>`);
+      parts.push(`</div>`);
+    }
+
     if (s.PASS && s.PASS.probabilityPercent != null) {
       const p = Number(s.PASS.probabilityPercent);
       const overall = s.PASS.overallPercent != null ? Number(s.PASS.overallPercent) : null;

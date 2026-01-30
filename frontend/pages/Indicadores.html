@@ -30,6 +30,15 @@
     .cell{padding:6px 3px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
     .rowlabel{text-align:left; padding-left:4px; font-size:10px;}
     .head,.subhead,.colhead{font-weight:600; font-size:10px;}
+
+    /* Detalhes: diferenciar visualmente os indicadores */
+    #detGroupHead{background:#0f172a; color:#ffffff;}
+    #detLastHead{background:#1d4ed8; color:#ffffff;}
+    #detPrevHead{background:#2563eb; color:#ffffff;}
+    /* Cabeçalhos de coluna */
+    #detGridGroup .colhead{background:#e2e8f0; color:#0f172a;}
+    #detGridLast .colhead{background:#dbeafe; color:#0f172a;}
+    #detGridPrev .colhead{background:#eff6ff; color:#0f172a;}
     /* Marcador via pseudo-elemento (sem spans extras) */
     body.show-markers .ov-grid .cell::after,
     body.show-markers .det-grid .cell::after{content:attr(data-cell); position:absolute; top:2px; right:4px; font-size:9px; font-weight:500; color:#94a3b8; letter-spacing:.5px; pointer-events:none; user-select:none;}
@@ -249,13 +258,32 @@
     </section>
       <section id="sec-detalhes" class="section" aria-labelledby="tab-detalhes">
         <div class="ov-wrapper">
-          <div class="det-grid">
-            <div class="cell head" style="grid-column: span 4;" data-cell="DET-R1C1">Última tentativa</div>
+          <div class="det-grid" id="detGridGroup">
+            <div class="cell head" id="detGroupHead" style="grid-column: span 4;" data-cell="DETGRP-R1C1">Ranking por Grupos de Processo</div>
+            <div class="cell colhead" data-cell="DETGRP-R2C1">Grupo</div>
+            <div class="cell colhead" data-cell="DETGRP-R2C2">Corretas %</div>
+            <div class="cell colhead" data-cell="DETGRP-R2C3"># Corretas</div>
+            <div class="cell colhead" data-cell="DETGRP-R2C4">Performance</div>
+            <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/details-last -->
+          </div>
+          <div style="height:10px;"></div>
+
+          <div class="det-grid" id="detGridLast">
+            <div class="cell head" id="detLastHead" style="grid-column: span 4;" data-cell="DET-R1C1">Última tentativa</div>
             <div class="cell colhead" data-cell="DET-R2C1">Domínio</div>
             <div class="cell colhead" data-cell="DET-R2C2">Corretas %</div>
             <div class="cell colhead" data-cell="DET-R2C3"># Corretas</div>
             <div class="cell colhead" data-cell="DET-R2C4">Performance</div>
-            <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/details-last -->
+            <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/dominiogeral-details-last2 -->
+          </div>
+          <div style="height:10px;"></div>
+          <div class="det-grid" id="detGridPrev">
+            <div class="cell head" id="detPrevHead" style="grid-column: span 4;" data-cell="DET2-R1C1">Penúltima tentativa</div>
+            <div class="cell colhead" data-cell="DET2-R2C1">Domínio</div>
+            <div class="cell colhead" data-cell="DET2-R2C2">Corretas %</div>
+            <div class="cell colhead" data-cell="DET2-R2C3"># Corretas</div>
+            <div class="cell colhead" data-cell="DET2-R2C4">Performance</div>
+            <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/dominiogeral-details-last2 -->
           </div>
       </section>
       <section id="sec-dashboard" class="section" aria-labelledby="tab-dashboard">
@@ -1448,54 +1476,173 @@
       });
     })();
 
-    // Detalhes: última tentativa por grupo com ranking
+    // Detalhes (Domínio Geral): última e penúltima tentativa com ranking
     async function loadDetailsLast(){
-        const grid = document.querySelector('#sec-detalhes .det-grid');
-        if (!grid) return;
-      try {
-        const grid = document.querySelector('#sec-detalhes .det-grid');
-        if (!grid) return;
-        // Always clear data rows before rendering
-        while (grid.children.length > 5) {
-          grid.removeChild(grid.lastElementChild);
-        }
+      const gridGroup = document.getElementById('detGridGroup');
+      const gridLast = document.getElementById('detGridLast');
+      const gridPrev = document.getElementById('detGridPrev');
+      if (!gridGroup || !gridLast || !gridPrev) return;
 
-        const headers = getAuthHeadersLocal();
-        const examTypeId = await getCurrentExamTypeId();
-        const url = examTypeId
-          ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
-          : '/api/indicators/details-last?exam_mode=full';
-        const res = await fetch(url, { headers });
-        if (res.status === 401 || res.status === 403) {
-          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
-          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+      function clearGrid(grid){
+        while (grid.children.length > 5) grid.removeChild(grid.lastElementChild);
+      }
+
+      function fmtDate(iso){
+        try {
+          if (!iso) return '';
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return '';
+          return d.toLocaleString('pt-BR');
+        } catch(_) { return ''; }
+      }
+
+      function render(grid, prefix, headEl, title, attempt){
+        clearGrid(grid);
+        const dateTxt = attempt && attempt.finished_at ? fmtDate(attempt.finished_at) : '';
+        if (headEl) headEl.textContent = dateTxt ? `${title} — ${dateTxt}` : title;
+
+        const itens = attempt && Array.isArray(attempt.itens) ? attempt.itens.slice() : [];
+        itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+
+        if (!itens.length) {
+          const empty = document.createElement('div');
+          empty.className = 'cell rowlabel';
+          empty.style.gridColumn = 'span 4';
+          empty.setAttribute('data-cell', `${prefix}-R3C1`);
+          empty.textContent = 'Sem tentativas concluídas.';
+          grid.appendChild(empty);
           return;
         }
-        if (!res.ok) return;
-        const data = await res.json();
-        const itens = Array.isArray(data.itens) ? data.itens.slice() : [];
-        // Ordena pela id do grupo para exibição estável (ranking vai na coluna Performance)
-        itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
-        let r = 3; // começa na linha 3
+
+        let r = 3;
         for (const it of itens) {
-          const nome = it.descricao || `Grupo ${it.id}`;
+          const nome = it.descricao || `Domínio ${it.id}`;
           const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+          const pctVal = (it.percentCorretas == null ? null : Number(it.percentCorretas));
           const cor = Number(it.corretas || 0);
+          const tot = Number(it.total || 0);
+          const corTxt = tot > 0 ? `${cor}/${tot}` : String(cor);
           const rank = it.ranking == null ? '—' : String(it.ranking);
 
           const c1 = document.createElement('div');
-          c1.className = 'cell'; c1.setAttribute('data-cell', `DET-R${r}C1`); c1.textContent = nome;
+          c1.className = 'cell'; c1.setAttribute('data-cell', `${prefix}-R${r}C1`); c1.textContent = nome;
           const c2 = document.createElement('div');
-          c2.className = 'cell'; c2.setAttribute('data-cell', `DET-R${r}C2`); c2.textContent = pct;
+          c2.className = 'cell'; c2.setAttribute('data-cell', `${prefix}-R${r}C2`); c2.textContent = pct;
+          if (pctVal != null && Number.isFinite(pctVal)) {
+            if (pctVal < 70) {
+              c2.style.color = '#f97316';
+              c2.style.fontWeight = '800';
+            } else if (pctVal >= 80) {
+              c2.style.color = '#22c55e';
+              c2.style.fontWeight = '800';
+            }
+          }
           const c3 = document.createElement('div');
-          c3.className = 'cell'; c3.setAttribute('data-cell', `DET-R${r}C3`); c3.textContent = String(cor);
+          c3.className = 'cell'; c3.setAttribute('data-cell', `${prefix}-R${r}C3`); c3.textContent = corTxt;
           const c4 = document.createElement('div');
-          c4.className = 'cell'; c4.setAttribute('data-cell', `DET-R${r}C4`); c4.textContent = rank;
+          c4.className = 'cell'; c4.setAttribute('data-cell', `${prefix}-R${r}C4`); c4.textContent = rank;
 
           grid.appendChild(c1); grid.appendChild(c2); grid.appendChild(c3); grid.appendChild(c4);
           r += 1;
         }
-        // Only set flag after successful load and render
+      }
+
+      function renderError(grid, prefix, headEl, title, msg){
+        clearGrid(grid);
+        if (headEl) headEl.textContent = title;
+        const cell = document.createElement('div');
+        cell.className = 'cell rowlabel';
+        cell.style.gridColumn = 'span 4';
+        cell.setAttribute('data-cell', `${prefix}-R3C1`);
+        cell.textContent = msg || 'Falha ao carregar.';
+        grid.appendChild(cell);
+      }
+
+      function renderGroup(grid, prefix, headEl, title, data){
+        clearGrid(grid);
+        if (headEl) headEl.textContent = title;
+        const itens = data && Array.isArray(data.itens) ? data.itens.slice() : [];
+        itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+        if (!itens.length) {
+          const empty = document.createElement('div');
+          empty.className = 'cell rowlabel';
+          empty.style.gridColumn = 'span 4';
+          empty.setAttribute('data-cell', `${prefix}-R3C1`);
+          empty.textContent = 'Sem tentativas concluídas.';
+          grid.appendChild(empty);
+          return;
+        }
+        let r = 3;
+        for (const it of itens) {
+          const nome = it.descricao || `Grupo ${it.id}`;
+          const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+          const pctVal = (it.percentCorretas == null ? null : Number(it.percentCorretas));
+          const cor = String(Number(it.corretas || 0));
+          const rank = it.ranking == null ? '—' : String(it.ranking);
+
+          const c1 = document.createElement('div');
+          c1.className = 'cell'; c1.setAttribute('data-cell', `${prefix}-R${r}C1`); c1.textContent = nome;
+          const c2 = document.createElement('div');
+          c2.className = 'cell'; c2.setAttribute('data-cell', `${prefix}-R${r}C2`); c2.textContent = pct;
+          if (pctVal != null && Number.isFinite(pctVal)) {
+            if (pctVal < 70) {
+              c2.style.color = '#f97316';
+              c2.style.fontWeight = '800';
+            } else if (pctVal >= 80) {
+              c2.style.color = '#22c55e';
+              c2.style.fontWeight = '800';
+            }
+          }
+          const c3 = document.createElement('div');
+          c3.className = 'cell'; c3.setAttribute('data-cell', `${prefix}-R${r}C3`); c3.textContent = cor;
+          const c4 = document.createElement('div');
+          c4.className = 'cell'; c4.setAttribute('data-cell', `${prefix}-R${r}C4`); c4.textContent = rank;
+          grid.appendChild(c1); grid.appendChild(c2); grid.appendChild(c3); grid.appendChild(c4);
+          r += 1;
+        }
+      }
+
+      try {
+        const headers = getAuthHeadersLocal();
+        const examTypeId = await getCurrentExamTypeId();
+
+        const urlGroup = examTypeId
+          ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/details-last?exam_mode=full';
+        const urlDomGeral = examTypeId
+          ? `/api/indicators/dominiogeral-details-last2?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/dominiogeral-details-last2?exam_mode=full';
+
+        const [resGroup, resDom] = await Promise.all([
+          fetch(urlGroup, { headers, credentials: 'include', cache: 'no-store' }),
+          fetch(urlDomGeral, { headers, credentials: 'include', cache: 'no-store' }),
+        ]);
+
+        if (
+          resGroup.status === 401 || resGroup.status === 403 ||
+          resDom.status === 401 || resDom.status === 403
+        ) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+
+        if (resGroup.ok) {
+          const groupData = await resGroup.json();
+          renderGroup(gridGroup, 'DETGRP', document.getElementById('detGroupHead'), 'Ranking por Grupos de Processo', groupData);
+        } else {
+          renderError(gridGroup, 'DETGRP', document.getElementById('detGroupHead'), 'Ranking por Grupos de Processo', 'Falha ao carregar indicador.');
+        }
+
+        if (resDom.ok) {
+          const data = await resDom.json();
+          render(gridLast, 'DET', document.getElementById('detLastHead'), 'Ranking por Domínios — Última tentativa', data && data.last ? data.last : null);
+          render(gridPrev, 'DET2', document.getElementById('detPrevHead'), 'Ranking por Domínios — Penúltima tentativa', data && data.previous ? data.previous : null);
+        } else {
+          renderError(gridLast, 'DET', document.getElementById('detLastHead'), 'Ranking por Domínios — Última tentativa', 'Falha ao carregar indicador.');
+          renderError(gridPrev, 'DET2', document.getElementById('detPrevHead'), 'Ranking por Domínios — Penúltima tentativa', 'Falha ao carregar indicador.');
+        }
+
         _detalhesLoadedOnce = true;
       } catch(_) { /* ignore */ }
     }

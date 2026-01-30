@@ -17,6 +17,7 @@ router.get('/process-group-stats', auth, indicatorController.getProcessGroupStat
 router.get('/area-knowledge-stats', auth, indicatorController.getAreaConhecimentoStats);
 router.get('/approach-stats', auth, indicatorController.getAbordagemStats);
 router.get('/details-last', auth, indicatorController.getDetailsLast);
+router.get('/dominiogeral-details-last2', auth, indicatorController.getDominioGeralDetailsLastTwo);
 router.get('/IND10', requireUserSession, indicatorController.getPerformancePorDominio);
 // IND11: Tempo médio por questão
 router.get('/IND11', auth, indicatorController.getAvgTimePerQuestion);

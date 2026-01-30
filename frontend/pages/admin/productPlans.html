@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Planos do Produto (Admin)</title>
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
+  <script src="/utils/csrf.js"></script>
+  <script src="/utils/logout.js"></script>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{ background:#0b1220; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
+    .wrap{ max-width:1300px; margin:18px auto; padding:16px; background:#0f172a; border:1px solid #1f2937; border-radius:12px; }
+    .topbar{ display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+    .topbar h1{ margin:0; font-size:1.15rem; }
+    .muted{ color:#94a3b8; }
+    .small{ font-size:.85rem; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .btn{ padding:8px 12px; border-radius:8px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; cursor:pointer; font-weight:700; }
+    .btn:hover{ border-color:#334155; }
+    .btn-primary{ background:#16a34a; border-color:#15803d; }
+    .btn-danger{ background:#b91c1c; border-color:#7f1d1d; }
+    .btn-warn{ background:#f59e0b; border-color:#b45309; color:#111827; }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .grid{ display:grid; grid-template-columns: 420px 1fr; gap: 14px; margin-top: 14px; }
+    .card{ background:#0b1220; border:1px solid #1f2937; border-radius:12px; padding:12px; }
+
+    .sideMenu{ border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:10px; margin-bottom: 12px; }
+    .sideMenu h2{ margin:0 0 8px; font-size:.95rem; color:#e5e7eb; }
+    .sideMenu a{ display:block; padding:8px 10px; border-radius:10px; text-decoration:none; color:#e5e7eb; border:1px solid transparent; font-weight:700; font-size:.9rem; }
+    .sideMenu a:hover{ border-color:#334155; background:#0f172a; }
+    .sideMenu a.active{ background:#111827; border-color:#334155; }
+    .sideMenu .muted{ margin-top:6px; }
+
+    label{ display:block; font-size:.82rem; color:#a3b2c5; margin:10px 0 6px; }
+    select,input,textarea{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    textarea{ min-height: 110px; resize: vertical; }
+
+    .row{ display:flex; gap:8px; }
+    .row > * { flex: 1; }
+
+    .list{ display:grid; gap:10px; }
+    .item{ border:1px solid #1f2937; background:#0f172a; border-radius:12px; padding:10px; }
+    .itemHead{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .itemTitle{ font-weight:900; }
+    .pill{ display:inline-flex; align-items:center; gap:8px; border:1px solid #1f2937; background:#0b1220; padding:6px 10px; border-radius:999px; color:#cbd5e1; font-size:.78rem; }
+    .pill.ok{ border-color: rgba(34,197,94,0.35); color:#bbf7d0; }
+    .pill.off{ border-color: rgba(239,68,68,0.35); color:#fecaca; }
+    .actions{ display:flex; gap:8px; flex-wrap: wrap; margin-top: 10px; }
+
+    .status{ min-height: 18px; margin-top: 10px; color:#93c5fd; }
+    .status.error{ color:#fecaca; }
+
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Planos do Produto (Admin)</h1>
+        <div class="muted small">Gerencie os cards de planos/benefícios exibidos na Home do marketing. Salva via <span class="mono">/api/admin/product-plans</span> (CSRF automático).</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:end;">
+        <button id="btnHome" class="btn">Home</button>
+        <button id="btnLogout" class="btn btn-danger">Sair</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="sideMenu" aria-label="Menu Admin">
+          <h2>Menu</h2>
+          <a href="/index.html">Home</a>
+          <a href="/pages/admin/questionForm.html">Cadastrar questão</a>
+          <a href="/pages/admin/questionBulk.html">Cadastrar questão bulk</a>
+          <a href="/pages/admin/flashcards.html">Flashcards</a>
+          <a href="/pages/admin/dicas.html">Dicas</a>
+          <a href="/pages/admin/feedbackResponses.html">Responder feedbacks</a>
+          <a href="/pages/admin/notifications.html">Notificações</a>
+          <a href="/pages/admin/dataExplorer.html">Data Explorer</a>
+          <a href="/pages/admin/productPlans.html" class="active" aria-current="page">Planos (Marketing)</a>
+          <div class="muted small">Dica: benefícios = 1 por linha.</div>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btnReload" class="btn">Recarregar</button>
+          <button id="btnSeed" class="btn btn-warn">Gerar arquivo com planos atuais</button>
+          <button id="btnNew" class="btn btn-primary">Novo plano</button>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="list" id="list" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin:0 0 6px; font-size:1rem;">Editar plano</h2>
+        <div class="muted small">IDs aceitam <span class="mono">a-z0-9-</span>. Para mudar o ID, crie um novo plano e apague o antigo.</div>
+
+        <label for="inpId">ID</label>
+        <input id="inpId" placeholder="ex: pro-90" />
+
+        <label for="inpName">Nome</label>
+        <input id="inpName" placeholder="ex: PRO 90 dias" />
+
+        <label for="inpDesc">Descrição (opcional)</label>
+        <input id="inpDesc" placeholder="ex: Acesso completo por 90 dias" />
+
+        <div class="row">
+          <div>
+            <label for="inpPrice">Preço (R$)</label>
+            <input id="inpPrice" inputmode="decimal" placeholder="ex: 396" />
+          </div>
+          <div>
+            <label for="inpDays">Acesso (dias)</label>
+            <input id="inpDays" inputmode="numeric" placeholder="ex: 90" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="selActive">Ativo</label>
+            <select id="selActive">
+              <option value="1">Sim</option>
+              <option value="0">Não</option>
+            </select>
+          </div>
+          <div>
+            <label for="selFree">Grátis</label>
+            <select id="selFree">
+              <option value="0">Não</option>
+              <option value="1">Sim</option>
+            </select>
+          </div>
+          <div>
+            <label for="selFeatured">Destaque</label>
+            <select id="selFeatured">
+              <option value="0">Não</option>
+              <option value="1">Sim</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="inpOrder">Ordem (sort_order)</label>
+            <input id="inpOrder" inputmode="numeric" placeholder="ex: 300" />
+          </div>
+          <div>
+            <label for="inpTagText">Tag (texto)</label>
+            <input id="inpTagText" placeholder="ex: Preparação intensiva" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="selTagVar">Tag (cor)</label>
+            <select id="selTagVar">
+              <option value="">(auto)</option>
+              <option value="success">success</option>
+              <option value="info">info</option>
+              <option value="brand">brand</option>
+              <option value="purple">purple</option>
+              <option value="featured">featured</option>
+            </select>
+          </div>
+          <div>
+            <label for="inpCtaText">CTA (texto)</label>
+            <input id="inpCtaText" placeholder="ex: Assinar agora" />
+          </div>
+          <div>
+            <label for="selCtaVar">CTA (cor)</label>
+            <select id="selCtaVar">
+              <option value="">(auto)</option>
+              <option value="success">success</option>
+              <option value="info">info</option>
+              <option value="brand">brand</option>
+              <option value="purple">purple</option>
+              <option value="featured">featured</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="inpBadge">Badge (opcional)</label>
+        <input id="inpBadge" placeholder="ex: Mais escolhido" />
+
+        <label for="taFeatures">Benefícios (1 por linha)</label>
+        <textarea id="taFeatures" placeholder="Ex:\nSimulados (quiz e completo)\nIndicadores e diagnóstico\nRevisão guiada da tentativa\nSuporte por e-mail"></textarea>
+
+        <div class="actions">
+          <button id="btnSave" class="btn btn-primary">Salvar</button>
+          <button id="btnDuplicate" class="btn btn-warn">Duplicar</button>
+          <button id="btnDelete" class="btn btn-danger">Excluir</button>
+          <button id="btnClear" class="btn">Limpar</button>
+        </div>
+
+        <div class="status" id="statusForm"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+
+  const status = $('status');
+  const statusForm = $('statusForm');
+  const listEl = $('list');
+
+  let items = [];
+  let selectedId = null;
+
+  function setStatus(el, msg, isErr){
+    el.textContent = msg || '';
+    el.className = 'status' + (isErr ? ' error' : '');
+  }
+
+  function priceToCents(brl){
+    const s = String(brl || '').trim().replace(',', '.');
+    if (!s) return 0;
+    const n = Number(s);
+    if (!Number.isFinite(n)) return NaN;
+    return Math.round(n * 100);
+  }
+
+  function centsToBrl(cents){
+    const n = Number(cents || 0) / 100;
+    if (!Number.isFinite(n)) return '';
+    // keep simple for editing
+    return String(Math.round(n));
+  }
+
+  function normalizeLines(txt){
+    return String(txt || '')
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  function renderList(){
+    listEl.innerHTML = '';
+    if (!items.length) {
+      const d = document.createElement('div');
+      d.className = 'muted small';
+      d.textContent = 'Nenhum plano encontrado.';
+      listEl.appendChild(d);
+      return;
+    }
+
+    items.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'item';
+
+      const head = document.createElement('div');
+      head.className = 'itemHead';
+
+      const left = document.createElement('div');
+      const title = document.createElement('div');
+      title.className = 'itemTitle';
+      title.textContent = p.name + ' (' + p.id + ')';
+
+      const meta = document.createElement('div');
+      meta.className = 'muted small';
+      const days = (p.access_duration_days == null) ? 'vitalício' : (String(p.access_duration_days) + ' dias');
+      const price = p.is_free ? 'R$ 0' : ('R$ ' + (Number(p.price_cents||0)/100).toFixed(2).replace('.', ','));
+      meta.textContent = price + ' • ' + days;
+
+      const badges = document.createElement('div');
+      badges.style.marginTop = '8px';
+      badges.style.display = 'flex';
+      badges.style.gap = '8px';
+      badges.style.flexWrap = 'wrap';
+
+      const pillA = document.createElement('span');
+      pillA.className = 'pill ' + (p.is_active ? 'ok' : 'off');
+      pillA.textContent = p.is_active ? 'ATIVO' : 'INATIVO';
+      badges.appendChild(pillA);
+
+      if (p.is_featured) {
+        const pillF = document.createElement('span');
+        pillF.className = 'pill';
+        pillF.textContent = 'DESTAQUE';
+        badges.appendChild(pillF);
+      }
+
+      left.appendChild(title);
+      left.appendChild(meta);
+      left.appendChild(badges);
+
+      const right = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.textContent = (selectedId === p.id) ? 'Editando' : 'Editar';
+      btn.disabled = (selectedId === p.id);
+      btn.onclick = () => selectPlan(p.id);
+      right.appendChild(btn);
+
+      head.appendChild(left);
+      head.appendChild(right);
+      div.appendChild(head);
+
+      listEl.appendChild(div);
+    });
+  }
+
+  async function api(path, options){
+    const h = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders({ acceptJson: true }) : {};
+    const headers = { ...h, 'Content-Type': 'application/json' };
+    const opts = { credentials: 'include', ...(options||{}), headers: { ...headers, ...((options||{}).headers||{}) } };
+    const r = await fetch(path, opts);
+    const text = await r.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch(_){ data = { raw: text }; }
+    return { ok: r.ok, status: r.status, data };
+  }
+
+  async function load(){
+    setStatus(status, 'Carregando...', false);
+    const r = await api('/api/admin/product-plans');
+    if (!r.ok) {
+      setStatus(status, 'Falha ao carregar (' + r.status + '): ' + (r.data && (r.data.message||r.data.error||r.data.code) ? (r.data.message||r.data.error||r.data.code) : ''), true);
+      return;
+    }
+    items = (r.data && r.data.items) ? r.data.items : [];
+    setStatus(status, 'OK (' + items.length + ' planos). Fonte: ' + (r.data.source || ''), false);
+    renderList();
+  }
+
+  async function seedDefaults(){
+    const ok = confirm('Isso vai gravar os planos atuais (defaults) em backend/data/productPlans.json.\n\nSe o arquivo já existir, será necessário confirmar sobrescrita.');
+    if (!ok) return;
+
+    setStatus(status, 'Gerando arquivo...', false);
+    let r = await api('/api/admin/product-plans/seed-defaults', { method:'POST' });
+    if (!r.ok && r.data && r.data.code === 'PLANS_FILE_ALREADY_EXISTS') {
+      const ok2 = confirm('O arquivo já existe. Deseja SOBRESCREVER com os defaults?');
+      if (!ok2) { setStatus(status, 'Cancelado.', false); return; }
+      r = await api('/api/admin/product-plans/seed-defaults?force=1', { method:'POST' });
+    }
+
+    if (!r.ok) {
+      setStatus(status, 'Falha ao gerar (' + r.status + '): ' + (r.data && (r.data.message||r.data.error||r.data.code) ? (r.data.message||r.data.error||r.data.code) : ''), true);
+      return;
+    }
+
+    setStatus(status, 'Arquivo gerado. (' + (r.data && r.data.count ? r.data.count : '?') + ' planos)', false);
+    await load();
+  }
+
+  function clearForm(){
+    selectedId = null;
+    $('inpId').value = '';
+    $('inpId').disabled = false;
+    $('inpName').value = '';
+    $('inpDesc').value = '';
+    $('inpPrice').value = '';
+    $('inpDays').value = '';
+    $('selActive').value = '1';
+    $('selFree').value = '0';
+    $('selFeatured').value = '0';
+    $('inpOrder').value = '';
+    $('inpTagText').value = '';
+    $('selTagVar').value = '';
+    $('inpCtaText').value = '';
+    $('selCtaVar').value = '';
+    $('inpBadge').value = '';
+    $('taFeatures').value = '';
+    setStatus(statusForm, '', false);
+    renderList();
+  }
+
+  function selectPlan(id){
+    const p = items.find(x => x.id === id);
+    if (!p) return;
+    selectedId = id;
+    $('inpId').value = p.id || '';
+    $('inpId').disabled = true;
+    $('inpName').value = p.name || '';
+    $('inpDesc').value = p.description || '';
+    $('inpPrice').value = p.is_free ? '0' : centsToBrl(p.price_cents);
+    $('inpDays').value = (p.access_duration_days == null) ? '' : String(p.access_duration_days);
+    $('selActive').value = p.is_active ? '1' : '0';
+    $('selFree').value = p.is_free ? '1' : '0';
+    $('selFeatured').value = p.is_featured ? '1' : '0';
+    $('inpOrder').value = (p.sort_order == null) ? '' : String(p.sort_order);
+
+    $('inpTagText').value = (p.tag && p.tag.text) ? p.tag.text : '';
+    $('selTagVar').value = (p.tag && p.tag.variant) ? p.tag.variant : '';
+
+    $('inpCtaText').value = (p.cta && p.cta.text) ? p.cta.text : '';
+    $('selCtaVar').value = (p.cta && p.cta.variant) ? p.cta.variant : '';
+
+    $('inpBadge').value = (p.badge && p.badge.text) ? p.badge.text : '';
+
+    $('taFeatures').value = Array.isArray(p.features) ? p.features.join('\n') : '';
+
+    setStatus(statusForm, 'Editando: ' + p.id, false);
+    renderList();
+  }
+
+  function gatherForm(overrideId){
+    const id = (overrideId || $('inpId').value || '').trim();
+    const priceCents = priceToCents($('inpPrice').value);
+    if (!id) throw new Error('ID obrigatório');
+    if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(id)) throw new Error('ID inválido');
+    if (!($('inpName').value||'').trim()) throw new Error('Nome obrigatório');
+    if (!Number.isFinite(priceCents)) throw new Error('Preço inválido');
+
+    const isFree = $('selFree').value === '1';
+
+    let days = ($('inpDays').value||'').trim();
+    days = days ? Number(days) : null;
+    if (days !== null && (!Number.isFinite(days) || days <= 0)) throw new Error('Dias inválido');
+
+    const plan = {
+      id,
+      name: ($('inpName').value||'').trim(),
+      description: ($('inpDesc').value||'').trim(),
+      is_active: $('selActive').value === '1',
+      is_free: isFree,
+      is_featured: $('selFeatured').value === '1',
+      access_duration_days: days,
+      price_cents: isFree ? 0 : priceCents,
+      sort_order: ($('inpOrder').value||'').trim() ? Number(($('inpOrder').value||'').trim()) : undefined,
+      tag: {
+        text: ($('inpTagText').value||'').trim(),
+        variant: ($('selTagVar').value||'').trim()
+      },
+      cta: {
+        text: ($('inpCtaText').value||'').trim(),
+        variant: ($('selCtaVar').value||'').trim()
+      },
+      badge: {
+        text: ($('inpBadge').value||'').trim()
+      },
+      features: normalizeLines($('taFeatures').value)
+    };
+
+    // Clean empty objects
+    if (!plan.tag.text && !plan.tag.variant) delete plan.tag;
+    if (!plan.cta.text && !plan.cta.variant) delete plan.cta;
+    if (!plan.badge.text) delete plan.badge;
+
+    return plan;
+  }
+
+  async function save(){
+    setStatus(statusForm, 'Salvando...', false);
+    let plan;
+    try {
+      plan = gatherForm(selectedId || null);
+    } catch(e) {
+      setStatus(statusForm, e.message || String(e), true);
+      return;
+    }
+
+    let r;
+    if (selectedId) {
+      r = await api('/api/admin/product-plans/' + encodeURIComponent(selectedId), { method:'PUT', body: JSON.stringify(plan) });
+    } else {
+      r = await api('/api/admin/product-plans', { method:'POST', body: JSON.stringify(plan) });
+    }
+
+    if (!r.ok) {
+      setStatus(statusForm, 'Falha ao salvar (' + r.status + '): ' + (r.data && (r.data.message||r.data.error||r.data.code) ? (r.data.message||r.data.error||r.data.code) : ''), true);
+      return;
+    }
+
+    setStatus(statusForm, 'Salvo com sucesso.', false);
+    await load();
+    selectPlan(plan.id);
+  }
+
+  async function del(){
+    if (!selectedId) { setStatus(statusForm, 'Selecione um plano.', true); return; }
+    const ok = confirm('Excluir o plano ' + selectedId + '?');
+    if (!ok) return;
+
+    setStatus(statusForm, 'Excluindo...', false);
+    const r = await api('/api/admin/product-plans/' + encodeURIComponent(selectedId), { method:'DELETE' });
+    if (!r.ok) {
+      setStatus(statusForm, 'Falha ao excluir (' + r.status + ')', true);
+      return;
+    }
+    setStatus(statusForm, 'Excluído.', false);
+    await load();
+    clearForm();
+  }
+
+  function duplicate(){
+    if (!selectedId) { setStatus(statusForm, 'Selecione um plano.', true); return; }
+    const base = selectedId;
+    const suggested = base + '-copy';
+    $('inpId').value = suggested;
+    $('inpId').disabled = false;
+    selectedId = null;
+    setStatus(statusForm, 'Duplicação pronta. Ajuste o ID e clique Salvar.', false);
+    renderList();
+  }
+
+  $('btnReload').onclick = load;
+  $('btnSeed').onclick = seedDefaults;
+  $('btnNew').onclick = clearForm;
+  $('btnClear').onclick = clearForm;
+  $('btnSave').onclick = save;
+  $('btnDelete').onclick = del;
+  $('btnDuplicate').onclick = duplicate;
+
+  $('btnHome').onclick = () => { window.location.href = '/index.html'; };
+  $('btnLogout').onclick = async () => { try { await window.Logout.logout(); } catch(_) {} };
+
+  // bootstrap
+  load().catch(e => setStatus(status, e.message||String(e), true));
+})();
+</script>
+</body>
+</html>

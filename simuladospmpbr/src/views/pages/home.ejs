@@ -183,53 +183,86 @@
       </div>
 
       <div class="row g-4 mt-2">
+        <% 
+          function brl(cents){
+            try {
+              const v = Number(cents || 0) / 100;
+              return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            } catch(_){
+              try { return 'R$ ' + ((Number(cents||0)/100).toFixed(0)); } catch(__){ return 'R$ 0'; }
+            }
+          }
+          function installments(plan){
+            try {
+              if (plan && plan.is_free) return null;
+              const days = Number(plan && plan.access_duration_days);
+              if (!Number.isFinite(days) || days <= 0) return null;
+              const months = Math.max(1, Math.round(days / 30));
+              const count = Math.min(12, months * 2); // simple: 30d->2x, 60d->4x, 90d->6x, 120d->8x, 180d->12x
+              const total = Number(plan && plan.price_cents);
+              if (!Number.isFinite(total) || total <= 0) return null;
+              const per = Math.round(total / count);
+              return { count, per_cents: per };
+            } catch(_){ return null; }
+          }
+        %>
         <% (plans || []).forEach(function(plan) { %>
-          <% const isFeatured = (!plan.is_free && plan.access_duration_days && Number(plan.access_duration_days) >= 60); %>
-          <div class="col-md-4">
-            <div class="pricing-card h-100 <%= isFeatured ? 'pricing-card--featured' : '' %>">
-              <div class="pricing-card-body">
-                <div class="d-flex align-items-start justify-content-between gap-2">
-                  <div>
-                    <h3 class="h5 mb-1"><%= plan.name %></h3>
-                    <div class="text-secondary"><%= plan.description %></div>
-                  </div>
-                  <% if (isFeatured) { %>
-                    <span class="badge text-bg-primary rounded-pill">Mais escolhido</span>
-                  <% } %>
-                </div>
+          <% 
+            const days = (plan && plan.access_duration_days != null) ? Number(plan.access_duration_days) : null;
+            const isFeatured = (!!plan.is_featured) || (!plan.is_free && days === 90);
+            const tagText = plan && plan.tag && plan.tag.text ? String(plan.tag.text) : (plan.is_free ? 'Comece agora - Zero risco' : 'Acesso completo');
+            const tagVariant = plan && plan.tag && plan.tag.variant ? String(plan.tag.variant) : (isFeatured ? 'featured' : 'brand');
+            const badgeText = plan && plan.badge && plan.badge.text ? String(plan.badge.text) : (isFeatured ? 'Mais escolhido' : '');
+            const ctaText = plan && plan.cta && plan.cta.text ? String(plan.cta.text) : (plan.is_free ? 'Começar grátis' : 'Assinar agora');
+            const ctaVariant = plan && plan.cta && plan.cta.variant ? String(plan.cta.variant) : (isFeatured ? 'featured' : (plan.is_free ? 'success' : 'brand'));
+            const inst = installments(plan);
+            const defaultFeatures = [
+              'Simulados (quiz e completo)',
+              'Indicadores e diagnóstico',
+              'Revisão guiada da tentativa',
+              'Suporte por e-mail',
+            ];
+            const features = (plan && Array.isArray(plan.features) && plan.features.length) ? plan.features : defaultFeatures;
+          %>
+          <div class="col-sm-6 col-lg-4">
+            <div class="pricing-card pricing-card--v2 h-100 <%= isFeatured ? 'pricing-card--featured' : '' %>" data-plan-id="<%= plan.id %>">
+              <div class="pricing-top">
+                <span class="plan-tag plan-tag--<%= tagVariant %>"><%= tagText %></span>
+                <% if (badgeText) { %>
+                  <span class="plan-badge"><%= badgeText %></span>
+                <% } %>
+              </div>
 
-                <div class="pricing-price mt-3">
-                  <% if (plan.is_free) { %>
-                    <span class="pricing-amount">R$ 0</span>
+              <div class="pricing-main">
+                <div class="plan-name"><%= plan.name %></div>
+
+                <div class="plan-price">
+                  <div class="plan-price-main"><%= plan.is_free ? 'R$ 0' : brl(plan.price_cents) %></div>
+                  <% if (inst && inst.count && inst.per_cents) { %>
+                    <div class="plan-installments">ou <strong><%= inst.count %>x</strong> de <strong><%= brl(inst.per_cents) %></strong></div>
                   <% } else { %>
-                    <span class="pricing-amount">R$ <%= (plan.price_cents / 100).toFixed(2).replace('.', ',') %></span>
+                    <div class="plan-installments">&nbsp;</div>
                   <% } %>
-                  <div class="pricing-meta text-secondary">
-                    Acesso: <strong>
-                      <% if (plan.is_free || plan.access_duration_days === null) { %>
-                        vitalício
-                      <% } else { %>
-                        <%= plan.access_duration_days %> dias
-                      <% } %>
-                    </strong>
-                  </div>
                 </div>
 
-                <ul class="pricing-list mt-3">
-                  <li><span class="feature-bullet" aria-hidden="true">✓</span> Simulados (quiz e completo)</li>
-                  <li><span class="feature-bullet" aria-hidden="true">✓</span> Indicadores e evolução</li>
-                  <li><span class="feature-bullet" aria-hidden="true">✓</span> Review da tentativa</li>
-                  <li><span class="feature-bullet" aria-hidden="true">✓</span> Suporte por e-mail</li>
+                <div class="plan-chip">
+                  <% if (plan.is_free || days == null) { %>
+                    Acesso vitalício (START)
+                  <% } else { %>
+                    Acesso completo por <strong><%= days %> dias</strong>
+                  <% } %>
+                </div>
+
+                <ul class="plan-features">
+                  <% (features || []).forEach(function(f){ %>
+                    <li><span class="plan-check" aria-hidden="true">✓</span> <%= f %></li>
+                  <% }) %>
                 </ul>
               </div>
 
-              <div class="pricing-card-foot">
-                <% if (!plan.is_free) { %>
-                  <a class="btn <%= isFeatured ? 'btn-primary' : 'btn-outline-primary' %> w-100 js-select-plan" href="#checkout" data-plan-id="<%= plan.id %>">Escolher plano</a>
-                <% } else { %>
-                  <a class="btn btn-outline-secondary w-100 js-select-plan" href="#checkout" data-plan-id="<%= plan.id %>">Começar grátis</a>
-                <% } %>
-                <div class="text-secondary small mt-2">Sem fidelidade. Acesso por tempo do plano.</div>
+              <div class="pricing-cta">
+                <a class="btn btn-plan btn-plan--<%= ctaVariant %> w-100 js-select-plan" href="#checkout" data-plan-id="<%= plan.id %>"><%= ctaText %></a>
+                <div class="plan-footnote">Sem fidelidade. Acesso por tempo do plano.</div>
               </div>
             </div>
           </div>

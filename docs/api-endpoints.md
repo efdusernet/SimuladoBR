@@ -358,6 +358,59 @@ Cria feedback de uma questão.
 - Body: `{ texto: string, idcategoria: number, idquestao: number, userId?: number }`
 - Response (201): `{ id, idcategoria, idquestao, reportadopor?: number|null }`
 
+---
+
+## Chat-service (proxy em `/chat` e modo embedded)
+
+O chat-service pode ser acessado de duas formas:
+
+1) **Proxy do backend**: o app continua chamando `/chat/*` e o backend encaminha para um processo separado (ex.: `http://localhost:4010`).
+2) **Embedded no backend**: chat-service roda no mesmo processo/porta `:3000`.
+  - Host dedicado (recomendado em dev): `http://chat.localhost:3000` (configurável via `CHAT_SERVICE_HOST`).
+  - O mount `/chat/*` continua funcionando no host do app (`http://app.localhost:3000/chat/*`).
+
+⚠️ **Auth do admin do chat**: a UI/admin do chat-service usa o **token admin do próprio chat-service** (ex.: `ADMIN_TOKEN`), não o `requireAdmin` do SimuladosBR.
+
+Endpoints úteis (resumo):
+- `GET /chat/` — probe do mount `/chat`.
+- `GET /chat/widget/chat-widget.js` — script público do widget.
+- `GET /chat/v1/support-topics` — dados públicos do widget.
+- `POST /chat/v1/conversations` — cria conversa (visitante).
+- `GET /chat/admin/` — painel admin do chat sob o mount `/chat`.
+- `WS /chat/v1/admin/ws` — realtime do painel admin.
+
+Variáveis de ambiente (backend):
+- `CHAT_SERVICE_BASE_URL` (quando usar proxy externo)
+- `CHAT_SERVICE_EMBED=true|false`
+- `CHAT_SERVICE_HOST=chat.localhost`
+
+---
+
+## Admin — Product Plans
+
+CRUD de planos de produto (usado pelo admin/marketing para configurar planos e preços exibidos no site/produto).
+
+Regras gerais:
+- Auth: `Authorization: Bearer <token>` (usuário admin no SimuladosBR)
+- Content-Type: `application/json`
+
+### GET /api/admin/product-plans
+Lista planos.
+
+### POST /api/admin/product-plans/seed-defaults?force=1
+Grava o conjunto de planos default em arquivo (útil para inicializar/resetar em dev).
+
+- Query: `force=1` sobrescreve se já existir.
+
+### POST /api/admin/product-plans
+Cria plano.
+
+### PUT /api/admin/product-plans/:id
+Atualiza plano por id.
+
+### DELETE /api/admin/product-plans/:id
+Remove plano por id.
+
 ## Indicadores
 
 Observações gerais
@@ -451,6 +504,49 @@ Estatísticas de acertos/erros por grupo de processos no último exame completo 
     ]
   }
   ```
+
+---
+
+### GET /api/indicators/details-last?exam_mode=full&idUsuario=42
+Detalhes por grupo de processos do **último** exame concluído (mesma lógica de correção por conjunto de opções).
+
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_mode` (opcional; default `full`)
+  - `exam_type` (opcional)
+  - `idUsuario` (opcional; default usuário do JWT)
+- Response: `{ userId, examMode, examTypeId, idExame, itens: [{ id, descricao, corretas, total, percentCorretas, ranking }] }`
+
+### GET /api/indicators/details-prev?exam_mode=full&idUsuario=42
+Detalhes por grupo de processos da **penúltima** tentativa concluída (DET-PREV).
+
+- Auth: `Authorization: Bearer <token>`
+- Query: igual ao `details-last`
+- Response: igual ao `details-last` (com `idExame` apontando para a penúltima tentativa)
+
+### GET /api/indicators/dominiogeral-details-last2?exam_mode=full&idUsuario=42
+Detalhes por **Domínio Geral** comparando **última** e **penúltima** tentativa concluída.
+
+- Auth: `Authorization: Bearer <token>`
+- Query:
+  - `exam_mode` (opcional; default `full`)
+  - `exam_type` (opcional)
+  - `idUsuario` (opcional)
+- Response:
+  - `{ userId, examMode, examTypeId, last: { attemptId, finished_at, itens }, previous: { attemptId, finished_at, itens } | null }`
+
+### GET /api/indicators/avg-time-per-question?exam_mode=full&idUsuario=42&days=30
+Tempo médio por questão (filtra outliers; janela por `days`).
+
+- Auth: `Authorization: Bearer <token>`
+- Response: `{ userId, examMode, days, avgSeconds, avgMinutes, totalQuestions, totalSeconds }`
+
+### GET /api/indicators/attempts-history-extended?limit=20&offset=0&status=finished
+Histórico detalhado de tentativas com paginação.
+
+- Auth: `Authorization: Bearer <token>`
+- Query: `limit?`, `offset?`, `status?`
+- Response: `{ total, attempts: [...] }`
 
 ---
 

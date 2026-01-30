@@ -301,9 +301,9 @@
       </button>
       <div class="sidebar-accordion-content">
         <a class="sidebar-accordion-item" href="/index.html">Visão Geral</a>
-        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dist">Distribuição</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dist">Grupo Proc/Abordagem</a>
         <!-- "Tópico" desativado (Área de conhecimento) -->
-        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=detalhes">Detalhes</a>
+        <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=detalhes">Ranking detalhes</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dashboard">Estatísticas</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dominios">Domínios</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=prob">Probabilidade de Sucesso</a>
@@ -1254,6 +1254,10 @@
           #indicadores .cell{padding:8px 4px; box-sizing:border-box; box-shadow:inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0; font-family:inherit; text-align:center; position:relative; word-break:break-word;}
           #indicadores .rowlabel{text-align:left; padding-left:6px; font-size:12px;}
           #indicadores .head,#indicadores .subhead,#indicadores .colhead{font-weight:600; font-size:11px;}
+          /* Visão Geral: destacar cabeçalhos vs. linhas */
+          #indicadores .ov-grid .head{background:#0f172a; color:#ffffff !important;}
+          #indicadores .ov-grid .subhead{background:#1f2937; color:#ffffff !important;}
+          #indicadores .ov-grid .colhead{background:#334155; color:#ffffff !important;}
           body.show-markers #indicadores .ov-grid .cell::after{content:attr(data-cell); position:absolute; top:2px; right:4px; font-size:9px; font-weight:500; color:#94a3b8; letter-spacing:.5px; pointer-events:none; user-select:none;}
         `;
         document.head.appendChild(style);
@@ -1267,8 +1271,17 @@
         indicadoresSection.innerHTML = '';
 
         const grpHost = document.createElement('div');
+        const divider = document.createElement('div');
+        divider.setAttribute('aria-hidden', 'true');
+        divider.style.height = '10px';
+        divider.style.margin = '18px 0 14px';
+        divider.style.borderRadius = '999px';
+        divider.style.background = 'linear-gradient(90deg, rgba(59,130,246,0.25), rgba(34,197,94,0.25))';
+        divider.style.border = '1px solid rgba(148,163,184,0.25)';
+
         const abrHost = document.createElement('div');
         indicadoresSection.appendChild(grpHost);
+        indicadoresSection.appendChild(divider);
         indicadoresSection.appendChild(abrHost);
 
         await renderProcessGroups(grpHost);
@@ -1280,7 +1293,7 @@
           if (hdr) {
             hdr.innerHTML = '';
             const headerStrip = document.createElement('div');
-            headerStrip.setAttribute('aria-label', 'Cabeçalho Distribuição');
+            headerStrip.setAttribute('aria-label', 'Cabeçalho Grupo Proc/Abordagem');
             headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
             headerStrip.style.color = '#ffffff';
             headerStrip.style.padding = '12px 14px';
@@ -1290,7 +1303,7 @@
             headerStrip.style.alignItems = 'center';
             headerStrip.style.justifyContent = 'space-between';
             const headerTitle = document.createElement('div');
-            headerTitle.textContent = 'Distribuição';
+            headerTitle.textContent = 'Grupo Proc/Abordagem';
             headerTitle.style.fontSize = '0.95rem';
             headerTitle.style.fontWeight = '700';
             headerTitle.style.letterSpacing = '0.3px';
@@ -2302,7 +2315,7 @@
         if (!hdr) { hdr = document.createElement('div'); hdr.id = 'sectionHeaderStrip'; mainEl.insertBefore(hdr, mainEl.firstChild); }
         hdr.innerHTML = '';
         const headerStrip = document.createElement('div');
-        headerStrip.setAttribute('aria-label', 'Cabeçalho Detalhes');
+        headerStrip.setAttribute('aria-label', 'Cabeçalho Ranking detalhes');
         headerStrip.style.background = 'linear-gradient(135deg, #404040, #2b2b2b)';
         headerStrip.style.color = '#ffffff';
         headerStrip.style.padding = '12px 14px';
@@ -2312,7 +2325,7 @@
         headerStrip.style.alignItems = 'center';
         headerStrip.style.justifyContent = 'space-between';
         const headerTitle = document.createElement('div');
-        headerTitle.textContent = 'Detalhes';
+        headerTitle.textContent = 'Ranking detalhes';
         headerTitle.style.fontSize = '0.95rem';
         headerTitle.style.fontWeight = '700';
         headerTitle.style.letterSpacing = '0.3px';
@@ -2589,7 +2602,7 @@
       } catch(err){ /* ignore */ }
     } catch(e){
       logger.error('[Sidebar] renderDetalhes error:', e);
-      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Detalhes.</div></div></div>';
+      container.innerHTML = '<div class="ov-wrapper"><div class="ov-grid"><div class="cell">Erro ao carregar Ranking detalhes.</div></div></div>';
     }
   }
 
@@ -2637,7 +2650,7 @@
       intro.innerHTML = `
         <strong style="display:block; font-size:0.7rem; margin-bottom:4px;">Como interpretar estes indicadores</strong>
         <span style="display:block; margin-bottom:4px;">Exames e quizzes em <em>Visão Geral</em> abrangem tentativas completas ("Exames realizados") e tentativas rápidas/parciais ("Quiz realizados") nos últimos períodos (30d e 60d). Colunas Apr% e Rep%: aprovação / reprovação.</span>
-        <span style="display:block; margin-bottom:4px;">A aba <em>Distribuição</em> mostra a distribuição de acertos/erros por <em>Grupo de Processos</em> e por <em>Abordagem</em>. <em>Detalhes</em> traz ranking da última tentativa completa por domínio.</span>
+        <span style="display:block; margin-bottom:4px;">A aba <em>Grupo Proc/Abordagem</em> mostra a distribuição de acertos/erros por <em>Grupo de Processos</em> e por <em>Abordagem</em>. <em>Ranking detalhes</em> traz o ranking da última tentativa completa por domínio.</span>
         <span style="display:block; margin-bottom:4px;">Esta aba <em>Estatísticas</em> usa agregação diária persistente (mesmo após expurgos). Fórmulas: Abandono = abandonadas / iniciadas; Conclusão = finalizadas / iniciadas; Expurgo = expurgadas / abandonadas. Score médio é ponderado pelo número de questões respondidas no dia.</span>
         <span style="display:block; margin-bottom:4px;">Abandono pode ser classificado como <em>Timeout</em> (inatividade excede limite), <em>Baixo progresso</em> (poucas questões após tempo mínimo) ou abandono manual. Expurgo remove tentativas abandonadas antigas preservando métricas.</span>
         <span style="display:block;">Limites de tempo e janelas são definidos pela política interna e já aplicados nos cálculos exibidos.</span>`;

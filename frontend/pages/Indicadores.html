@@ -33,10 +33,12 @@
 
     /* Detalhes: diferenciar visualmente os indicadores */
     #detGroupHead{background:#0f172a; color:#ffffff;}
+    #detGroupPrevHead{background:#111827; color:#ffffff;}
     #detLastHead{background:#1d4ed8; color:#ffffff;}
     #detPrevHead{background:#2563eb; color:#ffffff;}
     /* Cabeçalhos de coluna */
     #detGridGroup .colhead{background:#e2e8f0; color:#0f172a;}
+    #detGridGroupPrev .colhead{background:#e2e8f0; color:#0f172a;}
     #detGridLast .colhead{background:#dbeafe; color:#0f172a;}
     #detGridPrev .colhead{background:#eff6ff; color:#0f172a;}
     /* Marcador via pseudo-elemento (sem spans extras) */
@@ -259,12 +261,22 @@
       <section id="sec-detalhes" class="section" aria-labelledby="tab-detalhes">
         <div class="ov-wrapper">
           <div class="det-grid" id="detGridGroup">
-            <div class="cell head" id="detGroupHead" style="grid-column: span 4;" data-cell="DETGRP-R1C1">Ranking por Grupos de Processo</div>
+            <div class="cell head" id="detGroupHead" style="grid-column: span 4;" data-cell="DETGRP-R1C1">Ranking por Grupos de Processo — Última tentativa</div>
             <div class="cell colhead" data-cell="DETGRP-R2C1">Grupo</div>
             <div class="cell colhead" data-cell="DETGRP-R2C2">Corretas %</div>
             <div class="cell colhead" data-cell="DETGRP-R2C3"># Corretas</div>
             <div class="cell colhead" data-cell="DETGRP-R2C4">Performance</div>
             <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/details-last -->
+          </div>
+          <div style="height:10px;"></div>
+
+          <div class="det-grid" id="detGridGroupPrev">
+            <div class="cell head" id="detGroupPrevHead" style="grid-column: span 4;" data-cell="DETGRP2-R1C1">Ranking por Grupos de Processo — Penúltima tentativa</div>
+            <div class="cell colhead" data-cell="DETGRP2-R2C1">Grupo</div>
+            <div class="cell colhead" data-cell="DETGRP2-R2C2">Corretas %</div>
+            <div class="cell colhead" data-cell="DETGRP2-R2C3"># Corretas</div>
+            <div class="cell colhead" data-cell="DETGRP2-R2C4">Performance</div>
+            <!-- Linhas serão renderizadas via JS a partir do endpoint /api/indicators/details-prev -->
           </div>
           <div style="height:10px;"></div>
 
@@ -1479,9 +1491,10 @@
     // Detalhes (Domínio Geral): última e penúltima tentativa com ranking
     async function loadDetailsLast(){
       const gridGroup = document.getElementById('detGridGroup');
+      const gridGroupPrev = document.getElementById('detGridGroupPrev');
       const gridLast = document.getElementById('detGridLast');
       const gridPrev = document.getElementById('detGridPrev');
-      if (!gridGroup || !gridLast || !gridPrev) return;
+      if (!gridGroup || !gridGroupPrev || !gridLast || !gridPrev) return;
 
       function clearGrid(grid){
         while (grid.children.length > 5) grid.removeChild(grid.lastElementChild);
@@ -1609,17 +1622,22 @@
         const urlGroup = examTypeId
           ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
           : '/api/indicators/details-last?exam_mode=full';
+        const urlGroupPrev = examTypeId
+          ? `/api/indicators/details-prev?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/details-prev?exam_mode=full';
         const urlDomGeral = examTypeId
           ? `/api/indicators/dominiogeral-details-last2?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
           : '/api/indicators/dominiogeral-details-last2?exam_mode=full';
 
-        const [resGroup, resDom] = await Promise.all([
+        const [resGroup, resGroupPrev, resDom] = await Promise.all([
           fetch(urlGroup, { headers, credentials: 'include', cache: 'no-store' }),
+          fetch(urlGroupPrev, { headers, credentials: 'include', cache: 'no-store' }),
           fetch(urlDomGeral, { headers, credentials: 'include', cache: 'no-store' }),
         ]);
 
         if (
           resGroup.status === 401 || resGroup.status === 403 ||
+          resGroupPrev.status === 401 || resGroupPrev.status === 403 ||
           resDom.status === 401 || resDom.status === 403
         ) {
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
@@ -1629,9 +1647,16 @@
 
         if (resGroup.ok) {
           const groupData = await resGroup.json();
-          renderGroup(gridGroup, 'DETGRP', document.getElementById('detGroupHead'), 'Ranking por Grupos de Processo', groupData);
+          renderGroup(gridGroup, 'DETGRP', document.getElementById('detGroupHead'), 'Ranking por Grupos de Processo — Última tentativa', groupData);
         } else {
-          renderError(gridGroup, 'DETGRP', document.getElementById('detGroupHead'), 'Ranking por Grupos de Processo', 'Falha ao carregar indicador.');
+          renderError(gridGroup, 'DETGRP', document.getElementById('detGroupHead'), 'Ranking por Grupos de Processo — Última tentativa', 'Falha ao carregar indicador.');
+        }
+
+        if (resGroupPrev.ok) {
+          const groupPrevData = await resGroupPrev.json();
+          renderGroup(gridGroupPrev, 'DETGRP2', document.getElementById('detGroupPrevHead'), 'Ranking por Grupos de Processo — Penúltima tentativa', groupPrevData);
+        } else {
+          renderError(gridGroupPrev, 'DETGRP2', document.getElementById('detGroupPrevHead'), 'Ranking por Grupos de Processo — Penúltima tentativa', 'Falha ao carregar indicador.');
         }
 
         if (resDom.ok) {

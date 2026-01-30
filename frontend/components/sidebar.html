@@ -2367,6 +2367,12 @@
       spacer.style.height = '10px';
       wrap.appendChild(spacer);
 
+      const grpPrevUi = createDetailsGrid('DETGRP2', 'Ranking por Grupos de Processo — Penúltima tentativa', 'Grupo', '#111827', '#e2e8f0');
+      wrap.appendChild(grpPrevUi.grid);
+      const spacerG2 = document.createElement('div');
+      spacerG2.style.height = '10px';
+      wrap.appendChild(spacerG2);
+
       const lastUi = createDetailsGrid('DET', 'Ranking por Domínios — Última tentativa', 'Domínio', '#1d4ed8', '#dbeafe');
       wrap.appendChild(lastUi.grid);
       const spacer2 = document.createElement('div');
@@ -2411,17 +2417,22 @@
         const urlGroup = examTypeId
           ? `/api/indicators/details-last?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
           : '/api/indicators/details-last?exam_mode=full';
+        const urlGroupPrev = examTypeId
+          ? `/api/indicators/details-prev?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
+          : '/api/indicators/details-prev?exam_mode=full';
         const urlDom = examTypeId
           ? `/api/indicators/dominiogeral-details-last2?exam_mode=full&exam_type=${encodeURIComponent(examTypeId)}`
           : '/api/indicators/dominiogeral-details-last2?exam_mode=full';
 
-        const [resGroup, resDom] = await Promise.all([
+        const [resGroup, resGroupPrev, resDom] = await Promise.all([
           fetch(urlGroup, { headers, credentials: 'include', cache: 'no-store' }),
+          fetch(urlGroupPrev, { headers, credentials: 'include', cache: 'no-store' }),
           fetch(urlDom, { headers, credentials: 'include', cache: 'no-store' }),
         ]);
 
         if (
           resGroup.status === 401 || resGroup.status === 403 ||
+          resGroupPrev.status === 401 || resGroupPrev.status === 403 ||
           resDom.status === 401 || resDom.status === 403
         ) {
           try { sessionStorage.setItem('postLoginRedirect', (window.top||window).location.href); } catch(_){ }
@@ -2446,7 +2457,7 @@
         if (resGroup.ok) {
           const groupData = await resGroup.json();
           clearRows(grpUi);
-          grpUi.head.textContent = 'Ranking por Grupos de Processo';
+          grpUi.head.textContent = 'Ranking por Grupos de Processo — Última tentativa';
           const itens = Array.isArray(groupData.itens) ? groupData.itens.slice() : [];
           itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
           if (!itens.length) {
@@ -2479,6 +2490,46 @@
         } else {
           clearRows(grpUi);
           const c = addCell(grpUi.grid, 'rowlabel', 'DETGRP-R3C1', 'Falha ao carregar indicador.');
+          c.style.gridColumn = 'span 4';
+        }
+
+        // Render DET-PREV (grupo)
+        if (resGroupPrev.ok) {
+          const groupPrevData = await resGroupPrev.json();
+          clearRows(grpPrevUi);
+          grpPrevUi.head.textContent = 'Ranking por Grupos de Processo — Penúltima tentativa';
+          const itens = Array.isArray(groupPrevData.itens) ? groupPrevData.itens.slice() : [];
+          itens.sort((a,b) => (a.id ?? 0) - (b.id ?? 0));
+          if (!itens.length) {
+            const c = addCell(grpPrevUi.grid, 'rowlabel', 'DETGRP2-R3C1', 'Sem tentativas concluídas.');
+            c.style.gridColumn = 'span 4';
+          } else {
+            let r = 3;
+            for (const it of itens) {
+              const nome = it.descricao || `Grupo ${it.id}`;
+              const pct = it.percentCorretas == null ? '—' : `${Number(it.percentCorretas).toFixed(0)}%`;
+              const pctVal = (it.percentCorretas == null ? null : Number(it.percentCorretas));
+              const cor = String(Number(it.corretas || 0));
+              const rank = it.ranking == null ? '—' : String(it.ranking);
+              addCell(grpPrevUi.grid, '', `DETGRP2-R${r}C1`, nome);
+              const pctEl = addCell(grpPrevUi.grid, '', `DETGRP2-R${r}C2`, pct);
+              if (pctVal != null && Number.isFinite(pctVal)) {
+                if (pctVal < 70) {
+                  pctEl.style.color = '#f97316';
+                  pctEl.style.fontWeight = '800';
+                } else if (pctVal >= 80) {
+                  pctEl.style.color = '#22c55e';
+                  pctEl.style.fontWeight = '800';
+                }
+              }
+              addCell(grpPrevUi.grid, '', `DETGRP2-R${r}C3`, cor);
+              addCell(grpPrevUi.grid, '', `DETGRP2-R${r}C4`, rank);
+              r += 1;
+            }
+          }
+        } else {
+          clearRows(grpPrevUi);
+          const c = addCell(grpPrevUi.grid, 'rowlabel', 'DETGRP2-R3C1', 'Falha ao carregar indicador.');
           c.style.gridColumn = 'span 4';
         }
 

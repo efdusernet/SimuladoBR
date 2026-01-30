@@ -744,6 +744,140 @@ async function getDetailsLast(req, res, next){
   }
 }
 
+// DET-PREV: Detalhes por grupo (penúltima tentativa concluída)
+// Regras:
+// - Considera a penúltima tentativa concluída do usuário (exam_mode filtro; exam_type opcional)
+// - Uma questão é correta quando o conjunto de opções escolhidas == conjunto de opções corretas (respostaopcao.IsCorreta)
+// - Não respondidas contam como incorretas
+// - Percentual = (#corretas / total questões do grupo no exame) * 100
+// - Ranking: #Corretas desc, Percentual desc, Id do grupo asc (empatados recebem mesma posição - dense rank)
+async function getDetailsPrevious(req, res, next){
+  try {
+    const examMode = req.query.exam_mode && ['quiz', 'full'].includes(req.query.exam_mode) ? req.query.exam_mode : 'full';
+    const examTypeId = parseInt(req.query.exam_type, 10);
+    const hasExamType = Number.isFinite(examTypeId) && examTypeId > 0;
+    const userIdParam = parseInt(req.query.idUsuario, 10);
+    const userId = Number.isFinite(userIdParam) && userIdParam > 0 ? userIdParam : (req.user && Number.isFinite(parseInt(req.user.sub,10)) ? parseInt(req.user.sub,10) : null);
+    if (!userId) return next(badRequest('Usuário não identificado', 'USER_NOT_IDENTIFIED'));
+
+    // Descobrir penúltima tentativa concluída
+    const prevExamSql = `SELECT a.id, a.exam_type_id
+                         FROM exam_attempt a
+                         WHERE a.user_id = :userId
+                           AND a.exam_mode = :examMode
+                           AND a.finished_at IS NOT NULL
+                           ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+                         ORDER BY a.finished_at DESC
+                         OFFSET 1
+                         LIMIT 1`;
+    const prevExamRows = await sequelize.query(prevExamSql, { replacements: hasExamType ? { userId, examMode, examTypeId } : { userId, examMode }, type: sequelize.QueryTypes.SELECT });
+    logger.info('[DET-PREV] prevExamRows', prevExamRows);
+    if (!prevExamRows || !prevExamRows.length) {
+      return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame: null, itens: [] });
+    }
+    const idExame = Number(prevExamRows[0].id);
+    logger.info('[DET-PREV] idExame', idExame);
+
+    // Agregar por grupo: corretas/total baseado em respostaopcao
+    const sql = `
+      WITH pq AS (
+        SELECT
+          aq.id AS aqid,
+          q.codgrupoprocesso AS grupo,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true) AS chosen_count,
+          COUNT(DISTINCT ro_all.id) FILTER (WHERE ro_all.iscorreta = true) AS correct_count,
+          COUNT(DISTINCT aa.option_id) FILTER (WHERE aa.selecionada = true AND ro_chosen.iscorreta = true) AS chosen_correct_count
+        FROM exam_attempt_question aq
+        LEFT JOIN exam_attempt_answer aa ON aa.attempt_question_id = aq.id
+        JOIN questao q ON q.id = aq.question_id
+        LEFT JOIN respostaopcao ro_all ON ro_all.idquestao = aq.question_id
+        LEFT JOIN respostaopcao ro_chosen ON ro_chosen.id = aa.option_id
+        JOIN exam_attempt a ON a.id = aq.attempt_id
+        WHERE aq.attempt_id = :idExame
+          AND q.codgrupoprocesso IS NOT NULL
+          AND q.codgrupoprocesso > 0
+          ${hasExamType ? 'AND a.exam_type_id = :examTypeId' : ''}
+        GROUP BY aq.id, q.codgrupoprocesso
+      )
+      SELECT
+        grupo AS grupo,
+        COUNT(*) FILTER (WHERE chosen_count = correct_count AND chosen_correct_count = correct_count)::int AS corretas,
+        COUNT(*)::int AS total
+      FROM pq
+      GROUP BY grupo
+      ORDER BY grupo`;
+    const aggRows = await sequelize.query(sql, { replacements: hasExamType ? { idExame, examTypeId } : { idExame }, type: sequelize.QueryTypes.SELECT });
+    logger.info('[DET-PREV] aggRows', aggRows);
+
+    // Mapear grupos de referência para incluir grupos sem questões
+    let groupMap = {};
+    try {
+      const candidates = ['grupoprocesso', 'gruprocesso'];
+      let chosen = null; let idCol = null; let descCol = null; let whereSoft = '';
+      for (const tbl of candidates) {
+        const cols = await sequelize.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl`,
+          { replacements: { tbl }, type: sequelize.QueryTypes.SELECT }
+        );
+        if (!cols || !cols.length) continue;
+        const names = new Set(cols.map(c => c.column_name));
+        const idc = names.has('id') ? 'id' : (names.has('Id') ? '"Id"' : null);
+        const dsc = names.has('descricao') ? 'descricao' : (names.has('Descricao') ? '"Descricao"' : null);
+        if (!idc || !dsc) continue;
+        chosen = tbl; idCol = idc; descCol = dsc;
+        if (names.has('excluido')) whereSoft = 'WHERE (excluido = false OR excluido IS NULL)';
+        else if (names.has('Excluido')) whereSoft = 'WHERE ("Excluido" = false OR "Excluido" IS NULL)';
+        break;
+      }
+      if (chosen) {
+        const mapRows = await sequelize.query(
+          `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${chosen} ${whereSoft}`,
+          { type: sequelize.QueryTypes.SELECT }
+        );
+        groupMap = (mapRows || []).reduce((acc, r) => {
+          const k = Number(r.id);
+          if (Number.isFinite(k)) acc[k] = r.descricao;
+          return acc;
+        }, {});
+      }
+    } catch(_) { /* ignore */ }
+
+    // Merge agregados com grupos de referência para garantir cobertura total
+    const byGroup = new Map((aggRows || []).map(r => [Number(r.grupo), { corretas: Number(r.corretas)||0, total: Number(r.total)||0 }]));
+    const items = Object.keys(groupMap).map(k => Number(k)).sort((a,b) => a-b).map(id => {
+      const rec = byGroup.get(id) || { corretas: 0, total: 0 };
+      const pct = rec.total > 0 ? Number(((rec.corretas * 100) / rec.total).toFixed(2)) : null;
+      return { id, descricao: groupMap[id] || String(id), corretas: rec.corretas, total: rec.total, percentCorretas: pct };
+    });
+
+    // Ranking: %Corretas desc (NULLS LAST), #Corretas desc, descricao asc (dense)
+    const sorted = items.slice().sort((a,b) => {
+      const ap = a.percentCorretas; const bp = b.percentCorretas;
+      if (bp == null && ap != null) return -1;
+      if (ap == null && bp != null) return 1;
+      if (ap != null && bp != null && bp !== ap) return bp - ap;
+      if (b.corretas !== a.corretas) return b.corretas - a.corretas;
+      return String(a.descricao).localeCompare(String(b.descricao), 'pt-BR');
+    });
+    const rankMap = new Map();
+    let last = null; let rank = 0;
+    for (const it of sorted) {
+      const sig = JSON.stringify([
+        it.percentCorretas == null ? null : Number(it.percentCorretas),
+        it.corretas,
+        String(it.descricao).toLowerCase()
+      ]);
+      if (sig !== last) { rank += 1; last = sig; }
+      rankMap.set(it.id, rank);
+    }
+    const itens = items.map(it => ({ ...it, ranking: rankMap.get(it.id) || null }));
+
+    return res.json({ userId, examMode, examTypeId: hasExamType ? examTypeId : null, idExame, itens });
+  } catch(err) {
+    return next(internalError('Erro interno', 'DETAILS_PREVIOUS_ERROR', err));
+  }
+}
+
 // DG-DET-LAST2: Detalhes por Domínio Geral (última e penúltima tentativa concluída)
 // Regras:
 // - Considera as 2 últimas tentativas concluídas do usuário (exam_mode filtro; exam_type opcional)
@@ -1403,4 +1537,4 @@ async function getAttemptsHistoryExtended(req, res, next){
   }
 }
 
-module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getDominioGeralDetailsLastTwo, getPerformancePorDominio, getAvgTimePerQuestion, getPerformancePorDominioAgregado, getPerformancePorTaskAgregado, getAttemptsHistoryExtended };
+module.exports = { getOverview, getExamsCompleted, getApprovalRate, getFailureRate, getOverviewDetailed, getQuestionsCount, getAnsweredQuestionsCount, getTotalHours, getProcessGroupStats, getAreaConhecimentoStats, getAbordagemStats, getDetailsLast, getDetailsPrevious, getDominioGeralDetailsLastTwo, getPerformancePorDominio, getAvgTimePerQuestion, getPerformancePorDominioAgregado, getPerformancePorTaskAgregado, getAttemptsHistoryExtended };

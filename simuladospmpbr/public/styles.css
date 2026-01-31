@@ -74,7 +74,7 @@ a { text-decoration: none; }
       rgba(255, 255, 255, 0.88) 46%,
       rgba(255, 255, 255, 0.70) 100%
     ),
-    url('/PM.png');
+    url('/public/PM.png');
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;

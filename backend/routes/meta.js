@@ -16,5 +16,6 @@ router.get('/niveis-dificuldade', meta.listNiveisDificuldade);
 router.get('/tasks', meta.listTasks);
 router.get('/versoes-exame', meta.listVersoesExame);
 router.get('/config', meta.getConfig);
+router.get('/user-params', meta.getUserParams);
 
 module.exports = router;

@@ -220,12 +220,15 @@ O chat-service pode rodar de 2 formas:
 | GET | `/api/meta/niveis-dificuldade` | None | — | `[{ IdNivel, Descricao }]` | Lista níveis de dificuldade. |
 | GET | `/api/meta/tasks` | None | — | `[{ IdTask, Descricao }]` | Lista tarefas. |
 | GET | `/api/meta/config` | None | — | `{ ... }` | Configurações gerais da aplicação. |
+| GET | `/api/meta/user-params` | None | — | `{ ok, params }` | Parâmetros “seguros” para o frontend fazer gating (limites e flags premium-only). |
 
 ---
 
 ## Indicadores (`/api/indicators`)
 
-**Nota:** Todos os endpoints de indicadores requerem autenticação JWT via header `Authorization: Bearer <token>` (exceto `/IND10` que aceita `X-Session-Token`).
+**Nota:** Endpoints de indicadores exigem autenticação JWT (cookie `sessionToken` ou `Authorization: Bearer <token>`). Alguns endpoints aceitam também o header legado `X-Session-Token`.
+
+**Premium gating:** quando o usuário é gratuito (`BloqueioAtivado=true`) e a aba está marcada como premium-only em `/api/meta/user-params` (`premiumOnly.indicatorsTabs`), o backend retorna `403` com `code=PREMIUM_REQUIRED`.
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
@@ -246,6 +249,20 @@ O chat-service pode rodar de 2 formas:
 | GET | `/api/indicators/IND10` | JWT | Query: `examMode` (`last`/`best`), `idUsuario?` | `{ userId, examMode, examAttemptId, examDate, domains: [{ id, name, corretas, total, percentage }] }` | Performance por domínio geral (último ou melhor exame). Usado pelo radar. |
 | GET | `/api/indicators/avg-time-per-question` | JWT | Query: `exam_mode?`, `idUsuario?` | `{ userId, examMode, avgSeconds, avgMinutes }` | Tempo médio por questão. |
 | GET | `/api/indicators/attempts-history-extended` | JWT | Query: `limit?`, `offset?`, `status?` | `{ total, attempts: [{ id, examTypeId, startedAt, finishedAt, total, corretas, scorePercent, status, ... }] }` | Histórico detalhado de tentativas com paginação e filtros. |
+| GET | `/api/indicators/IND12` | JWT (X-Session-Token ok) | Query: `exam_type?` | `{ dominios: [{ descricao, total, acertos, percent, ... }], ... }` | Média ponderada por domínio (agregado). Usado como base para a Probabilidade de Sucesso. |
+| GET | `/api/indicators/probability` | JWT (X-Session-Token ok) | Query: `exam_type?` | `{ dominios: [{ descricao, total, acertos, percent, ... }], ... }` | Mesmo payload do `IND12`, mas endpoint dedicado para permitir gating independente da aba `dominios` (tab `prob`). |
+
+---
+
+## Admin — Parâmetros de Usuário (`/api/admin/user-params`)
+
+Controla o arquivo `backend/data/userParams.json` (store JSON) que parametriza limites e flags premium-only.
+
+| Método | Endpoint | Auth | Params | Response | Descrição |
+|--------|----------|------|--------|----------|-----------|
+| GET | `/api/admin/user-params` | Admin | — | `{ ok, source, params, error? }` | Lê parâmetros atuais (source: `file`/`default`/`fallback`). |
+| PUT | `/api/admin/user-params` | Admin | Body: `{ ...params }` | `{ ok, params }` | Salva (overwrite) os parâmetros normalizados. |
+| POST | `/api/admin/user-params/seed-defaults?force=0|1` | Admin | Query: `force` | `{ ok, written, filePath, params }` | Grava defaults no arquivo JSON (use `force=1` para sobrescrever). |
 
 ---
 

@@ -5,6 +5,7 @@ const db = require('../models');
 const { unauthorized, forbidden, serviceUnavailable } = require('../middleware/errors');
 const path = require('path');
 const dotenv = require('dotenv');
+const userParamsStore = require('../services/userParamsStore');
 
 const router = express.Router();
 
@@ -99,13 +100,19 @@ async function requirePremium(req, res, next) {
 			return next(forbidden('Premium required', 'PREMIUM_REQUIRED'));
 		}
 
-		const user = await db.User.findByPk(Number(userId));
-		if (!user) {
-			cacheSet(tokenKey, false, 30_000);
-			return next(unauthorized('User not found', 'USER_NOT_FOUND'));
+		const userModel = req.userModel || null;
+		let isPremium = null;
+		if (userModel && typeof userModel.BloqueioAtivado !== 'undefined') {
+			isPremium = userModel.BloqueioAtivado === false;
+		} else {
+			const user = await db.User.findByPk(Number(userId));
+			if (!user) {
+				cacheSet(tokenKey, false, 30_000);
+				return next(unauthorized('User not found', 'USER_NOT_FOUND'));
+			}
+			isPremium = user.BloqueioAtivado === false;
 		}
 
-		const isPremium = user.BloqueioAtivado === false;
 		cacheSet(tokenKey, isPremium, 60_000);
 		if (!isPremium) return next(forbidden('Premium required', 'PREMIUM_REQUIRED'));
 		return next();
@@ -134,8 +141,18 @@ function requireChatAccess(req, res, next) {
 	if (p === '/admin' || p.startsWith('/admin/') || p === '/v1/admin' || p.startsWith('/v1/admin/')) {
 		return next();
 	}
-	// Default: premium-only access
-	return requirePremium(req, res, next);
+
+	// Default: premium-only access (configurable)
+	return Promise.resolve(userParamsStore.getCachedParams({ maxAgeMs: 10_000 }))
+		.then((params) => {
+			const premiumOnlyDefault = !(params && params.premiumOnly && params.premiumOnly.chatProxyDefault === false);
+			if (premiumOnlyDefault) return requirePremium(req, res, next);
+
+			const allowFreeAuthenticated = Boolean(params && params.chat && params.chat.allowFreeAuthenticatedAccess);
+			if (!allowFreeAuthenticated) return requirePremium(req, res, next);
+			return requireUserSession(req, res, next);
+		})
+		.catch((e) => next(e));
 }
 
 function getChatServiceBaseUrl() {

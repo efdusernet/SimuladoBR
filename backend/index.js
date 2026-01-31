@@ -565,6 +565,7 @@ app.use(`${API_V1}/admin/data-explorer`, require('./routes/admin_data_explorer')
 app.use(`${API_V1}/admin/flashcards`, require('./routes/admin_flashcards'));
 app.use(`${API_V1}/admin/dicas`, require('./routes/admin_dicas'));
 app.use(`${API_V1}/admin/product-plans`, require('./routes/admin_product_plans'));
+app.use(`${API_V1}/admin/user-params`, require('./routes/admin_user_params'));
 app.use(`${API_V1}/dicas`, require('./routes/dicas'));
 app.use(`${API_V1}/notifications`, require('./routes/notifications'));
 app.use(`${API_V1}/debug`, require('./routes/debug'));
@@ -587,6 +588,7 @@ app.use(`${API_BASE}/admin/users`, require('./routes/admin_users'));
 app.use(`${API_BASE}/admin/communication`, require('./routes/admin_communication'));
 app.use(`${API_BASE}/admin/db`, require('./routes/admin_db'));
 app.use(`${API_BASE}/admin/product-plans`, require('./routes/admin_product_plans'));
+app.use(`${API_BASE}/admin/user-params`, require('./routes/admin_user_params'));
 app.use(`${API_BASE}/admin/data-explorer`, require('./routes/admin_data_explorer'));
 app.use(`${API_BASE}/admin/flashcards`, require('./routes/admin_flashcards'));
 app.use(`${API_BASE}/admin/dicas`, require('./routes/admin_dicas'));

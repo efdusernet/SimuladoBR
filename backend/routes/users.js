@@ -8,6 +8,7 @@ const { User, EmailVerification } = db;
 const { extractTokenFromRequest, verifyJwtAndGetActiveUser } = require('../utils/singleSession');
 // User daily exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
+const userParamsStore = require('../services/userParamsStore');
 const crypto = require('crypto');
 const { generateVerificationCode } = require('../utils/codegen');
 const { sendVerificationEmail } = require('../utils/mailer');
@@ -379,6 +380,20 @@ router.get('/me/stats/daily', async (req, res, next) => {
         const authRes = await verifyJwtAndGetActiveUser(sessionToken);
         if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
         const user = authRes.user;
+
+        // Premium gating (Indicators -> dashboard)
+        try {
+            if (user && user.BloqueioAtivado) {
+                const params = await userParamsStore.getCachedParams({ maxAgeMs: 10_000 });
+                const premiumTabs = (params && params.premiumOnly && Array.isArray(params.premiumOnly.indicatorsTabs))
+                    ? params.premiumOnly.indicatorsTabs
+                    : [];
+                if (premiumTabs.includes('dashboard')) {
+                    return next(forbidden('Premium required', 'PREMIUM_REQUIRED'));
+                }
+            }
+        } catch (_) { /* ignore and keep default */ }
+
         let days = Number(req.query.days) || 30;
         if (!Number.isFinite(days) || days <= 0) days = 30;
         days = Math.min(Math.max(days, 1), 180); // clamp 1..180
@@ -401,6 +416,20 @@ router.get('/me/stats/summary', async (req, res, next) => {
         const authRes = await verifyJwtAndGetActiveUser(sessionToken);
         if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
         const user = authRes.user;
+
+        // Premium gating (Indicators -> dashboard)
+        try {
+            if (user && user.BloqueioAtivado) {
+                const params = await userParamsStore.getCachedParams({ maxAgeMs: 10_000 });
+                const premiumTabs = (params && params.premiumOnly && Array.isArray(params.premiumOnly.indicatorsTabs))
+                    ? params.premiumOnly.indicatorsTabs
+                    : [];
+                if (premiumTabs.includes('dashboard')) {
+                    return next(forbidden('Premium required', 'PREMIUM_REQUIRED'));
+                }
+            }
+        } catch (_) { /* ignore and keep default */ }
+
         let days = Number(req.query.days) || 30;
         if (!Number.isFinite(days) || days <= 0) days = 30;
         days = Math.min(Math.max(days, 1), 180);

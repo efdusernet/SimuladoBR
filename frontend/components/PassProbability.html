@@ -157,7 +157,7 @@
       }
     } catch(_){ examTypeParam = String(rawExamType || 'PMP').toUpperCase(); }
     const apiBase = (window.API_V1 || '/api/v1');
-    const baseUrl = `${apiBase}/indicators/IND12?exam_type=${encodeURIComponent(examTypeParam)}`;
+    const baseUrl = `${apiBase}/indicators/probability?exam_type=${encodeURIComponent(examTypeParam)}`;
     const PASS_THRESHOLD = 75; // percentual médio esperado para aprovação
 
     async function fetchInd12(){
@@ -178,6 +178,11 @@
               return h;
             })();
         const resp = await fetch(baseUrl, { cache: 'no-store', headers, credentials: 'include' });
+        if (resp.status === 403) {
+          let code = '';
+          try { const err = await resp.json(); code = String(err && err.code || ''); } catch(_){ }
+          if (code === 'PREMIUM_REQUIRED') return { premiumRequired: true };
+        }
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         return await resp.json();
       } catch (e) {
@@ -246,6 +251,10 @@
 
     (async function(){
       const ind12 = await fetchInd12();
+      if (ind12 && ind12.premiumRequired) {
+        mount.innerHTML = '<div style="font-size:0.8rem; color:#b45309;">Recurso Premium</div>';
+        return;
+      }
       if (!ind12 || !Array.isArray(ind12.dominios) || !ind12.dominios.length){
         render({ probability: 5, dominios: [] });
         return;

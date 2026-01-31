@@ -7,6 +7,7 @@
   const CHAT_TITLE = 'Suporte';
 
   let premiumStatusPromise = null;
+  let userParamsPromise = null;
 
   function getSessionToken() {
     try {
@@ -25,6 +26,32 @@
       return v === 'desktop';
     } catch (_) {
       return false;
+    }
+  }
+
+  async function getUserParams() {
+    if (userParamsPromise) return userParamsPromise;
+    userParamsPromise = (async () => {
+      try {
+        const resp = await fetch('/api/meta/user-params', { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
+        if (!resp.ok) return null;
+        const data = await resp.json().catch(() => null);
+        return data && data.params ? data.params : null;
+      } catch (_) {
+        return null;
+      }
+    })();
+    return userParamsPromise;
+  }
+
+  function isPremiumOnlyChatWidgetDesktop(params) {
+    try {
+      if (!params || !params.premiumOnly) return true;
+      const v = params.premiumOnly.chatWidgetDesktop;
+      if (typeof v === 'boolean') return v;
+      return true;
+    } catch (_) {
+      return true;
     }
   }
 
@@ -74,10 +101,22 @@
       return;
     }
 
-    const isPremium = await isPremiumUser();
-    if (!isPremium) {
+    const params = await getUserParams();
+    const premiumOnly = isPremiumOnlyChatWidgetDesktop(params);
+
+    // Always require an active session identity to avoid injecting the widget on anonymous pages.
+    const sessionIdentity = getSessionToken();
+    if (!sessionIdentity) {
       removeWidget();
       return;
+    }
+
+    if (premiumOnly) {
+      const isPremium = await isPremiumUser();
+      if (!isPremium) {
+        removeWidget();
+        return;
+      }
     }
 
     if (findWidgetScript()) return;

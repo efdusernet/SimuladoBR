@@ -27,6 +27,19 @@
             const EXAM_SCRIPT_VERSION = '20260116_11';
             try { window.__EXAM_SCRIPT_VERSION = EXAM_SCRIPT_VERSION; } catch(_){ }
 
+            // Configurable limits (server-controlled)
+            let FREE_EXAM_QUESTION_LIMIT = 25;
+            (async function initExamMetaConfig(){
+              try {
+                const cfg = await fetch('/api/meta/config', { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' })
+                  .then(r => r.ok ? r.json() : null)
+                  .catch(() => null);
+                if (cfg && typeof cfg.freeExamQuestionLimit === 'number' && Number.isFinite(cfg.freeExamQuestionLimit)) {
+                  FREE_EXAM_QUESTION_LIMIT = Math.max(1, Math.floor(cfg.freeExamQuestionLimit));
+                }
+              } catch(_){ }
+            })();
+
             // Per-question feedback cache (used by "Conferir resposta" for advanced interactions)
             const MATCH_FEEDBACK = {};
             try { window.MATCH_FEEDBACK = MATCH_FEEDBACK; } catch(e){}
@@ -2328,7 +2341,7 @@
                         const statusEl = document.getElementById('status');
                         if (statusEl) {
                           statusEl.style.display = '';
-                          const suggested = Math.min(available, 25);
+                          const suggested = Math.min(available, FREE_EXAM_QUESTION_LIMIT);
                           if (available > 0 && suggested > 0) {
                             const btnId = 'adjustQtyBtn';
                             const safeMsg = `Não há questões suficientes para sua seleção. Disponíveis: <strong>${Number(available)}</strong>. Você pode iniciar com <strong>${Number(suggested)}</strong>. ` +

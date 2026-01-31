@@ -150,7 +150,7 @@
   
   <div class="sections">
     <section id="sec-geral" class="section active" aria-labelledby="tab-geral">
-      <div style="margin-bottom:12px; padding:8px; background:#f1f5f9; border-radius:6px; font-size:0.85rem; line-height:1.6;">
+      <div id="generalStatsBlock" style="margin-bottom:12px; padding:8px; background:#f1f5f9; border-radius:6px; font-size:0.85rem; line-height:1.6;">
         <div style="margin-bottom:6px;"><strong>Total de perguntas ativas do simulador:</strong> <span id="ind4-value">—</span></div>
         <div style="margin-bottom:6px;"><strong>Respondidas (histórico distinto):</strong> <span id="ind5-hist">—</span></div>
         <div style="margin-bottom:6px;"><strong>Respondidas (questões ainda ativas):</strong> <span id="ind5-active">—</span></div>
@@ -604,12 +604,16 @@
 
         const url = `/api/flashcards/insights?min_total=${encodeURIComponent(String(minTotal))}&top_n=${encodeURIComponent(String(topN))}`;
         const res = await fetch(url, { headers: buildAuthHeadersLocal(), credentials: 'include', cache: 'no-store' });
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
         }
         const payload = await res.json().catch(() => null);
+        if (res.status === 403 && payload && payload.code === 'PREMIUM_REQUIRED') {
+          box.innerHTML = '<div style="color:#b45309; font-weight:800;">Recurso Premium.</div><div style="color:#64748b; margin-top:4px;">Faça upgrade para acessar os indicadores de Flashcards.</div>';
+          return;
+        }
         const fc = payload && payload.flashcards ? payload.flashcards : null;
 
         if (!res.ok || !payload || payload.success !== true) {
@@ -820,7 +824,33 @@
     try {
       const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
       const res = await fetch('/api/indicators/overview', { headers });
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
+        try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+        window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+        return;
+      }
+      if (res.status === 403) {
+        let code = '';
+        try { const err = await res.json(); code = String(err && err.code || ''); } catch(_){ }
+        if (code === 'PREMIUM_REQUIRED') {
+          try {
+            const host = document.getElementById('generalStatsBlock');
+            if (host && !document.getElementById('generalStatsPremiumMsg')) {
+              const msg = document.createElement('div');
+              msg.id = 'generalStatsPremiumMsg';
+              msg.style.marginTop = '8px';
+              msg.style.padding = '8px';
+              msg.style.borderRadius = '8px';
+              msg.style.background = '#fff7ed';
+              msg.style.border = '1px solid #fdba74';
+              msg.style.color = '#9a3412';
+              msg.style.fontWeight = '700';
+              msg.textContent = 'Recurso Premium. Faça upgrade para ver a Visão Geral.';
+              host.appendChild(msg);
+            }
+          } catch(_){ }
+          return;
+        }
         try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
         window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
         return;
@@ -862,7 +892,33 @@
         
         // Fetch 30-day data for OV-R4C2 to OV-R4C6
         const res30 = await fetch('/api/indicators/overview-detailed?days=30&exam_mode=full', { headers });
-        if (res30.status === 401 || res30.status === 403) {
+        if (res30.status === 401) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (res30.status === 403) {
+          let code = '';
+          try { const err = await res30.json(); code = String(err && err.code || ''); } catch(_){ }
+          if (code === 'PREMIUM_REQUIRED') {
+            try {
+              const host = document.getElementById('generalStatsBlock');
+              if (host && !document.getElementById('generalStatsPremiumMsg')) {
+                const msg = document.createElement('div');
+                msg.id = 'generalStatsPremiumMsg';
+                msg.style.marginTop = '8px';
+                msg.style.padding = '8px';
+                msg.style.borderRadius = '8px';
+                msg.style.background = '#fff7ed';
+                msg.style.border = '1px solid #fdba74';
+                msg.style.color = '#9a3412';
+                msg.style.fontWeight = '700';
+                msg.textContent = 'Recurso Premium. Faça upgrade para ver a Visão Geral.';
+                host.appendChild(msg);
+              }
+            } catch(_){ }
+            return;
+          }
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
@@ -885,6 +941,34 @@
 
         // Fetch 60-day data and map to OV-R4C7 to OV-R4C11
         const res60 = await fetch('/api/indicators/overview-detailed?days=60&exam_mode=full', { headers });
+        if (res60.status === 401) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (res60.status === 403) {
+          let code = '';
+          try { const err = await res60.json(); code = String(err && err.code || ''); } catch(_){ }
+          if (code === 'PREMIUM_REQUIRED') {
+            try {
+              const host = document.getElementById('generalStatsBlock');
+              if (host && !document.getElementById('generalStatsPremiumMsg')) {
+                const msg = document.createElement('div');
+                msg.id = 'generalStatsPremiumMsg';
+                msg.style.marginTop = '8px';
+                msg.style.padding = '8px';
+                msg.style.borderRadius = '8px';
+                msg.style.background = '#fff7ed';
+                msg.style.border = '1px solid #fdba74';
+                msg.style.color = '#9a3412';
+                msg.style.fontWeight = '700';
+                msg.textContent = 'Recurso Premium. Faça upgrade para ver a Visão Geral.';
+                host.appendChild(msg);
+              }
+            } catch(_){ }
+            return;
+          }
+        }
         if (res60.ok) {
           const data60 = await res60.json();
           const cells60 = data60 && data60.cells ? data60.cells : {};
@@ -971,10 +1055,55 @@
       try {
         const headers = { 'Accept': 'application/json', ...getAuthHeadersLocal() };
         const examTypeId = await getCurrentExamTypeId();
+
+        function showPremiumBlocked(){
+          try {
+            const ids = ['ind4-value','ind5-hist','ind5-active','ind6-value'];
+            ids.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
+            const host = document.getElementById('generalStatsBlock');
+            if (!host) return;
+            let msg = document.getElementById('generalStatsPremiumMsg');
+            if (!msg) {
+              msg = document.createElement('div');
+              msg.id = 'generalStatsPremiumMsg';
+              msg.style.marginTop = '8px';
+              msg.style.padding = '8px';
+              msg.style.borderRadius = '8px';
+              msg.style.background = '#fff7ed';
+              msg.style.border = '1px solid #fdba74';
+              msg.style.color = '#9a3412';
+              msg.style.fontWeight = '700';
+              msg.textContent = 'Recurso Premium. Faça upgrade para ver estatísticas e visão geral.';
+              host.appendChild(msg);
+            }
+          } catch(_){ }
+        }
+
+        async function handleAuthOrPremium(resp){
+          if (!resp) return { stop:false };
+          if (resp.status === 401) {
+            try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+            window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+            return { stop:true };
+          }
+          if (resp.status === 403) {
+            let code = '';
+            try { const err = await resp.json(); code = String(err && err.code || ''); } catch(_){ }
+            if (code === 'PREMIUM_REQUIRED') {
+              showPremiumBlocked();
+              return { stop:true };
+            }
+            try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+            window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+            return { stop:true };
+          }
+          return { stop:false };
+        }
+
         // IND4: Total de perguntas do simulador (por exam_type)
         const url4 = examTypeId ? `/api/indicators/questions-count?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/questions-count';
         const res4 = await fetch(url4, { headers });
-        if (res4.status === 401 || res4.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
+        { const h = await handleAuthOrPremium(res4); if (h.stop) return; }
         if (res4.ok) {
           const data4 = await res4.json();
           const val = data4 && data4.total !== undefined ? data4.total : 0;
@@ -985,7 +1114,7 @@
         const url5 = examTypeId ? `/api/indicators/answered-count?exam_type=${encodeURIComponent(examTypeId)}` : null;
         if (!url5) return; // exige exam_type
         const res5 = await fetch(url5, { headers });
-        if (res5.status === 401 || res5.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
+        { const h = await handleAuthOrPremium(res5); if (h.stop) return; }
         if (res5.ok) {
           const data5 = await res5.json();
           const hist = data5 && data5.historicalDistinct !== undefined ? data5.historicalDistinct : 0;
@@ -1000,7 +1129,7 @@
         const url6 = examTypeId ? `/api/indicators/total-hours?exam_type=${encodeURIComponent(examTypeId)}` : null;
         if (!url6) return; // este endpoint exige exam_type
         const res6 = await fetch(url6, { headers });
-        if (res6.status === 401 || res6.status === 403) { try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ } window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href)); return; }
+        { const h = await handleAuthOrPremium(res6); if (h.stop) return; }
         if (res6.ok) {
           const data6 = await res6.json();
           const segundos = data6 && data6.segundos !== undefined ? data6.segundos : 0;
@@ -1097,7 +1226,18 @@
       try {
         const headers = { 'Accept':'application/json', ...getAuthHeadersLocal() };
         const res = await fetch('/api/indicators/attempts-history-extended', { headers });
-        if (res.status === 401 || res.status === 403){
+        if (res.status === 401){
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (res.status === 403){
+          let code = '';
+          try { const err = await res.json(); code = String(err && err.code || ''); } catch(_){ }
+          if (code === 'PREMIUM_REQUIRED'){
+            tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; text-align:center; color:#b45309; font-weight:800;">Recurso Premium. Faça upgrade para ver o histórico.</td></tr>';
+            return;
+          }
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
@@ -1190,7 +1330,18 @@
       const examTypeId = await getCurrentExamTypeId();
       const url = examTypeId ? `/api/indicators/process-group-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/process-group-stats';
       const res = await fetch(url, { headers });
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
+        try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+        window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+        return;
+      }
+      if (res.status === 403) {
+        let code = '';
+        try { const err = await res.json(); code = String(err && err.code || ''); } catch(_){ }
+        if (code === 'PREMIUM_REQUIRED') {
+          container.innerHTML = '<div style="padding:12px; color:#b45309; font-weight:800;">Recurso Premium. Faça upgrade para ver Distribuição.</div>';
+          return;
+        }
         try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
         window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
         return;
@@ -1277,7 +1428,18 @@
         const examTypeId = await getCurrentExamTypeId();
         const url = examTypeId ? `/api/indicators/approach-stats?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/approach-stats';
         const res = await fetch(url, { headers });
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (res.status === 403) {
+          let code = '';
+          try { const err = await res.json(); code = String(err && err.code || ''); } catch(_){ }
+          if (code === 'PREMIUM_REQUIRED') {
+            container.innerHTML = '<div style="padding:12px; color:#b45309; font-weight:800;">Recurso Premium. Faça upgrade para ver Distribuição.</div>';
+            return;
+          }
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
@@ -1441,9 +1603,15 @@
           fetch(`/api/indicators/avg-time-per-question?days=${days}&exam_mode=full`, opts)
         ]);
 
-        if (summaryResp.status === 401 || summaryResp.status === 403 || dailyResp.status === 401 || dailyResp.status === 403) {
+        if (summaryResp.status === 401 || dailyResp.status === 401) {
           const wrap = document.getElementById('dashSummary');
           if (wrap) wrap.innerHTML = '<div style="grid-column:1/-1; padding:12px; font-size:0.7rem; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">Sessão não identificada. Faça login para ver estatísticas agregadas.</div>';
+          dashSetLoading(false);
+          return;
+        }
+        if (summaryResp.status === 403 || dailyResp.status === 403 || avgTimeResp.status === 403) {
+          const wrap = document.getElementById('dashSummary');
+          if (wrap) wrap.innerHTML = '<div style="grid-column:1/-1; padding:12px; font-size:0.7rem; color:#64748b; background:#fef3c7; border:1px solid #f59e0b; border-radius:6px;">Recurso Premium: estatísticas do dashboard estão bloqueadas no plano gratuito.</div>';
           dashSetLoading(false);
           return;
         }
@@ -1635,11 +1803,30 @@
           fetch(urlDomGeral, { headers, credentials: 'include', cache: 'no-store' }),
         ]);
 
-        if (
-          resGroup.status === 401 || resGroup.status === 403 ||
-          resGroupPrev.status === 401 || resGroupPrev.status === 403 ||
-          resDom.status === 401 || resDom.status === 403
-        ) {
+        if (resGroup.status === 401 || resGroupPrev.status === 401 || resDom.status === 401) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (resGroup.status === 403 || resGroupPrev.status === 403 || resDom.status === 403) {
+          let code = '';
+          try {
+            const forbiddenResp = [resGroup, resGroupPrev, resDom].find(r => r && r.status === 403);
+            if (forbiddenResp && forbiddenResp.clone) {
+              const err = await forbiddenResp.clone().json().catch(()=>null);
+              code = String(err && err.code || '');
+            }
+          } catch(_){ }
+          if (code === 'PREMIUM_REQUIRED') {
+            try {
+              const msg = '<div style="padding:12px; color:#b45309; font-weight:800;">Recurso Premium. Faça upgrade para ver Detalhes.</div>';
+              if (gridGroup) gridGroup.innerHTML = msg;
+              if (gridGroupPrev) gridGroupPrev.innerHTML = msg;
+              if (gridLast) gridLast.innerHTML = msg;
+              if (gridPrev) gridPrev.innerHTML = msg;
+            } catch(_){ }
+            return;
+          }
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
@@ -1845,10 +2032,26 @@
       container.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#64748b;">Carregando...</div>';
       const examTypeId = await getCurrentExamTypeId();
       const headers = buildAuthHeadersLocal();
-      const url = `/api/indicators/IND12` + (examTypeId ? `?exam_type=${encodeURIComponent(String(examTypeId))}` : '');
+      const url = `/api/indicators/probability` + (examTypeId ? `?exam_type=${encodeURIComponent(String(examTypeId))}` : '');
       let data = null;
       try {
         const resp = await fetch(url, { headers, cache: 'no-store' });
+        if (resp.status === 401) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (resp.status === 403) {
+          let code = '';
+          try { const err = await resp.json(); code = String(err && err.code || ''); } catch(_){ }
+          if (code === 'PREMIUM_REQUIRED') {
+            container.innerHTML = '<div style="grid-column:1/-1; font-size:0.8rem; color:#b45309;">Recurso Premium. Faça upgrade para ver a Probabilidade de Sucesso.</div>';
+            return;
+          }
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
         data = resp.ok ? await resp.json() : null;
       } catch(_) { }
       if (!data || !Array.isArray(data.dominios)) { container.innerHTML = '<div style="grid-column:1/-1; font-size:0.7rem; color:#b91c1c;">Falha ao carregar indicador</div>'; return; }
@@ -2013,9 +2216,20 @@
       try {
         const headers = buildAuthHeadersLocal();
         const examTypeId = await getCurrentExamTypeId();
-        const url = examTypeId ? `/api/indicators/IND12?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/IND12';
+        const url = examTypeId ? `/api/indicators/probability?exam_type=${encodeURIComponent(examTypeId)}` : '/api/indicators/probability';
         const resp = await fetch(url, { headers });
-        if (resp.status === 401 || resp.status === 403) {
+        if (resp.status === 401) {
+          try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
+          window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
+          return;
+        }
+        if (resp.status === 403) {
+          let code = '';
+          try { const err = await resp.json(); code = String(err && err.code || ''); } catch(_){ }
+          if (code === 'PREMIUM_REQUIRED') {
+            container.innerHTML = '<div style="padding:12px; color:#b45309;">Recurso Premium. Faça upgrade para ver a Probabilidade de Sucesso.</div>';
+            return;
+          }
           try { sessionStorage.setItem('postLoginRedirect', window.location.href); } catch(_){ }
           window.location.assign('/login?redirect=' + encodeURIComponent(window.location.href));
           return;
@@ -2050,7 +2264,7 @@
           card.appendChild(bar);
           container.appendChild(card);
         });
-      } catch(_){ container.innerHTML = '<div style="padding:12px; color:#b91c1c;">Erro ao carregar IND12.</div>'; }
+      } catch(_){ container.innerHTML = '<div style="padding:12px; color:#b91c1c;">Erro ao carregar Probabilidade.</div>'; }
     }
   </script>
   <!-- Bottom navigation component mount -->

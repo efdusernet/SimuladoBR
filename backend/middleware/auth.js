@@ -14,6 +14,8 @@ module.exports = async (req, res, next) => {
 
     // Keep previous behavior: req.user contains the JWT payload for downstream handlers
     req.user = result.decoded;
+    // Also attach the DB user model for entitlement checks (BloqueioAtivado, TipoUsuario, etc.)
+    req.userModel = result.user;
     next();
   } catch (e) {
     return next(internalError('Internal error'));

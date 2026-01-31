@@ -4,6 +4,7 @@ const buildUserStatsService = require('../services/UserStatsService');
 const { generateJsonInsights } = require('../services/llmClient');
 const indicatorController = require('./indicatorController');
 const { logger } = require('../utils/logger');
+const userParamsStore = require('../services/userParamsStore');
 
 function formatLocalYmd(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
@@ -1181,11 +1182,13 @@ async function getInsightsDashboard(req, res, next) {
       ai.actions7d = addUnique(ai.actions7d, 'Siga o “Plano de 7 dias (Tasks)” abaixo para atacar as prioridades por impacto.');
     }
 
-    // Record a daily snapshot for paying users only (Usuario.BloqueioAtivado === false).
-    // This is the groundwork for a real temporal risk model.
+    // Record a daily snapshot (default: paying users only). This is the groundwork for a real temporal risk model.
     try {
       const isPaying = Boolean(userRow) && userRow.BloqueioAtivado === false;
-      if (isPaying && db && db.sequelize) {
+      const params = await userParamsStore.getCachedParams({ maxAgeMs: 10_000 });
+      const premiumOnly = !(params && params.premiumOnly && params.premiumOnly.aiDailySnapshot === false);
+      const shouldRecord = premiumOnly ? isPaying : true;
+      if (shouldRecord && db && db.sequelize) {
         const snapshotDate = formatLocalYmd(getLocalMidnightNow());
         if (snapshotDate) {
           const payload = {

@@ -1195,16 +1195,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Sync meta config limits (freeExamQuestionLimit / fullExamQuestionCount) from server (public endpoint)
+    let __metaConfigPromise = null;
+    let __freeExamQuestionLimit = 25;
+    async function syncMetaConfigLimits() {
+        try {
+            const BACKEND_BASE = SIMULADOS_CONFIG.BACKEND_BASE || 'http://localhost:3000';
+            const url = `${BACKEND_BASE.replace(/\/$/, '')}/api/meta/config`;
+            __metaConfigPromise = __metaConfigPromise || fetch(url, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                credentials: 'include'
+            }).then(r => r.ok ? r.json() : null).catch(() => null);
+            const cfg = await __metaConfigPromise;
+            if (cfg && typeof cfg.freeExamQuestionLimit === 'number' && Number.isFinite(cfg.freeExamQuestionLimit)) {
+                __freeExamQuestionLimit = Math.max(1, Math.floor(cfg.freeExamQuestionLimit));
+            }
+            return cfg;
+        } catch (e) {
+            return null;
+        }
+    }
+
     // apply BloqueioAtivado state to the exam setup modal
     // Semantics: BloqueioAtivado === 'true' means the premium options are BLOCKED/disabled
     function applyBloqueioToModal() {
         try {
             const blocked = localStorage.getItem('BloqueioAtivado') === 'true';
-            const premiumValues = ['100','150','180'];
             const pills = document.querySelectorAll('#questionCountPills .option-pill');
             if (pills && pills.length) {
                 pills.forEach(p => {
-                    const isPremium = premiumValues.includes(p.getAttribute('data-value'));
+                    const raw = p.getAttribute('data-value');
+                    const n = Number(raw);
+                    const isPremium = Number.isFinite(n) ? (n > __freeExamQuestionLimit) : false;
                     if (isPremium && blocked) {
                         p.classList.add('disabled');
                         p.setAttribute('aria-disabled', 'true');
@@ -1219,9 +1242,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const selectEl = document.getElementById('questionCountSelect');
             if (selectEl) {
-                premiumValues.forEach(v => {
-                    const opt = selectEl.querySelector(`option[value="${v}"]`);
-                    if (opt) opt.disabled = blocked;
+                const opts = Array.from(selectEl.querySelectorAll('option'));
+                opts.forEach(opt => {
+                    const n = Number(opt.value);
+                    const isPremium = Number.isFinite(n) ? (n > __freeExamQuestionLimit) : false;
+                    opt.disabled = blocked && isPremium;
                 });
             }
         } catch (e) { console.warn('applyBloqueioToModal error', e); }
@@ -1237,6 +1262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             (async () => {
                 const prev = localStorage.getItem('BloqueioAtivado');
                 const data = await syncBloqueioFromServer(token);
+                await syncMetaConfigLimits();
                 applyBloqueioToModal();
                 const now = localStorage.getItem('BloqueioAtivado');
                     if (prev !== now) {
@@ -1244,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (now === 'true') {
                             try { showTemporaryNotification('Opções premium bloqueadas.'); } catch(e){}
                         } else {
-                            try { showTemporaryNotification('Opções 100/150/180 liberadas.'); } catch(e){}
+                            try { showTemporaryNotification('Opções premium liberadas.'); } catch(e){}
                         }
                     }
             })();
@@ -1253,13 +1279,14 @@ document.addEventListener('DOMContentLoaded', () => {
             _bloqueioPollId = setInterval(async () => {
                 const prev = localStorage.getItem('BloqueioAtivado');
                 const data = await syncBloqueioFromServer(token);
+                await syncMetaConfigLimits();
                 applyBloqueioToModal();
                 const now = localStorage.getItem('BloqueioAtivado');
                 if (prev !== now) {
                     if (now === 'true') {
                         showTemporaryNotification('Opções premium bloqueadas.');
                     } else {
-                        showTemporaryNotification('Opções 100/150/180 liberadas.');
+                        showTemporaryNotification('Opções premium liberadas.');
                     }
                 }
             }, intervalMs);

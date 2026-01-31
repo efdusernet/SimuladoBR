@@ -2,6 +2,7 @@ const sequelize = require('../config/database');
 
 const { logger } = require('../utils/logger');
 const { internalError } = require('../middleware/errors');
+const userParamsStore = require('../services/userParamsStore');
 // Helper to run a robust select id, descricao from a table, adapting to column name casing
 async function listSimple(req, res, next, table) {
   try {
@@ -102,21 +103,28 @@ exports.listTasks = async (req, res, next) => {
 };
 
 // GET /api/meta/config -> expose server-side config relevant to frontend
-exports.getConfig = (_req, res, next) => {
+exports.getConfig = async (_req, res, next) => {
   try {
-    const fullExamQuestionCount = (() => {
-      const n = Number(process.env.FULL_EXAM_QUESTION_COUNT || 180);
-      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 180;
-    })();
-    const freeExamQuestionLimit = (() => {
-      const n = Number(process.env.FREE_EXAM_QUESTION_LIMIT || 25);
-      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 25;
-    })();
+    // Read from admin-configurable user params (fallbacks to env/defaults).
+    const params = await userParamsStore.getCachedParams({ maxAgeMs: 10_000 });
+    const fullExamQuestionCount = Number(params && params.fullExamQuestionCount);
+    const freeExamQuestionLimit = Number(params && params.freeExamQuestionLimit);
+
     const examVersion = (process.env.EXAM_VER || '').trim();
     const ollamaEnabled = String(process.env.OLLAMA_ENABLED || '').toLowerCase() === 'true';
     return res.json({ fullExamQuestionCount, freeExamQuestionLimit, examVersion, ollamaEnabled });
   } catch (e) {
     return next(internalError('Erro interno', 'GET_CONFIG_ERROR', e));
+  }
+};
+
+// GET /api/meta/user-params -> expose safe user entitlement params for frontend gating
+exports.getUserParams = async (_req, res, next) => {
+  try {
+    const params = await userParamsStore.getCachedParams({ maxAgeMs: 10_000 });
+    return res.json({ ok: true, params: userParamsStore.toPublicParams(params) });
+  } catch (e) {
+    return next(internalError('Erro interno', 'GET_USER_PARAMS_ERROR', e));
   }
 };
 

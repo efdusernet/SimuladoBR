@@ -2,6 +2,8 @@
 
 Este documento lista problemas recorrentes e suas causas/soluções confirmadas no projeto SimuladosBR.
 
+Para um histórico detalhado de incidentes (ex.: o problema do menu Admin intermitente no desktop/InsightsIA e ajustes de cache/cookies/CSRF), ver `KNOWN_ISSUES.md` na raiz do projeto.
+
 ## 1. 403 ao selecionar questões (POST /api/exams/select)
 - Sintomas: No console, mensagens como `Failed to fetch questions 403`. Nenhuma questão carregada, primeira renderização mostra `id undefined` e imagem não resolvida.
 - Causa raiz:

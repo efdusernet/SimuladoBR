@@ -73,9 +73,22 @@ a { text-decoration: none; }
       rgba(248, 250, 252, 0.78) 100%
     ),
     url('/public/Risk.png');
-  background-size: cover, cover;
+  /* 1st layer (gradient): cover; 2nd layer (image): keep a reasonable natural size */
+  background-size: cover, 520px auto;
   background-position: center, left center;
   background-repeat: no-repeat, no-repeat;
+}
+
+@media (max-width: 992px) {
+  #recursos.section-muted {
+    background-size: cover, 360px auto;
+  }
+}
+
+@media (max-width: 576px) {
+  #recursos.section-muted {
+    background-size: cover, 260px auto;
+  }
 }
 
 .hero {

@@ -64,6 +64,20 @@ a { text-decoration: none; }
   border-bottom: 1px solid rgba(15, 23, 42, 0.04);
 }
 
+/* Marketing: Recursos section background image */
+#recursos.section-muted {
+  background-image:
+    linear-gradient(180deg,
+      rgba(248, 250, 252, 0.92) 0%,
+      rgba(248, 250, 252, 0.86) 45%,
+      rgba(248, 250, 252, 0.78) 100%
+    ),
+    url('/public/Risk.png');
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
 .hero {
   position: relative;
   overflow: hidden;

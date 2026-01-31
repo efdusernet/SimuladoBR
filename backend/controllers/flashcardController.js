@@ -1,6 +1,7 @@
 const { logger } = require('../utils/logger');
 const { badRequest, internalError } = require('../middleware/errors');
 const db = require('../models');
+const userParamsStore = require('../services/userParamsStore');
 
 function parseOptionalPositiveInt(value) {
 	if (value == null) return null;
@@ -22,6 +23,15 @@ function parseOptionalBoolean(value) {
 
 async function listFlashcards(req, res, next) {
 	try {
+		const user = req.userModel || null;
+		const isBlocked = Boolean(user && user.BloqueioAtivado);
+		let seed = null;
+		if (isBlocked) {
+			const params = await userParamsStore.getCachedParams({ maxAgeMs: 10_000 });
+			const restrict = !(params && params.freeOnlySeedFlashcards === false);
+			seed = restrict ? true : null;
+		}
+
 		const versionId = parseOptionalPositiveInt(req.query.versionId);
 		if (Number.isNaN(versionId)) return next(badRequest('versionId inválido', 'FLASHCARD_INVALID_VERSION_ID'));
 
@@ -75,6 +85,7 @@ async function listFlashcards(req, res, next) {
 			LEFT JOIN public.exam_content_version ecv ON ecv.id = f.id_versao_pmbok
 			WHERE ($versionId::int IS NULL OR f.id_versao_pmbok = $versionId)
 				AND COALESCE(f.active, TRUE) = $active
+				AND ($seed::boolean IS NULL OR COALESCE(f.seed, FALSE) = $seed)
 				AND (
 					(
 						$idprincipio::int IS NOT NULL
@@ -100,6 +111,7 @@ async function listFlashcards(req, res, next) {
 				iddominio_desempenho,
 				basics,
 				active,
+				seed,
 				limit,
 				offset,
 			},
@@ -113,6 +125,7 @@ async function listFlashcards(req, res, next) {
 				iddominio_desempenho,
 				basics,
 				active,
+				seed,
 				limit,
 				offset,
 				count: rows.length,

@@ -113,6 +113,13 @@
         </select>
         <div class="hint">Afeta: seleção de questões no backend (filtro <span class="mono">seed=true</span>).</div>
 
+        <label for="selFlashcardsRestrict">Restringir acesso a flashcards?</label>
+        <select id="selFlashcardsRestrict">
+          <option value="true">Sim</option>
+          <option value="false">Não</option>
+        </select>
+        <div class="hint">Sim: gratuito vê apenas <span class="mono">active=true</span> e <span class="mono">seed=true</span>. Não: gratuito vê todos os <span class="mono">active=true</span>.</div>
+
         <h2 class="sectionTitle">Funcionalidades premium-only</h2>
 
         <label for="selInsights">Insights IA é premium-only</label>
@@ -299,6 +306,7 @@
     $('inpFreeLimit').value = String(p.freeExamQuestionLimit ?? '');
     $('inpFullCount').value = String(p.fullExamQuestionCount ?? '');
     $('selSeedOnly').value = String(!!p.freeOnlySeedQuestions);
+    $('selFlashcardsRestrict').value = String(p.freeOnlySeedFlashcards !== false);
 
     const po = p.premiumOnly || {};
     $('selInsights').value = String(po.insightsIA !== false);
@@ -325,6 +333,7 @@
       fullExamQuestionCount: readInt('inpFullCount', 180),
       freeExamQuestionLimit: readInt('inpFreeLimit', 25),
       freeOnlySeedQuestions: readBoolSelect('selSeedOnly'),
+      freeOnlySeedFlashcards: readBoolSelect('selFlashcardsRestrict'),
       premiumOnly: {
         onlyNewQuestions: readBoolSelect('selOnlyNew'),
         insightsIA: readBoolSelect('selInsights'),

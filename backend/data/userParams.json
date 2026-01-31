@@ -4,6 +4,7 @@
   "fullExamQuestionCount": 180,
   "freeExamQuestionLimit": 30,
   "freeOnlySeedQuestions": true,
+  "freeOnlySeedFlashcards": true,
   "premiumOnly": {
     "onlyNewQuestions": true,
     "insightsIA": true,

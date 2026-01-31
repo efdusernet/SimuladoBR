@@ -37,6 +37,11 @@ function getDefaultParams() {
     // Free users content restrictions
     freeOnlySeedQuestions: true,
 
+    // Flashcards restrictions (applies to free users only)
+    // When true: free users can only see flashcards with active=true AND seed=true.
+    // When false: free users can see all flashcards with active=true.
+    freeOnlySeedFlashcards: true,
+
     // Feature gating (UI + API). If a flag is true, it means that feature is premium-only.
     premiumOnly: {
       onlyNewQuestions: true,
@@ -72,6 +77,7 @@ function normalizeParams(input, { env = process.env } = {}) {
   const safeFree = Math.max(1, Math.min(500, freeExamQuestionLimit));
 
   const freeOnlySeedQuestions = toBool(p.freeOnlySeedQuestions, base.freeOnlySeedQuestions);
+  const freeOnlySeedFlashcards = toBool(p.freeOnlySeedFlashcards, base.freeOnlySeedFlashcards);
 
   const premiumOnly = p.premiumOnly && typeof p.premiumOnly === 'object' ? p.premiumOnly : {};
   const premiumOnlyNormalized = {
@@ -97,6 +103,7 @@ function normalizeParams(input, { env = process.env } = {}) {
     fullExamQuestionCount: safeFull,
     freeExamQuestionLimit: safeFree,
     freeOnlySeedQuestions,
+    freeOnlySeedFlashcards,
     premiumOnly: premiumOnlyNormalized,
     chat: chatNormalized,
   };
@@ -149,6 +156,7 @@ function toPublicParams(params) {
     fullExamQuestionCount: p.fullExamQuestionCount,
     freeExamQuestionLimit: p.freeExamQuestionLimit,
     freeOnlySeedQuestions: p.freeOnlySeedQuestions,
+    freeOnlySeedFlashcards: p.freeOnlySeedFlashcards,
     premiumOnly: {
       onlyNewQuestions: !!(p.premiumOnly && p.premiumOnly.onlyNewQuestions),
       insightsIA: !!(p.premiumOnly && p.premiumOnly.insightsIA),

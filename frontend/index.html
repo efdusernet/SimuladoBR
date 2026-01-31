@@ -2135,16 +2135,8 @@
             <div style="display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start">
                 <aside aria-label="Menu Admin" style="border:1px solid var(--border);background:var(--bg);border-radius:10px;padding:12px;position:sticky;top:20px">
                     <div style="font-weight:800;color:var(--text);margin-bottom:10px">Menu</div>
-                    <a href="/pages/admin/questionForm.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Cadastrar questão</a>
-                    <a href="/pages/admin/questionBulk.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Cadastrar questão bulk</a>
-                    <a href="/pages/admin/flashcards.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Flashcards</a>
-                    <a href="/pages/admin/dicas.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Dicas</a>
-                    <a href="/pages/admin/feedbackResponses.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Responder feedbacks</a>
-                    <a href="/pages/admin/notifications.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Notificações</a>
-                    <a href="/pages/admin/dataExplorer.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Data Explorer</a>
-                    <a href="/pages/admin/userParams.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Parâmetro Usuários</a>
                     <a href="/index.html" style="display:block;margin-top:10px;padding:10px 10px;border-radius:10px;color:var(--muted);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Voltar para Home</a>
-                    <div style="font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.3">Dica: o Data Explorer não aceita SQL livre; é um construtor seguro.</div>
+                    <div style="font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.3">Use “Outras Ferramentas” para acessar páginas administrativas.</div>
                 </aside>
 
                 <div>
@@ -2488,6 +2480,23 @@
                 </button>
                 <div class="admin-accordion-content" style="display:none;padding:16px">
                     <div style="display:grid;gap:10px">
+                        <div>
+                            <div style="font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:8px">🔗 Páginas Admin</div>
+                            <div style="display:grid;gap:8px">
+                                <a href="/pages/admin/questionForm.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Cadastrar questão</a>
+                                <a href="/pages/admin/questionBulk.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Cadastrar questão bulk</a>
+                                <a href="/pages/admin/flashcards.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Flashcards</a>
+                                <a href="/pages/admin/dicas.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Dicas</a>
+                                <a href="/pages/admin/feedbackResponses.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Responder feedbacks</a>
+                                <a href="/pages/admin/notifications.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Notificações</a>
+                                <a href="/pages/admin/dataExplorer.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Data Explorer</a>
+                                <a href="/pages/admin/userParams.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Parâmetro Usuários</a>
+                            </div>
+                            <div style="font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.3">Dica: o Data Explorer não aceita SQL livre; é um construtor seguro.</div>
+                        </div>
+
+                        <div style="height:1px;background:var(--border);opacity:.7"></div>
+
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
                             <div style="font-size:0.95rem;font-weight:700;color:var(--text)">📣 Comunicação</div>
                             <button id="commRefreshRecipientsBtn" type="button" style="padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer">Atualizar</button>

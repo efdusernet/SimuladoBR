@@ -91,6 +91,32 @@ a { text-decoration: none; }
   }
 }
 
+/* Marketing: Produto section background image (right-aligned) */
+#produto.section-anchor {
+  background-image:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.88) 45%,
+      rgba(255, 255, 255, 0.82) 100%
+    ),
+    url('/public/Costs.png');
+  background-size: cover, 520px auto;
+  background-position: center, right center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+@media (max-width: 992px) {
+  #produto.section-anchor {
+    background-size: cover, 360px auto;
+  }
+}
+
+@media (max-width: 576px) {
+  #produto.section-anchor {
+    background-size: cover, 260px auto;
+  }
+}
+
 .hero {
   position: relative;
   overflow: hidden;

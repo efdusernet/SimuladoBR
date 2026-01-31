@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const requireAdmin = require('../middleware/requireAdmin');
 const { badRequest, forbidden, internalError } = require('../middleware/errors');
-const { cleanupNonMasterdata } = require('../scripts/cleanupNonMasterdata');
+const { cleanupNonMasterdata, listPublicTables, getClassificationSets } = require('../scripts/cleanupNonMasterdata');
+const db = require('../models');
 
 function isCleanupEnabled() {
   // Extremely dangerous operation; keep it opt-in.
@@ -17,7 +18,7 @@ function isCleanupEnabled() {
 //  {
 //    dryRun: true|false,
 //    confirm: 'LIMPAR_NAO_MASTERDATA' (required when dryRun=false),
-//    options: { keepUsers, keepRbac, keepEntitlements, keepNotifications, keepCommunication }
+//    options: { keepUsers, keepRbac, keepEntitlements, keepNotifications, keepCommunication, masterdataExtra, truncateExtra }
 //  }
 router.post('/cleanup/non-masterdata', requireAdmin, async (req, res, next) => {
   try {
@@ -40,6 +41,7 @@ router.post('/cleanup/non-masterdata', requireAdmin, async (req, res, next) => {
       keepNotifications: opt.keepNotifications === true,
       keepCommunication: opt.keepCommunication !== false,
       masterdataExtra: Array.isArray(opt.masterdataExtra) ? opt.masterdataExtra : [],
+      truncateExtra: Array.isArray(opt.truncateExtra) ? opt.truncateExtra : [],
     });
 
     return res.json({ ok: true, ...result });
@@ -48,6 +50,26 @@ router.post('/cleanup/non-masterdata', requireAdmin, async (req, res, next) => {
       return next(badRequest(e.message, 'CONFIRMATION_REQUIRED'));
     }
     return next(internalError('Erro interno', 'ADMIN_DB_CLEANUP_ERROR', { error: e && e.message }));
+  }
+});
+
+// GET /api/admin/db/tables
+// Returns:
+//  { ok: true, tables: [...], classification: { master: [...], transactional: [...] } }
+router.get('/tables', requireAdmin, async (req, res, next) => {
+  try {
+    const tables = await listPublicTables(db.sequelize);
+    const { master, transactional } = getClassificationSets();
+    return res.json({
+      ok: true,
+      tables,
+      classification: {
+        master: Array.from(master).sort(),
+        transactional: Array.from(transactional).sort(),
+      },
+    });
+  } catch (e) {
+    return next(internalError('Erro interno', 'ADMIN_DB_TABLES_ERROR', { error: e && e.message }));
   }
 });
 

@@ -155,6 +155,19 @@ function getDefaultKeepTables(opts, allTables) {
   return { keepSet: keep, unclassified };
 }
 
+function applyTruncateOverrides({ keepSet, truncateExtra, alwaysKeep } = {}) {
+  const keep = keepSet instanceof Set ? keepSet : new Set();
+  const never = alwaysKeep instanceof Set ? alwaysKeep : new Set(['SequelizeMeta', 'Usuario']);
+  const list = Array.isArray(truncateExtra) ? truncateExtra : [];
+
+  for (const t of list) {
+    const name = t != null ? String(t) : '';
+    if (!name) continue;
+    if (never.has(name)) continue;
+    keep.delete(name);
+  }
+}
+
 async function listPublicTables(sequelize) {
   const rows = await sequelize.query(
     `
@@ -212,6 +225,7 @@ async function cleanupNonMasterdata({
   keepNotifications = false,
   keepCommunication = true,
   masterdataExtra = [],
+  truncateExtra = [],
   keepUnclassified = true,
   userAdminIdPreserve = 21,
 } = {}) {
@@ -226,10 +240,22 @@ async function cleanupNonMasterdata({
       keepNotifications,
       keepCommunication,
       masterdataExtra,
+      truncateExtra,
       keepUnclassified,
     },
     allTables
   );
+
+  const { master } = getClassificationSets();
+  const alwaysKeep = new Set(['SequelizeMeta', 'Usuario', ...Array.from(master)]);
+
+  // Allow forcing some tables to be truncated even if they'd be kept by default.
+  // (Useful when new transactional tables appear and are unclassified.)
+  applyTruncateOverrides({
+    keepSet,
+    truncateExtra,
+    alwaysKeep,
+  });
 
   const plan = computePlan(allTables, keepSet);
 

@@ -955,27 +955,32 @@
         try {
           const headers = { ...getAuthHeaders(), 'Accept': 'application/json' };
 
-          const [principiosRes, dominiosRes, abordagensRes] = await Promise.all([
+          const [principiosRes, dominiosRes] = await Promise.all([
             fetch('/api/meta/principios', { headers, credentials: 'include' }).catch(()=>null),
-            fetch('/api/meta/ddesempenho', { headers, credentials: 'include' }).catch(()=>null),
-            fetch('/api/meta/abordagens', { headers, credentials: 'include' }).catch(()=>null)
+            fetch('/api/meta/ddesempenho', { headers, credentials: 'include' }).catch(()=>null)
           ]);
 
-          const [principios, dominios, abordagens] = await Promise.all([
+          const [principios, dominios] = await Promise.all([
             principiosRes && principiosRes.ok ? principiosRes.json().catch(()=>[]) : [],
-            dominiosRes && dominiosRes.ok ? dominiosRes.json().catch(()=>[]) : [],
-            abordagensRes && abordagensRes.ok ? abordagensRes.json().catch(()=>[]) : []
+            dominiosRes && dominiosRes.ok ? dominiosRes.json().catch(()=>[]) : []
           ]);
 
           fillSelect(els.filterPrincipio, principios);
           fillSelect(els.filterDominioDes, dominios);
-          fillSelect(els.filterAbordagem, abordagens);
+          // Abordagem: filtro desativado (coluna removida do schema / endpoint não aceita)
+          try {
+            if (els.filterAbordagem) {
+              fillSelect(els.filterAbordagem, []);
+              els.filterAbordagem.disabled = true;
+              els.filterAbordagem.title = 'Filtro Abordagem desativado';
+            }
+          } catch(_){ }
 
       // Build id->descricao maps for rendering card tags
       metaMaps = {
       principios: new Map(normalizeMetaItems(principios).map(it => [Number.parseInt(it.id, 10), it.descricao])),
       dominios: new Map(normalizeMetaItems(dominios).map(it => [Number.parseInt(it.id, 10), it.descricao])),
-      abordagens: new Map(normalizeMetaItems(abordagens).map(it => [Number.parseInt(it.id, 10), it.descricao])),
+      abordagens: new Map(),
       };
         } catch (e) {
           try { logger.warn('[flashcards] loadMeta failed', e); } catch(_){ }
@@ -1012,7 +1017,6 @@
 
         const idprincipio = parseOptionalPositiveInt(els.filterPrincipio && els.filterPrincipio.value);
         const iddominio_desempenho = parseOptionalPositiveInt(els.filterDominioDes && els.filterDominioDes.value);
-        const idabordagem = parseOptionalPositiveInt(els.filterAbordagem && els.filterAbordagem.value);
         const basicsOnly = !!(els.filterBasics && els.filterBasics.checked);
 
         setStatus('Carregando...', 'info');
@@ -1026,7 +1030,6 @@
           params.set('active', 'true');
           if (idprincipio != null) params.set('idprincipio', String(idprincipio));
           if (iddominio_desempenho != null) params.set('iddominio_desempenho', String(iddominio_desempenho));
-          if (idabordagem != null) params.set('idabordagem', String(idabordagem));
           if (basicsOnly) params.set('basics', 'true');
           const url = `/api/flashcards?${params.toString()}`;
           const resp = await fetch(url, {

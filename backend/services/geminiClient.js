@@ -257,7 +257,7 @@ async function generateJsonInsights({ context, kpis, timeseries, indicators = un
     computed: { insightsTimeoutMs },
   };
 
-  const system = {
+  const baseSystem = {
     role: 'system',
     content: [
       'Você é um assistente de estudo para certificação (PMP/CPM/CAPM).',
@@ -266,7 +266,8 @@ async function generateJsonInsights({ context, kpis, timeseries, indicators = un
       'Responda em PT-BR.',
       'Retorne JSON estritamente válido no formato pedido.',
       'Seja MUITO conciso: evite explicações longas.',
-      'Não use Markdown, não use texto fora do JSON.'
+      'Não use Markdown, não use texto fora do JSON.',
+      'A resposta DEVE começar com "{" e terminar com "}" (sem cercas de código).'
     ].join(' ')
   };
 
@@ -292,19 +293,56 @@ async function generateJsonInsights({ context, kpis, timeseries, indicators = un
     })
   };
 
-  try {
+  const primaryModel = normalizeModelName(getEnv('GEMINI_MODEL', 'gemini-1.5-flash'));
+  const fallbackModel = primaryModel === 'gemini-1.5-flash' ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+
+  async function attempt({ model, extraSystem = '' }) {
+    const system = extraSystem
+      ? { ...baseSystem, content: baseSystem.content + ' ' + String(extraSystem) }
+      : baseSystem;
+
     const resp = await chat({
+      model,
       messages: [system, user],
       format: 'json',
       timeoutMs: insightsTimeoutMs,
-      options: { num_predict: 240, temperature: 0.1 },
+      // temperature=0 improves determinism and JSON compliance
+      options: { num_predict: 240, temperature: 0 },
     });
 
-    const content = resp && resp.message && resp.message.content ? resp.message.content : '';
+    const content = resp && resp.message && resp.message.content ? String(resp.message.content) : '';
     const parsed = tryParseJsonLenient(content);
-    if (!parsed) throw new Error('Resposta do Gemini não é JSON válido');
 
-    return { usedLlm: true, insights: parsed, model: resp.model || null, insightsTimeoutMs, debugTimeouts };
+    return { resp, content, parsed };
+  }
+
+  try {
+    // 1) Primary attempt
+    const a1 = await attempt({ model: primaryModel });
+    if (a1.parsed) {
+      return { usedLlm: true, insights: a1.parsed, model: a1.resp.model || null, insightsTimeoutMs, debugTimeouts };
+    }
+
+    // 2) Retry once with stricter instruction and (if configured model is flaky) a safer fallback model
+    logger.warn('Gemini insights returned non-JSON; retrying once', {
+      model: a1.resp && a1.resp.model ? a1.resp.model : primaryModel,
+      preview: a1.content ? a1.content.slice(0, 280) : '',
+    });
+
+    const a2 = await attempt({
+      model: fallbackModel,
+      extraSystem: 'IMPORTANTE: Você retornou algo que não era JSON. Agora retorne SOMENTE um JSON válido exatamente no schema. Não inclua comentários nem texto extra.'
+    });
+    if (a2.parsed) {
+      return { usedLlm: true, insights: a2.parsed, model: a2.resp.model || null, insightsTimeoutMs, debugTimeouts };
+    }
+
+    logger.warn('Gemini insights still non-JSON after retry; falling back to rules', {
+      model: a2.resp && a2.resp.model ? a2.resp.model : fallbackModel,
+      preview: a2.content ? a2.content.slice(0, 280) : '',
+    });
+
+    throw new Error('Resposta do Gemini não é JSON válido');
   } catch (err) {
     logger.warn(`Falha ao gerar insights via Gemini; usando fallback (${err.message})`, { error: err.message });
     return { usedLlm: false, insights: null, insightsTimeoutMs, debugTimeouts, error: err && err.message ? String(err.message) : 'Erro' };

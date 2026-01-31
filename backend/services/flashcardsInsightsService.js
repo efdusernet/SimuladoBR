@@ -232,7 +232,7 @@ async function getFlashcardsInsights(userId, { minTotal = 5, topN = 10 } = {}) {
            MAX(aa.idprincipio)::int AS idprincipio,
            MAX(aa.iddominio_desempenho)::int AS iddominio_desempenho,
            MAX(aa.idabordagem)::int AS idabordagem,
-           MAX(aa.basics)::boolean AS basics
+           BOOL_OR(aa.basics) AS basics
          FROM public.flashcard_attempt_answer aa
          LEFT JOIN public.flashcard f ON f.id = aa.flashcard_id
          WHERE aa.user_id = $user_id
@@ -262,7 +262,7 @@ async function getFlashcardsInsights(userId, { minTotal = 5, topN = 10 } = {}) {
            MAX(aa.idprincipio)::int AS idprincipio,
            MAX(aa.iddominio_desempenho)::int AS iddominio_desempenho,
            MAX(aa.idabordagem)::int AS idabordagem,
-           MAX(aa.basics)::boolean AS basics
+           BOOL_OR(aa.basics) AS basics
          FROM public.flashcard_attempt_answer aa
          WHERE aa.user_id = $user_id
            AND aa.updated_at >= NOW() - ($days::text || ' days')::interval

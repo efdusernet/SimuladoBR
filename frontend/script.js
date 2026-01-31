@@ -143,33 +143,55 @@ class SafeRedirect {
         const base = String((window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '').trim() || '';
         const baseUrl = base ? base.replace(/\/$/, '') : '';
 
+        const cookieOnlyHeaders = { 'Accept': 'application/json' };
+        const hasAuthHeaders = !!(headers && (headers.Authorization || headers['X-Session-Token']));
+
         // 1) Preferred: probe admin-only endpoint (aligns with backend RBAC, avoids false positives).
         try {
             const probeUrl = (baseUrl || '') + '/api/admin/data-explorer/tables';
-            const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include', cache: 'no-store', redirect: 'follow' });
+            let probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include', cache: 'no-store', redirect: 'follow' });
 
-            // Defensive: treat redirects to /login (or HTML) as non-admin.
+            // Retry once with cookie-only auth to avoid false negatives when a stale Bearer token exists.
+            if ((probeResp.status === 401 || probeResp.status === 403) && hasAuthHeaders) {
+                probeResp = await fetch(probeUrl, { headers: cookieOnlyHeaders, method: 'GET', credentials: 'include', cache: 'no-store', redirect: 'follow' });
+            }
+
+            // Defensive: treat redirects to /login (or HTML) as inconclusive and fall through.
             try {
-                if (probeResp.redirected && /\/login(\?|$)/i.test(String(probeResp.url || ''))) return false;
+                if (probeResp.redirected && /\/login(\?|$)/i.test(String(probeResp.url || ''))) throw new Error('probe redirected to login');
                 const ct = String(probeResp.headers && probeResp.headers.get && probeResp.headers.get('content-type') || '');
-                if (ct && ct.includes('text/html')) return false;
+                if (ct && ct.includes('text/html')) throw new Error('probe returned html');
             } catch(_){ }
 
             // NOTE: Some setups may return 304 (ETag) for allowed resources.
             // Treat it as success for the admin-only probe.
             if (probeResp.ok || probeResp.status === 204 || probeResp.status === 304) return true;
-            if (probeResp.status === 401 || probeResp.status === 403) return false;
         } catch(_){ }
 
         // 2) Fallback: /api/users/me legacy role field.
         try {
             const url = (baseUrl || '') + '/api/users/me';
-            const resp = await fetch(url, { headers, credentials: 'include', cache: 'no-store' });
-            if (!resp.ok) return false;
+            let resp = await fetch(url, { headers, credentials: 'include', cache: 'no-store' });
+
+            // Retry once with cookie-only auth if denied.
+            if ((resp.status === 401 || resp.status === 403) && hasAuthHeaders) {
+                resp = await fetch(url, { headers: cookieOnlyHeaders, credentials: 'include', cache: 'no-store' });
+            }
+
+            if (!resp.ok) throw new Error('users/me not ok');
             const user = await resp.json().catch(() => null);
             return !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
         } catch(_){
-            return false;
+            // 3) Final fallback: same-origin cookie-based /api/users/me.
+            // This avoids false negatives when BACKEND_BASE points elsewhere or custom headers are stale.
+            try {
+                const resp = await fetch('/api/users/me', { method: 'GET', headers: cookieOnlyHeaders, credentials: 'include', cache: 'no-store', redirect: 'follow' });
+                if (!resp.ok) return false;
+                const me = await resp.json().catch(() => null);
+                return !!(me && (me.TipoUsuario === 'admin' || me.tipoUsuario === 'admin' || me.isAdmin === true));
+            } catch(_2){
+                return false;
+            }
         }
     }
 

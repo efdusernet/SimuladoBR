@@ -74,7 +74,7 @@ a { text-decoration: none; }
     ),
     url('/public/Risk.png');
   background-size: cover, cover;
-  background-position: center, center;
+  background-position: center, left center;
   background-repeat: no-repeat, no-repeat;
 }
 

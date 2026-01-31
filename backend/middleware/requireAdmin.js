@@ -7,7 +7,11 @@ const { extractTokenFromRequest, verifyJwtAndGetActiveUser } = require('../utils
 module.exports = async function requireAdmin(req, res, next){
   try {
     const accept = String((req.headers && req.headers.accept) || '');
-    const wantsHtml = req.method === 'GET' && (accept.includes('text/html') || accept.includes('*/*'));
+    const url = String(req.originalUrl || req.url || '');
+    const isApiRequest = url.startsWith('/api/') || url.startsWith('/api/v1/');
+    // IMPORTANT: browsers/fetch often send Accept: */* even for XHR.
+    // Never treat /api/* as an HTML navigation; returning 302 to /login breaks client probes.
+    const wantsHtml = !isApiRequest && req.method === 'GET' && (accept.includes('text/html') || accept.includes('*/*'));
 
     const token = extractTokenFromRequest(req);
     if (!token) {

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { security } = require('../utils/logger');
 const { forbidden } = require('./errors');
+const { getCookieDomainForRequest } = require('../utils/cookieDomain');
 
 // In-memory token store (in production, use Redis)
 const tokenStore = new Map();
@@ -144,8 +145,22 @@ function generateCsrfToken(req, res) {
     httpOnly: false,
     secure: isHttps,
     sameSite,
-    maxAge: TOKEN_EXPIRY
+    maxAge: TOKEN_EXPIRY,
+    domain: getCookieDomainForRequest(req),
+    path: '/'
   });
+
+  // Backward-compat cleanup: older builds attempted Domain=.localhost.
+  // If a browser accepted it, it can cause duplicated csrfToken cookies and mismatches.
+  try {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+    if (!isProd) {
+      const hostRaw = String((req && req.get && req.get('host')) || '').replace(/:\d+$/, '').toLowerCase();
+      if (hostRaw === 'localhost' || hostRaw.endsWith('.localhost')) {
+        res.clearCookie('csrfToken', { domain: '.localhost', path: '/' });
+      }
+    }
+  } catch (_) {}
 
   return token;
 }

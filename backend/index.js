@@ -9,6 +9,7 @@ const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const dotenv = require('dotenv');
+const { getCookieDomainForRequest } = require('./utils/cookieDomain');
 
 // Load backend/.env explicitly (independent of process.cwd())
 // and override only OLLAMA_* keys so timeouts don't get stuck due to
@@ -40,6 +41,10 @@ const { AppError, errorHandler } = require('./middleware/errorHandler');
 require('./config/security');
 
 const app = express();
+
+// API responses should not be cached in browsers/proxies; caching can lead to 304 responses
+// which break some client-side auth/admin probes.
+app.set('etag', false);
 
 // Optional: embed chat-service inside this backend (no separate :4010 process)
 const CHAT_SERVICE_EMBED = String(process.env.CHAT_SERVICE_EMBED || process.env.CHAT_SERVICE_EMBEDDED || '').trim().toLowerCase() === 'true';
@@ -278,6 +283,16 @@ function setNoCacheHeaders(res) {
 	} catch (_) {}
 }
 
+// Never cache API responses (prevents intermittent 304 and stale auth/admin state)
+app.use('/api', (req, res, next) => {
+	setNoCacheHeaders(res);
+	return next();
+});
+app.use('/api/v1', (req, res, next) => {
+	setNoCacheHeaders(res);
+	return next();
+});
+
 // Product home (localhost:3000) - served from the imported simuladospmpbr project.
 const PRODUCT_ROOT = path.join(__dirname, '..', 'simuladospmpbr');
 const productSite = createProductSite({
@@ -455,8 +470,19 @@ app.use((req, res, next) => {
 				sameSite: 'strict',
 				maxAge: 12 * 60 * 60 * 1000,
 				path: '/',
+				domain: getCookieDomainForRequest(req),
 			};
 			try { res.cookie('sessionToken', raw, cookieOptions); } catch (_) {}
+			// Backward-compat cleanup: older builds attempted Domain=.localhost.
+			try {
+				const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+				if (!isProd) {
+					const hostRaw = String(req.get('host') || '').replace(/:\d+$/, '').toLowerCase();
+					if (hostRaw === 'localhost' || hostRaw.endsWith('.localhost')) {
+						res.clearCookie('sessionToken', { domain: '.localhost', path: '/' });
+					}
+				}
+			} catch (_) {}
 		}
 
 		const target = cleanPath + cleanSearch;

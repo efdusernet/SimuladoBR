@@ -5,6 +5,7 @@ const { badRequest, unauthorized, forbidden, notFound, internalError } = require
 const { AppError } = require('../middleware/errorHandler');
 const { extractTokenFromRequest, verifyJwtAndGetActiveUser } = require('../utils/singleSession');
 const matchColumns = require('../utils/matchColumns');
+const userParamsStore = require('../services/userParamsStore');
 // Daily user exam attempt stats service
 const userStatsService = require('../services/UserStatsService')(db);
 const { User } = db;
@@ -180,9 +181,11 @@ exports.selectQuestions = async (req, res, next) => {
     }
 
     const bloqueio = Boolean(user.BloqueioAtivado);
+    const userParams = await userParamsStore.getCachedParams({ maxAgeMs: 10_000 });
+    const freeLimit = Math.max(1, Number(userParams && userParams.freeExamQuestionLimit ? userParams.freeExamQuestionLimit : 25));
     // Enforce hard cap for blocked users
-    if (bloqueio && count > 25) {
-      count = 25;
+    if (bloqueio && count > freeLimit) {
+      count = freeLimit;
     }
 
   // Optional filters
@@ -191,7 +194,9 @@ exports.selectQuestions = async (req, res, next) => {
   const grupos = Array.isArray(req.body.grupos) && req.body.grupos.length ? req.body.grupos.map(Number) : null;
   const categorias = Array.isArray(req.body.categorias) && req.body.categorias.length ? req.body.categorias.map(Number) : null;
   // Flag premium: somente questões inéditas
-  const onlyNew = (!bloqueio) && (req.body.onlyNew === true || req.body.onlyNew === 'true');
+  const onlyNewPremiumOnly = !(userParams && userParams.premiumOnly && userParams.premiumOnly.onlyNewQuestions === false);
+  const allowOnlyNew = (!bloqueio) || (!onlyNewPremiumOnly);
+  const onlyNew = allowOnlyNew && (req.body.onlyNew === true || req.body.onlyNew === 'true');
   const hasFilters = Boolean((dominios && dominios.length) || (areas && areas.length) || (grupos && grupos.length) || (categorias && categorias.length));
 
   // Build WHERE clause with parameterized queries to prevent SQL injection
@@ -212,7 +217,7 @@ exports.selectQuestions = async (req, res, next) => {
     replacements.examTypeId = Number(examCfg._dbId);
   }
   
-  if (bloqueio) whereClauses.push(`q.seed = true`);
+  if (bloqueio && (userParams && userParams.freeOnlySeedQuestions !== false)) whereClauses.push(`q.seed = true`);
   
   // AND semantics across tabs; OR within each list
   // Using ANY() for safe array parameter binding
@@ -1171,7 +1176,9 @@ exports.startOnDemand = async (req, res, next) => {
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'));
 
     const bloqueio = Boolean(user.BloqueioAtivado);
-    if (bloqueio && count > 25) count = 25;
+    const userParams = await userParamsStore.getCachedParams({ maxAgeMs: 10_000 });
+    const freeLimit = Math.max(1, Number(userParams && userParams.freeExamQuestionLimit ? userParams.freeExamQuestionLimit : 25));
+    if (bloqueio && count > freeLimit) count = freeLimit;
     // Infer mode when header not provided: full when count >= blueprint total; quiz when count < full threshold
     let examMode = headerMode;
     try {
@@ -1193,7 +1200,7 @@ exports.startOnDemand = async (req, res, next) => {
       whereClauses.push(`exam_type_id = :examTypeId`);
       queryReplacements.examTypeId = Number(examCfg._dbId);
     }
-    if (bloqueio) whereClauses.push(`seed = true`);
+    if (bloqueio && (userParams && userParams.freeOnlySeedQuestions !== false)) whereClauses.push(`seed = true`);
     if (dominios && dominios.length) {
       whereClauses.push(`iddominio_desempenho = ANY(ARRAY[:dominios])`);
       queryReplacements.dominios = dominios;

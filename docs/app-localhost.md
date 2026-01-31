@@ -125,6 +125,12 @@ Se preferir testar em `localhost`, basta editar a variável no Postman.
 
 ---
 
+## Leitura complementar (implementação)
+
+- Implementação end-to-end (chat-service + parâmetros free/premium + UI admin “Parâmetro Usuários”): `docs/IMPLEMENTATION_ADMIN_USER_PARAMS_CHAT_SERVICE.md`
+
+---
+
 ## Troubleshooting
 
 ### `ERR_NAME_NOT_RESOLVED` ao abrir `app.localhost`

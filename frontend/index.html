@@ -469,6 +469,13 @@
                 
                 // Restaurar scroll do body
                 document.body.style.overflow = '';
+
+                // Defensive: ensure no global inert is left behind (can lock the whole UI)
+                try { document.body.removeAttribute('inert'); } catch(_){ }
+                try {
+                    const main = document.querySelector('main.content');
+                    if (main) main.removeAttribute('inert');
+                } catch(_){ }
             }, 0);
         }
         
@@ -496,8 +503,13 @@
                     modal.style.display='flex';
                     modal.setAttribute('aria-hidden','false');
                     try { closeBtn.focus(); } catch(_){}
-                    // Prevent background interaction while modal is open
-                    try { document.body.setAttribute('inert',''); } catch(_){}
+                    // Prevent background interaction while modal is open.
+                    // IMPORTANT: do NOT set inert on <body> (it makes the modal itself non-interactive
+                    // in browsers that support inert). Instead, inert only the main content.
+                    try {
+                        const main = document.querySelector('main.content');
+                        if (main) main.setAttribute('inert','');
+                    } catch(_){ }
                 }
                 function close(){
                     // Move focus away from elements that will become hidden
@@ -509,7 +521,10 @@
                     modal.style.display='none';
                     modal.setAttribute('aria-hidden','true');
                     // Restore background interaction
-                    try { document.body.removeAttribute('inert'); } catch(_){}
+                    try {
+                        const main = document.querySelector('main.content');
+                        if (main) main.removeAttribute('inert');
+                    } catch(_){ }
                     // Return focus to trigger for accessibility
                     try { if (triggerCard) triggerCard.focus(); } catch(_){}
                 }
@@ -2127,6 +2142,7 @@
                     <a href="/pages/admin/feedbackResponses.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Responder feedbacks</a>
                     <a href="/pages/admin/notifications.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Notificações</a>
                     <a href="/pages/admin/dataExplorer.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Data Explorer</a>
+                    <a href="/pages/admin/userParams.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid transparent;background:transparent;font-weight:700">Parâmetro Usuários</a>
                     <a href="/index.html" style="display:block;margin-top:10px;padding:10px 10px;border-radius:10px;color:var(--muted);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:700">Voltar para Home</a>
                     <div style="font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.3">Dica: o Data Explorer não aceita SQL livre; é um construtor seguro.</div>
                 </aside>
@@ -2759,8 +2775,13 @@
                         try {
                             const modal = document.getElementById('examResultsModal');
                             if (modal) {
+                                try { modal.removeAttribute('inert'); } catch(_){ }
                                 modal.style.display = 'flex';
                                 modal.setAttribute('aria-hidden','false');
+                                try {
+                                    const main = document.querySelector('main.content');
+                                    if (main) main.setAttribute('inert','');
+                                } catch(_){ }
                                 if (typeof window.loadExamHistoryModal === 'function') {
                                     window.loadExamHistoryModal();
                                 }
@@ -2796,8 +2817,13 @@
                         const modal = document.getElementById('examResultsModal');
                         const selectEl = document.getElementById('examSelect');
                         if (modal) {
+                            try { modal.removeAttribute('inert'); } catch(_){ }
                             modal.style.display = 'flex';
                             modal.setAttribute('aria-hidden','false');
+                            try {
+                                const main = document.querySelector('main.content');
+                                if (main) main.setAttribute('inert','');
+                            } catch(_){ }
                             // Carregar histórico
                             (async function loadHistory(){
                                 try {

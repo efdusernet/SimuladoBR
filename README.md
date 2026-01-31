@@ -199,6 +199,9 @@ Notas do bulk:
 	- Docs: `docs/flashcards-admin.md`
 - Dicas (admin): `frontend/pages/admin/dicas.html`
 	- Docs: `docs/dicas.md`
+
+- Parâmetro Usuários (admin): `frontend/pages/admin/userParams.html`
+	- Docs: `docs/IMPLEMENTATION_ADMIN_USER_PARAMS_CHAT_SERVICE.md`
 	- Aliases protegidos (recomendado usar estes links):
 		- `/admin/questions/form`
 		- `/admin/questions/bulk`
@@ -233,6 +236,7 @@ Coleção e instruções em: `postman/README.md`
 - CSRF: docs/csrf-implementation.md
 - Logging: docs/logging-guide.md
 - Endpoints da API: docs/api-endpoints.md
+- Implementação (chat-service + parâmetros free/premium + UI admin): docs/IMPLEMENTATION_ADMIN_USER_PARAMS_CHAT_SERVICE.md
 - IA com contexto da Web (admin): docs/ai-web-context.md
 - IA — Classificação de Questões (admin): docs/ai-question-classification.md
 - Erros Conhecidos: docs/known-errors.md

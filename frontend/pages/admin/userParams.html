@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Parâmetro Usuários (Admin)</title>
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
+  <script src="/utils/csrf.js"></script>
+  <script src="/utils/logout.js"></script>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{ background:#0b1220; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
+    .wrap{ max-width:1300px; margin:18px auto; padding:16px; background:#0f172a; border:1px solid #1f2937; border-radius:12px; }
+    .topbar{ display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+    .topbar h1{ margin:0; font-size:1.15rem; }
+    .muted{ color:#94a3b8; }
+    .small{ font-size:.85rem; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .btn{ padding:8px 12px; border-radius:8px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; cursor:pointer; font-weight:700; }
+    .btn:hover{ border-color:#334155; }
+    .btn-primary{ background:#16a34a; border-color:#15803d; }
+    .btn-danger{ background:#b91c1c; border-color:#7f1d1d; }
+    .btn-warn{ background:#f59e0b; border-color:#b45309; color:#111827; }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .grid{ display:grid; grid-template-columns: 420px 1fr; gap: 14px; margin-top: 14px; }
+    .card{ background:#0b1220; border:1px solid #1f2937; border-radius:12px; padding:12px; }
+
+    .sideMenu{ border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:10px; margin-bottom: 12px; }
+    .sideMenu h2{ margin:0 0 8px; font-size:.95rem; color:#e5e7eb; }
+    .sideMenu a{ display:block; padding:8px 10px; border-radius:10px; text-decoration:none; color:#e5e7eb; border:1px solid transparent; font-weight:700; font-size:.9rem; }
+    .sideMenu a:hover{ border-color:#334155; background:#0f172a; }
+    .sideMenu a.active{ background:#111827; border-color:#334155; }
+
+    label{ display:block; font-size:.82rem; color:#a3b2c5; margin:10px 0 6px; }
+    select,input,textarea{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
+    .row{ display:flex; gap:8px; }
+    .row > * { flex: 1; }
+
+    .sectionTitle{ margin:12px 0 6px; font-size:1rem; }
+    .hint{ color:#94a3b8; font-size:.82rem; margin-top:4px; }
+
+    .checkGrid{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+    .check{ display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid #1f2937; background:#0f172a; border-radius:10px; }
+    .check input{ width:auto; }
+
+    .status{ min-height: 18px; margin-top: 10px; color:#93c5fd; }
+    .status.error{ color:#fecaca; }
+
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Parâmetro Usuários (Admin)</h1>
+        <div class="muted small">Controla regras do <strong>usuário gratuito</strong> (limites e visibilidade). Salva via <span class="mono">/api/admin/user-params</span> (CSRF automático).</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:end;">
+        <button id="btnHome" class="btn">Home</button>
+        <button id="btnLogout" class="btn btn-danger">Sair</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="sideMenu" aria-label="Menu Admin">
+          <h2>Menu</h2>
+          <a href="/index.html">Home</a>
+          <a href="/pages/admin/questionForm.html">Cadastrar questão</a>
+          <a href="/pages/admin/questionBulk.html">Cadastrar questão bulk</a>
+          <a href="/pages/admin/flashcards.html">Flashcards</a>
+          <a href="/pages/admin/dicas.html">Dicas</a>
+          <a href="/pages/admin/feedbackResponses.html">Responder feedbacks</a>
+          <a href="/pages/admin/notifications.html">Notificações</a>
+          <a href="/pages/admin/dataExplorer.html">Data Explorer</a>
+          <a href="/pages/admin/productPlans.html">Planos (Marketing)</a>
+          <a href="/pages/admin/userParams.html" class="active" aria-current="page">Parâmetro Usuários</a>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btnReload" class="btn">Recarregar</button>
+          <button id="btnSeed" class="btn btn-warn">Gerar arquivo com defaults</button>
+          <button id="btnSave" class="btn btn-primary">Salvar</button>
+        </div>
+
+        <div class="status" id="status"></div>
+        <div class="muted small" id="sourceInfo" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="sectionTitle">Limites de exame</h2>
+        <div class="row">
+          <div>
+            <label for="inpFreeLimit">Limite de questões (gratuito)</label>
+            <input id="inpFreeLimit" inputmode="numeric" placeholder="25" />
+          </div>
+          <div>
+            <label for="inpFullCount">Qtde questões exame completo (base)</label>
+            <input id="inpFullCount" inputmode="numeric" placeholder="180" />
+          </div>
+        </div>
+        <div class="hint">Afeta: examSetup + backend /api/exams/select (cap do gratuito).</div>
+
+        <h2 class="sectionTitle">Restrições de conteúdo (gratuito)</h2>
+        <label for="selSeedOnly">Gratuito só vê questões marcadas como “gratuitas” (seed)</label>
+        <select id="selSeedOnly">
+          <option value="true">Sim</option>
+          <option value="false">Não</option>
+        </select>
+        <div class="hint">Afeta: seleção de questões no backend (filtro <span class="mono">seed=true</span>).</div>
+
+        <h2 class="sectionTitle">Funcionalidades premium-only</h2>
+
+        <label for="selInsights">Insights IA é premium-only</label>
+        <select id="selInsights">
+          <option value="true">Sim</option>
+          <option value="false">Não</option>
+        </select>
+
+        <label for="selOnlyNew">"Somente questões inéditas" (examSetup) é premium-only</label>
+        <select id="selOnlyNew">
+          <option value="true">Sim</option>
+          <option value="false">Não</option>
+        </select>
+
+        <label for="selChatWidget">Chat widget (desktop) é premium-only</label>
+        <select id="selChatWidget">
+          <option value="true">Sim</option>
+          <option value="false">Não</option>
+        </select>
+
+        <label for="selChatProxy">Chat-service (além do widget) é premium-only</label>
+        <select id="selChatProxy">
+          <option value="true">Sim</option>
+          <option value="false">Não</option>
+        </select>
+
+        <label for="selChatFreeAuth">Se NÃO for premium-only: permitir acesso do gratuito autenticado</label>
+        <select id="selChatFreeAuth">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+        <div class="hint">Mantém públicos: <span class="mono">/chat/widget/*</span>, <span class="mono">/chat/v1/support-topics</span>, <span class="mono">/chat/v1/conversations*</span>.</div>
+
+        <label for="selAiSnapshot">Snapshots diários (AI) apenas pagantes</label>
+        <select id="selAiSnapshot">
+          <option value="true">Sim</option>
+          <option value="false">Não</option>
+        </select>
+
+        <h2 class="sectionTitle">Indicadores (tabs premium-only)</h2>
+        <div class="muted small">Marque o que deve exigir premium no sidebar (Indicadores.html). Defaults atuais já vêm marcados.</div>
+        <div class="checkGrid" id="indTabs"></div>
+
+        <div class="hint">Obs: isso controla visibilidade/bloqueio no sidebar. Endpoints do backend podem continuar exigindo JWT/role conforme cada rota.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+
+  const statusEl = $('status');
+  const sourceInfoEl = $('sourceInfo');
+
+  const DEFAULT_TABS = [
+    { key: 'dist', label: 'Grupo Proc/Abordagem' },
+    { key: 'detalhes', label: 'Ranking detalhes' },
+    { key: 'dashboard', label: 'Estatísticas' },
+    { key: 'dominios', label: 'Domínios' },
+    { key: 'prob', label: 'Probabilidade' },
+  ];
+
+  function setStatus(msg, isError){
+    statusEl.textContent = msg || '';
+    statusEl.classList.toggle('error', !!isError);
+  }
+
+  function buildAuthHeaders(extra){
+    // Dedicated admin pages don't load frontend/script.js, so we must build auth headers here.
+    try {
+      if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+        return window.Auth.getAuthHeaders({ acceptJson: true, extra: extra && typeof extra === 'object' ? extra : undefined });
+      }
+    } catch(_){ }
+
+    const h = { 'Accept': 'application/json' };
+    try {
+      const token = (localStorage.getItem('sessionToken') || '').trim();
+      const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+      const sessionForHeader = (token || nomeUsuario).trim();
+      if (sessionForHeader) h['X-Session-Token'] = sessionForHeader;
+    } catch(_){ }
+    try {
+      const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+      const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+      if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+    } catch(_){ }
+    if (extra && typeof extra === 'object') {
+      for (const k of Object.keys(extra)) {
+        if (extra[k] === undefined || extra[k] === null) continue;
+        h[k] = extra[k];
+      }
+    }
+    return h;
+  }
+
+  async function ensureAdmin(){
+    // Preferred: delegate to global helper when available.
+    try {
+      if (typeof window.ensureAdminAccess === 'function') {
+        const ok = await window.ensureAdminAccess({ force: true });
+        return !!ok;
+      }
+    } catch(_) {}
+
+    // Fallback: probe an admin-only endpoint.
+    try {
+      const headers = buildAuthHeaders();
+      const probe = await fetch('/api/admin/data-explorer/tables', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+      if (probe.ok || probe.status === 204) return true;
+    } catch(_){ }
+
+    // Final fallback: /api/users/me role field.
+    try {
+      const headers = buildAuthHeaders();
+      const resp = await fetch('/api/users/me', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+      if (!resp.ok) return false;
+      const user = await resp.json().catch(() => null);
+      return !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
+    } catch(_){
+      return false;
+    }
+  }
+
+  function renderTabs(selected){
+    const wrap = $('indTabs');
+    wrap.innerHTML = '';
+    DEFAULT_TABS.forEach(t => {
+      const id = 'tab_' + t.key;
+      const row = document.createElement('label');
+      row.className = 'check';
+      row.setAttribute('for', id);
+      row.innerHTML = `<input type="checkbox" id="${id}" /> <span>${t.label} <span class="muted small">(${t.key})</span></span>`;
+      wrap.appendChild(row);
+      const cb = $(id);
+      cb.checked = selected.has(String(t.key));
+    });
+  }
+
+  function collectTabs(){
+    const out = [];
+    DEFAULT_TABS.forEach(t => {
+      const cb = $('tab_' + t.key);
+      if (cb && cb.checked) out.push(t.key);
+    });
+    return out;
+  }
+
+  function readBoolSelect(id){
+    const v = String($(id).value || '').toLowerCase();
+    return v === 'true' || v === '1' || v === 'yes';
+  }
+
+  function readInt(id, fallback){
+    const raw = String($(id).value || '').trim();
+    const n = Number(raw);
+    if (!raw) return fallback;
+    if (!Number.isFinite(n)) return fallback;
+    return Math.trunc(n);
+  }
+
+  async function load(){
+    setStatus('Carregando...', false);
+    sourceInfoEl.textContent = '';
+
+    const okAdmin = await ensureAdmin();
+    if (!okAdmin) {
+      setStatus('Acesso restrito: somente admin.', true);
+      return;
+    }
+
+    const r = await fetch('/api/admin/user-params', { method:'GET', headers: buildAuthHeaders(), credentials:'include', cache:'no-store' });
+    const data = await r.json().catch(()=>null);
+    if (!r.ok) {
+      setStatus((data && data.message) ? data.message : ('Erro ao carregar: ' + r.status), true);
+      return;
+    }
+
+    const p = (data && data.params) ? data.params : {};
+
+    $('inpFreeLimit').value = String(p.freeExamQuestionLimit ?? '');
+    $('inpFullCount').value = String(p.fullExamQuestionCount ?? '');
+    $('selSeedOnly').value = String(!!p.freeOnlySeedQuestions);
+
+    const po = p.premiumOnly || {};
+    $('selInsights').value = String(po.insightsIA !== false);
+    $('selOnlyNew').value = String(po.onlyNewQuestions !== false);
+    $('selChatWidget').value = String(po.chatWidgetDesktop !== false);
+    $('selChatProxy').value = String(po.chatProxyDefault !== false);
+    $('selAiSnapshot').value = String(po.aiDailySnapshot !== false);
+
+    const chat = p.chat || {};
+    $('selChatFreeAuth').value = String(!!chat.allowFreeAuthenticatedAccess);
+
+    const selectedTabs = new Set(Array.isArray(po.indicatorsTabs) ? po.indicatorsTabs : []);
+    renderTabs(selectedTabs);
+
+    sourceInfoEl.textContent = 'Fonte: ' + String(data.source || '-') + (data.ok === false ? (' • fallback (erro: ' + (data.error || 'n/d') + ')') : '');
+    setStatus('OK', false);
+  }
+
+  async function save(){
+    setStatus('Salvando...', false);
+
+    const params = {
+      version: 1,
+      fullExamQuestionCount: readInt('inpFullCount', 180),
+      freeExamQuestionLimit: readInt('inpFreeLimit', 25),
+      freeOnlySeedQuestions: readBoolSelect('selSeedOnly'),
+      premiumOnly: {
+        onlyNewQuestions: readBoolSelect('selOnlyNew'),
+        insightsIA: readBoolSelect('selInsights'),
+        indicatorsTabs: collectTabs(),
+        chatWidgetDesktop: readBoolSelect('selChatWidget'),
+        chatProxyDefault: readBoolSelect('selChatProxy'),
+        aiDailySnapshot: readBoolSelect('selAiSnapshot'),
+      },
+      chat: {
+        allowFreeAuthenticatedAccess: readBoolSelect('selChatFreeAuth'),
+      },
+    };
+
+    const r = await fetch('/api/admin/user-params', {
+      method:'PUT',
+      headers: buildAuthHeaders({ 'Content-Type':'application/json' }),
+      credentials:'include',
+      body: JSON.stringify(params),
+    });
+
+    const data = await r.json().catch(()=>null);
+    if (!r.ok) {
+      setStatus((data && data.message) ? data.message : ('Erro ao salvar: ' + r.status), true);
+      return;
+    }
+
+    setStatus('Salvo com sucesso.', false);
+    await load();
+  }
+
+  async function seedDefaults(){
+    const ok = confirm('Isso vai gravar os defaults em backend/data/userParams.json.\n\nSe o arquivo já existir, será necessário confirmar sobrescrita.');
+    if (!ok) return;
+
+    const overwrite = confirm('Sobrescrever se já existir?');
+    const force = overwrite ? '1' : '0';
+
+    setStatus('Gerando defaults...', false);
+    const r = await fetch('/api/admin/user-params/seed-defaults?force=' + force, {
+      method:'POST',
+      headers: buildAuthHeaders(),
+      credentials:'include',
+    });
+    const data = await r.json().catch(()=>null);
+    if (!r.ok) {
+      setStatus((data && data.message) ? data.message : ('Erro: ' + r.status), true);
+      return;
+    }
+    setStatus('Defaults gravados.', false);
+    await load();
+  }
+
+  function bind(){
+    $('btnHome').onclick = () => { (window.top || window).location.assign('/index.html'); };
+    $('btnLogout').onclick = () => { try { window.performLogout({ confirm: false }); } catch(_) { (window.top||window).location.assign('/login'); } };
+    $('btnReload').onclick = () => load();
+    $('btnSave').onclick = () => save();
+    $('btnSeed').onclick = () => seedDefaults();
+  }
+
+  bind();
+  load();
+})();
+</script>
+</body>
+</html>

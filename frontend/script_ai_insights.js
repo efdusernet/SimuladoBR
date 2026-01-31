@@ -95,7 +95,13 @@
     if (on) loadingEl.textContent = defaultLoadingText;
     loadingEl.style.display = on ? 'block' : 'none';
   }
-  function setError(on){ if (errorEl) errorEl.style.display = on ? 'block' : 'none'; }
+  function setError(on, msg){
+    if (!errorEl) return;
+    if (typeof msg !== 'undefined' && msg !== null) {
+      try { errorEl.textContent = String(msg); } catch(_){ }
+    }
+    errorEl.style.display = on ? 'block' : 'none';
+  }
 
   function setHint(msg){
     if (!loadingEl) return;
@@ -954,6 +960,11 @@
         } catch(_) {
           // ignore
         }
+
+        if (resp.status === 403 && payload && payload.code === 'PREMIUM_REQUIRED') {
+          throw new Error('PREMIUM_REQUIRED');
+        }
+
         const msg = payload && (payload.message || payload.code)
           ? `${payload.code || resp.status}: ${payload.message || 'Erro'}`
           : `${resp.status}: Falha na resposta`;
@@ -970,7 +981,13 @@
       setLoading(false);
     } catch(e) {
       logger.error(e);
-      setError(true);
+
+      if (String(e && e.message || '') === 'PREMIUM_REQUIRED') {
+        setError(true, 'Recurso Premium. Faça upgrade para acessar os Insights da IA.');
+        setHint('Acesso premium necessário para Insights da IA.');
+      } else {
+        setError(true, 'Falha ao carregar. Verifique login e servidor.');
+      }
 
       const cached = loadCached();
       if (cached && cached.storedAt) {

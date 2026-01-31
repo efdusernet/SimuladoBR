@@ -439,6 +439,26 @@
     const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
   let FULL_Q = 180;
   let FREE_LIMIT = 25;
+  let onlyNewPremiumOnly = true;
+  let allowOnlyNew = !bloqueado;
+
+  function applyOnlyNewGate(){
+    try {
+      if (!onlyNewInput) return;
+      if (!allowOnlyNew) {
+        onlyNewInput.checked = false;
+        onlyNewInput.disabled = true;
+        if (onlyNewInfo) onlyNewInfo.textContent = 'Recurso Premium';
+        if (ineditasInfo) ineditasInfo.style.display = 'none';
+      } else {
+        onlyNewInput.disabled = false;
+        if (onlyNewInfo && !(onlyNewInput && onlyNewInput.checked)) {
+          onlyNewInfo.textContent = 'Usa apenas questões nunca respondidas.';
+        }
+        if (ineditasInfo) ineditasInfo.style.display = '';
+      }
+    } catch(e){}
+  }
   let limiteQuestoes = bloqueado ? FREE_LIMIT : FULL_Q;
   (async function initLimits(){
     try {
@@ -448,6 +468,12 @@
         if (typeof cfg.fullExamQuestionCount === 'number') FULL_Q = cfg.fullExamQuestionCount;
         if (typeof cfg.freeExamQuestionLimit === 'number') FREE_LIMIT = cfg.freeExamQuestionLimit;
       }
+
+      const up = await fetch(base + '/api/meta/user-params').then(r => r.ok ? r.json() : null).catch(()=>null);
+      if (up && up.params && up.params.premiumOnly) {
+        onlyNewPremiumOnly = !(up.params.premiumOnly.onlyNewQuestions === false);
+      }
+      allowOnlyNew = (!bloqueado) || (!onlyNewPremiumOnly);
     } catch(_){}
     // recompute with config
     limiteQuestoes = bloqueado ? FREE_LIMIT : FULL_Q;
@@ -456,24 +482,16 @@
       : `Usuário pagante: limite de ${limiteQuestoes} questões.`;
     document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
     quantidadeInput.setAttribute('max', String(limiteQuestoes));
+
+    applyOnlyNewGate();
   })();
   quantidadeInput.setAttribute('max', String(limiteQuestoes));
     quantidadeInput.setAttribute('min', '1');
-    // Inicializa campo Somente questões inéditas (Premium somente)
-    try {
-      if (bloqueado) {
-        onlyNewInput.checked = false;
-        onlyNewInput.disabled = true;
-        if (onlyNewInfo) onlyNewInfo.textContent = 'Recurso Premium';
-        ineditasInfo.style.display = 'none';
-      } else {
-        if (onlyNewInfo) onlyNewInfo.textContent = 'Usa apenas questões nunca respondidas.';
-        ineditasInfo.style.display = '';
-      }
-    } catch(e){}
+    // Inicializa campo Somente questões inéditas
+    applyOnlyNewGate();
 
     function updateOnlyNewInfoText(opts = {}){
-      if (bloqueado || !onlyNewInfo) return;
+      if (!allowOnlyNew || !onlyNewInfo) return;
       const checked = !!(onlyNewInput && onlyNewInput.checked);
       if (!checked) {
         onlyNewInfo.textContent = 'Usa apenas questões nunca respondidas.';
@@ -541,7 +559,7 @@
       if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
       if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       if (selecionados.categorias.length) payload.categorias = selecionados.categorias;
-      if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
+      if (allowOnlyNew && onlyNewInput.checked) payload.onlyNew = true;
       try {
         const resp = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json', extra: { 'X-Exam-Type': currentExamType } }), body: JSON.stringify(payload) });
         const txt = await resp.text();
@@ -553,7 +571,7 @@
 
     // Contagem de inéditas independentemente do checkbox (para exibir potencial)
     async function countIneditasForCurrentFilters() {
-      if (bloqueado) return null;
+      if (!allowOnlyNew) return null;
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
       const url = base + '/api/exams/select';
       const token = getSessionToken();
@@ -602,7 +620,7 @@
           if (parsed.activeTab && (parsed.activeTab === 'dominios' || parsed.activeTab === 'grupos' || parsed.activeTab === 'abordagem')) abaAtual = parsed.activeTab;
           // Área de Conhecimento desativada: se veio salva como aba ativa, cai para Domínios
           if (parsed.activeTab === 'areas') abaAtual = 'dominios';
-          if ((parsed.onlyNew === true || parsed.onlyNew === 'true') && !bloqueado) {
+          if ((parsed.onlyNew === true || parsed.onlyNew === 'true') && allowOnlyNew) {
             try { onlyNewInput.checked = true; } catch(e){}
           }
         }
@@ -611,7 +629,7 @@
 
     // Após reidratar estado do checkbox, ajustar o texto conforme marcado/desmarcado
     try {
-      if (!bloqueado) {
+      if (allowOnlyNew) {
         updateOnlyNewInfoText({ pending: !!(onlyNewInput && onlyNewInput.checked) });
       }
     } catch(_){ }
@@ -665,8 +683,8 @@
       resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
         // Atualiza a contagem disponível para os filtros (se houver)
         scheduleAtualizarDisponiveis();
-      // Se premium e sem filtros, mostrar total de inéditas gerais (sem filtros)
-      if (!bloqueado && !(selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length)) {
+      // Se houver acesso a inéditas e sem filtros, mostrar total geral (sem filtros)
+      if (allowOnlyNew && !(selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length)) {
         try {
           resumoIneditas.textContent = '...';
           updateOnlyNewInfoText({ pending: true });
@@ -691,7 +709,7 @@
 
     // Atualiza contagens quando o checkbox de inéditas muda
     try {
-      if (onlyNewInput && !bloqueado) {
+      if (onlyNewInput && allowOnlyNew) {
         onlyNewInput.addEventListener('change', () => {
           try { salvarSelecoes(); } catch(_){ }
           try {
@@ -707,7 +725,7 @@
     function salvarSelecoes() {
       try {
         const payload = { dominios: selecionados.dominios, grupos: selecionados.grupos, categorias: selecionados.categorias, activeTab: abaAtual };
-        if (!bloqueado) payload.onlyNew = !!onlyNewInput.checked;
+        if (allowOnlyNew) payload.onlyNew = !!onlyNewInput.checked;
         localStorage.setItem('examFilters', JSON.stringify(payload));
       } catch(e) {}
     }
@@ -769,7 +787,7 @@
         if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
         if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
       }
-      if (!bloqueado && onlyNewInput.checked) payload.onlyNew = true;
+      if (allowOnlyNew && onlyNewInput.checked) payload.onlyNew = true;
       try {
         const resp = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json', extra: { 'X-Exam-Type': currentExamType } }), body: JSON.stringify(payload) });
         const txt = await resp.text();
@@ -839,7 +857,7 @@
           }
           return;
         }
-        const finalCount = bloqueado ? Math.min(disponiveis, 25) : disponiveis;
+        const finalCount = bloqueado ? Math.min(disponiveis, FREE_LIMIT) : disponiveis;
         // Confirmar se exatamente FULL_Q (exame completo)
         if (finalCount === FULL_Q) {
           showFullExamConfirm(() => {
@@ -904,9 +922,9 @@
             return;
           }
         }
-        // Bloqueado: mostrar mensagem com sugestão (cap 25)
+        // Bloqueado: mostrar mensagem com sugestão (cap FREE_LIMIT)
         if (errorBox) {
-          const suggested = Math.min(available, 25);
+          const suggested = Math.min(available, FREE_LIMIT);
           const msg = `Existem <strong>${available}</strong> questões que atendem aos filtros. No plano gratuito você pode iniciar com <strong>${suggested}</strong>.`;
           errorBox.innerHTML = msg + (suggested > 0 ? ` <button id="${btnId}" type="button" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>` : '');
           errorBox.style.display = '';

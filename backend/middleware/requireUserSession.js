@@ -15,6 +15,7 @@ module.exports = async function requireUserSession(req, res, next){
 
     const user = result.user;
     req.user = { id: user.Id || user.id, nome: user.NomeUsuario || user.Nome || null };
+    req.userModel = user;
     next();
   } catch (e) {
     console.error('requireUserSession error:', e);

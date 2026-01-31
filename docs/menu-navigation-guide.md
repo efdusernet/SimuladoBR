@@ -75,6 +75,8 @@ No HTML, o menu Admin inicia assim:
    - `jwtToken` (quando aplicável)
 4) Confira se o backend realmente retorna `TipoUsuario: "admin"`.
 
+Leitura complementar (end-to-end: chat-service + parâmetros free/premium + UI admin): `docs/IMPLEMENTATION_ADMIN_USER_PARAMS_CHAT_SERVICE.md`.
+
 ## 5) Click interception (o que é interceptado e o que não é)
 
 O script do sidebar intercepta alguns cliques para controlar UX e premium gating.

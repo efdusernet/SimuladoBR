@@ -145,12 +145,20 @@ class SafeRedirect {
 
         // 1) Preferred: probe admin-only endpoint (aligns with backend RBAC, avoids false positives).
         try {
-            const identity = (headers && headers['X-Session-Token']) ? String(headers['X-Session-Token']) : '';
-            if (identity) {
-                const probeUrl = (baseUrl || '') + '/api/admin/data-explorer/tables';
-                const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include', cache: 'no-store' });
-                if (probeResp.ok || probeResp.status === 204) return true;
-            }
+            const probeUrl = (baseUrl || '') + '/api/admin/data-explorer/tables';
+            const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include', cache: 'no-store', redirect: 'follow' });
+
+            // Defensive: treat redirects to /login (or HTML) as non-admin.
+            try {
+                if (probeResp.redirected && /\/login(\?|$)/i.test(String(probeResp.url || ''))) return false;
+                const ct = String(probeResp.headers && probeResp.headers.get && probeResp.headers.get('content-type') || '');
+                if (ct && ct.includes('text/html')) return false;
+            } catch(_){ }
+
+            // NOTE: Some setups may return 304 (ETag) for allowed resources.
+            // Treat it as success for the admin-only probe.
+            if (probeResp.ok || probeResp.status === 204 || probeResp.status === 304) return true;
+            if (probeResp.status === 401 || probeResp.status === 403) return false;
         } catch(_){ }
 
         // 2) Fallback: /api/users/me legacy role field.
@@ -170,13 +178,8 @@ class SafeRedirect {
         const force = options.force === true;
         const maxAgeMs = Number.isFinite(Number(options.maxAgeMs)) ? Number(options.maxAgeMs) : 30_000;
 
-        const key = getSessionKeyFromStorage();
-        if (!key) {
-            // No identity -> definitely not admin.
-            try { window.__isAdmin = false; } catch(_){ }
-            try { window.__adminAccessCache = { key: '', isAdmin: false, checkedAt: Date.now() }; } catch(_){ }
-            return false;
-        }
+        // If localStorage identity is missing, we still allow cookie-based auth probing.
+        const key = getSessionKeyFromStorage() || '__cookie__';
 
         const cache = (() => { try { return window.__adminAccessCache; } catch(_){ return null; } })();
         const now = Date.now();

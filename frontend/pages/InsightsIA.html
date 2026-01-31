@@ -350,6 +350,33 @@
       const pageMenu = document.getElementById('pageMenu');
       const indicadoresLink = document.getElementById('menuIndicadoresLink');
       const progressoLink = pageMenu ? pageMenu.querySelector('a[href="/pages/progressoGeral.html"]') : null;
+
+      // If the user is admin, expose an Admin entry in this page's mobile menu.
+      // (On mobile, LayoutManager hides the sidebar, so admin navigation would otherwise be unreachable here.)
+      (async function injectAdminLink(){
+        try {
+          if (!pageMenu) return;
+          const resp = await fetch('/api/users/me', { method: 'GET', credentials: 'include', cache: 'no-store' });
+          if (!resp.ok) return;
+          const me = await resp.json().catch(() => null);
+          const isAdmin = !!(me && (me.TipoUsuario === 'admin' || me.tipoUsuario === 'admin' || me.isAdmin === true));
+          if (!isAdmin) return;
+          if (pageMenu.querySelector('a[data-menu-admin="1"]')) return;
+          const a = document.createElement('a');
+          a.href = '/pages/admin/userParams.html';
+          a.rel = 'noopener';
+          a.textContent = 'Admin';
+          a.setAttribute('data-menu-admin', '1');
+          // Insert after "Início" for visibility.
+          const first = pageMenu.querySelector('a');
+          if (first && first.parentNode === pageMenu) {
+            first.insertAdjacentElement('afterend', a);
+          } else {
+            pageMenu.appendChild(a);
+          }
+        } catch(_){ }
+      })();
+
       function setOpen(open){
         pageMenu.classList.toggle('open', open);
         pageMenu.setAttribute('aria-hidden', open ? 'false' : 'true');

@@ -3843,7 +3843,23 @@
       if (adminAccordion) adminAccordion.style.display = 'none';
 
       // Force refresh when session identity changes; otherwise allow short cache.
-      const ok = await ensureAdminAccess({ maxAgeMs: 15000 });
+      let ok = false;
+      try {
+        ok = await ensureAdminAccess({ maxAgeMs: 15000 });
+      } catch(_){ ok = false; }
+
+      // Deterministic fallback: /api/users/me already returns TipoUsuario=admin based on RBAC.
+      // This also works for cookie-only sessions (no localStorage identity).
+      if (!ok) {
+        try {
+          const resp = await fetch('/api/users/me', { method: 'GET', credentials: 'include', cache: 'no-store' });
+          if (resp && resp.ok) {
+            const me = await resp.json().catch(() => null);
+            ok = !!(me && (me.TipoUsuario === 'admin' || me.tipoUsuario === 'admin' || me.isAdmin === true));
+          }
+        } catch(_){ /* ignore */ }
+      }
+
       if (!ok) return;
 
       if (adminAccordion) adminAccordion.style.display = 'block';
@@ -3917,3 +3933,5 @@
   restoreNavigationState();
 })();
 </script>
+
+

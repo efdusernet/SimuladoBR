@@ -13,6 +13,7 @@ const { authSchemas, validate } = require('../middleware/validation');
 const { security, audit } = require('../utils/logger');
 const { badRequest, unauthorized, forbidden, notFound, tooManyRequests, internalError } = require('../middleware/errors');
 const { generateSessionId, upsertActiveSession, verifyJwtAndGetActiveUser, extractTokenFromRequest } = require('../utils/singleSession');
+const { getCookieDomainForRequest } = require('../utils/cookieDomain');
 
 // Explicitly set bcrypt rounds for password hashing security
 const BCRYPT_ROUNDS = 12;
@@ -104,6 +105,17 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                     }
                 });
 
+                // Backward-compat cleanup: older builds attempted Domain=.localhost.
+                try {
+                    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+                    if (!isProd) {
+                        const hostRaw = String(req.get('host') || '').replace(/:\d+$/, '').toLowerCase();
+                        if (hostRaw === 'localhost' || hostRaw.endsWith('.localhost')) {
+                            res.clearCookie('sessionToken', { domain: '.localhost', path: '/' });
+                        }
+                    }
+                } catch (_) {}
+
                 for (const oldToken of existingTokens) {
                     try {
                         const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
@@ -191,7 +203,8 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 secure: process.env.NODE_ENV === 'production', // HTTPS only in production
                 sameSite: 'strict',
                 maxAge: 12 * 60 * 60 * 1000, // 12 hours in milliseconds
-                path: '/'
+                path: '/',
+                domain: getCookieDomainForRequest(req)
             };
             res.cookie('sessionToken', token, cookieOptions);
         } catch (e) { logger.warn('JWT sign error, token omitido:', e && e.message); }
@@ -209,6 +222,17 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
             token, // Still return token for backward compatibility
             tokenType: token ? 'Bearer' : null
         });
+
+        // Best-effort: clear legacy Domain=.localhost variant too.
+        try {
+            const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+            if (!isProd) {
+                const hostRaw = String(req.get('host') || '').replace(/:\d+$/, '').toLowerCase();
+                if (hostRaw === 'localhost' || hostRaw.endsWith('.localhost')) {
+                    res.clearCookie('sessionToken', { domain: '.localhost', path: '/' });
+                }
+            }
+        } catch (_) {}
     } catch (err) {
         logger.error('Erro em /api/auth/login:', err);
         return next(internalError('Erro interno', 'INTERNAL_ERROR_LOGIN'));
@@ -440,7 +464,8 @@ router.post('/logout', async (req, res, next) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            path: '/'
+            path: '/',
+            domain: getCookieDomainForRequest(req)
         });
         
         return res.json({ 

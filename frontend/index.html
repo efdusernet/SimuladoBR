@@ -2862,7 +2862,7 @@
                     if (typeof window.openAdminModal === 'function') {
                         window.openAdminModal();
                     } else {
-                        ensureAdminAccess().then((ok) => {
+                        ensureAdminAccessLocal().then((ok) => {
                             if (!ok) { denyAdminUi(); return; }
                             const adminModal = document.getElementById('adminModal');
                             if (adminModal) {
@@ -3095,65 +3095,23 @@
             const commRecipientsStatus = document.getElementById('commRecipientsStatus');
             const commRefreshRecipientsBtn = document.getElementById('commRefreshRecipientsBtn');
 
-            async function ensureAdminAccess(){
-                // Never trust stale global flag across logins/navigation; always revalidate.
-
+            async function ensureAdminAccessLocal(){
                 try {
-                    const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || 'http://localhost:3000';
-                    const token = (localStorage.getItem('sessionToken') || '').trim();
-                    const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
-                    const sessionForHeader = token || nomeUsuario;
-
-                    const headers = {};
-                    if (sessionForHeader) headers['X-Session-Token'] = sessionForHeader;
-                    try {
-                        const jwtTok = (localStorage.getItem('jwtToken')||'').trim();
-                        const jwtType = (localStorage.getItem('jwtTokenType')||'Bearer').trim()||'Bearer';
-                        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
-                    } catch(_){ }
-                    try {
-                        const jwtTokB = (localStorage.getItem('jwt')||'').trim();
-                        const jwtTypeB = (localStorage.getItem('jwt_type')||'Bearer').trim()||'Bearer';
-                        if (!headers['Authorization'] && jwtTokB) headers['Authorization'] = `${jwtTypeB} ${jwtTokB}`;
-                    } catch(_){ }
-
-                    // Primary: probe admin-only endpoint (aligns with backend RBAC).
-                    try {
-                        const probeUrl = base + '/api/admin/data-explorer/tables';
-                        const probeResp = await fetch(probeUrl, { headers, method: 'GET', credentials: 'include' });
-                        if (probeResp.ok || probeResp.status === 204) {
-                            try { window.__isAdmin = true; } catch(_){ }
-                            try {
-                                const adminCard = document.getElementById('card-admin');
-                                if (adminCard) adminCard.style.display = '';
-                            } catch(_){ }
-                            return true;
-                        }
-                    } catch(_){ }
-
-                    // Fallback: /api/users/me for legacy setups.
-                    const resp = await fetch(base + '/api/users/me', { headers, credentials: 'include' });
-                    if (!resp.ok) {
-                        try { window.__isAdmin = false; } catch(_){ }
-                        try {
-                            const adminCard = document.getElementById('card-admin');
-                            if (adminCard) adminCard.style.display = 'none';
-                        } catch(_){ }
-                        return false;
-                    }
-                    const user = await resp.json().catch(()=>null);
-                    const ok = !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
+                    const ok = (typeof window.ensureAdminAccess === 'function')
+                        ? await window.ensureAdminAccess({ force: true, maxAgeMs: 0 })
+                        : false;
                     try { window.__isAdmin = ok; } catch(_){ }
-
-                    // Keep admin entry hidden unless confirmed.
                     try {
                         const adminCard = document.getElementById('card-admin');
                         if (adminCard) adminCard.style.display = ok ? '' : 'none';
                     } catch(_){ }
-
                     return ok;
                 } catch(_){
                     try { window.__isAdmin = false; } catch(_){ }
+                    try {
+                        const adminCard = document.getElementById('card-admin');
+                        if (adminCard) adminCard.style.display = 'none';
+                    } catch(_){ }
                     return false;
                 }
             }
@@ -3270,7 +3228,7 @@
                     outLines.push('');
                     outLines.push('[admin/data-explorer/tables]');
                     outLines.push(fmtHealthLine('status', resp.status));
-                    outLines.push(fmtHealthLine('ok', (resp.ok || resp.status === 204) ? 'yes' : 'no'));
+                    outLines.push(fmtHealthLine('ok', (resp.ok || resp.status === 204 || resp.status === 304) ? 'yes' : 'no'));
                 } catch (e) {
                     outLines.push('');
                     outLines.push('[admin/data-explorer/tables] ERROR: ' + (e && e.message ? e.message : String(e)));
@@ -3282,7 +3240,9 @@
                     adminHealthCheckOutput.textContent = text;
                 }
 
-                const ok = /\[admin\/data-explorer\/tables\][\s\S]*ok\s*: yes/i.test(text) || /\[users\/me\][\s\S]*TipoUsuario\s*: admin/i.test(text);
+                const ok = /\[admin\/data-explorer\/tables\][\s\S]*ok\s*: yes/i.test(text)
+                    || /\[admin\/data-explorer\/tables\][\s\S]*status\s*: 304/i.test(text)
+                    || /\[users\/me\][\s\S]*TipoUsuario\s*: admin/i.test(text);
                 try {
                     if (window.showToast) window.showToast(ok ? 'Health check OK (admin)' : 'Health check: atenção (não-admin)');
                 } catch(_){ }
@@ -3356,7 +3316,7 @@
                 try { if (window.__isAdmin === true) return proceed(); } catch(_){ }
 
                 // Verify admin before opening.
-                ensureAdminAccess().then((ok) => {
+                ensureAdminAccessLocal().then((ok) => {
                     if (ok) return proceed();
                     denyAdminUi();
                     return null;
@@ -3406,7 +3366,7 @@
             // Check if user is admin on page load
             (async function checkAdmin() {
                 try {
-                    await ensureAdminAccess();
+                    await ensureAdminAccessLocal();
                 } catch(e) {
                     logger.warn('Admin check failed:', e);
                 }

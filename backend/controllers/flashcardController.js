@@ -88,14 +88,21 @@ async function listFlashcards(req, res, next) {
 				AND ($seed::boolean IS NULL OR COALESCE(f.seed, FALSE) = $seed)
 				AND (
 					(
-						$idprincipio::int IS NOT NULL
-						OR $iddominio_desempenho::int IS NOT NULL
-						OR $basics::boolean IS NOT NULL
+						$idprincipio::int IS NULL
+						AND $iddominio_desempenho::int IS NULL
+						AND $basics::boolean IS NULL
 					)
-					AND (
-						(f.idprincipio = $idprincipio)
-						OR (f.iddominio_desempenho = $iddominio_desempenho)
-						OR (COALESCE(f.basics, FALSE) = $basics)
+					OR (
+						(
+							$idprincipio::int IS NOT NULL
+							OR $iddominio_desempenho::int IS NOT NULL
+							OR $basics::boolean IS NOT NULL
+						)
+						AND (
+							(f.idprincipio = $idprincipio)
+							OR (f.iddominio_desempenho = $iddominio_desempenho)
+							OR (COALESCE(f.basics, FALSE) = $basics)
+						)
 					)
 				)
 			ORDER BY f.id ASC

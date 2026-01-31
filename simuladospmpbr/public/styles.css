@@ -126,20 +126,20 @@ a { text-decoration: none; }
       rgba(255, 255, 255, 0.82) 100%
     ),
     url('/public/sched.png');
-  background-size: cover, 520px auto;
+  background-size: cover, 600px auto;
   background-position: center, left center;
   background-repeat: no-repeat, no-repeat;
 }
 
 @media (max-width: 992px) {
   #checkout.section-anchor {
-    background-size: cover, 360px auto;
+    background-size: cover, 420px auto;
   }
 }
 
 @media (max-width: 576px) {
   #checkout.section-anchor {
-    background-size: cover, 260px auto;
+    background-size: cover, 300px auto;
   }
 }
 

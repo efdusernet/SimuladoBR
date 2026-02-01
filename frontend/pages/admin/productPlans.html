@@ -51,11 +51,21 @@
     .previewPanel{ border:1px solid #1f2937; border-radius:12px; padding:12px; background:#0b1220; margin-top:14px; }
     .previewPanel h2{ margin:0 0 6px; font-size:1rem; }
     .previewPanel .previewHint{ color:#94a3b8; font-size:.85rem; }
+    .previewControls{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-top:8px; }
+    .previewControls .left{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .previewControls label{ display:inline-flex; align-items:center; gap:8px; color:#cbd5e1; font-size:.9rem; }
+    .previewControls select{ background:#0f172a; color:#e5e7eb; border:1px solid #334155; border-radius:10px; padding:8px 10px; }
     .previewStage{ margin-top:10px; padding:16px; border-radius:14px; border:1px solid rgba(148,163,184,0.22);
       background: radial-gradient(700px 380px at 10% 20%, rgba(37, 99, 235, 0.14), transparent 62%),
                   radial-gradient(700px 380px at 95% 0%, rgba(124, 58, 237, 0.12), transparent 62%),
                   rgba(255, 255, 255, 0.86);
     }
+    .previewGrid{ display:grid; gap:14px; align-items:stretch; justify-content:center; grid-template-columns: 1fr; }
+    @media (min-width: 980px){
+      .previewGrid--2{ grid-template-columns: repeat(2, minmax(280px, 420px)); }
+      .previewGrid--3{ grid-template-columns: repeat(3, minmax(260px, 420px)); }
+    }
+    .previewGridTitle{ font-weight:900; color: rgba(15, 23, 42, 0.76); text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; margin: 2px 2px 8px; }
     .previewStage .pricing-card{ height:100%; border-radius:18px; border:1px solid rgba(15, 23, 42, 0.10); background:#fff; box-shadow: 0 18px 45px rgba(2, 6, 23, 0.10); display:flex; flex-direction:column; padding:16px; overflow:hidden; position:relative; max-width: 420px; margin: 0 auto; }
     .previewStage .pricing-card--featured{ border-color: rgba(37, 99, 235, 0.55); box-shadow: 0 22px 60px rgba(37, 99, 235, 0.18); }
     .previewStage .pricing-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
@@ -223,6 +233,17 @@
     <div class="previewPanel" aria-label="Prévia do card de planos">
       <h2>Prévia do card (marketing /#planos)</h2>
       <div class="previewHint">Atualiza automaticamente conforme você edita o formulário. Isso não salva nada — é só visual.</div>
+      <div class="previewControls">
+        <div class="left">
+          <label for="selPreviewMode">Modo</label>
+          <select id="selPreviewMode">
+            <option value="1">1 card (plano atual)</option>
+            <option value="2">2 cards (START + atual)</option>
+            <option value="3" selected>3 cards (START + atual + destaque)</option>
+          </select>
+        </div>
+        <div class="muted small">Dica: use isso pra checar consistência visual.</div>
+      </div>
       <div class="previewStage">
         <div id="previewCardMount"></div>
       </div>
@@ -241,6 +262,7 @@
   let selectedId = null;
 
   const previewMount = $('previewCardMount');
+  const previewMode = $('selPreviewMode');
 
   function escapeHtml(s){
     return String(s == null ? '' : s)
@@ -346,7 +368,7 @@
       featsHtml += `<li><span class="plan-check" aria-hidden="true">✓</span> ${escapeHtml(f)}</li>`;
     });
 
-    previewMount.innerHTML = `
+    return `
       <div class="pricing-card pricing-card--v2 ${isFeatured ? 'pricing-card--featured' : ''}" data-plan-id="${escapeHtml(plan.id || '')}">
         <div class="pricing-top">
           <span class="plan-tag plan-tag--${escapeHtml(safeVariant)}">${escapeHtml(tagText)}</span>
@@ -376,10 +398,78 @@
     `.trim();
   }
 
+  function buildStartPlan(){
+    return {
+      id: 'start',
+      name: 'START',
+      description: '',
+      is_free: true,
+      is_featured: false,
+      access_duration_days: null,
+      price_cents: 0,
+      tag: { text: 'Comece agora - Zero risco', variant: 'success' },
+      badge: { text: '' },
+      cta: { text: 'Começar grátis', variant: 'success' },
+      features: [
+        'Simulados (quiz 25 questões)',
+        'Indicadores e diagnóstico',
+        'Flashcards (limitado)',
+        'Acesso por tempo ilimitado',
+      ]
+    };
+  }
+
+  function buildFeaturedFrom(plan){
+    const p = JSON.parse(JSON.stringify(plan || {}));
+    p.id = (p.id && String(p.id).includes('start')) ? 'pro-90' : (p.id || 'pro-90');
+    p.is_free = false;
+    p.is_featured = true;
+    p.tag = p.tag || {};
+    p.tag.variant = 'featured';
+    p.tag.text = String((p.tag && p.tag.text) || '').trim() || 'Mais custo-benefício';
+    p.badge = p.badge || {};
+    p.badge.text = String((p.badge && p.badge.text) || '').trim() || 'Mais escolhido';
+    p.cta = p.cta || {};
+    p.cta.variant = 'featured';
+    p.cta.text = String((p.cta && p.cta.text) || '').trim() || 'Assinar agora';
+    return p;
+  }
+
+  function renderPreviewGrid(plans, mode){
+    if (!previewMount) return;
+    const m = String(mode || '1');
+    const cls = (m === '3') ? 'previewGrid previewGrid--3' : (m === '2') ? 'previewGrid previewGrid--2' : 'previewGrid';
+    let html = `<div class="${cls}">`;
+    plans.forEach((it) => {
+      html += `<div>`;
+      if (it && it._label) html += `<div class="previewGridTitle">${escapeHtml(it._label)}</div>`;
+      html += renderPreview(it);
+      html += `</div>`;
+    });
+    html += `</div>`;
+    previewMount.innerHTML = html;
+  }
+
   function updatePreview(){
     try {
       const p = gatherFormLoose();
-      renderPreview(p);
+      const mode = previewMode ? String(previewMode.value || '3') : '1';
+      if (mode === '1'){
+        p._label = 'Plano atual';
+        renderPreviewGrid([p], mode);
+      } else if (mode === '2'){
+        const start = buildStartPlan();
+        start._label = 'START';
+        p._label = 'Plano atual';
+        renderPreviewGrid([start, p], mode);
+      } else {
+        const start = buildStartPlan();
+        start._label = 'START';
+        p._label = 'Plano atual';
+        const featured = buildFeaturedFrom(p);
+        featured._label = 'Destaque';
+        renderPreviewGrid([start, p, featured], mode);
+      }
     } catch(_){
       if (previewMount) previewMount.innerHTML = '<div class="muted small">Prévia indisponível.</div>';
     }
@@ -695,6 +785,10 @@
     el.addEventListener('input', () => { updatePreview(); });
     el.addEventListener('change', () => { updatePreview(); });
   });
+
+  if (previewMode){
+    previewMode.addEventListener('change', () => { updatePreview(); });
+  }
 
   // bootstrap
   updatePreview();

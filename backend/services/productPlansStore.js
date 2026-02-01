@@ -3,6 +3,38 @@ const path = require('path');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const FILE_PATH = path.join(DATA_DIR, 'productPlans.json');
+const BACKUP_DIR = path.join(__dirname, '..', 'backups', 'productPlans');
+
+function safeIsoForFilename(d = new Date()) {
+  try {
+    return d.toISOString().replace(/[:.]/g, '-');
+  } catch (_) {
+    return String(Date.now());
+  }
+}
+
+async function ensureBackupDir() {
+  await fs.promises.mkdir(BACKUP_DIR, { recursive: true });
+}
+
+async function backupExistingFile(filePath) {
+  try {
+    await fs.promises.access(filePath, fs.constants.F_OK);
+  } catch (_) {
+    return null; // nothing to back up
+  }
+
+  try {
+    await ensureBackupDir();
+    const stamp = safeIsoForFilename(new Date());
+    const base = path.basename(filePath);
+    const backupPath = path.join(BACKUP_DIR, `${base}.${stamp}.bak.json`);
+    await fs.promises.copyFile(filePath, backupPath);
+    return backupPath;
+  } catch (_) {
+    return null;
+  }
+}
 
 function toInt(value, fallback = null) {
   if (value === null || value === undefined || value === '') return fallback;
@@ -97,6 +129,8 @@ async function ensureDataDir() {
 
 async function writeJsonAtomic(filePath, data) {
   await ensureDataDir();
+  // Best-effort backup before overwriting.
+  await backupExistingFile(filePath);
   const tmp = filePath + '.tmp';
   const json = JSON.stringify(data, null, 2);
   await fs.promises.writeFile(tmp, json, 'utf8');

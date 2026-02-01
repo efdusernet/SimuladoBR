@@ -116,7 +116,8 @@
       <div class="card">
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button id="btnReload" class="btn">Recarregar</button>
-          <button id="btnSeed" class="btn btn-warn">Gerar arquivo com planos atuais</button>
+          <button id="btnSeed" class="btn btn-warn">Resetar para defaults (sobrescreve)</button>
+          <button id="btnExport" class="btn">Exportar JSON</button>
           <button id="btnNew" class="btn btn-primary">Novo plano</button>
         </div>
 
@@ -593,8 +594,12 @@
   }
 
   async function seedDefaults(){
-    const ok = confirm('Isso vai gravar os planos atuais (defaults) em backend/data/productPlans.json.\n\nSe o arquivo já existir, será necessário confirmar sobrescrita.');
-    if (!ok) return;
+    const txt = prompt(
+      'ATENÇÃO: isso vai SOBRESCREVER o arquivo backend/data/productPlans.json com os defaults.\n\n' +
+      'Digite RESET para confirmar:',
+      ''
+    );
+    if (String(txt || '').trim().toUpperCase() !== 'RESET') return;
 
     setStatus(status, 'Gerando arquivo...', false);
     let r = await api('/api/admin/product-plans/seed-defaults', { method:'POST' });
@@ -612,6 +617,31 @@
     setStatus(status, 'Arquivo gerado. (' + (r.data && r.data.count ? r.data.count : '?') + ' planos)', false);
     await load();
   }
+
+  // Export current loaded items as JSON (client-side backup)
+  $('btnExport') && $('btnExport').addEventListener('click', () => {
+    try {
+      const payload = {
+        exported_at: new Date().toISOString(),
+        source: 'admin_ui',
+        count: Array.isArray(items) ? items.length : 0,
+        items: Array.isArray(items) ? items : []
+      };
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'productPlans.export.' + new Date().toISOString().replace(/[:.]/g,'-') + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 500);
+      setStatus(status, 'Export OK: JSON baixado.', false);
+    } catch (e) {
+      setStatus(status, 'Falha ao exportar JSON: ' + String(e && e.message || e), true);
+    }
+  });
 
   function clearForm(){
     selectedId = null;

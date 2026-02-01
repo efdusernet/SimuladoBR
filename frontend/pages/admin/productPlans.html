@@ -65,7 +65,7 @@
       .previewGrid--2{ grid-template-columns: repeat(2, minmax(280px, 420px)); }
       .previewGrid--3{ grid-template-columns: repeat(3, minmax(260px, 420px)); }
     }
-    .previewGridTitle{ font-weight:900; color: rgba(15, 23, 42, 0.76); text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; margin: 2px 2px 8px; }
+    .previewGridTitle{ font-weight:900; color: rgba(15, 23, 42, 0.82); text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; margin: 2px 2px 8px; display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background: rgba(15, 23, 42, 0.08); border:1px solid rgba(15, 23, 42, 0.10); }
     .previewStage .pricing-card{ height:100%; border-radius:16px; border:1px solid rgba(15, 23, 42, 0.10); background:#fff; color:#0f172a; box-shadow: 0 16px 40px rgba(2, 6, 23, 0.10); display:flex; flex-direction:column; padding:12px; overflow:hidden; position:relative; max-width: 380px; margin: 0 auto; }
     .previewStage .pricing-card--featured{ border-color: rgba(37, 99, 235, 0.55); box-shadow: 0 22px 60px rgba(37, 99, 235, 0.18); }
     .previewStage .pricing-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
@@ -461,14 +461,14 @@
         const start = buildStartPlan();
         start._label = 'START';
         p._label = 'Plano atual';
-        renderPreviewGrid([start, p], mode);
+        renderPreviewGrid([p, start], mode);
       } else {
         const start = buildStartPlan();
         start._label = 'START';
         p._label = 'Plano atual';
         const featured = buildFeaturedFrom(p);
         featured._label = 'Destaque';
-        renderPreviewGrid([start, p, featured], mode);
+        renderPreviewGrid([p, featured, start], mode);
       }
     } catch(_){
       if (previewMount) previewMount.innerHTML = '<div class="muted small">Prévia indisponível.</div>';

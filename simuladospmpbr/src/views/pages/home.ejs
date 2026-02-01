@@ -259,13 +259,13 @@
               try { return 'R$ ' + ((Number(cents||0)/100).toFixed(0)); } catch(__){ return 'R$ 0'; }
             }
           }
-          const MAX_CC_INSTALLMENTS = 10;
+          const MAX_CC_INSTALLMENTS = 3;
           function installmentHint(plan){
             try {
               if (!plan || plan.is_free) return null;
               const cents = Number(plan.price_cents);
               if (!Number.isFinite(cents) || cents <= 0) return null;
-              return `Cartão em até ${MAX_CC_INSTALLMENTS}x (Asaas)`;
+              return `Cartão em até ${MAX_CC_INSTALLMENTS}x`;
             } catch(_){ return null; }
           }
         %>

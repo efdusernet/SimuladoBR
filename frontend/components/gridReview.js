@@ -189,6 +189,47 @@
     return true;
   }
 
+  function debugModeEnabled() {
+    try {
+      if (window && window.GRID_REVIEW_DEBUG === true) return true;
+      const v = localStorage.getItem('gridReviewDebug');
+      if (v === '1' || v === 'true') return true;
+      const qs = (window.location && window.location.search) ? String(window.location.search) : '';
+      return /(?:\?|&)gridReviewDebug=1(?:&|$)/.test(qs);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function correctIdsFromQuestion(question) {
+    try {
+      if (isMatchColumns(question)) return [];
+      const opts = normalizeOptions(question);
+      return opts
+        .filter((o) => o && (o.correta || o.isCorrect))
+        .map((o) => (o && o.id != null) ? String(o.id) : null)
+        .filter((id) => id != null);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function debugDump(idx, q, ans, selectedIds) {
+    try {
+      const qid = (q && q.id != null) ? q.id : null;
+      const correctIds = correctIdsFromQuestion(q);
+      const hint = questionHint(q);
+      // Keep it console-friendly: one collapsed group per click.
+      console.groupCollapsed('[gridReview debug] btn=%s qid=%s sel=%o cor=%o', String(idx + 1), String(qid), selectedIds, correctIds);
+      console.log('question:', q);
+      console.log('answer:', ans);
+      if (hint) console.log('hint:', hint);
+      console.groupEnd();
+    } catch (_) {
+      // ignore
+    }
+  }
+
   function domainIdFromQuestion(question) {
     try {
       const direct = (question && (question.iddominiogeral ?? question.id_dominio_geral ?? question.idDominioGeral ?? question.id_dominioGeral));
@@ -374,8 +415,13 @@
             if (title) btn.title = title;
           } catch (_) {}
 
-          btn.addEventListener('click', () => {
+          btn.addEventListener('click', (ev) => {
             try {
+              // Debug: Alt+Click (always) or enable via localStorage/gridReviewDebug.
+              // Usage: localStorage.setItem('gridReviewDebug','1')
+              if ((ev && ev.altKey) || debugModeEnabled()) {
+                debugDump(idx, q, ans, selectedIds);
+              }
               if (onSelect) onSelect(idx);
             } catch (_) {}
           });

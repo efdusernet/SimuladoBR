@@ -1935,7 +1935,13 @@ exports.getAttemptResult = async (req, res, next) => {
     let ansRows = [];
     if (aqIds.length) {
       try {
-        ansRows = await db.ExamAttemptAnswer.findAll({ where: { AttemptQuestionId: aqIds }, attributes: ['AttemptQuestionId','OptionId','Resposta','Selecionada'] });
+        // Order deterministically so if we need to pick the "latest" selection for single-choice questions,
+        // we don't depend on undefined DB ordering.
+        ansRows = await db.ExamAttemptAnswer.findAll({
+          where: { AttemptQuestionId: aqIds },
+          attributes: ['Id', 'AttemptQuestionId', 'OptionId', 'Resposta', 'Selecionada', 'CreatedAt', 'UpdatedAt'],
+          order: [['UpdatedAt', 'ASC'], ['Id', 'ASC']]
+        });
       } catch(_) { ansRows = []; }
     }
     const selectedByAq = new Map();
@@ -1976,6 +1982,7 @@ exports.getAttemptResult = async (req, res, next) => {
         const names = new Set((cols || []).map(c => String(c.column_name)));
         const hasExp = names.has('explicacao');
         const hasRef = names.has('referencia');
+        const hasMultiEscolha = names.has('multiplaescolha');
         const hasDomGeral = names.has('iddominiogeral');
         const hasTask = names.has('id_task');
         const hasAbordagem = names.has('id_abordagem');
@@ -1989,6 +1996,7 @@ exports.getAttemptResult = async (req, res, next) => {
           hasInteracao ? 'q.interacaospec AS interacaospec' : 'NULL::jsonb AS interacaospec',
           hasExp ? 'q.explicacao AS explicacao' : 'NULL::text AS explicacao',
           hasRef ? 'q.referencia AS referencia' : 'NULL::text AS referencia',
+          hasMultiEscolha ? 'q.multiplaescolha AS multiplaescolha' : 'NULL::boolean AS multiplaescolha',
           hasDomGeral ? 'q.iddominiogeral AS iddominiogeral' : 'NULL::int AS iddominiogeral',
           hasTask ? 'q.id_task AS id_task' : 'NULL::int AS id_task',
           hasAbordagem ? 'q.id_abordagem AS id_abordagem' : 'NULL::int AS id_abordagem',
@@ -2017,7 +2025,24 @@ exports.getAttemptResult = async (req, res, next) => {
           q.descricao = txt;
           q.texto = txt;
           q.tiposlug = row.tiposlug != null ? String(row.tiposlug) : null;
-          q.type = q.tiposlug;
+          // Derive basic UI type (radio/checkbox) from questao.multiplaescolha when available.
+          // Keep advanced slugs (e.g. match_columns) as-is.
+          try {
+            const slug = q.tiposlug != null ? String(q.tiposlug).trim().toLowerCase() : '';
+            const basicSlug = (slug === '' || slug === 'single' || slug === 'radio' || slug === 'multi' || slug === 'multiple' || slug === 'checkbox');
+            const rawMulti = (row.multiplaescolha !== undefined) ? row.multiplaescolha : (row.Multiplaescolha !== undefined ? row.Multiplaescolha : row.multiplaEscolha);
+            const multi = (rawMulti === true || rawMulti === 't' || rawMulti === 1 || rawMulti === '1');
+            q.multiplaescolha = multi;
+            if (basicSlug) {
+              if (slug === 'checkbox' || slug === 'multi' || slug === 'multiple') q.type = 'checkbox';
+              else if (slug === 'radio' || slug === 'single') q.type = 'radio';
+              else q.type = multi ? 'checkbox' : 'radio';
+            } else {
+              q.type = q.tiposlug;
+            }
+          } catch (_) {
+            q.type = q.tiposlug;
+          }
           q.explicacao = row.explicacao != null ? String(row.explicacao) : null;
           q.referencia = row.referencia != null ? String(row.referencia) : null;
 
@@ -2056,6 +2081,7 @@ exports.getAttemptResult = async (req, res, next) => {
 
     // Build answers map keyed by q_<id>
     const answers = {};
+    const qById = new Map((questions || []).map(q => [Number(q && q.id), q]));
     for (const qid of questionIds) {
       const aqid = aqIdByQ.get(Number(qid));
       const selected = (aqid != null) ? (selectedByAq.get(Number(aqid)) || []) : [];
@@ -2063,9 +2089,23 @@ exports.getAttemptResult = async (req, res, next) => {
       const typed = (aqid != null && typedResponseByAq.has(Number(aqid))) ? typedResponseByAq.get(Number(aqid)) : null;
       if (typed != null) {
         answers[key] = { response: typed, optionIds: selected };
-      } else if (selected.length > 1) answers[key] = { optionIds: selected };
-      else if (selected.length === 1) answers[key] = { optionId: selected[0] };
-      else answers[key] = { optionIds: [] };
+      } else {
+        const q = qById.get(Number(qid)) || null;
+        const t = (q && q.type != null) ? String(q.type).trim().toLowerCase() : '';
+        const isSingleChoice = (t === 'radio' || t === 'single');
+
+        // Defensive: if single-choice but DB has multiple selected rows (stale/legacy submissions),
+        // treat the latest selected option as the effective answer.
+        if (selected.length > 1 && isSingleChoice) {
+          answers[key] = { optionId: selected[selected.length - 1] };
+        } else if (selected.length > 1) {
+          answers[key] = { optionIds: selected };
+        } else if (selected.length === 1) {
+          answers[key] = { optionId: selected[0] };
+        } else {
+          answers[key] = { optionIds: [] };
+        }
+      }
     }
 
     return res.json({ total, questions, answers });

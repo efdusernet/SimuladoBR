@@ -587,7 +587,11 @@
       return;
     }
     items = (r.data && r.data.items) ? r.data.items : [];
-    setStatus(status, 'OK (' + items.length + ' planos). Fonte: ' + (r.data.source || ''), false);
+    const src = (r.data && r.data.source) ? String(r.data.source) : '';
+    const fp = (r.data && r.data.filePath) ? String(r.data.filePath) : '';
+    const extra = fp ? (' • Arquivo: ' + fp) : '';
+    const warn = (src && src !== 'file') ? (' ⚠️') : '';
+    setStatus(status, 'OK (' + items.length + ' planos). Fonte: ' + src + warn + extra, false);
     renderList();
   }
 

@@ -171,16 +171,17 @@
       return null;
     }
     const opts = normalizeOptions(question);
+    // Normalize IDs to strings to avoid number-vs-string mismatches coming from API serialization.
     const correctIds = opts
       .filter((o) => o && (o.correta || o.isCorrect))
-      .map((o) => o.id)
+      .map((o) => (o && o.id != null) ? String(o.id) : null)
       .filter((id) => id != null);
 
     if (!correctIds.length) return null;
     if (!selectedIds || !selectedIds.length) return null;
 
-    const selSet = new Set(selectedIds);
-    const corSet = new Set(correctIds);
+    const selSet = new Set((selectedIds || []).map((id) => String(id)));
+    const corSet = new Set((correctIds || []).map((id) => String(id)));
     if (selSet.size !== corSet.size) return false;
 
     for (const id of corSet) if (!selSet.has(id)) return false;

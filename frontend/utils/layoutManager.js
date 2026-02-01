@@ -3,6 +3,15 @@
  * Suporta: mobile (< 768px), desktop (≥ 768px), fullscreen
  */
 
+const LM_LOG = (() => {
+  try {
+    const l = (typeof window !== 'undefined' && window.logger) ? window.logger : null;
+    if (l && typeof l.info === 'function' && typeof l.error === 'function') return l;
+  } catch (_) {}
+  // Fallback to console to avoid hard failures when logger.js loads after layoutManager.js.
+  return console;
+})();
+
 const LayoutManager = {
   // Configuração
   BREAKPOINT: 768,
@@ -14,6 +23,7 @@ const LayoutManager = {
   isFullscreen: false,
   fullscreenPage: null,
   resizeTimer: null,
+  initialized: false,
   
   // Callbacks
   onLayoutChange: [],
@@ -22,7 +32,10 @@ const LayoutManager = {
    * Inicializa o gerenciador de layouts
    */
   init() {
-    logger.info('[LayoutManager] Inicializando...');
+    if (this.initialized) return;
+    this.initialized = true;
+
+    try { LM_LOG.info('[LayoutManager] Inicializando...'); } catch (_) {}
     
     // Detectar e aplicar layout inicial
     this.detectAndApply();
@@ -38,7 +51,7 @@ const LayoutManager = {
       }
     });
     
-    logger.info('[LayoutManager] Inicializado. Layout:', this.currentLayout);
+    try { LM_LOG.info('[LayoutManager] Inicializado. Layout:', this.currentLayout); } catch (_) {}
   },
   
   /**
@@ -46,7 +59,7 @@ const LayoutManager = {
    */
   detectAndApply() {
     if (this.isFullscreen) {
-      logger.info('[LayoutManager] Em modo fullscreen, pulando detecção');
+      try { LM_LOG.info('[LayoutManager] Em modo fullscreen, pulando detecção'); } catch (_) {}
       return;
     }
     
@@ -54,7 +67,7 @@ const LayoutManager = {
     const newLayout = width >= this.BREAKPOINT ? 'desktop' : 'mobile';
     
     if (newLayout !== this.currentLayout) {
-      logger.info(`[LayoutManager] Mudando layout: ${this.currentLayout} → ${newLayout}`);
+      try { LM_LOG.info(`[LayoutManager] Mudando layout: ${this.currentLayout} → ${newLayout}`); } catch (_) {}
       this.switchLayout(newLayout);
     }
   },
@@ -84,7 +97,7 @@ const LayoutManager = {
    * Carrega layout desktop (sidebar + content area)
    */
   async loadDesktopLayout() {
-    logger.info('[LayoutManager] Carregando layout desktop...');
+    try { LM_LOG.info('[LayoutManager] Carregando layout desktop...'); } catch (_) {}
     
     try {
       // Carregar sidebar se não existir
@@ -99,7 +112,7 @@ const LayoutManager = {
           // Executar scripts dentro do componente
           this.executeScripts(sidebarMount);
           
-          logger.info('[LayoutManager] Sidebar carregada');
+          try { LM_LOG.info('[LayoutManager] Sidebar carregada'); } catch (_) {}
         }
       }
       
@@ -108,7 +121,7 @@ const LayoutManager = {
       if (bottomNav) bottomNav.style.display = 'none';
       
     } catch (error) {
-      logger.error('[LayoutManager] Erro ao carregar desktop:', error);
+      try { LM_LOG.error('[LayoutManager] Erro ao carregar desktop:', error); } catch (_) {}
     }
   },
   
@@ -116,7 +129,7 @@ const LayoutManager = {
    * Carrega layout mobile (bottom-nav + cards)
    */
   loadMobileLayout() {
-    logger.info('[LayoutManager] Carregando layout mobile...');
+    try { LM_LOG.info('[LayoutManager] Carregando layout mobile...'); } catch (_) {}
     
     // Ocultar sidebar
     const sidebar = document.getElementById('sidebarMount');
@@ -131,7 +144,7 @@ const LayoutManager = {
     const adminBtn = document.getElementById('adminMenuBtn');
     if (adminBtn && adminBtn.style.display === 'inline-flex') {
       // Já está visível, não fazer nada
-      logger.info('[LayoutManager] Botão admin mantido visível no mobile');
+      try { LM_LOG.info('[LayoutManager] Botão admin mantido visível no mobile'); } catch (_) {}
     }
   },
   
@@ -139,7 +152,7 @@ const LayoutManager = {
    * Entra em modo fullscreen
    */
   enterFullscreen(pageName = 'unknown') {
-    logger.info(`[LayoutManager] Entrando em fullscreen: ${pageName}`);
+    try { LM_LOG.info(`[LayoutManager] Entrando em fullscreen: ${pageName}`); } catch (_) {}
     
     this.isFullscreen = true;
     this.fullscreenPage = pageName;
@@ -160,7 +173,7 @@ const LayoutManager = {
    * Sai do modo fullscreen
    */
   exitFullscreen() {
-    logger.info('[LayoutManager] Saindo de fullscreen');
+    try { LM_LOG.info('[LayoutManager] Saindo de fullscreen'); } catch (_) {}
     
     this.isFullscreen = false;
     this.fullscreenPage = null;
@@ -224,7 +237,7 @@ const LayoutManager = {
       try {
         callback(newLayout, oldLayout);
       } catch (error) {
-        logger.error('[LayoutManager] Erro em callback:', error);
+        try { LM_LOG.error('[LayoutManager] Erro em callback:', error); } catch (_) {}
       }
     });
   },

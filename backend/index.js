@@ -382,6 +382,63 @@ app.get('/pages/examFull.html', (req, res) => {
 	return res.sendFile(path.join(FRONTEND_DIR, 'pages', 'examFull.html'));
 });
 
+// IMPORTANT: serve sidebar component from frontend/ source to avoid stale dist copies.
+// This page is fetched dynamically by layoutManager and must reflect the latest admin/auth logic.
+app.get('/components/sidebar.html', (req, res) => {
+	setNoCacheHeaders(res);
+	try { res.setHeader('X-Served-From', 'frontend-src'); } catch(_){ }
+	try {
+		const fsLocal = require('fs');
+		const filePath = path.join(FRONTEND_DIR, 'components', 'sidebar.html');
+		const st = fsLocal.statSync(filePath);
+		res.setHeader('X-SimuladosBR-Static-File', path.basename(filePath));
+		res.setHeader('X-SimuladosBR-Static-Mtime', st && st.mtime ? st.mtime.toISOString() : '');
+		res.setHeader('X-SimuladosBR-Static-Size', st && typeof st.size === 'number' ? String(st.size) : '');
+	} catch(_){ }
+
+	// Keep behavior consistent with the global auth-redirect middleware:
+	// - Product site on localhost is public and should not serve app components.
+	// - Unauthenticated requests on app.localhost should be redirected to /login.
+	try {
+		if (isLocalhostHost(req)) {
+			const target = `http://app.localhost:3000${req.originalUrl || req.url || '/components/sidebar.html'}`;
+			return res.redirect(302, target);
+		}
+		const hasCookie = !!(req.cookies && (req.cookies.sessionToken || req.cookies.jwtToken));
+		const hasAuth = !!(req.headers && req.headers.authorization);
+		if (!hasCookie && !hasAuth) {
+			return res.redirect('/login');
+		}
+	} catch (_e) { /* ignore */ }
+
+	// Serve a patched sidebar HTML to avoid "stale sidebar" issues (Known Issues: served file != editor code)
+	// and to make Admin gating deterministic on dynamically-injected pages like InsightsIA.
+	try {
+		const fsLocal = require('fs');
+		const filePath = path.join(FRONTEND_DIR, 'components', 'sidebar.html');
+		let html = fsLocal.readFileSync(filePath, 'utf8');
+
+		// Bump a visible marker so we can confirm what the browser received.
+		html = html.replace(
+			/data-sidebar-version="[^"]*"/,
+			'data-sidebar-version="2026-01-31.99" data-sidebar-build="adminfix-2026-01-31"'
+		);
+
+		// Inject a robust admin helper that relies only on same-origin /api/users/me.
+		// This prevents false negatives (and "Acesso restrito") on pages that do not load /script.js.
+		const injection = `\n<script>(function(){\n  async function __sbIsAdmin(){\n    try {\n      const r = await fetch('/api/users/me', { method: 'GET', credentials: 'include', cache: 'no-store', headers: { 'Accept': 'application/json' } });\n      if (!r || !r.ok) return false;\n      const me = await r.json().catch(function(){ return null; });\n      return !!(me && (me.TipoUsuario === 'admin' || me.tipoUsuario === 'admin' || me.isAdmin === true));\n    } catch(_){ return false; }\n  }\n\n  // Provide/override ensureAdminAccess for sidebar click handlers.\n  window.ensureAdminAccess = async function(){\n    return await __sbIsAdmin();\n  };\n\n  // Show Admin accordion ASAP once injected.\n  setTimeout(async function(){\n    try {\n      if (!(await __sbIsAdmin())) return;\n      const el = document.getElementById('sidebarAdminAccordion');\n      if (el) el.style.display = 'block';\n    } catch(_){ }\n  }, 0);\n})();</script>\n`;
+
+		// Prepend injection so it runs before other sidebar logic.
+		html = injection + html;
+
+		res.type('html');
+		return res.status(200).send(html);
+	} catch (e) {
+		// Fallback: serve file as-is.
+		return res.sendFile(path.join(FRONTEND_DIR, 'components', 'sidebar.html'));
+	}
+});
+
 // Protect admin pages before static middleware: only admins can fetch /pages/admin/* HTML files
 const requireAdmin = require('./middleware/requireAdmin');
 // Redirect /pages/admin/ to login

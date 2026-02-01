@@ -95,6 +95,38 @@ Validação:
   - endpoint admin respondendo 200
   - `/components/sidebar.html` servido contendo o marcador do fallback
 
+### 3.4) Backend: servir `/components/sidebar.html` de forma determinística (sem stale) + injeção de shim de admin
+Problema observado:
+- Em páginas que montam o layout dinamicamente (ex.: InsightsIA), o sidebar é carregado via `fetch('/components/sidebar.html')`.
+- Mesmo com alterações recentes no arquivo, o browser recebia um sidebar com marcador antigo (ex.: `data-sidebar-version="2026-01-20.3"`) e lógica antiga (clicar em “Administração” mostrava “Acesso restrito: somente admin.”).
+
+Causa prática (no ambiente):
+- O processo Node que estava escutando na porta 3000 nem sempre estava rodando o código mais novo do `backend/index.js`.
+- Resultado: o servidor continuava entregando um sidebar antigo/inesperado, mesmo após mudanças no workspace.
+
+Correção aplicada:
+- Criada/ajustada rota explícita no backend: `GET /components/sidebar.html`.
+- A rota aplica headers no-cache e retorna o sidebar a partir de `frontend/components/sidebar.html`.
+- Para eliminar falsos negativos de admin em páginas que não carregam `frontend/script.js`, o backend injeta um shim que:
+  - define/override `window.ensureAdminAccess()` usando apenas `GET /api/users/me` (mesma origem, `credentials: 'include'`, `cache: 'no-store'`)
+  - exibe o accordion Admin (`#sidebarAdminAccordion`) quando `TipoUsuario === 'admin'`
+  - adiciona marcadores para auditoria do conteúdo servido:
+    - `data-sidebar-version="2026-01-31.99"`
+    - `data-sidebar-build="adminfix-2026-01-31"`
+- A rota também adiciona headers de debug (quando possível) para confirmar origem do conteúdo:
+  - `X-Served-From: frontend-src`
+  - `X-SimuladosBR-Static-Mtime`
+  - `X-SimuladosBR-Static-Size`
+
+Como validar:
+1) Estar autenticado em `http://app.localhost:3000` (sem sessão, a rota pode redirecionar para `/login`).
+2) Abrir DevTools → Elements e confirmar que o `<aside>` do sidebar contém `data-sidebar-version="2026-01-31.99"`.
+3) Abrir a aba Network e validar que `/components/sidebar.html` voltou com `X-Served-From: frontend-src`.
+4) No InsightsIA, clicar em Admin → “Administração” e confirmar que não aparece mais o toast “Acesso restrito: somente admin.”
+
+Nota importante:
+- Se os marcadores não aparecerem, quase sempre é sinal de processo antigo ainda rodando na porta 3000. Reinicie o backend e valide novamente.
+
 ---
 
 ## 4) Evidência importante encontrada: arquivo servido ≠ código “esperado” no editor
@@ -110,7 +142,7 @@ Como verificar de forma objetiva:
 - Comparar com o arquivo local (`Get-Item` / `Get-FileHash`).
 
 Resultado final:
-- Após patch aplicado no arquivo em disco, o conteúdo servido passou a incluir o fallback e o menu Admin voltou a aparecer corretamente.
+- Após garantir que o processo da porta 3000 estava rodando o `backend/index.js` atualizado, o conteúdo servido passou a incluir os marcadores (ex.: `data-sidebar-version="2026-01-31.99"`) e o menu Admin voltou a aparecer corretamente.
 
 ---
 
@@ -148,3 +180,4 @@ Resultado final:
 - Login/CSRF funcionando em dev com cookies host-only.
 - API sem cache/ETag para evitar 304 em endpoints sensíveis.
 - Sidebar com fallback para `/api/users/me`, deixando o menu Admin consistente quando o usuário é admin.
+- Em páginas com layout dinâmico (InsightsIA), o sidebar é servido de forma determinística via rota explícita `/components/sidebar.html`, com shim de admin para evitar falsos negativos.

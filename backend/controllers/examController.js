@@ -2095,13 +2095,32 @@ exports.getAttemptResult = async (req, res, next) => {
         const isSingleChoice = (t === 'radio' || t === 'single');
 
         // Defensive: if single-choice but DB has multiple selected rows (stale/legacy submissions),
-        // treat the latest selected option as the effective answer.
+        // prefer the latest selection that actually belongs to this question's current option list.
         if (selected.length > 1 && isSingleChoice) {
-          answers[key] = { optionId: selected[selected.length - 1] };
+          const opts = Array.isArray(q && q.options) ? q.options : [];
+          const optIdSet = new Set(opts.map(o => (o && o.id != null) ? String(o.id) : null).filter(Boolean));
+          const inThisQuestion = selected.filter(id => optIdSet.has(String(id)));
+          if (inThisQuestion.length) {
+            answers[key] = { optionId: inThisQuestion[inThisQuestion.length - 1] };
+          } else {
+            // If none match current options, keep neutral rather than wrongly marking.
+            answers[key] = { optionIds: [] };
+          }
         } else if (selected.length > 1) {
           answers[key] = { optionIds: selected };
         } else if (selected.length === 1) {
-          answers[key] = { optionId: selected[0] };
+          // If the stored optionId doesn't exist in current options for this question, treat as unanswered.
+          if (isSingleChoice) {
+            const opts = Array.isArray(q && q.options) ? q.options : [];
+            const optIdSet = new Set(opts.map(o => (o && o.id != null) ? String(o.id) : null).filter(Boolean));
+            if (optIdSet.size && !optIdSet.has(String(selected[0]))) {
+              answers[key] = { optionIds: [] };
+            } else {
+              answers[key] = { optionId: selected[0] };
+            }
+          } else {
+            answers[key] = { optionId: selected[0] };
+          }
         } else {
           answers[key] = { optionIds: [] };
         }

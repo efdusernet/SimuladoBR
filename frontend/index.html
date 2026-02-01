@@ -3294,32 +3294,8 @@
             (function consumeAdminModalIntent(){
                 let intent = '';
                 try { intent = String(sessionStorage.getItem('adminModalIntent') || '').trim().toLowerCase(); } catch(_){ intent = ''; }
-                // Also allow passing intent via URL so it works across tabs (sessionStorage is per-tab).
-                if (!intent) {
-                    try {
-                        const qs = new URLSearchParams(window.location.search || '');
-                        intent = String(qs.get('adminModalIntent') || '').trim().toLowerCase();
-                    } catch(_){ intent = ''; }
-                }
-                if (!intent) {
-                    try {
-                        const h = String(window.location.hash || '');
-                        const m = /adminModalIntent=([a-z0-9_-]+)/i.exec(h);
-                        intent = m ? String(m[1] || '').trim().toLowerCase() : '';
-                    } catch(_){ intent = ''; }
-                }
                 if (!intent) return;
-
-                // Cleanup sources after read.
                 try { sessionStorage.removeItem('adminModalIntent'); } catch(_){ }
-                try {
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('adminModalIntent');
-                    // keep other params; remove only this one
-                    if (window.history && typeof window.history.replaceState === 'function') {
-                        window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : '') + (url.hash ? url.hash : ''));
-                    }
-                } catch(_){ }
 
                 // Trigger open (may be async due to ensureAdminAccess())
                 try { openAdminModal(); } catch(_){ }

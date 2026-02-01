@@ -13,6 +13,7 @@
     body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #0f172a; }
     .container { max-width: 800px; margin: 0 auto; padding: 20px; }
     h1 { font-size: 1.5rem; margin-bottom: 24px; color: #1e293b; }
+    .page-title-pill{ display:inline-block; padding:6px 10px; border-radius:10px; background: rgba(226,232,240,0.95); color:#0f172a; box-shadow: 0 1px 0 rgba(0,0,0,0.18); }
     .settings-card { background: white; border-radius: 8px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .settings-card h2 { font-size: 1.1rem; margin: 0 0 16px; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
     .form-group { margin-bottom: 16px; }
@@ -41,7 +42,7 @@
 <body>
   <div class="container">
     <a href="/" class="back-link">← Voltar para Home</a>
-    <h1>⚙️ Configurações da Conta</h1>
+    <h1><span aria-hidden="true">⚙️</span> <span class="page-title-pill">Configurações da Conta</span></h1>
 
     <!-- Dados Cadastrais -->
     <div class="settings-card">

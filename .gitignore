@@ -25,6 +25,15 @@ pnpm-debug.log*
 # Local smoke test logs
 backend/smoke_backend_*.log
 
+# Local runtime artifacts
+backend_pid.txt
+backend/backend_pid.txt
+backend_server.err
+backend_server.out
+
+# Temporary local helper files
+frontend/components/sidebar_from_git.html
+
 # Build artifacts
 dist/
 build/

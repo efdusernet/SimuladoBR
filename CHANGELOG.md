@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
+## [Unreleased]
+
+### Added
+- Admin: nova página/hub em `/pages/admin/administracao.html` (substitui o modal).
+
+### Changed
+- Navegação: entrada “Admin” (sidebar/home) direciona para a nova página.
+- Sidebar: “Indicadores → Visão Geral” renomeado para “Resultados/Comparativo” com dica/tooltip.
+- Conta/Settings: título “Configurações da Conta” ganha destaque (pill) para melhor legibilidade no tema escuro.
+- Backend: `/pages/admin/` redireciona para `/pages/admin/administracao.html` e `/pages/admin` passa a ser servido estaticamente (HTML acessível; APIs admin continuam protegidas).
+
+### Fixed
+- Admin: ações `POST/PUT/DELETE` na página usam `X-CSRF-Token` (cookie `csrfToken`) e base same-origin, evitando 403/CSRF e problemas de host (`localhost` vs `app.localhost`).
+- Backend: `requireAdmin` evita redirect HTML em rotas `/api/*` (retorna erro JSON para chamadas de API).
+
 ## [1.2.2] - 2026-01-29
 
 ### Added

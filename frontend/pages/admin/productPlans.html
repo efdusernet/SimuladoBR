@@ -28,13 +28,6 @@
     .grid{ display:grid; grid-template-columns: 420px 1fr; gap: 14px; margin-top: 14px; }
     .card{ background:#0b1220; border:1px solid #1f2937; border-radius:12px; padding:12px; }
 
-    .sideMenu{ border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:10px; margin-bottom: 12px; }
-    .sideMenu h2{ margin:0 0 8px; font-size:.95rem; color:#e5e7eb; }
-    .sideMenu a{ display:block; padding:8px 10px; border-radius:10px; text-decoration:none; color:#e5e7eb; border:1px solid transparent; font-weight:700; font-size:.9rem; }
-    .sideMenu a:hover{ border-color:#334155; background:#0f172a; }
-    .sideMenu a.active{ background:#111827; border-color:#334155; }
-    .sideMenu .muted{ margin-top:6px; }
-
     label{ display:block; font-size:.82rem; color:#a3b2c5; margin:10px 0 6px; }
     select,input,textarea{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid #1f2937; background:#0f172a; color:#e5e7eb; }
     textarea{ min-height: 110px; resize: vertical; }
@@ -72,20 +65,6 @@
 
     <div class="grid">
       <div class="card">
-        <div class="sideMenu" aria-label="Menu Admin">
-          <h2>Menu</h2>
-          <a href="/index.html">Home</a>
-          <a href="/pages/admin/questionForm.html">Cadastrar questão</a>
-          <a href="/pages/admin/questionBulk.html">Cadastrar questão bulk</a>
-          <a href="/pages/admin/flashcards.html">Flashcards</a>
-          <a href="/pages/admin/dicas.html">Dicas</a>
-          <a href="/pages/admin/feedbackResponses.html">Responder feedbacks</a>
-          <a href="/pages/admin/notifications.html">Notificações</a>
-          <a href="/pages/admin/dataExplorer.html">Data Explorer</a>
-          <a href="/pages/admin/productPlans.html" class="active" aria-current="page">Planos (Marketing)</a>
-          <div class="muted small">Dica: benefícios = 1 por linha.</div>
-        </div>
-
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button id="btnReload" class="btn">Recarregar</button>
           <button id="btnSeed" class="btn btn-warn">Gerar arquivo com planos atuais</button>

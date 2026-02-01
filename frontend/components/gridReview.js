@@ -164,6 +164,17 @@
   }
 
   function computeCorrectness(question, selectedIds, ans) {
+    // Prefer persisted attempt correctness when provided by the API.
+    // This avoids mismatches when the question key/options changed after the attempt.
+    try {
+      if (ans && typeof ans === 'object') {
+        if (ans.isCorrect === true) return true;
+        if (ans.isCorrect === false) return false;
+        if (ans.correta === true) return true;
+        if (ans.correta === false) return false;
+      }
+    } catch (_) {}
+
     if (isMatchColumns(question)) {
       const v = computeMatchColumnsCorrectness(question, ans);
       if (v === true || v === false) return v;

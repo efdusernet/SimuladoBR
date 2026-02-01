@@ -1874,14 +1874,9 @@ exports.getAttemptResult = async (req, res, next) => {
     }
 
     // Load ordered questions for this attempt
-    const aqRows = await db.ExamAttemptQuestion.findAll({
-      where: { AttemptId: attemptId },
-      order: [['Ordem', 'ASC']],
-      attributes: ['Id', 'QuestionId', 'Ordem', 'Correta'],
-    });
+    const aqRows = await db.ExamAttemptQuestion.findAll({ where: { AttemptId: attemptId }, order: [['Ordem', 'ASC']], attributes: ['Id','QuestionId','Ordem'] });
     const questionIds = aqRows.map(r => Number(r.QuestionId)).filter(n => Number.isFinite(n));
     const aqIdByQ = new Map(aqRows.map(r => [Number(r.QuestionId), Number(r.Id)]));
-    const correctByQ = new Map(aqRows.map(r => [Number(r.QuestionId), (r.Correta === null || r.Correta === undefined) ? null : !!r.Correta]));
     const total = questionIds.length;
 
     // Fetch options with correctness flags + per-option explanation (explicacaoguia.descricao)
@@ -2055,12 +2050,11 @@ exports.getAttemptResult = async (req, res, next) => {
       const selected = (aqid != null) ? (selectedByAq.get(Number(aqid)) || []) : [];
       const key = 'q_' + String(qid);
       const typed = (aqid != null && typedResponseByAq.has(Number(aqid))) ? typedResponseByAq.get(Number(aqid)) : null;
-      const storedCorrect = correctByQ.has(Number(qid)) ? correctByQ.get(Number(qid)) : null;
       if (typed != null) {
-        answers[key] = { response: typed, optionIds: selected, isCorrect: storedCorrect };
-      } else if (selected.length > 1) answers[key] = { optionIds: selected, isCorrect: storedCorrect };
-      else if (selected.length === 1) answers[key] = { optionId: selected[0], isCorrect: storedCorrect };
-      else answers[key] = { optionIds: [], isCorrect: storedCorrect };
+        answers[key] = { response: typed, optionIds: selected };
+      } else if (selected.length > 1) answers[key] = { optionIds: selected };
+      else if (selected.length === 1) answers[key] = { optionId: selected[0] };
+      else answers[key] = { optionIds: [] };
     }
 
     return res.json({ total, questions, answers });

@@ -30,7 +30,14 @@ router.get('/', async (req, res, next) => {
     const fallbackPlans = getDefaultPlansFromProductSite();
     const result = await store.loadPlans({ fallbackPlans });
     const items = sortPlans(result.plans || []);
-    return res.json({ source: result.source, ok: result.ok !== false, count: items.length, items, error: result.error || null });
+    return res.json({
+      source: result.source,
+      ok: result.ok !== false,
+      count: items.length,
+      items,
+      filePath: result.filePath || store.FILE_PATH,
+      error: result.error || null,
+    });
   } catch (e) {
     return next(internalError('Internal error', 'ADMIN_PRODUCT_PLANS_LIST_ERROR', { error: e && e.message }));
   }

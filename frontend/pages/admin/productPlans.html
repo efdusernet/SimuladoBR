@@ -47,6 +47,45 @@
     .status{ min-height: 18px; margin-top: 10px; color:#93c5fd; }
     .status.error{ color:#fecaca; }
 
+    /* --- Preview (marketing card style from /#planos) --- */
+    .previewPanel{ border:1px solid #1f2937; border-radius:12px; padding:12px; background:#0b1220; margin-top:14px; }
+    .previewPanel h2{ margin:0 0 6px; font-size:1rem; }
+    .previewPanel .previewHint{ color:#94a3b8; font-size:.85rem; }
+    .previewStage{ margin-top:10px; padding:16px; border-radius:14px; border:1px solid rgba(148,163,184,0.22);
+      background: radial-gradient(700px 380px at 10% 20%, rgba(37, 99, 235, 0.14), transparent 62%),
+                  radial-gradient(700px 380px at 95% 0%, rgba(124, 58, 237, 0.12), transparent 62%),
+                  rgba(255, 255, 255, 0.86);
+    }
+    .previewStage .pricing-card{ height:100%; border-radius:18px; border:1px solid rgba(15, 23, 42, 0.10); background:#fff; box-shadow: 0 18px 45px rgba(2, 6, 23, 0.10); display:flex; flex-direction:column; padding:16px; overflow:hidden; position:relative; max-width: 420px; margin: 0 auto; }
+    .previewStage .pricing-card--featured{ border-color: rgba(37, 99, 235, 0.55); box-shadow: 0 22px 60px rgba(37, 99, 235, 0.18); }
+    .previewStage .pricing-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+    .previewStage .plan-tag{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; border:1px solid rgba(15, 23, 42, 0.08); background: rgba(248, 250, 252, 0.9); color: rgba(15, 23, 42, 0.78); white-space:nowrap; }
+    .previewStage .plan-tag--success{ background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.28); color:#166534; }
+    .previewStage .plan-tag--info{ background: rgba(37, 99, 235, 0.10); border-color: rgba(37, 99, 235, 0.28); color:#1d4ed8; }
+    .previewStage .plan-tag--brand{ background: rgba(59, 130, 246, 0.10); border-color: rgba(59, 130, 246, 0.26); color:#1d4ed8; }
+    .previewStage .plan-tag--purple{ background: rgba(124, 58, 237, 0.10); border-color: rgba(124, 58, 237, 0.26); color:#6d28d9; }
+    .previewStage .plan-tag--featured{ background: rgba(249, 115, 22, 0.12); border-color: rgba(249, 115, 22, 0.30); color:#c2410c; }
+    .previewStage .plan-badge{ display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; border-radius:999px; font-size:.72rem; font-weight:900; letter-spacing:.02em; color:#fff; background: linear-gradient(90deg, #fb923c, #f97316); border:1px solid rgba(249, 115, 22, 0.35); white-space:nowrap; }
+    .previewStage .pricing-main{ padding: 4px 6px 0; text-align:center; }
+    .previewStage .plan-name{ font-weight:900; font-size:1.25rem; letter-spacing:-0.01em; color:#0f172a; }
+    .previewStage .plan-price{ margin-top:10px; }
+    .previewStage .plan-price-main{ font-weight:900; font-size:2.05rem; letter-spacing:-0.03em; color:#1d4ed8; }
+    .previewStage [data-plan-id="start"] .plan-price-main{ color:#166534; }
+    .previewStage .plan-installments{ margin-top:2px; font-size:.85rem; color: rgba(15, 23, 42, 0.62); min-height:18px; }
+    .previewStage .plan-chip{ display:inline-flex; align-items:center; justify-content:center; margin-top:10px; padding:7px 10px; border-radius:999px; border:1px solid rgba(15, 23, 42, 0.08); background: rgba(248, 250, 252, 0.9); font-size:.8rem; color: rgba(15, 23, 42, 0.70); }
+    .previewStage .plan-features{ list-style:none; padding-left:0; margin:14px 0 0; display:grid; gap:10px; text-align:left; }
+    .previewStage .plan-check{ display:inline-grid; place-items:center; width:20px; height:20px; border-radius:7px; margin-right:8px; background: rgba(37, 99, 235, 0.10); color:#1d4ed8; font-weight:900; font-size:.85rem; }
+    .previewStage [data-plan-id="start"] .plan-check{ background: rgba(34, 197, 94, 0.14); color:#16a34a; }
+    .previewStage .pricing-cta{ margin-top:auto; padding:14px 6px 2px; }
+    .previewStage .btn-plan{ width:100%; border-radius:14px; padding:12px 14px; font-weight:900; border:1px solid rgba(15, 23, 42, 0.10); cursor:pointer; }
+    .previewStage .btn-plan--success{ background: linear-gradient(90deg, #16a34a, #22c55e); color:#fff; border-color: rgba(22, 163, 74, 0.35); }
+    .previewStage .btn-plan--info{ background: linear-gradient(90deg, #2563eb, #3b82f6); color:#fff; border-color: rgba(37, 99, 235, 0.35); }
+    .previewStage .btn-plan--brand{ background: linear-gradient(90deg, #2563eb, #4f46e5); color:#fff; border-color: rgba(37, 99, 235, 0.35); }
+    .previewStage .btn-plan--purple{ background: linear-gradient(90deg, #7c3aed, #9333ea); color:#fff; border-color: rgba(124, 58, 237, 0.35); }
+    .previewStage .btn-plan--featured{ background: linear-gradient(90deg, #3b82f6, #8b5cf6); color:#fff; border-color: rgba(59, 130, 246, 0.35); }
+    .previewStage .btn-plan:hover{ filter: brightness(0.98); }
+    .previewStage .plan-footnote{ margin-top:10px; font-size:.8rem; color: rgba(15, 23, 42, 0.60); text-align:center; }
+
     @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -180,6 +219,14 @@
         <div class="status" id="statusForm"></div>
       </div>
     </div>
+
+    <div class="previewPanel" aria-label="Prévia do card de planos">
+      <h2>Prévia do card (marketing /#planos)</h2>
+      <div class="previewHint">Atualiza automaticamente conforme você edita o formulário. Isso não salva nada — é só visual.</div>
+      <div class="previewStage">
+        <div id="previewCardMount"></div>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -192,6 +239,151 @@
 
   let items = [];
   let selectedId = null;
+
+  const previewMount = $('previewCardMount');
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#039;');
+  }
+
+  function brl(cents){
+    try {
+      const v = Number(cents || 0) / 100;
+      return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    } catch(_){
+      try { return 'R$ ' + ((Number(cents||0)/100).toFixed(0)); } catch(__){ return 'R$ 0'; }
+    }
+  }
+
+  function installments(plan){
+    try {
+      if (plan && plan.is_free) return null;
+      const days = Number(plan && plan.access_duration_days);
+      if (!Number.isFinite(days) || days <= 0) return null;
+      const months = Math.max(1, Math.round(days / 30));
+      const count = Math.min(12, months * 2);
+      const total = Number(plan && plan.price_cents);
+      if (!Number.isFinite(total) || total <= 0) return null;
+      const per = Math.round(total / count);
+      return { count, per_cents: per };
+    } catch(_){ return null; }
+  }
+
+  function gatherFormLoose(){
+    const id = String(($('inpId') && $('inpId').value) || '').trim() || 'pro-90';
+    const isFree = $('selFree') && $('selFree').value === '1';
+    const name = String(($('inpName') && $('inpName').value) || '').trim() || 'PRO 90 dias';
+    const desc = String(($('inpDesc') && $('inpDesc').value) || '').trim();
+    const priceCents = (function(){
+      const raw = String(($('inpPrice') && $('inpPrice').value) || '').trim();
+      if (isFree) return 0;
+      const n = Number(raw.replace(',', '.') || '0');
+      return Number.isFinite(n) ? Math.max(0, Math.round(n * 100)) : 0;
+    })();
+
+    let days = String(($('inpDays') && $('inpDays').value) || '').trim();
+    days = days ? Number(days) : null;
+    if (!Number.isFinite(days) || days <= 0) days = null;
+
+    const isFeatured = ($('selFeatured') && $('selFeatured').value === '1') || (!isFree && days === 90);
+
+    const tagText = String(($('inpTagText') && $('inpTagText').value) || '').trim() || (isFree ? 'Comece agora - Zero risco' : 'Acesso completo');
+    const tagVar = String(($('selTagVar') && $('selTagVar').value) || '').trim() || (isFeatured ? 'featured' : 'brand');
+
+    const badgeText = String(($('inpBadge') && $('inpBadge').value) || '').trim() || (isFeatured ? 'Mais escolhido' : '');
+
+    const ctaText = String(($('inpCtaText') && $('inpCtaText').value) || '').trim() || (isFree ? 'Começar grátis' : 'Assinar agora');
+    const ctaVar = String(($('selCtaVar') && $('selCtaVar').value) || '').trim() || (isFeatured ? 'featured' : (isFree ? 'success' : 'brand'));
+
+    const defaultFeatures = [
+      'Simulados (quiz e completo)',
+      'Indicadores e diagnóstico',
+      'Revisão guiada da tentativa',
+      'Suporte por e-mail',
+    ];
+
+    const features = normalizeLines(($('taFeatures') && $('taFeatures').value) || '');
+    const featuresFinal = features.length ? features : defaultFeatures;
+
+    return {
+      id,
+      name,
+      description: desc,
+      is_free: isFree,
+      is_featured: isFeatured,
+      access_duration_days: days,
+      price_cents: priceCents,
+      tag: { text: tagText, variant: tagVar },
+      badge: { text: badgeText },
+      cta: { text: ctaText, variant: ctaVar },
+      features: featuresFinal,
+    };
+  }
+
+  function renderPreview(plan){
+    if (!previewMount) return;
+
+    const days = (plan && plan.access_duration_days != null) ? Number(plan.access_duration_days) : null;
+    const isFeatured = !!(plan && plan.is_featured);
+    const tagText = plan && plan.tag && plan.tag.text ? String(plan.tag.text) : (plan.is_free ? 'Comece agora - Zero risco' : 'Acesso completo');
+    const tagVariant = plan && plan.tag && plan.tag.variant ? String(plan.tag.variant) : (isFeatured ? 'featured' : 'brand');
+    const badgeText = plan && plan.badge && plan.badge.text ? String(plan.badge.text) : (isFeatured ? 'Mais escolhido' : '');
+    const ctaText = plan && plan.cta && plan.cta.text ? String(plan.cta.text) : (plan.is_free ? 'Começar grátis' : 'Assinar agora');
+    const ctaVariant = plan && plan.cta && plan.cta.variant ? String(plan.cta.variant) : (isFeatured ? 'featured' : (plan.is_free ? 'success' : 'brand'));
+    const inst = installments(plan);
+    const features = (plan && Array.isArray(plan.features) && plan.features.length) ? plan.features : [];
+
+    const safeVariant = /^(success|info|brand|purple|featured)$/.test(tagVariant) ? tagVariant : 'brand';
+    const safeCtaVariant = /^(success|info|brand|purple|featured)$/.test(ctaVariant) ? ctaVariant : 'brand';
+
+    let featsHtml = '';
+    (features || []).forEach((f) => {
+      featsHtml += `<li><span class="plan-check" aria-hidden="true">✓</span> ${escapeHtml(f)}</li>`;
+    });
+
+    previewMount.innerHTML = `
+      <div class="pricing-card pricing-card--v2 ${isFeatured ? 'pricing-card--featured' : ''}" data-plan-id="${escapeHtml(plan.id || '')}">
+        <div class="pricing-top">
+          <span class="plan-tag plan-tag--${escapeHtml(safeVariant)}">${escapeHtml(tagText)}</span>
+          ${badgeText ? `<span class="plan-badge">${escapeHtml(badgeText)}</span>` : ''}
+        </div>
+
+        <div class="pricing-main">
+          <div class="plan-name">${escapeHtml(plan.name || '')}</div>
+
+          <div class="plan-price">
+            <div class="plan-price-main">${plan.is_free ? 'R$ 0' : escapeHtml(brl(plan.price_cents))}</div>
+            ${inst && inst.count && inst.per_cents ? `<div class="plan-installments">ou <strong>${inst.count}x</strong> de <strong>${escapeHtml(brl(inst.per_cents))}</strong></div>` : `<div class="plan-installments">&nbsp;</div>`}
+          </div>
+
+          <div class="plan-chip">
+            ${plan.is_free || days == null ? 'Acesso vitalício (START)' : `Acesso completo por <strong>${escapeHtml(days)}</strong> dias`}
+          </div>
+
+          <ul class="plan-features">${featsHtml}</ul>
+        </div>
+
+        <div class="pricing-cta">
+          <button type="button" class="btn-plan btn-plan--${escapeHtml(safeCtaVariant)}" onclick="return false;">${escapeHtml(ctaText)}</button>
+          <div class="plan-footnote">Sem fidelidade. Acesso por tempo do plano.</div>
+        </div>
+      </div>
+    `.trim();
+  }
+
+  function updatePreview(){
+    try {
+      const p = gatherFormLoose();
+      renderPreview(p);
+    } catch(_){
+      if (previewMount) previewMount.innerHTML = '<div class="muted small">Prévia indisponível.</div>';
+    }
+  }
 
   function setStatus(el, msg, isErr){
     el.textContent = msg || '';
@@ -350,6 +542,7 @@
     $('taFeatures').value = '';
     setStatus(statusForm, '', false);
     renderList();
+    updatePreview();
   }
 
   function selectPlan(id){
@@ -379,6 +572,7 @@
 
     setStatus(statusForm, 'Editando: ' + p.id, false);
     renderList();
+    updatePreview();
   }
 
   function gatherForm(overrideId){
@@ -492,7 +686,18 @@
   $('btnHome').onclick = () => { window.location.href = '/index.html'; };
   $('btnLogout').onclick = async () => { try { await window.Logout.logout(); } catch(_) {} };
 
+  // live preview
+  ;[
+    'inpId','inpName','inpDesc','inpPrice','inpDays','selFree','selFeatured','inpTagText','selTagVar','inpCtaText','selCtaVar','inpBadge','taFeatures'
+  ].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => { updatePreview(); });
+    el.addEventListener('change', () => { updatePreview(); });
+  });
+
   // bootstrap
+  updatePreview();
   load().catch(e => setStatus(status, e.message||String(e), true));
 })();
 </script>

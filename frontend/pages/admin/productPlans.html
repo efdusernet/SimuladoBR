@@ -55,7 +55,7 @@
     .previewControls .left{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .previewControls label{ display:inline-flex; align-items:center; gap:8px; color:#cbd5e1; font-size:.9rem; }
     .previewControls select{ background:#0f172a; color:#e5e7eb; border:1px solid #334155; border-radius:10px; padding:8px 10px; }
-    .previewStage{ margin-top:10px; padding:16px; border-radius:14px; border:1px solid rgba(148,163,184,0.22);
+    .previewStage{ margin-top:10px; padding:22px 18px 34px; min-height: 560px; overflow: visible; border-radius:14px; border:1px solid rgba(148,163,184,0.22);
       background: radial-gradient(700px 380px at 10% 20%, rgba(37, 99, 235, 0.14), transparent 62%),
                   radial-gradient(700px 380px at 95% 0%, rgba(124, 58, 237, 0.12), transparent 62%),
                   rgba(255, 255, 255, 0.86);
@@ -66,35 +66,35 @@
       .previewGrid--3{ grid-template-columns: repeat(3, minmax(260px, 420px)); }
     }
     .previewGridTitle{ font-weight:900; color: rgba(15, 23, 42, 0.76); text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; margin: 2px 2px 8px; }
-    .previewStage .pricing-card{ height:100%; border-radius:18px; border:1px solid rgba(15, 23, 42, 0.10); background:#fff; box-shadow: 0 18px 45px rgba(2, 6, 23, 0.10); display:flex; flex-direction:column; padding:16px; overflow:hidden; position:relative; max-width: 420px; margin: 0 auto; }
+    .previewStage .pricing-card{ height:100%; border-radius:16px; border:1px solid rgba(15, 23, 42, 0.10); background:#fff; box-shadow: 0 16px 40px rgba(2, 6, 23, 0.10); display:flex; flex-direction:column; padding:12px; overflow:hidden; position:relative; max-width: 380px; margin: 0 auto; }
     .previewStage .pricing-card--featured{ border-color: rgba(37, 99, 235, 0.55); box-shadow: 0 22px 60px rgba(37, 99, 235, 0.18); }
-    .previewStage .pricing-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
-    .previewStage .plan-tag{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; border:1px solid rgba(15, 23, 42, 0.08); background: rgba(248, 250, 252, 0.9); color: rgba(15, 23, 42, 0.78); white-space:nowrap; }
+    .previewStage .pricing-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .previewStage .plan-tag{ display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px; font-size:.68rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; border:1px solid rgba(15, 23, 42, 0.08); background: rgba(248, 250, 252, 0.9); color: rgba(15, 23, 42, 0.78); white-space:nowrap; }
     .previewStage .plan-tag--success{ background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.28); color:#166534; }
     .previewStage .plan-tag--info{ background: rgba(37, 99, 235, 0.10); border-color: rgba(37, 99, 235, 0.28); color:#1d4ed8; }
     .previewStage .plan-tag--brand{ background: rgba(59, 130, 246, 0.10); border-color: rgba(59, 130, 246, 0.26); color:#1d4ed8; }
     .previewStage .plan-tag--purple{ background: rgba(124, 58, 237, 0.10); border-color: rgba(124, 58, 237, 0.26); color:#6d28d9; }
     .previewStage .plan-tag--featured{ background: rgba(249, 115, 22, 0.12); border-color: rgba(249, 115, 22, 0.30); color:#c2410c; }
-    .previewStage .plan-badge{ display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; border-radius:999px; font-size:.72rem; font-weight:900; letter-spacing:.02em; color:#fff; background: linear-gradient(90deg, #fb923c, #f97316); border:1px solid rgba(249, 115, 22, 0.35); white-space:nowrap; }
+    .previewStage .plan-badge{ display:inline-flex; align-items:center; justify-content:center; padding:5px 9px; border-radius:999px; font-size:.68rem; font-weight:900; letter-spacing:.02em; color:#fff; background: linear-gradient(90deg, #fb923c, #f97316); border:1px solid rgba(249, 115, 22, 0.35); white-space:nowrap; }
     .previewStage .pricing-main{ padding: 4px 6px 0; text-align:center; }
-    .previewStage .plan-name{ font-weight:900; font-size:1.25rem; letter-spacing:-0.01em; color:#0f172a; }
-    .previewStage .plan-price{ margin-top:10px; }
-    .previewStage .plan-price-main{ font-weight:900; font-size:2.05rem; letter-spacing:-0.03em; color:#1d4ed8; }
+    .previewStage .plan-name{ font-weight:900; font-size:1.08rem; letter-spacing:-0.01em; color:#0f172a; }
+    .previewStage .plan-price{ margin-top:8px; }
+    .previewStage .plan-price-main{ font-weight:900; font-size:1.75rem; letter-spacing:-0.03em; color:#1d4ed8; }
     .previewStage [data-plan-id="start"] .plan-price-main{ color:#166534; }
-    .previewStage .plan-installments{ margin-top:2px; font-size:.85rem; color: rgba(15, 23, 42, 0.62); min-height:18px; }
-    .previewStage .plan-chip{ display:inline-flex; align-items:center; justify-content:center; margin-top:10px; padding:7px 10px; border-radius:999px; border:1px solid rgba(15, 23, 42, 0.08); background: rgba(248, 250, 252, 0.9); font-size:.8rem; color: rgba(15, 23, 42, 0.70); }
-    .previewStage .plan-features{ list-style:none; padding-left:0; margin:14px 0 0; display:grid; gap:10px; text-align:left; }
+    .previewStage .plan-installments{ margin-top:2px; font-size:.8rem; color: rgba(15, 23, 42, 0.62); min-height:18px; }
+    .previewStage .plan-chip{ display:inline-flex; align-items:center; justify-content:center; margin-top:7px; padding:6px 9px; border-radius:999px; border:1px solid rgba(15, 23, 42, 0.08); background: rgba(248, 250, 252, 0.9); font-size:.75rem; color: rgba(15, 23, 42, 0.70); }
+    .previewStage .plan-features{ list-style:none; padding-left:0; margin:8px 0 0; display:grid; gap:6px; text-align:left; font-size:.90rem; }
     .previewStage .plan-check{ display:inline-grid; place-items:center; width:20px; height:20px; border-radius:7px; margin-right:8px; background: rgba(37, 99, 235, 0.10); color:#1d4ed8; font-weight:900; font-size:.85rem; }
     .previewStage [data-plan-id="start"] .plan-check{ background: rgba(34, 197, 94, 0.14); color:#16a34a; }
-    .previewStage .pricing-cta{ margin-top:auto; padding:14px 6px 2px; }
-    .previewStage .btn-plan{ width:100%; border-radius:14px; padding:12px 14px; font-weight:900; border:1px solid rgba(15, 23, 42, 0.10); cursor:pointer; }
+    .previewStage .pricing-cta{ margin-top:auto; padding:10px 6px 0; }
+    .previewStage .btn-plan{ width:100%; border-radius:13px; padding:10px 12px; font-weight:900; border:1px solid rgba(15, 23, 42, 0.10); cursor:pointer; }
     .previewStage .btn-plan--success{ background: linear-gradient(90deg, #16a34a, #22c55e); color:#fff; border-color: rgba(22, 163, 74, 0.35); }
     .previewStage .btn-plan--info{ background: linear-gradient(90deg, #2563eb, #3b82f6); color:#fff; border-color: rgba(37, 99, 235, 0.35); }
     .previewStage .btn-plan--brand{ background: linear-gradient(90deg, #2563eb, #4f46e5); color:#fff; border-color: rgba(37, 99, 235, 0.35); }
     .previewStage .btn-plan--purple{ background: linear-gradient(90deg, #7c3aed, #9333ea); color:#fff; border-color: rgba(124, 58, 237, 0.35); }
     .previewStage .btn-plan--featured{ background: linear-gradient(90deg, #3b82f6, #8b5cf6); color:#fff; border-color: rgba(59, 130, 246, 0.35); }
     .previewStage .btn-plan:hover{ filter: brightness(0.98); }
-    .previewStage .plan-footnote{ margin-top:10px; font-size:.8rem; color: rgba(15, 23, 42, 0.60); text-align:center; }
+    .previewStage .plan-footnote{ margin-top:6px; font-size:.74rem; color: rgba(15, 23, 42, 0.60); text-align:center; }
 
     @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
   </style>

@@ -282,17 +282,15 @@
     }
   }
 
-  function installments(plan){
+  // Note: installment amount is NOT computed here.
+  // Real installment count/interest is governed by the Asaas checkout rules.
+  const MAX_CC_INSTALLMENTS = 10;
+  function installmentHint(plan){
     try {
-      if (plan && plan.is_free) return null;
-      const days = Number(plan && plan.access_duration_days);
-      if (!Number.isFinite(days) || days <= 0) return null;
-      const months = Math.max(1, Math.round(days / 30));
-      const count = Math.min(12, months * 2);
-      const total = Number(plan && plan.price_cents);
-      if (!Number.isFinite(total) || total <= 0) return null;
-      const per = Math.round(total / count);
-      return { count, per_cents: per };
+      if (!plan || plan.is_free) return null;
+      const cents = Number(plan.price_cents);
+      if (!Number.isFinite(cents) || cents <= 0) return null;
+      return `Cartão em até ${MAX_CC_INSTALLMENTS}x (Asaas)`;
     } catch(_){ return null; }
   }
 
@@ -357,7 +355,7 @@
     const badgeText = plan && plan.badge && plan.badge.text ? String(plan.badge.text) : (isFeatured ? 'Mais escolhido' : '');
     const ctaText = plan && plan.cta && plan.cta.text ? String(plan.cta.text) : (plan.is_free ? 'Começar grátis' : 'Assinar agora');
     const ctaVariant = plan && plan.cta && plan.cta.variant ? String(plan.cta.variant) : (isFeatured ? 'featured' : (plan.is_free ? 'success' : 'brand'));
-    const inst = installments(plan);
+    const instHint = installmentHint(plan);
     const features = (plan && Array.isArray(plan.features) && plan.features.length) ? plan.features : [];
 
     const safeVariant = /^(success|info|brand|purple|featured)$/.test(tagVariant) ? tagVariant : 'brand';
@@ -380,7 +378,7 @@
 
           <div class="plan-price">
             <div class="plan-price-main">${plan.is_free ? 'R$ 0' : escapeHtml(brl(plan.price_cents))}</div>
-            ${inst && inst.count && inst.per_cents ? `<div class="plan-installments">ou <strong>${inst.count}x</strong> de <strong>${escapeHtml(brl(inst.per_cents))}</strong></div>` : `<div class="plan-installments">&nbsp;</div>`}
+            ${instHint ? `<div class="plan-installments">${escapeHtml(instHint)}</div>` : `<div class="plan-installments">&nbsp;</div>`}
           </div>
 
           <div class="plan-chip">

@@ -398,16 +398,11 @@ app.get('/components/sidebar.html', (req, res) => {
 
 	// Keep behavior consistent with the global auth-redirect middleware:
 	// - Product site on localhost is public and should not serve app components.
-	// - Unauthenticated requests on app.localhost should be redirected to /login.
+	// - IMPORTANT: do NOT force /login here; the app may authenticate via headers/localStorage.
 	try {
 		if (isLocalhostHost(req)) {
 			const target = `http://app.localhost:3000${req.originalUrl || req.url || '/components/sidebar.html'}`;
 			return res.redirect(302, target);
-		}
-		const hasCookie = !!(req.cookies && (req.cookies.sessionToken || req.cookies.jwtToken));
-		const hasAuth = !!(req.headers && req.headers.authorization);
-		if (!hasCookie && !hasAuth) {
-			return res.redirect('/login');
 		}
 	} catch (_e) { /* ignore */ }
 
@@ -424,12 +419,8 @@ app.get('/components/sidebar.html', (req, res) => {
 			'data-sidebar-version="2026-01-31.99" data-sidebar-build="adminfix-2026-01-31"'
 		);
 
-		// Inject a robust admin helper that relies only on same-origin /api/users/me.
-		// This prevents false negatives (and "Acesso restrito") on pages that do not load /script.js.
-		const injection = `\n<script>(function(){\n  async function __sbIsAdmin(){\n    try {\n      const r = await fetch('/api/users/me', { method: 'GET', credentials: 'include', cache: 'no-store', headers: { 'Accept': 'application/json' } });\n      if (!r || !r.ok) return false;\n      const me = await r.json().catch(function(){ return null; });\n      return !!(me && (me.TipoUsuario === 'admin' || me.tipoUsuario === 'admin' || me.isAdmin === true));\n    } catch(_){ return false; }\n  }\n\n  // Provide/override ensureAdminAccess for sidebar click handlers.\n  window.ensureAdminAccess = async function(){\n    return await __sbIsAdmin();\n  };\n\n  // Show Admin accordion ASAP once injected.\n  setTimeout(async function(){\n    try {\n      if (!(await __sbIsAdmin())) return;\n      const el = document.getElementById('sidebarAdminAccordion');\n      if (el) el.style.display = 'block';\n    } catch(_){ }\n  }, 0);\n})();</script>\n`;
-
-		// Prepend injection so it runs before other sidebar logic.
-		html = injection + html;
+		// NOTE: Do not inject/override ensureAdminAccess here.
+		// The sidebar bundle and frontend/script.js already provide the correct logic.
 
 		res.type('html');
 		return res.status(200).send(html);
@@ -439,11 +430,13 @@ app.get('/components/sidebar.html', (req, res) => {
 	}
 });
 
-// Protect admin pages before static middleware: only admins can fetch /pages/admin/* HTML files
+// Admin guard (used for API routes and some legacy aliases)
 const requireAdmin = require('./middleware/requireAdmin');
-// Redirect /pages/admin/ to login
-app.get('/pages/admin/', (req, res) => res.redirect('/login'));
-app.use('/pages/admin', requireAdmin, express.static(path.join(FRONTEND_DIR, 'pages', 'admin'), {
+// NOTE: Admin APIs remain protected under /api/admin/*.
+// We serve admin HTML pages without backend gating so navigation does not depend on httpOnly cookies.
+// The pages themselves will gate UI by probing admin-only endpoints.
+app.get('/pages/admin/', (req, res) => res.redirect('/pages/admin/administracao.html'));
+app.use('/pages/admin', express.static(path.join(FRONTEND_DIR, 'pages', 'admin'), {
 	etag: false,
 	lastModified: false,
 	setHeaders: (res, filePath, stat) => {

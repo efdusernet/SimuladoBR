@@ -1,0 +1,2061 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Administração</title>
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
+  <script src="/utils/csrf.js"></script>
+  <script src="/utils/logout.js"></script>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body{
+      /* Page background */
+      background: #363636;
+
+      /* Local theme override (force dark controls) */
+      --bg: #494C4E;
+      --panel: #494C4E;
+      --border: #666A6D;
+      --text: #E5E7EB;
+      --muted: #CBD5E1;
+
+      color: var(--text, #e5e7eb);
+    }
+
+    /* Ensure form controls never render white in this page */
+    input, select, textarea{
+      background: var(--bg) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+    input::placeholder, textarea::placeholder{ color: rgba(229, 231, 235, 0.65); }
+    select option{ background: var(--bg); color: var(--text); }
+
+    .wrap{ max-width: 1100px; margin: 18px auto; padding: 16px; }
+    .topbar{ display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+    .topbar h1{ margin:0; font-size:1.25rem; }
+    .muted{ color: var(--muted, #94a3b8); }
+    .btn{ padding:8px 12px; border-radius:8px; border:1px solid var(--border, #1f2937); background: var(--panel, #0f172a); color: var(--text, #e5e7eb); cursor:pointer; font-weight:800; }
+    .btn:hover{ filter: brightness(1.08); }
+    .btn-danger{ background:#b91c1c; border-color:#7f1d1d; }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+    .linkBtn{ display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); text-decoration:none; font-size:.85rem; font-weight:800; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <div class="muted" style="font-size:.85rem;margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <a href="/index.html" style="color:var(--muted);text-decoration:none;font-weight:900">Home</a>
+          <span style="opacity:.7">/</span>
+          <span style="color:var(--text);font-weight:900">Administração</span>
+        </div>
+        <h1>Administração</h1>
+        <div class="muted" style="font-size:.9rem;">Ferramentas administrativas (página dedicada; sem modal).</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+        <a id="lnkAdminChatHost" class="linkBtn" href="/chat/admin" target="_blank" rel="noopener noreferrer">Chat (Admin)</a>
+        <button id="btnLogout" class="btn btn-danger" type="button">Sair</button>
+      </div>
+    </div>
+
+    <div id="adminGateMsg" class="muted" style="margin-top:14px; padding:12px; border:1px solid var(--border); border-radius:12px; background: var(--panel); display:none;"></div>
+
+    <div id="adminContent" style="margin-top:14px; display:none;">
+      <div>
+
+      <!-- Accordion: Health Check (on-demand) -->
+      <div class="admin-accordion" id="adminHealthAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">Health check</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.9rem;color:var(--muted);margin:0 0 12px;line-height:1.5">Diagnóstico de sessão/admin (RBAC + headers).</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button id="adminHealthCheckBtn" type="button" style="flex:1;min-width:220px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.95rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Rodar Health Check</button>
+            <button id="adminHealthCopyBtn" type="button" style="flex:1;min-width:220px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.95rem;font-weight:800;cursor:pointer;transition:background .15s">Copiar resultado</button>
+          </div>
+          <div id="adminHealthCheckOutput" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.8rem;color:var(--text);max-height:240px;overflow-y:auto;display:none;white-space:pre-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Accordion: Reconciliação de Estatísticas -->
+      <div class="admin-accordion" id="adminReconcileAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">📊 Reconciliação de Estatísticas</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.9rem;color:var(--muted);margin:0 0 16px;line-height:1.5">Reconstruir ou corrigir as estatísticas agregadas de tentativas de exames.</p>
+
+          <div style="display:grid;gap:12px;margin-bottom:16px">
+            <div>
+              <label for="reconcileFromDate" style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Data Inicial</label>
+              <input type="date" id="reconcileFromDate" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem" />
+            </div>
+            <div>
+              <label for="reconcileToDate" style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Data Final</label>
+              <input type="date" id="reconcileToDate" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem" />
+            </div>
+            <div>
+              <label for="reconcileMode" style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:4px">Modo</label>
+              <select id="reconcileMode" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem">
+                <option value="rebuild">Rebuild (sobrescrever)</option>
+                <option value="merge">Merge (incrementar)</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="checkbox" id="reconcileDryRun" style="width:18px;height:18px;cursor:pointer" />
+              <label for="reconcileDryRun" style="font-size:0.9rem;color:var(--text);cursor:pointer">Dry-run (simular sem alterar)</label>
+            </div>
+          </div>
+
+          <button id="reconcileBtn" type="button" style="width:100%;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.95rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Executar Reconciliação</button>
+
+          <div id="reconcileOutput" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.8rem;color:var(--text);max-height:200px;overflow-y:auto;display:none;white-space:pre-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Accordion: Gerar Tentativa Fixture -->
+      <div class="admin-accordion" id="adminFixtureAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">🔧 Gerar Tentativa Fixture</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">Cria uma tentativa finalizada diretamente no banco para testes. Pode especificar percentuais de desempenho por domínio (People, Process, Business). Os valores reais podem divergir levemente devido à disponibilidade de questões por domínio.</p>
+          <form id="fixtureForm" style="display:grid;gap:10px;margin-bottom:12px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="fxUserId" style="font-size:0.75rem;color:var(--muted)">User ID *</label>
+              <input id="fxUserId" name="userId" type="number" min="1" required placeholder="ex: 123" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="fxExamType" style="font-size:0.75rem;color:var(--muted)">Exam Type Slug</label>
+              <input id="fxExamType" name="examTypeSlug" type="text" value="pmp" placeholder="pmp" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="fxTotal" style="font-size:0.75rem;color:var(--muted)">Total Questões</label>
+              <input id="fxTotal" name="totalQuestions" type="number" min="1" max="500" value="180" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="fxOverall" style="font-size:0.75rem;color:var(--muted)">% Geral *</label>
+              <input id="fxOverall" name="overallPct" type="number" min="0" max="100" value="65" required style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="fxPeople" style="font-size:0.75rem;color:var(--muted)">% People</label>
+              <input id="fxPeople" name="peoplePct" type="number" min="0" max="100" placeholder="opcional" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="fxProcess" style="font-size:0.75rem;color:var(--muted)">% Process</label>
+              <input id="fxProcess" name="processPct" type="number" min="0" max="100" placeholder="opcional" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="fxBusiness" style="font-size:0.75rem;color:var(--muted)">% Business</label>
+              <input id="fxBusiness" name="businessPct" type="number" min="0" max="100" placeholder="opcional" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <button type="submit" style="margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Gerar Fixture</button>
+          </form>
+          <div id="fixtureOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Accordion: Versão atual do exame (ECO) -->
+      <div class="admin-accordion" id="adminCurrentVersionAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">📚 Versão atual do exame (ECO)</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">Define a versão padrão do blueprint (ECO) por tipo de exame. Usuários com compra específica podem ter override por usuário.</p>
+          <div style="display:grid;gap:10px;margin-bottom:12px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="adminExamTypeSelect" style="font-size:0.75rem;color:var(--muted)">Tipo de Exame *</label>
+              <select id="adminExamTypeSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem">
+                <option value="">Carregando...</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="adminExamContentVersionSelect" style="font-size:0.75rem;color:var(--muted)">Versão atual *</label>
+              <select id="adminExamContentVersionSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+                <option value="">Selecione um tipo de exame</option>
+              </select>
+            </div>
+            <button id="adminSetCurrentVersionBtn" type="button" style="margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'
+              ">Salvar versão atual</button>
+          </div>
+          <div id="adminExamContentVersionOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Accordion: Override por Usuário (compra) -->
+      <div class="admin-accordion" id="adminUserOverrideAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">👤 Override por Usuário (compra)</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">Define uma versão de ECO específica para um usuário (normalmente baseada na compra). Se removido, volta para a versão vigente padrão.</p>
+          <div style="display:grid;gap:10px;margin-bottom:12px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label for="adminUserSearchQuery" style="font-size:0.75rem;color:var(--muted)">Buscar usuário</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <input id="adminUserSearchQuery" type="text" placeholder="Digite nome, @usuario ou email" style="flex:1;min-width:220px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                <button id="adminUserSearchBtn" type="button" style="padding:10px 12px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Buscar</button>
+              </div>
+              <select id="adminUserSearchSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+                <option value="">Digite acima e clique Buscar</option>
+              </select>
+              <div id="adminUserSearchStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="adminUserIdOverride" style="font-size:0.75rem;color:var(--muted)">User ID *</label>
+              <input id="adminUserIdOverride" type="number" min="1" placeholder="ex: 123" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+              <div id="adminUserIdOverrideHint" style="font-size:0.72rem;color:var(--muted);margin-top:4px;min-height:1.1em"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="adminUserExamTypeSelect" style="font-size:0.75rem;color:var(--muted)">Tipo de Exame *</label>
+              <select id="adminUserExamTypeSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem">
+                <option value="">Carregando...</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="adminUserExamContentVersionSelect" style="font-size:0.75rem;color:var(--muted)">Versão ECO (override) *</label>
+              <select id="adminUserExamContentVersionSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+                <option value="">Selecione User ID + tipo de exame</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button id="adminSetUserOverrideBtn" type="button" style="flex:1;min-width:180px;margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Salvar override</button>
+              <button id="adminClearUserOverrideBtn" type="button" style="flex:1;min-width:180px;margin-top:4px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Remover override</button>
+            </div>
+          </div>
+          <div id="adminUserOverrideOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Accordion: Resetar Senha -->
+      <div class="admin-accordion" id="adminResetPasswordAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">🔑 Resetar Senha de Usuário</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0 0 14px;line-height:1.4">Redefine a senha de qualquer usuário pelo email. A nova senha será encriptada com SHA-256.</p>
+          <form id="resetPasswordForm" style="display:grid;gap:10px;margin-bottom:12px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="resetEmail" style="font-size:0.75rem;color:var(--muted)">Email do Usuário *</label>
+              <input id="resetEmail" name="email" type="email" autocomplete="email" required placeholder="usuario@exemplo.com" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label for="resetNewPassword" style="font-size:0.75rem;color:var(--muted)">Nova Senha *</label>
+              <input id="resetNewPassword" name="newPassword" type="password" autocomplete="new-password" required placeholder="Digite a nova senha" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+            </div>
+            <button type="submit" style="margin-top:4px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Resetar Senha</button>
+          </form>
+          <div id="resetPasswordOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;color:var(--text);white-space:pre-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Accordion: Snapshots diários (Insights) -->
+      <div class="admin-accordion" id="adminSnapshotsAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">🕒 Snapshots de Insights (pagantes)</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">Mostra os registros da tabela <span style="font-family:monospace">user_daily_snapshot</span> (gravados 1x/dia quando o usuário é pagante: <span style="font-family:monospace">BloqueioAtivado=false</span>).</p>
+          <div style="display:grid;gap:10px;margin-bottom:10px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <div style="flex:1;min-width:160px;display:flex;flex-direction:column;gap:4px">
+                <label for="adminSnapshotUserId" style="font-size:0.75rem;color:var(--muted)">User ID *</label>
+                <input id="adminSnapshotUserId" type="number" min="1" placeholder="ex: 123" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+              </div>
+              <div style="width:140px;display:flex;flex-direction:column;gap:4px">
+                <label for="adminSnapshotDays" style="font-size:0.75rem;color:var(--muted)">Dias</label>
+                <input id="adminSnapshotDays" type="number" min="1" max="365" value="90" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="checkbox" id="adminSnapshotIncludePayload" style="width:18px;height:18px;cursor:pointer" />
+              <label for="adminSnapshotIncludePayload" style="font-size:0.9rem;color:var(--text);cursor:pointer">Incluir payload JSON (mais pesado)</label>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button id="adminLoadSnapshotsBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'">Carregar snapshots</button>
+              <button id="adminUseOverrideUserIdBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Usar User ID do Override</button>
+            </div>
+            <div id="adminSnapshotsStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+          </div>
+          <div id="adminSnapshotsTable" style="display:none;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:420px"></div>
+        </div>
+      </div>
+
+      <!-- Accordion: Limpeza de DB (não-masterdata) -->
+      <div class="admin-accordion" id="adminDbCleanupAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">🧹 Limpeza do Banco (não-masterdata)</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">Remove dados transacionais (tentativas, stats, snapshots, etc.) preservando tabelas de masterdata/conteúdo. Use <b>Simular</b> para ver exatamente o que será truncado. <b>Atenção:</b> operação destrutiva.</p>
+
+          <div style="border:1px solid var(--border);border-radius:8px;background:var(--bg);padding:12px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+              <div style="font-weight:900;color:var(--text)">Tabelas (manter × truncar)</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button id="adminDbTablesReloadBtn" type="button" style="padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:900;cursor:pointer">Recarregar</button>
+                <button id="adminDbTablesResetBtn" type="button" style="padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:900;cursor:pointer">Reset (padrão)</button>
+              </div>
+            </div>
+            <div id="adminDbTablesHint" style="font-size:.8rem;color:var(--muted);margin-top:8px;line-height:1.3">Tabelas novas/não mapeadas costumam ficar em “Manter” por segurança. Mova para “Truncar” para incluí-las na limpeza.</div>
+
+            <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:10px;margin-top:10px;align-items:stretch">
+              <div>
+                <div style="font-size:.85rem;font-weight:900;color:var(--text);margin-bottom:6px">Manter (masterdata/conteúdo)</div>
+                <select id="adminDbTablesKeepSelect" multiple size="10" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-family:monospace;font-size:.82rem"></select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;justify-content:center">
+                <button id="adminDbMoveToTruncateBtn" type="button" style="padding:10px;background:#b91c1c;color:#fff;border:none;border-radius:6px;font-size:0.85rem;font-weight:900;cursor:pointer">Truncar →</button>
+                <button id="adminDbMoveToKeepBtn" type="button" style="padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:900;cursor:pointer">← Manter</button>
+              </div>
+              <div>
+                <div style="font-size:.85rem;font-weight:900;color:var(--text);margin-bottom:6px">Truncar (não-masterdata)</div>
+                <select id="adminDbTablesTruncateSelect" multiple size="10" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-family:monospace;font-size:.82rem"></select>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;gap:10px;margin-bottom:10px">
+            <div style="display:flex;flex-wrap:wrap;gap:10px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="adminDbKeepUsers" checked style="width:18px;height:18px;cursor:pointer" />
+                <span style="font-size:0.9rem;color:var(--text)">Manter usuários (se desmarcar, preserva Usuario.id=21)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="adminDbKeepRbac" checked style="width:18px;height:18px;cursor:pointer" />
+                <span style="font-size:0.9rem;color:var(--text)">Manter RBAC (roles/admin)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="adminDbKeepEntitlements" checked style="width:18px;height:18px;cursor:pointer" />
+                <span style="font-size:0.9rem;color:var(--text)">Manter compras/entitlements</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="adminDbKeepComm" checked style="width:18px;height:18px;cursor:pointer" />
+                <span style="font-size:0.9rem;color:var(--text)">Manter comunicação (recipients)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="adminDbKeepNotif" style="width:18px;height:18px;cursor:pointer" />
+                <span style="font-size:0.9rem;color:var(--text)">Manter notificações (draft/sent)</span>
+              </label>
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+              <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:4px">
+                <label for="adminDbConfirmText" style="font-size:0.75rem;color:var(--muted)">Confirmação (para executar)</label>
+                <input id="adminDbConfirmText" type="text" placeholder="Digite: LIMPAR_NAO_MASTERDATA" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+              </div>
+              <button id="adminDbDryRunBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Simular (dry-run)</button>
+              <button id="adminDbExecuteBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:#b91c1c;color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:900;cursor:pointer">Executar limpeza</button>
+            </div>
+
+            <div id="adminDbCleanupStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+          </div>
+
+          <div id="adminDbCleanupOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:260px;overflow-y:auto;white-space:pre-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Accordion: Emular Questões por IDs -->
+      <div class="admin-accordion" id="adminEmulatorAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">🧪 Emular Questões (IDs)</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px;line-height:1.4">Inicia um exame completo usando exatamente os IDs informados (admin-only). Aceita separadores como vírgula, espaço e quebra de linha. Máx: 200.</p>
+          <div style="display:grid;gap:10px">
+            <textarea id="adminEmulatorQuestionIds" rows="4" placeholder="Ex: 123, 456, 789\n1011 1213" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem;resize:vertical"></textarea>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button id="adminEmulatorStartBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'
+                ">Iniciar exame com esses IDs</button>
+              <button id="adminEmulatorClearBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Limpar</button>
+            </div>
+            <div id="adminEmulatorOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accordion: Outras Ferramentas -->
+      <div id="adminAccordionTools" class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">🛠️ Outras Ferramentas</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <div style="display:grid;gap:10px">
+            <div>
+              <div style="font-size:0.95rem;font-weight:900;color:var(--text);margin-bottom:8px">🔗 Páginas Admin</div>
+              <div style="display:grid;gap:8px">
+                <a href="/pages/admin/questionForm.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Cadastrar questão</a>
+                <a href="/pages/admin/questionBulk.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Cadastrar questão bulk</a>
+                <a href="/pages/admin/flashcards.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Flashcards</a>
+                <a href="/pages/admin/dicas.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Dicas</a>
+                <a href="/pages/admin/feedbackResponses.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Responder feedbacks</a>
+                <a href="/pages/admin/notifications.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Notificações</a>
+                <a href="/pages/admin/dataExplorer.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Data Explorer</a>
+                <a href="/pages/admin/productPlans.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Planos (Marketing)</a>
+                <a href="/pages/admin/userParams.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Parâmetro Usuários</a>
+              </div>
+              <div style="font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.3">Dica: o Data Explorer não aceita SQL livre; é um construtor seguro.</div>
+            </div>
+
+            <div style="height:1px;background:var(--border);opacity:.7"></div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+              <div style="font-size:0.95rem;font-weight:900;color:var(--text)">📣 Comunicação</div>
+              <button id="commRefreshRecipientsBtn" type="button" style="padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:800;cursor:pointer">Atualizar</button>
+            </div>
+            <p style="font-size:0.85rem;color:var(--muted);margin:0;line-height:1.4">Cadastre os admins que recebem comunicados por e-mail. Você pode selecionar mais de 1.</p>
+
+            <select id="commAdminSelect" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" disabled>
+              <option value="">Carregando admins...</option>
+            </select>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button id="commAddRecipientBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--primary-press)'" onmouseout="this.style.background='var(--primary)'" disabled>Adicionar</button>
+            </div>
+            <div id="commRecipientsStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+            <div id="commRecipientsList" style="display:grid;gap:8px"></div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const adminGateMsg = document.getElementById('adminGateMsg');
+      const adminContent = document.getElementById('adminContent');
+
+      function setGateMsg(msg){
+        if (!adminGateMsg) return;
+        adminGateMsg.style.display = msg ? 'block' : 'none';
+        adminGateMsg.textContent = msg || '';
+      }
+
+      function buildAuthHeaders(extra){
+        try {
+          if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+            return window.Auth.getAuthHeaders({ acceptJson: true, extra: extra && typeof extra === 'object' ? extra : undefined });
+          }
+        } catch(_){ }
+
+        const h = { 'Accept': 'application/json' };
+        try {
+          const token = (localStorage.getItem('sessionToken') || '').trim();
+          const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+          const sessionForHeader = (token || nomeUsuario).trim();
+          if (sessionForHeader) h['X-Session-Token'] = sessionForHeader;
+        } catch(_){ }
+        try {
+          const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+          const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+          if (jwtTok) h['Authorization'] = jwtType + ' ' + jwtTok;
+        } catch(_){ }
+        if (extra && typeof extra === 'object') {
+          for (const k of Object.keys(extra)) {
+            if (extra[k] === undefined || extra[k] === null) continue;
+            h[k] = extra[k];
+          }
+        }
+        return h;
+      }
+
+      async function ensureAdmin(){
+        try {
+          if (typeof window.ensureAdminAccess === 'function') {
+            const ok = await window.ensureAdminAccess({ force: true });
+            return !!ok;
+          }
+        } catch(_) {}
+
+        try {
+          const headers = buildAuthHeaders();
+          const probe = await fetch('/api/admin/data-explorer/tables', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+          if (probe.ok || probe.status === 204) return true;
+        } catch(_){ }
+
+        try {
+          const headers = buildAuthHeaders();
+          const resp = await fetch('/api/users/me', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+          if (!resp.ok) return false;
+          const user = await resp.json().catch(() => null);
+          return !!(user && (user.TipoUsuario === 'admin' || user.tipoUsuario === 'admin' || user.isAdmin === true));
+        } catch(_){
+          return false;
+        }
+      }
+
+      function openAccordion(accordion){
+        if (!accordion) return;
+        const header = accordion.querySelector('.admin-accordion-header');
+        const content = accordion.querySelector('.admin-accordion-content');
+        const chevron = accordion.querySelector('.admin-accordion-chevron');
+        if (!content) return;
+        content.style.display = 'block';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+        if (header) header.style.background = 'rgba(79, 70, 229, 0.1)';
+      }
+
+      function initAccordions(){
+        const accordions = document.querySelectorAll('.admin-accordion');
+        accordions.forEach(accordion => {
+          const header = accordion.querySelector('.admin-accordion-header');
+          const content = accordion.querySelector('.admin-accordion-content');
+          const chevron = accordion.querySelector('.admin-accordion-chevron');
+          if (!header || !content) return;
+
+          header.addEventListener('click', () => {
+            const isOpen = content.style.display === 'block';
+            if (isOpen) {
+              content.style.display = 'none';
+              if (chevron) chevron.style.transform = 'rotate(0deg)';
+              header.style.background = 'var(--bg)';
+            } else {
+              content.style.display = 'block';
+              if (chevron) chevron.style.transform = 'rotate(180deg)';
+              header.style.background = 'rgba(79, 70, 229, 0.1)';
+            }
+          });
+
+          header.addEventListener('mouseenter', () => {
+            if (content.style.display !== 'block') header.style.background = 'rgba(148, 163, 184, 0.1)';
+          });
+          header.addEventListener('mouseleave', () => {
+            if (content.style.display !== 'block') header.style.background = 'var(--bg)';
+          });
+        });
+      }
+
+      function setupTopButtons(){
+        const btnLogout = document.getElementById('btnLogout');
+
+        if (btnLogout) btnLogout.addEventListener('click', () => {
+          if (window.performLogout) {
+            window.performLogout({ confirm: true, showNotification: false, redirectUrl: '/login' });
+            return;
+          }
+          if (confirm('Deseja realmente sair?')) {
+            try { localStorage.clear(); } catch(_){ }
+            try { sessionStorage.clear(); } catch(_){ }
+            try { document.cookie = 'sessionToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'; } catch(_){ }
+            window.location.assign('/login?_ts=' + Date.now());
+          }
+        });
+      }
+
+      function getAdminHeaders(){
+        return buildAuthHeaders();
+      }
+
+      function fmtHealthLine(k, v){
+        const key = String(k || '').padEnd(18, ' ');
+        return `${key}: ${v}`;
+      }
+
+      async function runAdminHealthCheck(){
+        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE)
+          || (window.location && window.location.origin)
+          || 'http://app.localhost:3000';
+        const headers = getAdminHeaders();
+        const identity = (window.Auth && typeof window.Auth.getSessionIdentity === 'function')
+          ? window.Auth.getSessionIdentity()
+          : ((localStorage.getItem('sessionToken') || '').trim() || (localStorage.getItem('nomeUsuario') || '').trim());
+
+        const outLines = [];
+        outLines.push('[admin-health] ' + new Date().toISOString());
+        outLines.push(fmtHealthLine('base', base));
+        outLines.push(fmtHealthLine('identity', identity ? String(identity) : '(none)'));
+        outLines.push(fmtHealthLine('hasJWT', headers['Authorization'] ? 'yes' : 'no'));
+        outLines.push(fmtHealthLine('hasX-Session', headers['X-Session-Token'] ? 'yes' : 'no'));
+
+        // 1) /api/users/me
+        try {
+          const resp = await fetch(base + '/api/users/me', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+          const body = await resp.json().catch(() => null);
+          outLines.push('');
+          outLines.push('[users/me]');
+          outLines.push(fmtHealthLine('status', resp.status));
+          outLines.push(fmtHealthLine('TipoUsuario', body && (body.TipoUsuario || body.tipoUsuario) ? (body.TipoUsuario || body.tipoUsuario) : '(none)'));
+          outLines.push(fmtHealthLine('Id', body && body.Id != null ? body.Id : '(none)'));
+          outLines.push(fmtHealthLine('Email', body && body.Email ? body.Email : '(none)'));
+        } catch (e) {
+          outLines.push('');
+          outLines.push('[users/me] ERROR: ' + (e && e.message ? e.message : String(e)));
+        }
+
+        // 2) Admin probe (RBAC)
+        try {
+          const probeUrl = base + '/api/admin/data-explorer/tables';
+          const resp = await fetch(probeUrl, { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+          outLines.push('');
+          outLines.push('[admin/data-explorer/tables]');
+          outLines.push(fmtHealthLine('status', resp.status));
+          outLines.push(fmtHealthLine('ok', (resp.ok || resp.status === 204 || resp.status === 304) ? 'yes' : 'no'));
+        } catch (e) {
+          outLines.push('');
+          outLines.push('[admin/data-explorer/tables] ERROR: ' + (e && e.message ? e.message : String(e)));
+        }
+
+        const text = outLines.join('\n');
+        const adminHealthCheckOutput = document.getElementById('adminHealthCheckOutput');
+        if (adminHealthCheckOutput) {
+          adminHealthCheckOutput.style.display = 'block';
+          adminHealthCheckOutput.textContent = text;
+        }
+
+        const ok = /\[admin\/data-explorer\/tables\][\s\S]*ok\s*: yes/i.test(text)
+          || /\[admin\/data-explorer\/tables\][\s\S]*status\s*: 304/i.test(text)
+          || /\[users\/me\][\s\S]*TipoUsuario\s*: admin/i.test(text);
+        try {
+          if (window.showToast) window.showToast(ok ? 'Health check OK (admin)' : 'Health check: atenção (não-admin)');
+        } catch(_){ }
+        return ok;
+      }
+
+      window.runAdminHealthCheck = runAdminHealthCheck;
+
+      function initHealthCheckUi(){
+        const adminHealthCheckBtn = document.getElementById('adminHealthCheckBtn');
+        const adminHealthCopyBtn = document.getElementById('adminHealthCopyBtn');
+        const adminHealthCheckOutput = document.getElementById('adminHealthCheckOutput');
+
+        if (adminHealthCheckBtn) {
+          adminHealthCheckBtn.addEventListener('click', async () => {
+            const old = adminHealthCheckBtn.textContent;
+            adminHealthCheckBtn.disabled = true;
+            adminHealthCheckBtn.textContent = 'Rodando...';
+            try {
+              await runAdminHealthCheck();
+            } finally {
+              adminHealthCheckBtn.disabled = false;
+              adminHealthCheckBtn.textContent = old;
+            }
+          });
+        }
+
+        if (adminHealthCopyBtn) {
+          adminHealthCopyBtn.addEventListener('click', async () => {
+            const text = (adminHealthCheckOutput && adminHealthCheckOutput.textContent) ? String(adminHealthCheckOutput.textContent) : '';
+            if (!text.trim()) {
+              try { if (window.showToast) window.showToast('Nada para copiar. Rode o health check primeiro.'); } catch(_){ }
+              return;
+            }
+
+            const old = adminHealthCopyBtn.textContent;
+            adminHealthCopyBtn.disabled = true;
+            adminHealthCopyBtn.textContent = 'Copiando...';
+
+            let ok = false;
+            try {
+              if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(text);
+                ok = true;
+              }
+            } catch(_){ ok = false; }
+
+            if (!ok) {
+              try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                ta.style.top = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                ok = document.execCommand('copy');
+                ta.remove();
+              } catch(_){ ok = false; }
+            }
+
+            try { if (window.showToast) window.showToast(ok ? 'Resultado copiado.' : 'Falha ao copiar.'); } catch(_){ }
+            adminHealthCopyBtn.disabled = false;
+            adminHealthCopyBtn.textContent = old;
+          });
+        }
+      }
+
+      // --- Admin: view daily snapshots recorded from /api/ai/insights ---
+      function initAdminSnapshots(){
+        const adminSnapshotUserId = document.getElementById('adminSnapshotUserId');
+        const adminSnapshotDays = document.getElementById('adminSnapshotDays');
+        const adminSnapshotIncludePayload = document.getElementById('adminSnapshotIncludePayload');
+        const adminLoadSnapshotsBtn = document.getElementById('adminLoadSnapshotsBtn');
+        const adminUseOverrideUserIdBtn = document.getElementById('adminUseOverrideUserIdBtn');
+        const adminSnapshotsStatus = document.getElementById('adminSnapshotsStatus');
+        const adminSnapshotsTable = document.getElementById('adminSnapshotsTable');
+        const adminUserIdOverride = document.getElementById('adminUserIdOverride');
+
+        if (!adminLoadSnapshotsBtn || !adminSnapshotsTable) return;
+
+        function setStatus(msg){ if (adminSnapshotsStatus) adminSnapshotsStatus.textContent = msg || ''; }
+        function fmtNum(v, digits){ const n = Number(v); if (!isFinite(n)) return ''; return digits == null ? String(n) : n.toFixed(digits); }
+        function escapeHtml(s){
+          return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        }
+
+        function render(items, includePayload){
+          const list = Array.isArray(items) ? items : [];
+          if (!list.length){
+            adminSnapshotsTable.style.display = 'block';
+            adminSnapshotsTable.innerHTML = '<div style="font-size:.85rem;color:var(--muted)">Nenhum snapshot encontrado para este usuário (ou não é pagante / ainda não gerou insights hoje).</div>';
+            return;
+          }
+
+          const headStyle = 'padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;font-size:.78rem;color:var(--muted);white-space:nowrap;';
+          const cellStyle = 'padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.2);font-size:.85rem;color:var(--text);vertical-align:top;white-space:nowrap;';
+
+          let html = '';
+          html += '<table style="width:100%;border-collapse:collapse">';
+          html += '<thead><tr>';
+          html += `<th style="${headStyle}">Data</th>`;
+          html += `<th style="${headStyle}">DaysToExam</th>`;
+          html += `<th style="${headStyle}">Readiness</th>`;
+          html += `<th style="${headStyle}">Consistência</th>`;
+          html += `<th style="${headStyle}">Avg%</th>`;
+          html += `<th style="${headStyle}">Prob%</th>`;
+          html += `<th style="${headStyle}">Overall%</th>`;
+          html += `<th style="${headStyle}">TrendΔ</th>`;
+          html += `<th style="${headStyle}">CompRate</th>`;
+          html += `<th style="${headStyle}">Abandon</th>`;
+          html += '</tr></thead><tbody>';
+
+          for (let i = 0; i < list.length; i++){
+            const r = list[i] || {};
+            const date = r.snapshot_date || r.snapshotDate || '';
+            const daysToExam = r.days_to_exam != null ? r.days_to_exam : r.daysToExam;
+            const readiness = r.readiness_score != null ? r.readiness_score : r.readinessScore;
+            const consistency = r.consistency_score != null ? r.consistency_score : r.consistencyScore;
+            const avg = r.avg_score_percent != null ? r.avg_score_percent : r.avgScorePercent;
+            const prob = r.pass_probability_percent != null ? r.pass_probability_percent : r.passProbabilityPercent;
+            const overall = r.pass_probability_overall_percent != null ? r.pass_probability_overall_percent : r.passProbabilityOverallPercent;
+            const trend = r.trend_delta_score7d != null ? r.trend_delta_score7d : r.trendDeltaScore7d;
+            const comp = r.completion_rate != null ? r.completion_rate : r.completionRate;
+            const abd = r.abandon_rate != null ? r.abandon_rate : r.abandonRate;
+
+            html += '<tr>';
+            html += `<td style="${cellStyle}">${escapeHtml(date)}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(daysToExam == null ? '' : String(daysToExam))}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(readiness == null ? '' : String(readiness))}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(consistency == null ? '' : String(consistency))}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(avg == null ? '' : fmtNum(avg, 2))}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(prob == null ? '' : fmtNum(prob, 2))}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(overall == null ? '' : fmtNum(overall, 2))}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(trend == null ? '' : fmtNum(trend, 2))}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(comp == null ? '' : fmtNum(comp, 4))}</td>`;
+            html += `<td style="${cellStyle}">${escapeHtml(abd == null ? '' : fmtNum(abd, 4))}</td>`;
+            html += '</tr>';
+
+            if (includePayload && r.payload != null){
+              html += `<tr><td colspan="10" style="padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.2)">`;
+              html += `<details><summary style="cursor:pointer;color:var(--muted);font-size:.82rem">payload JSON</summary>`;
+              html += `<pre style="white-space:pre-wrap;word-break:break-word;margin:8px 0 0;font-size:.75rem">${escapeHtml(JSON.stringify(r.payload, null, 2))}</pre>`;
+              html += `</details>`;
+              html += `</td></tr>`;
+            }
+          }
+
+          html += '</tbody></table>';
+          adminSnapshotsTable.style.display = 'block';
+          adminSnapshotsTable.innerHTML = html;
+        }
+
+        async function load(){
+          const uid = adminSnapshotUserId ? Number(adminSnapshotUserId.value) : null;
+          const days = adminSnapshotDays ? Number(adminSnapshotDays.value) : 90;
+          const includePayload = !!(adminSnapshotIncludePayload && adminSnapshotIncludePayload.checked);
+
+          if (!uid || !isFinite(uid) || uid <= 0){
+            alert('Preencha User ID.');
+            return;
+          }
+
+          setStatus('Carregando...');
+          adminLoadSnapshotsBtn.disabled = true;
+          const oldTxt = adminLoadSnapshotsBtn.textContent;
+          adminLoadSnapshotsBtn.textContent = 'Carregando...';
+
+          try {
+            const daysParam = isFinite(days) && days > 0 ? Math.min(Math.max(Math.floor(days), 1), 365) : 90;
+            const path = '/api/admin/users/' + encodeURIComponent(String(uid)) + '/insights-snapshots'
+              + '?days=' + encodeURIComponent(String(daysParam))
+              + '&includePayload=' + (includePayload ? '1' : '0');
+
+            const r = await adminFetch(path, { method: 'GET' });
+            if (!r.ok) throw new Error((r.data && (r.data.error || r.data.message)) || ('Status: ' + r.status));
+
+            const items = r.data && Array.isArray(r.data.items) ? r.data.items : [];
+            setStatus(`OK — ${items.length} registro(s).`);
+            render(items, includePayload);
+          } catch (e) {
+            setStatus((e && e.message) ? e.message : String(e));
+            adminSnapshotsTable.style.display = 'block';
+            adminSnapshotsTable.innerHTML = '<div style="font-family:monospace;font-size:.8rem;color:var(--text)">Erro ao carregar snapshots.</div>';
+          } finally {
+            adminLoadSnapshotsBtn.disabled = false;
+            adminLoadSnapshotsBtn.textContent = oldTxt;
+          }
+        }
+
+        adminLoadSnapshotsBtn.addEventListener('click', () => { load(); });
+        if (adminUseOverrideUserIdBtn) {
+          adminUseOverrideUserIdBtn.addEventListener('click', () => {
+            const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+            if (adminSnapshotUserId && uid && isFinite(uid) && uid > 0) {
+              adminSnapshotUserId.value = String(uid);
+              setStatus('User ID preenchido a partir do Override.');
+            } else {
+              alert('Preencha User ID no accordion de Override (ou digite manualmente).');
+            }
+          });
+        }
+      }
+
+      // --- Admin: DB cleanup ---
+      function initAdminDbCleanup(){
+        const dryBtn = document.getElementById('adminDbDryRunBtn');
+        const execBtn = document.getElementById('adminDbExecuteBtn');
+        const outEl = document.getElementById('adminDbCleanupOutput');
+        const statusEl = document.getElementById('adminDbCleanupStatus');
+        const confirmEl = document.getElementById('adminDbConfirmText');
+
+        const keepSel = document.getElementById('adminDbTablesKeepSelect');
+        const truncSel = document.getElementById('adminDbTablesTruncateSelect');
+        const moveToTruncBtn = document.getElementById('adminDbMoveToTruncateBtn');
+        const moveToKeepBtn = document.getElementById('adminDbMoveToKeepBtn');
+        const reloadTablesBtn = document.getElementById('adminDbTablesReloadBtn');
+        const resetTablesBtn = document.getElementById('adminDbTablesResetBtn');
+
+        const keepUsersEl = document.getElementById('adminDbKeepUsers');
+        const keepRbacEl = document.getElementById('adminDbKeepRbac');
+        const keepEntitlementsEl = document.getElementById('adminDbKeepEntitlements');
+        const keepCommEl = document.getElementById('adminDbKeepComm');
+        const keepNotifEl = document.getElementById('adminDbKeepNotif');
+
+        if (!dryBtn || !execBtn || !outEl) return;
+
+        function setStatus(msg){ if (statusEl) statusEl.textContent = msg || ''; }
+        function showOut(obj){ outEl.style.display = 'block'; outEl.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2); }
+
+        const LS_MASTER_EXTRA = 'adminDbCleanupMasterdataExtra';
+        const LS_TRUNC_EXTRA = 'adminDbCleanupTruncateExtra';
+
+        function readList(key){
+          try {
+            const raw = localStorage.getItem(key);
+            const arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr) ? arr.map(x => String(x)).filter(Boolean) : [];
+          } catch(_){
+            return [];
+          }
+        }
+
+        function writeList(key, arr){
+          try {
+            const uniq = [];
+            const seen = new Set();
+            for (const v of (Array.isArray(arr) ? arr : [])) {
+              const s = v != null ? String(v) : '';
+              if (!s || seen.has(s)) continue;
+              seen.add(s);
+              uniq.push(s);
+            }
+            localStorage.setItem(key, JSON.stringify(uniq));
+          } catch(_){ }
+        }
+
+        function getOverrides(){
+          return {
+            masterdataExtra: readList(LS_MASTER_EXTRA),
+            truncateExtra: readList(LS_TRUNC_EXTRA),
+          };
+        }
+
+        function clearOverrides(){
+          try { localStorage.removeItem(LS_MASTER_EXTRA); } catch(_){ }
+          try { localStorage.removeItem(LS_TRUNC_EXTRA); } catch(_){ }
+        }
+
+        function selectedValues(sel){
+          try {
+            if (!sel || !sel.options) return [];
+            return Array.from(sel.options).filter(o => o && o.selected).map(o => String(o.value)).filter(Boolean);
+          } catch(_){
+            return [];
+          }
+        }
+
+        function renderSelect(sel, values){
+          if (!sel) return;
+          const arr = Array.isArray(values) ? values : [];
+          const esc = (s) => String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+          sel.innerHTML = arr.map(t => {
+            const v = esc(t);
+            return `<option value=\"${v}\">${v}</option>`;
+          }).join('');
+        }
+
+        async function callApi(dryRun){
+          const options = {
+            keepUsers: keepUsersEl ? !!keepUsersEl.checked : true,
+            keepRbac: keepRbacEl ? !!keepRbacEl.checked : true,
+            keepEntitlements: keepEntitlementsEl ? !!keepEntitlementsEl.checked : true,
+            keepCommunication: keepCommEl ? !!keepCommEl.checked : true,
+            keepNotifications: keepNotifEl ? !!keepNotifEl.checked : false,
+          };
+
+          const ov = getOverrides();
+          options.masterdataExtra = ov.masterdataExtra;
+          options.truncateExtra = ov.truncateExtra;
+
+          const payload = {
+            dryRun: !!dryRun,
+            confirm: confirmEl ? String(confirmEl.value || '').trim() : '',
+            options,
+          };
+
+          const r = await adminFetch('/api/admin/db/cleanup/non-masterdata', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!r.ok) {
+            throw new Error((r.data && (r.data.error || r.data.message)) || `Falha (${r.status}).`);
+          }
+          return r.data;
+        }
+
+        async function refreshTableLists(){
+          if (!keepSel || !truncSel) return;
+          setStatus('Carregando plano de limpeza...');
+          try {
+            const data = await callApi(true);
+            const keep = (data && Array.isArray(data.keep)) ? data.keep : [];
+            const trunc = (data && Array.isArray(data.truncate)) ? data.truncate : [];
+            renderSelect(keepSel, keep);
+            renderSelect(truncSel, trunc);
+            const unclassified = (data && Array.isArray(data.unclassified)) ? data.unclassified : [];
+            const note = unclassified.length ? ` (novas/não mapeadas: ${unclassified.length})` : '';
+            setStatus(`OK — ${trunc.length} tabela(s) para truncar, ${keep.length} para manter${note}.`);
+          } catch(e){
+            setStatus((e && e.message) ? e.message : String(e));
+          }
+        }
+
+        async function moveKeepToTruncate(){
+          if (!keepSel) return;
+          const picked = selectedValues(keepSel);
+          if (!picked.length) return;
+          const ov = getOverrides();
+          const truncExtra = new Set(ov.truncateExtra);
+          const masterExtra = new Set(ov.masterdataExtra);
+          for (const t of picked) {
+            truncExtra.add(t);
+            masterExtra.delete(t);
+          }
+          writeList(LS_TRUNC_EXTRA, Array.from(truncExtra));
+          writeList(LS_MASTER_EXTRA, Array.from(masterExtra));
+          await refreshTableLists();
+        }
+
+        async function moveTruncateToKeep(){
+          if (!truncSel) return;
+          const picked = selectedValues(truncSel);
+          if (!picked.length) return;
+          const ov = getOverrides();
+          const truncExtra = new Set(ov.truncateExtra);
+          const masterExtra = new Set(ov.masterdataExtra);
+          for (const t of picked) {
+            truncExtra.delete(t);
+            masterExtra.add(t);
+          }
+          writeList(LS_TRUNC_EXTRA, Array.from(truncExtra));
+          writeList(LS_MASTER_EXTRA, Array.from(masterExtra));
+          await refreshTableLists();
+        }
+
+        async function runDry(){
+          setStatus('Simulando...');
+          dryBtn.disabled = true;
+          execBtn.disabled = true;
+          try {
+            const data = await callApi(true);
+            setStatus(`OK — ${data && data.truncate ? data.truncate.length : 0} tabela(s) para truncar.`);
+            showOut(data);
+            try { await refreshTableLists(); } catch(_){ }
+          } catch(e){
+            setStatus((e && e.message) ? e.message : String(e));
+            showOut((e && e.message) ? e.message : String(e));
+          } finally {
+            dryBtn.disabled = false;
+            execBtn.disabled = false;
+          }
+        }
+
+        async function runExec(){
+          const conf = confirmEl ? String(confirmEl.value || '').trim() : '';
+          if (conf !== 'LIMPAR_NAO_MASTERDATA') {
+            alert('Para executar, digite exatamente: LIMPAR_NAO_MASTERDATA');
+            return;
+          }
+
+          const ok = confirm('Esta operação TRUNCA tabelas (dados serão perdidos). Deseja continuar?');
+          if (!ok) return;
+
+          setStatus('Executando limpeza...');
+          dryBtn.disabled = true;
+          execBtn.disabled = true;
+          try {
+            const data = await callApi(false);
+            setStatus(`OK — truncadas ${data && data.truncated != null ? data.truncated : '?'} tabela(s).`);
+            showOut(data);
+          } catch(e){
+            setStatus((e && e.message) ? e.message : String(e));
+            showOut((e && e.message) ? e.message : String(e));
+          } finally {
+            dryBtn.disabled = false;
+            execBtn.disabled = false;
+          }
+        }
+
+        dryBtn.addEventListener('click', runDry);
+        execBtn.addEventListener('click', runExec);
+        if (moveToTruncBtn) moveToTruncBtn.addEventListener('click', () => { moveKeepToTruncate().catch(_ => {}); });
+        if (moveToKeepBtn) moveToKeepBtn.addEventListener('click', () => { moveTruncateToKeep().catch(_ => {}); });
+        if (reloadTablesBtn) reloadTablesBtn.addEventListener('click', () => { refreshTableLists().catch(_ => {}); });
+        if (resetTablesBtn) resetTablesBtn.addEventListener('click', () => { clearOverrides(); refreshTableLists().catch(_ => {}); });
+
+        refreshTableLists().catch(_ => {});
+      }
+
+      function initAdminEmulator(){
+        const idsEl = document.getElementById('adminEmulatorQuestionIds');
+        const startBtn = document.getElementById('adminEmulatorStartBtn');
+        const clearBtn = document.getElementById('adminEmulatorClearBtn');
+        const outEl = document.getElementById('adminEmulatorOutput');
+        if (!idsEl || !startBtn || !clearBtn || !outEl) return;
+
+        function setOut(msg){ outEl.style.display = 'block'; outEl.textContent = msg || ''; }
+        function parseIds(text){
+          const s = String(text || '');
+          const m = s.match(/\d+/g) || [];
+          const raw = m.map(x => Math.floor(Number(x))).filter(n => Number.isFinite(n) && n > 0);
+          const seen = new Set();
+          const uniq = [];
+          for (const id of raw){ if (!seen.has(id)) { seen.add(id); uniq.push(id); } }
+          return uniq;
+        }
+        function genTempSessionId(){ return 'tmp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8); }
+
+        startBtn.addEventListener('click', async ()=>{
+          const isAdmin = await ensureAdmin();
+          if (!isAdmin){ alert('Somente admin pode emular exame por IDs.'); return; }
+
+          const ids = parseIds(idsEl.value);
+          if (!ids.length){ setOut('Informe pelo menos 1 ID.'); return; }
+          if (ids.length > 200){ setOut(`Muitos IDs: ${ids.length}. Máximo permitido: 200.`); return; }
+
+          try {
+            localStorage.setItem('examEmulatorQuestionIds', JSON.stringify(ids));
+            localStorage.setItem('examQuestionCount', String(ids.length));
+            const oldSid = localStorage.getItem('currentSessionId') || '';
+            const newSid = genTempSessionId();
+            localStorage.setItem('tempSessionId', newSid);
+            localStorage.setItem('currentSessionId', newSid);
+            try { if (oldSid) localStorage.removeItem(`questions_${oldSid}`); } catch(_){ }
+            try { sessionStorage.setItem('startExam', 'true'); } catch(_){ }
+          } catch(e){
+            setOut('Falha ao gravar no localStorage: ' + (e && e.message ? e.message : String(e)));
+            return;
+          }
+
+          setOut(`OK. ${ids.length} ID(s) salvos. Redirecionando para o exame...`);
+          window.location.assign('/pages/examFull.html');
+        });
+
+        clearBtn.addEventListener('click', ()=>{
+          try { idsEl.value = ''; } catch(_){ }
+          try { localStorage.removeItem('examEmulatorQuestionIds'); } catch(_){ }
+          setOut('Limpo.');
+        });
+      }
+
+      function getCookie(name){
+        try {
+          const v = String(document.cookie || '');
+          const parts = v.split(';').map(s => s.trim());
+          for (const p of parts){
+            if (!p) continue;
+            const idx = p.indexOf('=');
+            const k = idx >= 0 ? p.slice(0, idx) : p;
+            const val = idx >= 0 ? p.slice(idx + 1) : '';
+            if (k === name) return decodeURIComponent(val || '');
+          }
+        } catch(_){ }
+        return '';
+      }
+
+      function getSessionIdentity(){
+        const nomeUsuario = (localStorage.getItem('nomeUsuario') || '').trim();
+        const sessionToken = (localStorage.getItem('sessionToken') || '').trim();
+        return sessionToken || nomeUsuario;
+      }
+
+      async function adminFetch(path, opts){
+        const options = opts || {};
+        const method = (options.method || 'GET').toUpperCase();
+        const identity = getSessionIdentity();
+
+        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE)
+          || (window.location && window.location.origin)
+          || 'http://app.localhost:3000';
+        const jwtTok = (localStorage.getItem('jwtToken') || localStorage.getItem('jwt') || '').trim();
+        const jwtType = (localStorage.getItem('jwtTokenType') || localStorage.getItem('jwt_type') || 'Bearer').trim() || 'Bearer';
+
+        const headers = Object.assign({}, options.headers || {});
+        if (identity) headers['X-Session-Token'] = identity;
+        if (jwtTok) headers['Authorization'] = `${jwtType} ${jwtTok}`;
+
+        if (!['GET','HEAD','OPTIONS'].includes(method)) {
+          let csrf = getCookie('csrfToken');
+          if (!csrf) {
+            try { await fetch(base + '/api/csrf-token', { method: 'GET', credentials: 'include' }); } catch(_){ }
+            csrf = getCookie('csrfToken');
+          }
+          if (csrf) headers['X-CSRF-Token'] = csrf;
+        }
+
+        const url = base + path;
+
+        const resp = await fetch(url, {
+          method,
+          headers,
+          credentials: 'include',
+          body: options.body
+        });
+        const data = await resp.json().catch(()=>({}));
+        return { ok: resp.ok, status: resp.status, data };
+      }
+
+      function initAdminCommunication(){
+        const commAdminSelect = document.getElementById('commAdminSelect');
+        const commAddRecipientBtn = document.getElementById('commAddRecipientBtn');
+        const commRecipientsList = document.getElementById('commRecipientsList');
+        const commRecipientsStatus = document.getElementById('commRecipientsStatus');
+        const commRefreshRecipientsBtn = document.getElementById('commRefreshRecipientsBtn');
+        const toolsAccordion = document.getElementById('adminAccordionTools');
+        if (!commRecipientsStatus) return;
+
+        function setStatus(msg){ if (commRecipientsStatus) commRecipientsStatus.textContent = msg || ''; }
+
+        function renderRecipients(items){
+          if (!commRecipientsList) return;
+          commRecipientsList.innerHTML = '';
+          const list = Array.isArray(items) ? items : [];
+
+          if (!list.length){
+            const empty = document.createElement('div');
+            empty.style.fontSize = '0.85rem';
+            empty.style.color = 'var(--muted)';
+            empty.textContent = 'Nenhum destinatário cadastrado.';
+            commRecipientsList.appendChild(empty);
+            return;
+          }
+
+          list.forEach(item => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.justifyContent = 'space-between';
+            row.style.gap = '10px';
+            row.style.padding = '10px';
+            row.style.border = '1px solid var(--border)';
+            row.style.borderRadius = '8px';
+            row.style.background = 'var(--bg)';
+
+            const left = document.createElement('div');
+            left.style.display = 'grid';
+            left.style.gap = '2px';
+
+            const name = document.createElement('div');
+            name.style.fontSize = '0.9rem';
+            name.style.fontWeight = '800';
+            name.style.color = 'var(--text)';
+            name.textContent = (item && item.Nome) ? String(item.Nome) : `User ${item && item.UserId ? item.UserId : ''}`;
+
+            const email = document.createElement('div');
+            email.style.fontSize = '0.8rem';
+            email.style.color = 'var(--muted)';
+            email.textContent = (item && item.Email) ? String(item.Email) : '';
+
+            left.appendChild(name);
+            left.appendChild(email);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = 'Remover';
+            btn.style.padding = '8px 10px';
+            btn.style.background = 'var(--bg)';
+            btn.style.color = 'var(--text)';
+            btn.style.border = '1px solid var(--border)';
+            btn.style.borderRadius = '6px';
+            btn.style.fontSize = '0.85rem';
+            btn.style.fontWeight = '800';
+            btn.style.cursor = 'pointer';
+
+            const uid = Number(item && item.UserId);
+            btn.addEventListener('click', async ()=>{
+              if (!uid) return;
+              btn.disabled = true;
+              setStatus('Removendo...');
+              const r = await adminFetch(`/api/admin/communication/recipients/${encodeURIComponent(uid)}`, { method: 'DELETE' });
+              if (!r.ok) {
+                setStatus(r.data && r.data.error ? r.data.error : `Falha ao remover (${r.status}).`);
+                btn.disabled = false;
+                return;
+              }
+              await loadRecipients();
+            });
+
+            row.appendChild(left);
+            row.appendChild(btn);
+            commRecipientsList.appendChild(row);
+          });
+        }
+
+        async function loadRecipients(){
+          setStatus('Carregando destinatários...');
+          const r = await adminFetch('/api/admin/communication/recipients', { method: 'GET' });
+          if (!r.ok){
+            setStatus(r.data && r.data.error ? r.data.error : `Falha ao carregar (${r.status}).`);
+            renderRecipients([]);
+            return;
+          }
+          renderRecipients((r.data && r.data.items) || []);
+          setStatus('');
+        }
+
+        async function loadAdmins(){
+          if (!commAdminSelect) return;
+          commAdminSelect.disabled = true;
+          commAdminSelect.innerHTML = '<option value="">Carregando admins...</option>';
+          if (commAddRecipientBtn) commAddRecipientBtn.disabled = true;
+
+          const r = await adminFetch('/api/admin/communication/admins', { method: 'GET' });
+          if (!r.ok){
+            commAdminSelect.innerHTML = `<option value="">Falha (${r.status})</option>`;
+            setStatus(r.data && r.data.error ? r.data.error : 'Falha ao carregar admins.');
+            return;
+          }
+
+          const items = (r.data && r.data.items) || [];
+          if (!items.length){
+            commAdminSelect.innerHTML = '<option value="">Nenhum admin encontrado</option>';
+            return;
+          }
+
+          commAdminSelect.innerHTML = '<option value="" selected>Selecione um admin...</option>';
+          items.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = String(u.Id);
+            const nome = (u.Nome || u.NomeUsuario || `User ${u.Id}`);
+            const email = (u.Email || '');
+            opt.textContent = `${nome} — ${email}`;
+            commAdminSelect.appendChild(opt);
+          });
+          commAdminSelect.disabled = false;
+          setStatus('');
+        }
+
+        async function addSelectedRecipient(){
+          if (!commAdminSelect) return;
+          const userId = Number(commAdminSelect.value);
+          if (!Number.isFinite(userId) || userId <= 0) return;
+          if (commAddRecipientBtn) commAddRecipientBtn.disabled = true;
+          setStatus('Adicionando...');
+
+          const r = await adminFetch('/api/admin/communication/recipients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+          });
+
+          if (!r.ok){
+            setStatus(r.data && r.data.error ? r.data.error : `Falha ao adicionar (${r.status}).`);
+            if (commAddRecipientBtn) commAddRecipientBtn.disabled = false;
+            return;
+          }
+
+          await loadRecipients();
+          setStatus('');
+          if (commAddRecipientBtn) commAddRecipientBtn.disabled = !String(commAdminSelect.value || '');
+        }
+
+        if (commAdminSelect) commAdminSelect.addEventListener('change', ()=>{
+          const v = String(commAdminSelect.value || '');
+          if (commAddRecipientBtn) commAddRecipientBtn.disabled = !v;
+        });
+        if (commAddRecipientBtn) commAddRecipientBtn.addEventListener('click', addSelectedRecipient);
+        if (commRefreshRecipientsBtn) commRefreshRecipientsBtn.addEventListener('click', loadRecipients);
+
+        if (toolsAccordion) {
+          const header = toolsAccordion.querySelector('.admin-accordion-header');
+          if (header) {
+            header.addEventListener('click', ()=>{
+              setTimeout(()=>{
+                try {
+                  const content = toolsAccordion.querySelector('.admin-accordion-content');
+                  if (content && content.style.display === 'block') {
+                    loadAdmins();
+                    loadRecipients();
+                  }
+                } catch(_){ }
+              }, 0);
+            });
+          }
+        }
+      }
+
+      function initReconcile(){
+        const reconcileBtn = document.getElementById('reconcileBtn');
+        const reconcileOutput = document.getElementById('reconcileOutput');
+        const reconcileFromDate = document.getElementById('reconcileFromDate');
+        const reconcileToDate = document.getElementById('reconcileToDate');
+        const reconcileMode = document.getElementById('reconcileMode');
+        const reconcileDryRun = document.getElementById('reconcileDryRun');
+
+        if (reconcileFromDate && reconcileToDate) {
+          const today = new Date();
+          const thirtyDaysAgo = new Date(today);
+          thirtyDaysAgo.setDate(today.getDate() - 30);
+          reconcileToDate.value = today.toISOString().split('T')[0];
+          reconcileFromDate.value = thirtyDaysAgo.toISOString().split('T')[0];
+        }
+
+        if (!reconcileBtn || !reconcileOutput) return;
+
+        reconcileBtn.addEventListener('click', async () => {
+          const fromDate = reconcileFromDate.value;
+          const toDate = reconcileToDate.value;
+          const mode = reconcileMode.value;
+          const dryRun = reconcileDryRun.checked;
+
+          if (!fromDate || !toDate) {
+            alert('Por favor, preencha as datas inicial e final.');
+            return;
+          }
+
+          if (new Date(fromDate) > new Date(toDate)) {
+            alert('Data inicial deve ser anterior à data final.');
+            return;
+          }
+
+          reconcileOutput.style.display = 'block';
+          reconcileOutput.textContent = 'Executando reconciliação...\n';
+          reconcileBtn.disabled = true;
+          reconcileBtn.textContent = 'Processando...';
+
+          try {
+            const params = new URLSearchParams({
+              from: fromDate,
+              to: toDate,
+              mode: mode,
+              dryRun: dryRun ? 'true' : 'false'
+            });
+
+            const r = await adminFetch('/api/admin/exams/reconcile-stats?' + params.toString(), { method: 'POST' });
+
+            if (r.ok) {
+              reconcileOutput.textContent = 'Reconciliação concluída com sucesso!\n\n' + JSON.stringify(r.data || {}, null, 2);
+            } else {
+              reconcileOutput.textContent = 'Erro na reconciliação:\n' + ((r.data && (r.data.error || r.data.message)) || ('Status: ' + r.status));
+            }
+          } catch(e) {
+            reconcileOutput.textContent = 'Erro ao executar reconciliação:\n' + (e && e.message ? e.message : String(e));
+          } finally {
+            reconcileBtn.disabled = false;
+            reconcileBtn.textContent = 'Executar Reconciliação';
+          }
+        });
+      }
+
+      async function loadAdminExamTypes(){
+        const adminExamTypeSelect = document.getElementById('adminExamTypeSelect');
+        const adminUserExamTypeSelect = document.getElementById('adminUserExamTypeSelect');
+        try {
+          const r = await adminFetch('/api/exams/types', { method: 'GET' });
+          const types = (r.ok && Array.isArray(r.data)) ? r.data : [];
+          const selects = [adminExamTypeSelect, adminUserExamTypeSelect].filter(Boolean);
+          selects.forEach(sel => {
+            sel.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = 'Selecione...';
+            sel.appendChild(opt0);
+          });
+          for (const t of types){
+            const dbId = (t && t._dbId != null) ? Number(t._dbId) : null;
+            if (!dbId || !isFinite(dbId) || dbId <= 0) continue;
+            const slug = (t && t.id) ? String(t.id) : '';
+            const nome = (t && t.nome) ? String(t.nome) : slug;
+            selects.forEach(sel => {
+              const opt = document.createElement('option');
+              opt.value = String(dbId);
+              opt.textContent = nome + (slug ? ` (${slug})` : '');
+              sel.appendChild(opt);
+            });
+          }
+        } catch(e){
+          const selects = [document.getElementById('adminExamTypeSelect'), document.getElementById('adminUserExamTypeSelect')].filter(Boolean);
+          selects.forEach(sel => {
+            sel.innerHTML = '';
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Falha ao carregar tipos';
+            sel.appendChild(opt);
+          });
+        }
+      }
+
+      async function loadAdminContentVersions(examTypeId){
+        const adminExamContentVersionSelect = document.getElementById('adminExamContentVersionSelect');
+        const adminExamContentVersionOutput = document.getElementById('adminExamContentVersionOutput');
+        if (!adminExamContentVersionSelect) return;
+
+        adminExamContentVersionSelect.disabled = true;
+        adminExamContentVersionSelect.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Carregando versões...';
+        adminExamContentVersionSelect.appendChild(opt);
+
+        try {
+          const r = await adminFetch('/api/admin/exams/content-versions?examTypeId=' + encodeURIComponent(String(examTypeId)), { method: 'GET' });
+          if (!r.ok) throw new Error((r.data && (r.data.error || r.data.message)) || ('Status: ' + r.status));
+
+          const versions = (r.data && Array.isArray(r.data.versions)) ? r.data.versions : [];
+          const currentId = (r.data && r.data.currentVersionId != null) ? Number(r.data.currentVersionId) : null;
+          adminExamContentVersionSelect.innerHTML = '';
+          const opt1 = document.createElement('option');
+          opt1.value = '';
+          opt1.textContent = versions.length ? 'Selecione...' : 'Nenhuma versão cadastrada';
+          adminExamContentVersionSelect.appendChild(opt1);
+          for (const v of versions){
+            const id = (v && v.id != null) ? Number(v.id) : null;
+            if (!id || !isFinite(id) || id <= 0) continue;
+            const code = (v && v.code) ? String(v.code) : ('v' + id);
+            const eff = (v && v.effectiveFrom) ? String(v.effectiveFrom).split('T')[0] : '';
+            const label = eff ? `${code} - ${eff}` : code;
+            const o = document.createElement('option');
+            o.value = String(id);
+            o.textContent = label;
+            if (currentId && id === currentId) o.selected = true;
+            adminExamContentVersionSelect.appendChild(o);
+          }
+          adminExamContentVersionSelect.disabled = versions.length === 0;
+
+          if (adminExamContentVersionOutput){
+            adminExamContentVersionOutput.style.display = 'block';
+            adminExamContentVersionOutput.textContent = JSON.stringify({ examTypeId: Number(examTypeId), currentVersionId: currentId, versionsCount: versions.length }, null, 2);
+          }
+        } catch(e){
+          adminExamContentVersionSelect.innerHTML = '';
+          const optE = document.createElement('option');
+          optE.value = '';
+          optE.textContent = 'Erro ao carregar versões';
+          adminExamContentVersionSelect.appendChild(optE);
+          if (adminExamContentVersionOutput){
+            adminExamContentVersionOutput.style.display = 'block';
+            adminExamContentVersionOutput.textContent = 'Erro:\n' + (e && e.message ? e.message : String(e));
+          }
+        }
+      }
+
+      async function maybeLoadUserOverride(){
+        const adminUserIdOverride = document.getElementById('adminUserIdOverride');
+        const adminUserExamTypeSelect = document.getElementById('adminUserExamTypeSelect');
+        const adminUserExamContentVersionSelect = document.getElementById('adminUserExamContentVersionSelect');
+        const adminUserOverrideOutput = document.getElementById('adminUserOverrideOutput');
+
+        try {
+          const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+          const et = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+          if (!uid || !et) return;
+          const path = '/api/admin/exams/user-content-version?userId=' + encodeURIComponent(String(uid)) + '&examTypeId=' + encodeURIComponent(String(et));
+          const r = await adminFetch(path, { method: 'GET' });
+          if (!r.ok) throw new Error((r.data && (r.data.error || r.data.message)) || ('Status: ' + r.status));
+          const ov = r.data && r.data.override ? r.data.override : null;
+          if (ov && adminUserExamContentVersionSelect) {
+            const vid = Number(ov.examContentVersionId);
+            const opt = adminUserExamContentVersionSelect.querySelector('option[value="' + String(vid) + '"]');
+            if (opt) adminUserExamContentVersionSelect.value = String(vid);
+          }
+          if (adminUserOverrideOutput){
+            adminUserOverrideOutput.style.display = 'block';
+            adminUserOverrideOutput.textContent = JSON.stringify(r.data, null, 2);
+          }
+        } catch(e){
+          if (adminUserOverrideOutput){
+            adminUserOverrideOutput.style.display = 'block';
+            adminUserOverrideOutput.textContent = 'Erro ao consultar override:\n' + (e && e.message ? e.message : String(e));
+          }
+        }
+      }
+
+      async function loadAdminUserLabel(){
+        const adminUserIdOverride = document.getElementById('adminUserIdOverride');
+        const adminUserIdOverrideHint = document.getElementById('adminUserIdOverrideHint');
+        if (!adminUserIdOverride || !adminUserIdOverrideHint) return;
+        const uid = Number(adminUserIdOverride.value);
+        if (!uid || !isFinite(uid) || uid <= 0){
+          adminUserIdOverrideHint.textContent = '';
+          return;
+        }
+        adminUserIdOverrideHint.textContent = 'Carregando usuário...';
+        try {
+          const r = await adminFetch('/api/admin/users/' + encodeURIComponent(String(uid)), { method: 'GET' });
+          if (!r.ok) {
+            adminUserIdOverrideHint.textContent = `Usuário ${uid} não encontrado`;
+            return;
+          }
+          const data = r.data || {};
+          const id = data && (data.Id != null ? data.Id : data.id);
+          const nome = data && (data.Nome || data.nome) ? String(data.Nome || data.nome) : '';
+          const usern = data && (data.NomeUsuario || data.nomeUsuario) ? String(data.NomeUsuario || data.nomeUsuario) : '';
+          const labelParts = [String(id || uid)];
+          if (nome) labelParts.push(nome);
+          if (usern) labelParts.push('(@' + usern + ')');
+          adminUserIdOverrideHint.textContent = labelParts.join(' - ');
+        } catch(e){
+          adminUserIdOverrideHint.textContent = `Usuário ${uid}`;
+        }
+      }
+
+      function buildAdminUserLabel(u){
+        const id = u && (u.Id != null ? u.Id : u.id);
+        const nome = u && (u.Nome || u.nome) ? String(u.Nome || u.nome) : '';
+        const usern = u && (u.NomeUsuario || u.nomeUsuario) ? String(u.NomeUsuario || u.nomeUsuario) : '';
+        const email = u && (u.Email || u.email) ? String(u.Email || u.email) : '';
+        const parts = [String(id || '')].filter(Boolean);
+        if (nome) parts.push(nome);
+        if (usern) parts.push('(@' + usern + ')');
+        if (email) parts.push('<' + email + '>');
+        return parts.join(' - ');
+      }
+
+      async function searchAdminUsers(){
+        const adminUserSearchQuery = document.getElementById('adminUserSearchQuery');
+        const adminUserSearchSelect = document.getElementById('adminUserSearchSelect');
+        const adminUserSearchStatus = document.getElementById('adminUserSearchStatus');
+        if (!adminUserSearchQuery || !adminUserSearchSelect) return;
+        const q = String(adminUserSearchQuery.value || '').trim();
+        if (adminUserSearchStatus) adminUserSearchStatus.textContent = '';
+
+        adminUserSearchSelect.disabled = true;
+        adminUserSearchSelect.innerHTML = '<option value="">Buscando...</option>';
+
+        if (!q) {
+          adminUserSearchSelect.innerHTML = '<option value="">Digite nome, @usuario ou email</option>';
+          adminUserSearchSelect.disabled = true;
+          if (adminUserSearchStatus) adminUserSearchStatus.textContent = '';
+          return;
+        }
+
+        try {
+          const r = await adminFetch('/api/admin/users/search?q=' + encodeURIComponent(q) + '&limit=25', { method: 'GET' });
+          if (!r.ok) throw new Error((r.data && (r.data.error || r.data.message)) || ('Status: ' + r.status));
+
+          const items = (r.data && Array.isArray(r.data.items)) ? r.data.items : [];
+          adminUserSearchSelect.innerHTML = '';
+          const opt0 = document.createElement('option');
+          opt0.value = '';
+          opt0.textContent = items.length ? 'Selecione um usuário...' : 'Nenhum usuário encontrado';
+          adminUserSearchSelect.appendChild(opt0);
+
+          for (const u of items) {
+            const id = u && (u.Id != null ? Number(u.Id) : Number(u.id));
+            if (!id || !isFinite(id) || id <= 0) continue;
+            const o = document.createElement('option');
+            o.value = String(id);
+            o.textContent = buildAdminUserLabel(u);
+            adminUserSearchSelect.appendChild(o);
+          }
+
+          adminUserSearchSelect.disabled = items.length === 0;
+          if (adminUserSearchStatus) adminUserSearchStatus.textContent = items.length ? (items.length + ' resultado(s)') : '0 resultado';
+        } catch (e) {
+          adminUserSearchSelect.innerHTML = '<option value="">Erro na busca</option>';
+          adminUserSearchSelect.disabled = true;
+          if (adminUserSearchStatus) adminUserSearchStatus.textContent = (e && e.message) ? e.message : String(e);
+        }
+      }
+
+      function initEcos(){
+        const adminExamTypeSelect = document.getElementById('adminExamTypeSelect');
+        const adminExamContentVersionSelect = document.getElementById('adminExamContentVersionSelect');
+        const adminSetCurrentVersionBtn = document.getElementById('adminSetCurrentVersionBtn');
+        const adminExamContentVersionOutput = document.getElementById('adminExamContentVersionOutput');
+
+        const adminUserIdOverride = document.getElementById('adminUserIdOverride');
+        const adminUserExamTypeSelect = document.getElementById('adminUserExamTypeSelect');
+        const adminUserExamContentVersionSelect = document.getElementById('adminUserExamContentVersionSelect');
+        const adminSetUserOverrideBtn = document.getElementById('adminSetUserOverrideBtn');
+        const adminClearUserOverrideBtn = document.getElementById('adminClearUserOverrideBtn');
+        const adminUserOverrideOutput = document.getElementById('adminUserOverrideOutput');
+
+        const adminUserSearchBtn = document.getElementById('adminUserSearchBtn');
+        const adminUserSearchQuery = document.getElementById('adminUserSearchQuery');
+        const adminUserSearchSelect = document.getElementById('adminUserSearchSelect');
+
+        if (adminExamTypeSelect) {
+          adminExamTypeSelect.addEventListener('change', async () => {
+            const examTypeId = Number(adminExamTypeSelect.value);
+            if (!examTypeId) {
+              if (adminExamContentVersionSelect){
+                adminExamContentVersionSelect.disabled = true;
+                adminExamContentVersionSelect.innerHTML = '<option value="">Selecione um tipo de exame</option>';
+              }
+              return;
+            }
+            await loadAdminContentVersions(examTypeId);
+          });
+        }
+
+        if (adminUserSearchBtn) adminUserSearchBtn.addEventListener('click', () => { searchAdminUsers(); });
+        if (adminUserSearchQuery) {
+          adminUserSearchQuery.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              searchAdminUsers();
+            }
+          });
+        }
+        if (adminUserSearchSelect) {
+          adminUserSearchSelect.addEventListener('change', async () => {
+            const val = String(adminUserSearchSelect.value || '').trim();
+            const uid = Number(val);
+            if (!adminUserIdOverride || !uid || !isFinite(uid) || uid <= 0) return;
+            adminUserIdOverride.value = String(uid);
+            await loadAdminUserLabel();
+
+            const examTypeId = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+            if (!examTypeId) return;
+            await loadAdminContentVersions(examTypeId);
+            if (adminUserExamContentVersionSelect && adminExamContentVersionSelect){
+              adminUserExamContentVersionSelect.innerHTML = adminExamContentVersionSelect.innerHTML;
+              adminUserExamContentVersionSelect.disabled = adminExamContentVersionSelect.disabled;
+            }
+            await maybeLoadUserOverride();
+          });
+        }
+
+        if (adminUserExamTypeSelect) {
+          adminUserExamTypeSelect.addEventListener('change', async () => {
+            const examTypeId = Number(adminUserExamTypeSelect.value);
+            const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+            if (!uid || !examTypeId) {
+              if (adminUserExamContentVersionSelect){
+                adminUserExamContentVersionSelect.disabled = true;
+                adminUserExamContentVersionSelect.innerHTML = '<option value="">Selecione User ID + tipo de exame</option>';
+              }
+              return;
+            }
+            await loadAdminContentVersions(examTypeId);
+            if (adminUserExamContentVersionSelect && adminExamContentVersionSelect){
+              adminUserExamContentVersionSelect.innerHTML = adminExamContentVersionSelect.innerHTML;
+              adminUserExamContentVersionSelect.disabled = adminExamContentVersionSelect.disabled;
+            }
+            await maybeLoadUserOverride();
+          });
+        }
+
+        if (adminUserIdOverride) {
+          adminUserIdOverride.addEventListener('blur', async () => {
+            const examTypeId = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+            const uid = Number(adminUserIdOverride.value);
+            if (!uid || !examTypeId) return;
+            await loadAdminUserLabel();
+            await loadAdminContentVersions(examTypeId);
+            if (adminUserExamContentVersionSelect && adminExamContentVersionSelect){
+              adminUserExamContentVersionSelect.innerHTML = adminExamContentVersionSelect.innerHTML;
+              adminUserExamContentVersionSelect.disabled = adminExamContentVersionSelect.disabled;
+            }
+            await maybeLoadUserOverride();
+          });
+          adminUserIdOverride.addEventListener('change', () => { loadAdminUserLabel(); });
+        }
+
+        if (adminSetUserOverrideBtn) {
+          adminSetUserOverrideBtn.addEventListener('click', async () => {
+            const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+            const examTypeId = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+            const examContentVersionId = adminUserExamContentVersionSelect ? Number(adminUserExamContentVersionSelect.value) : null;
+            if (!uid || !examTypeId || !examContentVersionId){
+              alert('Preencha User ID, tipo de exame e versão.');
+              return;
+            }
+            adminSetUserOverrideBtn.disabled = true;
+            const oldTxt = adminSetUserOverrideBtn.textContent;
+            adminSetUserOverrideBtn.textContent = 'Salvando...';
+            try {
+              const r = await adminFetch('/api/admin/exams/user-content-version', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: uid, examTypeId, examContentVersionId, source: 'adminPage' })
+              });
+              if (!r.ok) throw new Error((r.data && (r.data.error || r.data.message)) || ('Status: ' + r.status));
+              if (adminUserOverrideOutput){
+                adminUserOverrideOutput.style.display = 'block';
+                adminUserOverrideOutput.textContent = 'OK\n' + JSON.stringify(r.data || {}, null, 2);
+              }
+              await maybeLoadUserOverride();
+            } catch(e){
+              if (adminUserOverrideOutput){
+                adminUserOverrideOutput.style.display = 'block';
+                adminUserOverrideOutput.textContent = 'Erro ao salvar override:\n' + (e && e.message ? e.message : String(e));
+              }
+            } finally {
+              adminSetUserOverrideBtn.disabled = false;
+              adminSetUserOverrideBtn.textContent = oldTxt;
+            }
+          });
+        }
+
+        if (adminClearUserOverrideBtn) {
+          adminClearUserOverrideBtn.addEventListener('click', async () => {
+            const uid = adminUserIdOverride ? Number(adminUserIdOverride.value) : null;
+            const examTypeId = adminUserExamTypeSelect ? Number(adminUserExamTypeSelect.value) : null;
+            if (!uid || !examTypeId){
+              alert('Preencha User ID e tipo de exame.');
+              return;
+            }
+            adminClearUserOverrideBtn.disabled = true;
+            const oldTxt = adminClearUserOverrideBtn.textContent;
+            adminClearUserOverrideBtn.textContent = 'Removendo...';
+            try {
+              const path = '/api/admin/exams/user-content-version?userId=' + encodeURIComponent(String(uid)) + '&examTypeId=' + encodeURIComponent(String(examTypeId));
+              const r = await adminFetch(path, { method: 'DELETE' });
+              if (!r.ok) throw new Error((r.data && (r.data.error || r.data.message)) || ('Status: ' + r.status));
+              if (adminUserOverrideOutput){
+                adminUserOverrideOutput.style.display = 'block';
+                adminUserOverrideOutput.textContent = 'OK\n' + JSON.stringify(r.data || {}, null, 2);
+              }
+              await maybeLoadUserOverride();
+            } catch(e){
+              if (adminUserOverrideOutput){
+                adminUserOverrideOutput.style.display = 'block';
+                adminUserOverrideOutput.textContent = 'Erro ao remover override:\n' + (e && e.message ? e.message : String(e));
+              }
+            } finally {
+              adminClearUserOverrideBtn.disabled = false;
+              adminClearUserOverrideBtn.textContent = oldTxt;
+            }
+          });
+        }
+
+        if (adminSetCurrentVersionBtn) {
+          adminSetCurrentVersionBtn.addEventListener('click', async () => {
+            const examTypeId = adminExamTypeSelect ? Number(adminExamTypeSelect.value) : null;
+            const examContentVersionId = adminExamContentVersionSelect ? Number(adminExamContentVersionSelect.value) : null;
+            if (!examTypeId || !examContentVersionId){
+              alert('Selecione o tipo de exame e a versão.');
+              return;
+            }
+            adminSetCurrentVersionBtn.disabled = true;
+            const oldTxt = adminSetCurrentVersionBtn.textContent;
+            adminSetCurrentVersionBtn.textContent = 'Salvando...';
+            try {
+              const r = await adminFetch('/api/admin/exams/content-current', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ examTypeId, examContentVersionId })
+              });
+              if (!r.ok) throw new Error((r.data && (r.data.error || r.data.message)) || ('Status: ' + r.status));
+              if (adminExamContentVersionOutput){
+                adminExamContentVersionOutput.style.display = 'block';
+                adminExamContentVersionOutput.textContent = 'OK\n' + JSON.stringify(r.data || {}, null, 2);
+              }
+              await loadAdminContentVersions(examTypeId);
+            } catch(e){
+              if (adminExamContentVersionOutput){
+                adminExamContentVersionOutput.style.display = 'block';
+                adminExamContentVersionOutput.textContent = 'Erro ao salvar:\n' + (e && e.message ? e.message : String(e));
+              }
+            } finally {
+              adminSetCurrentVersionBtn.disabled = false;
+              adminSetCurrentVersionBtn.textContent = oldTxt;
+            }
+          });
+        }
+      }
+
+      function initFixture(){
+        const fixtureForm = document.getElementById('fixtureForm');
+        const fixtureOutput = document.getElementById('fixtureOutput');
+        if (!fixtureForm || !fixtureOutput) return;
+
+        const fxOverall = document.getElementById('fxOverall');
+        const fxPeople = document.getElementById('fxPeople');
+        const fxProcess = document.getElementById('fxProcess');
+        const fxBusiness = document.getElementById('fxBusiness');
+
+        if(fxOverall && !document.getElementById('fxSpreadControl')){
+          const wrap = fxOverall.parentElement;
+          if(wrap){
+            const spreadBox = document.createElement('div');
+            spreadBox.style.cssText='margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+            spreadBox.innerHTML = '<label style="font-size:.65rem;color:#64748b;display:flex;align-items:center;gap:4px">Variação máx.<input id="fxSpreadControl" type="range" min="0" max="30" value="12" style="width:110px"></label><span id="fxSpreadValue" style="font-size:.65rem;color:#334155">±12%</span><label style="font-size:.65rem;color:#64748b;display:flex;align-items:center;gap:4px"><input id="fxLockDomains" type="checkbox"> Manter valores manualmente</label>';
+            wrap.appendChild(spreadBox);
+            const rng = spreadBox.querySelector('#fxSpreadControl');
+            const out = spreadBox.querySelector('#fxSpreadValue');
+            if(rng && out){ rng.addEventListener('input',()=>{ out.textContent='±'+rng.value+'%'; }); }
+          }
+        }
+
+        function clampPct(v){ v = Math.round(Number(v)||0); if(v<0) v=0; if(v>100) v=100; return v; }
+        function randomizeDomains(){
+          if(!fxOverall || !fxPeople || !fxProcess || !fxBusiness) return;
+          const lock = document.getElementById('fxLockDomains');
+          if(lock && lock.checked) return;
+          const overall = clampPct(fxOverall.value);
+          const spreadEl = document.getElementById('fxSpreadControl');
+          const maxDev = spreadEl ? Number(spreadEl.value) : 12;
+          let attempt=0; let chosen=null;
+          while(attempt<100){
+            attempt++;
+            const d1 = (Math.random()*2-1)*maxDev;
+            const d2 = (Math.random()*2-1)*maxDev;
+            const d3 = -(d1+d2);
+            const a = clampPct(overall + d1);
+            const b = clampPct(overall + d2);
+            const c = clampPct(overall + d3);
+            const avg = (a+b+c)/3;
+            if(Math.abs(avg - overall) <= 0.75){
+              const distinct = (new Set([a,b,c])).size > 1;
+              if(distinct){ chosen=[a,b,c]; break; }
+            }
+          }
+          if(!chosen){ chosen=[overall,overall,overall]; }
+          fxPeople.value = String(chosen[0]);
+          fxProcess.value = String(chosen[1]);
+          fxBusiness.value = String(chosen[2]);
+        }
+        if(fxOverall){ fxOverall.addEventListener('input', randomizeDomains); }
+
+        const overallWrapper = fxOverall && fxOverall.parentElement;
+        if(overallWrapper){
+          const btn = document.createElement('button');
+          btn.type='button';
+          btn.textContent='Randomizar';
+          btn.style.cssText='margin-top:6px;padding:6px 8px;background:#0d9488;color:#fff;border:none;border-radius:4px;font-size:.7rem;cursor:pointer;';
+          btn.addEventListener('click', randomizeDomains);
+          overallWrapper.appendChild(btn);
+
+          const hint = document.createElement('div');
+          hint.textContent='Geramos percentuais aleatórios por domínio com média = % Geral. Use "Manter valores" para congelar.';
+          hint.style.cssText='margin-top:6px;font-size:.65rem;line-height:1.2;color:#64748b;';
+          overallWrapper.appendChild(hint);
+        }
+
+        randomizeDomains();
+
+        fixtureForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const userId = document.getElementById('fxUserId').value.trim();
+          const examTypeSlug = document.getElementById('fxExamType').value.trim();
+          const totalQuestions = document.getElementById('fxTotal').value.trim();
+          const overallPct = document.getElementById('fxOverall').value.trim();
+          const peoplePct = document.getElementById('fxPeople').value.trim();
+          const processPct = document.getElementById('fxProcess').value.trim();
+          const businessPct = document.getElementById('fxBusiness').value.trim();
+          if (!userId || !overallPct) { alert('Preencha User ID e % Geral.'); return; }
+          const o = clampPct(overallPct);
+          const p = clampPct(peoplePct === '' ? o : peoplePct);
+          const pr = clampPct(processPct === '' ? o : processPct);
+          const b = clampPct(businessPct === '' ? o : businessPct);
+          const mean = (p+pr+b)/3;
+          if(Math.abs(mean - o) > 2){
+            alert(`Inconsistência: média domínios (${mean.toFixed(2)}%) difere de % Geral (${o}%). Ajuste ou clique em Randomizar.`);
+            return;
+          }
+          fixtureOutput.style.display='block';
+          const startedAt = new Date();
+          fixtureOutput.textContent='Gerando fixture...\n';
+          try {
+            const payload = { userId: Number(userId), overallPct: Number(overallPct), totalQuestions: Number(totalQuestions), examTypeSlug: examTypeSlug || 'pmp' };
+            if (peoplePct !== '') payload.peoplePct = Number(peoplePct);
+            if (processPct !== '') payload.processPct = Number(processPct);
+            if (businessPct !== '') payload.businessPct = Number(businessPct);
+            const r = await adminFetch('/api/admin/exams/fixture-attempt', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+            const ms = new Date() - startedAt;
+            if (r.ok) {
+              fixtureOutput.textContent = 'Fixture criada com sucesso!\n' +
+                `Status: ${r.status}\n` +
+                `Tempo: ${ms}ms\n` +
+                'Payload enviado:\n' + JSON.stringify(payload,null,2) + '\n\n' +
+                'Resposta:\n' + JSON.stringify(r.data || {}, null, 2);
+            } else {
+              fixtureOutput.textContent = 'Falha ao criar fixture\n' +
+                `Status: ${r.status}\n` +
+                `Tempo: ${ms}ms\n` +
+                'Endpoint: /api/admin/exams/fixture-attempt\n' +
+                'Payload enviado:\n' + JSON.stringify(payload,null,2) + '\n\n' +
+                'Resposta:\n' + JSON.stringify(r.data || {}, null, 2);
+            }
+          } catch(err){
+            fixtureOutput.textContent='Erro de rede/execução:\n' + (err && err.stack ? err.stack : err.message || String(err));
+          }
+        });
+      }
+
+      function initResetPassword(){
+        const resetPasswordForm = document.getElementById('resetPasswordForm');
+        const resetPasswordOutput = document.getElementById('resetPasswordOutput');
+        if (!resetPasswordForm || !resetPasswordOutput) return;
+
+        resetPasswordForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const email = document.getElementById('resetEmail').value.trim();
+          const newPassword = document.getElementById('resetNewPassword').value;
+
+          if (!email || !newPassword) {
+            alert('Preencha email e nova senha.');
+            return;
+          }
+
+          resetPasswordOutput.style.display = 'block';
+          resetPasswordOutput.style.color = 'var(--text)';
+          resetPasswordOutput.textContent = 'Processando...\n';
+
+          try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(newPassword);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            const payload = { email, newPassword: hashedPassword };
+
+            const r = await adminFetch('/api/admin/users/reset-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (r.ok) {
+              resetPasswordOutput.style.color = 'var(--success, #22c55e)';
+              resetPasswordOutput.textContent = `✓ Senha resetada com sucesso!\nUsuário: ${(r.data && r.data.email) || email}\nNova senha SHA-256: ${hashedPassword.substring(0, 16)}...`;
+              resetPasswordForm.reset();
+            } else {
+              resetPasswordOutput.style.color = 'var(--danger, #ef4444)';
+              resetPasswordOutput.textContent = `✗ Erro: ${(r.data && (r.data.error || r.data.message)) || 'Falha ao resetar senha'}\nStatus: ${r.status}`;
+            }
+          } catch (err) {
+            resetPasswordOutput.style.color = 'var(--danger, #ef4444)';
+            resetPasswordOutput.textContent = `✗ Erro de rede:\n${err && err.message ? err.message : String(err)}`;
+          }
+        });
+      }
+
+      function handleHashFocus(){
+        const h = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+        if (!h) return;
+
+        const map = {
+          'health': 'adminHealthAccordion',
+          'reconcile': 'adminReconcileAccordion',
+          'fixture': 'adminFixtureAccordion',
+          'eco': 'adminCurrentVersionAccordion',
+          'override': 'adminUserOverrideAccordion',
+          'reset-password': 'adminResetPasswordAccordion',
+          'snapshots': 'adminSnapshotsAccordion',
+          'db': 'adminDbCleanupAccordion',
+          'emulator': 'adminEmulatorAccordion',
+          'tools': 'adminAccordionTools',
+        };
+
+        const id = map[h];
+        if (!id) return;
+        const acc = document.getElementById(id);
+        if (!acc) return;
+        openAccordion(acc);
+        try { acc.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){ }
+      }
+
+      (async function init(){
+        setupTopButtons();
+        setGateMsg('Verificando acesso admin...');
+
+        const ok = await ensureAdmin();
+        if (!ok){
+          setGateMsg('Acesso restrito: somente admin.');
+          return;
+        }
+
+        try { window.__isAdmin = true; } catch(_){ }
+
+        setGateMsg('');
+        if (adminContent) adminContent.style.display = 'block';
+
+        initAccordions();
+        initHealthCheckUi();
+        initAdminSnapshots();
+        initAdminDbCleanup();
+        initAdminEmulator();
+        initAdminCommunication();
+        initReconcile();
+        await loadAdminExamTypes();
+        initEcos();
+        initFixture();
+        initResetPassword();
+        handleHashFocus();
+      })();
+    })();
+  </script>
+</body>
+</html>

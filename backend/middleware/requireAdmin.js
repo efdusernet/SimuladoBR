@@ -28,29 +28,38 @@ module.exports = async function requireAdmin(req, res, next){
 
     const user = result.user;
 
-    // Check admin role membership
+    // Admin resolution policy (keep consistent with GET /api/users/me):
+    // 1) Prefer RBAC role membership (slug=admin) when tables exist
+    // 2) Fallback to configured ADMIN_EMAILS and legacy username conventions
+    let isAdmin = false;
+    let rbacChecked = false;
     try {
       const rows = await db.sequelize.query(
         'SELECT 1 FROM public.user_role ur JOIN public.role r ON r.id = ur.role_id WHERE ur.user_id = :uid AND r.slug = :slug AND (r.ativo = TRUE OR r.ativo IS NULL) LIMIT 1',
         { replacements: { uid: user.Id, slug: 'admin' }, type: db.Sequelize.QueryTypes.SELECT }
       );
-      if (!rows || !rows.length) {
-        security.authorizationFailure(req, 'admin_resource', 'access');
-        if (wantsHtml) return res.redirect('/login');
-        return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
-      }
+      rbacChecked = true;
+      isAdmin = !!(rows && rows.length);
     } catch (err) {
       const code = (err && err.original && err.original.code) || err.code || '';
       const msg = (err && (err.message || err.toString())) || '';
       const missingTable = code === '42P01' || /relation .* does not exist/i.test(msg);
-      if (missingTable) {
-        logger.warn('requireAdmin: RBAC tables missing; denying with 403');
-        security.authorizationFailure(req, 'admin_resource', 'rbac_tables_missing');
-        if (wantsHtml) return res.redirect('/login');
-        return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
+      if (!missingTable) {
+        logger.warn('requireAdmin: role check failed (fallback enabled). Error:', msg);
       }
-      logger.warn('requireAdmin: role check failed; denying with 403. Error:', msg);
-      security.authorizationFailure(req, 'admin_resource', 'role_check_error');
+      // Fall through to fallback policy
+    }
+
+    if (!isAdmin) {
+      const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+      const emailLower = String(user.Email || '').toLowerCase();
+      const nomeLower = String(user.NomeUsuario || '').toLowerCase();
+      isAdmin = adminEmails.includes(emailLower) || nomeLower === 'admin' || nomeLower.startsWith('admin_');
+    }
+
+    if (!isAdmin) {
+      const reason = rbacChecked ? 'access' : 'rbac_unavailable';
+      security.authorizationFailure(req, 'admin_resource', reason);
       if (wantsHtml) return res.redirect('/login');
       return next(forbidden('Admin role required', 'ADMIN_REQUIRED'));
     }

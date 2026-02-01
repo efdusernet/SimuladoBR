@@ -486,28 +486,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (s) s.style.display = 'none';
     }
 
-    // Wire admin modal open/close if present to enforce a11y rules
-    const adminModal = document.getElementById('adminModal');
+    // Admin UI moved to a dedicated page (no modal).
     const adminModalOpen = document.getElementById('adminModalOpen');
-    const adminModalClose = document.getElementById('adminModalClose');
-    if (adminModal && adminModalOpen) {
+    if (adminModalOpen) {
         adminModalOpen.addEventListener('click', (e) => {
             e.preventDefault();
-            // Never open admin UI unless confirmed admin.
+            // Keep the same admin check behavior as before.
             window.ensureAdminAccess().then((ok) => {
                 if (!ok) {
                     try { if (window.showToast) { window.showToast('Acesso restrito: somente admin.'); return; } } catch(_){ }
                     alert('Acesso restrito: somente admin.');
                     return;
                 }
-                ModalA11y.open(adminModal);
+                window.location.assign('/pages/admin/administracao.html');
             });
-        });
-    }
-    if (adminModal && adminModalClose) {
-        adminModalClose.addEventListener('click', (e) => {
-            e.preventDefault();
-            ModalA11y.close(adminModal);
         });
     }
 

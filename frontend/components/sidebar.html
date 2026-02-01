@@ -300,7 +300,7 @@
         </svg>
       </button>
       <div class="sidebar-accordion-content">
-        <a class="sidebar-accordion-item" href="/index.html">Visão Geral</a>
+        <a class="sidebar-accordion-item" href="/index.html" title="Veja seus últimos resultados. Compare como está sua performance em relação a outros candidatos">Resultados/Comparativo</a>
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=dist">Grupo Proc/Abordagem</a>
         <!-- "Tópico" desativado (Área de conhecimento) -->
         <a class="sidebar-accordion-item" href="/pages/Indicadores.html?tab=detalhes">Ranking detalhes</a>
@@ -370,7 +370,7 @@
         </svg>
       </button>
       <div class="sidebar-accordion-content">
-        <button class="sidebar-accordion-item" data-admin-action="fixture">
+        <button class="sidebar-accordion-item" data-admin-action="administracao">
           Administração
         </button>
         <button class="sidebar-accordion-item" data-admin-action="chat-host">
@@ -1440,8 +1440,8 @@
 
       // Row 1: Headers 30d / 60d
       addCell('rowlabel','OV-R1C1','');
-      addCell('head','OV-R1C2-6','30d',{ style:'grid-column: span 5;' });
-      addCell('head','OV-R1C7-11','60d',{ style:'grid-column: span 5;' });
+      addCell('head','OV-R1C2-6','30 dias',{ style:'grid-column: span 5;' });
+      addCell('head','OV-R1C7-11','60 dias',{ style:'grid-column: span 5;' });
 
       // Row 2: Você / Outros labels
       addCell('rowlabel','OV-R2C1','');
@@ -3655,6 +3655,9 @@
       : ((localStorage.getItem('sessionToken') || '').trim() || (localStorage.getItem('nomeUsuario') || '').trim());
     
     const actionMap = {
+      'administracao': () => {
+        (window.top || window).location.assign('/pages/admin/administracao.html');
+      },
       'chat-host': () => {
         const url = `/chat/admin`;
         try {
@@ -3693,68 +3696,12 @@
         (window.top || window).location.assign('/pages/admin/dicas.html');
       },
       'fixture': () => {
-        // Open admin modal and scroll to fixture section
-        const adminModal = document.getElementById('adminModal');
-        if (!adminModal) {
-          // We are on a dedicated page (not index.html). Persist intent and redirect.
-          try {
-            sessionStorage.setItem('adminModalIntent', 'fixture');
-          } catch(_){ }
-          (window.top || window).location.assign('/index.html');
-          return;
-        }
-        if (adminModal) {
-          if (typeof window.openAdminModal === 'function') {
-            window.openAdminModal();
-          } else {
-            try { adminModal.removeAttribute('inert'); } catch(_){ }
-            adminModal.classList.add('active');
-            adminModal.setAttribute('aria-hidden', 'false');
-            adminModal.style.display = 'flex';
-            adminModal.style.pointerEvents = 'auto';
-          }
-          // Hide bottom nav if exists
-          const nav = document.querySelector('.bottom-nav');
-          if (nav) nav.style.display = 'none';
-          // Focus and scroll to fixture form
-          setTimeout(() => {
-            const userField = document.getElementById('fxUserId');
-            if (userField) {
-              userField.focus();
-              userField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 100);
-        }
+        // Dedicated admin page (no modal)
+        (window.top || window).location.assign('/pages/admin/administracao.html#fixture');
       },
       'reconcile': () => {
-        // Open admin modal and scroll to reconcile section
-        const adminModal = document.getElementById('adminModal');
-        if (!adminModal) {
-          try {
-            sessionStorage.setItem('adminModalIntent', 'reconcile');
-          } catch(_){ }
-          (window.top || window).location.assign('/index.html');
-          return;
-        }
-        if (adminModal) {
-          if (typeof window.openAdminModal === 'function') {
-            window.openAdminModal();
-          } else {
-            try { adminModal.removeAttribute('inert'); } catch(_){ }
-            adminModal.classList.add('active');
-            adminModal.setAttribute('aria-hidden', 'false');
-            adminModal.style.display = 'flex';
-            adminModal.style.pointerEvents = 'auto';
-          }
-          // Hide bottom nav if exists
-          const nav = document.querySelector('.bottom-nav');
-          if (nav) nav.style.display = 'none';
-          // Scroll to reconcile section (first panel)
-          setTimeout(() => {
-            const heading = adminModal.querySelector('h3');
-            if (heading) heading.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
-        }
+        // Dedicated admin page (no modal)
+        (window.top || window).location.assign('/pages/admin/administracao.html#reconcile');
       },
       'purge': () => {
         if (confirm('Expurgar tentativas abandonadas? Esta ação é irreversível.')) {

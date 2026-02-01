@@ -1902,19 +1902,30 @@ exports.getAttemptResult = async (req, res, next) => {
         );
       } catch(_) { rawOptions = []; }
     }
+    const isTrueFlag = (v) => {
+      if (v === true) return true;
+      if (v === false) return false;
+      if (v === 1 || v === 0) return v === 1;
+      const s = (v == null) ? '' : String(v).trim().toLowerCase();
+      if (!s) return false;
+      return s === 't' || s === 'true' || s === '1' || s === 'yes' || s === 'y';
+    };
+
     const optsByQ = new Map();
     rawOptions.forEach(o => {
       const qid = Number(o.idquestao || o.IdQuestao);
       if (!Number.isFinite(qid)) return;
       const arr = optsByQ.get(qid) || [];
       const explicacao = (o.explicacao != null && String(o.explicacao).trim() !== '') ? String(o.explicacao) : null;
+      const rawCorrect = (o.iscorreta !== undefined) ? o.iscorreta : o.IsCorreta;
+      const isCorrect = isTrueFlag(rawCorrect);
       arr.push({
         id: Number(o.id || o.Id),
         texto: o.descricao || o.Descricao || '',
         descricao: o.descricao || o.Descricao || '',
         explicacao,
-        isCorrect: !!(o.iscorreta || o.IsCorreta),
-        correta: !!(o.iscorreta || o.IsCorreta)
+        isCorrect,
+        correta: isCorrect
       });
       optsByQ.set(qid, arr);
     });

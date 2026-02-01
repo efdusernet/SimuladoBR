@@ -242,7 +242,7 @@
       <div class="d-flex flex-wrap gap-2 align-items-end justify-content-between">
         <div>
           <h2 class="h3 fw-bold mb-2">Planos</h2>
-          <p class="text-secondary mb-0">Escolha o formato ideal para o seu ritmo de estudo.</p>
+          <p class="text-secondary mb-0">Escolha o formato ideal para o seu ritmo de estudo. Quanto maior o plano, maior o desconto!</p>
         </div>
         <div>
           <a class="btn btn-primary" href="#checkout">Ir para checkout</a>
@@ -259,17 +259,13 @@
               try { return 'R$ ' + ((Number(cents||0)/100).toFixed(0)); } catch(__){ return 'R$ 0'; }
             }
           }
-          function installments(plan){
+          const MAX_CC_INSTALLMENTS = 10;
+          function installmentHint(plan){
             try {
-              if (plan && plan.is_free) return null;
-              const days = Number(plan && plan.access_duration_days);
-              if (!Number.isFinite(days) || days <= 0) return null;
-              const months = Math.max(1, Math.round(days / 30));
-              const count = Math.min(12, months * 2); // simple: 30d->2x, 60d->4x, 90d->6x, 120d->8x, 180d->12x
-              const total = Number(plan && plan.price_cents);
-              if (!Number.isFinite(total) || total <= 0) return null;
-              const per = Math.round(total / count);
-              return { count, per_cents: per };
+              if (!plan || plan.is_free) return null;
+              const cents = Number(plan.price_cents);
+              if (!Number.isFinite(cents) || cents <= 0) return null;
+              return `Cartão em até ${MAX_CC_INSTALLMENTS}x (Asaas)`;
             } catch(_){ return null; }
           }
         %>
@@ -282,7 +278,7 @@
             const badgeText = plan && plan.badge && plan.badge.text ? String(plan.badge.text) : (isFeatured ? 'Mais escolhido' : '');
             const ctaText = plan && plan.cta && plan.cta.text ? String(plan.cta.text) : (plan.is_free ? 'Começar grátis' : 'Assinar agora');
             const ctaVariant = plan && plan.cta && plan.cta.variant ? String(plan.cta.variant) : (isFeatured ? 'featured' : (plan.is_free ? 'success' : 'brand'));
-            const inst = installments(plan);
+            const instHint = installmentHint(plan);
             const defaultFeatures = [
               'Simulados (quiz e completo)',
               'Indicadores e diagnóstico',
@@ -305,8 +301,8 @@
 
                 <div class="plan-price">
                   <div class="plan-price-main"><%= plan.is_free ? 'R$ 0' : brl(plan.price_cents) %></div>
-                  <% if (inst && inst.count && inst.per_cents) { %>
-                    <div class="plan-installments">ou <strong><%= inst.count %>x</strong> de <strong><%= brl(inst.per_cents) %></strong></div>
+                  <% if (instHint) { %>
+                    <div class="plan-installments"><%= instHint %></div>
                   <% } else { %>
                     <div class="plan-installments">&nbsp;</div>
                   <% } %>

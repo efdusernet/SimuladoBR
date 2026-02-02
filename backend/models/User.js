@@ -36,6 +36,16 @@ module.exports = (sequelize, DataTypes) => {
 			allowNull: true,
 			field: 'FimBloqueio'
 		},
+		PremiumExpiresAt: {
+			type: DataTypes.DATE,
+			allowNull: true,
+			field: 'PremiumExpiresAt'
+		},
+		PremiumExpiredAt: {
+			type: DataTypes.DATE,
+			allowNull: true,
+			field: 'PremiumExpiredAt'
+		},
 		NomeUsuario: {
 			type: DataTypes.TEXT,
 			allowNull: true,

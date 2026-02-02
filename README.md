@@ -25,6 +25,48 @@ Leitura rápida recomendada (onboarding): `CONTEXT.md`, `FEATURES.md` e `KNOWN_I
 	- Base para modelo temporal: grava snapshots diários em `public.user_daily_snapshot` (upsert 1x/dia), somente para pagantes (`BloqueioAtivado=false`).
 	- Admin UI: seção no modal Admin para consultar snapshots via `GET /api/admin/users/:id/insights-snapshots`.
 
+## Premium por expiração (PremiumExpiresAt) + ponte com checkout (Asaas)
+
+O app principal (este backend) agora suporta um campo `Usuario.PremiumExpiresAt` (timestamptz no Postgres) para armazenar **até quando** o usuário tem acesso premium.
+
+Estado atual do gating:
+
+- O código legado considera **premium** quando `BloqueioAtivado=false`.
+- O campo `PremiumExpiresAt` foi adicionado para permitir expiração por data.
+- A ponte com o checkout mantém ambos consistentes: atualiza `PremiumExpiresAt` e também ajusta `BloqueioAtivado`.
+
+### Endpoints admin (leitura/edição manual)
+
+Protegidos por `requireAdmin` (JWT/cookie) e sujeitos a CSRF nos métodos de escrita.
+
+- `GET /api/admin/users/:id/premium-expires-at`
+	- Resposta: `{ Id, PremiumExpiresAt }` (ISO string ou `null`)
+
+- `PUT /api/admin/users/:id/premium-expires-at`
+	- Body: `{ "PremiumExpiresAt": "2026-02-01T12:00:00.000Z" }` ou `{ "PremiumExpiresAt": null }`
+	- Resposta: `{ Id, PremiumExpiresAt }`
+
+Obs: também existem as rotas versionadas em `/api/v1/*`.
+
+### Endpoint interno (server-to-server) para sincronização do premium
+
+Para integrar com o checkout (simuladospmpbr) sem depender de login/admin nem CSRF, foi criado um endpoint **interno** (fora de `/api`):
+
+- `POST /internal/v1/premium/sync`
+	- Auth: header `x-access-api-key` deve bater com `ACCESS_API_KEY` no `.env`.
+	- Body: `{ email, active, expiresAt }`
+		- `active=true`  → `BloqueioAtivado=false` e `PremiumExpiresAt=expiresAt` (ou `null` para acesso vitalício)
+		- `active=false` → `BloqueioAtivado=true` e `PremiumExpiresAt=null`
+
+- `POST /internal/v1/premium/grant`
+	- Auth: header `x-access-api-key`.
+	- Body: `{ email, days }`
+	- Efeito: estende `PremiumExpiresAt` por `days` a partir de `max(agora, PremiumExpiresAt atual)` e seta `BloqueioAtivado=false`.
+
+Variáveis de ambiente necessárias neste backend:
+
+- `ACCESS_API_KEY` (deve ser igual ao valor configurado no checkout para chamadas internas)
+
 ## Esquema (foco em exam_type)
 
 - Tabela `exam_type` (id/slug/nome/duração/…); somente tipos ativos são usados.

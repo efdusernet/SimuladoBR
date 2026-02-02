@@ -189,6 +189,8 @@ router.get('/me', async (req, res, next) => {
             Email: user.Email,
             EmailConfirmado: user.EmailConfirmado,
             BloqueioAtivado: user.BloqueioAtivado,
+            PremiumExpiresAt: user.PremiumExpiresAt ? new Date(user.PremiumExpiresAt).toISOString() : null,
+            PremiumExpiredAt: user.PremiumExpiredAt ? new Date(user.PremiumExpiredAt).toISOString() : null,
             DataCadastro: user.DataCadastro ? new Date(user.DataCadastro).toISOString() : null,
             DataAlteracao: user.DataAlteracao ? new Date(user.DataAlteracao).toISOString() : null,
             DataExame: user.DataExame ?? null,

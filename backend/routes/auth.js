@@ -14,6 +14,7 @@ const { security, audit } = require('../utils/logger');
 const { badRequest, unauthorized, forbidden, notFound, tooManyRequests, internalError } = require('../middleware/errors');
 const { generateSessionId, upsertActiveSession, verifyJwtAndGetActiveUser, extractTokenFromRequest } = require('../utils/singleSession');
 const { getCookieDomainForRequest } = require('../utils/cookieDomain');
+const { enforcePremiumExpiry } = require('../services/premiumExpiry');
 
 // Explicitly set bcrypt rounds for password hashing security
 const BCRYPT_ROUNDS = 12;
@@ -173,6 +174,10 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
             } catch (_) { /* ignore */ }
             return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
         }
+
+        // Após validar a senha, aplica regra centralizada de expiração do premium.
+        // (timestamp completo, incluindo minutos/segundos)
+        try { await enforcePremiumExpiry(user); } catch (_) { /* best-effort */ }
 
         // Successful login - return minimal user info
         // Zera o contador de falhas, se necessário
@@ -438,7 +443,9 @@ router.get('/me', async (req, res, next) => {
             Nome: user.Nome,
             Email: user.Email,
             EmailConfirmado: user.EmailConfirmado,
-            BloqueioAtivado: user.BloqueioAtivado
+            BloqueioAtivado: user.BloqueioAtivado,
+            PremiumExpiresAt: user.PremiumExpiresAt ? new Date(user.PremiumExpiresAt).toISOString() : null,
+            PremiumExpiredAt: user.PremiumExpiredAt ? new Date(user.PremiumExpiredAt).toISOString() : null
         });
     } catch (err) {
         logger.error('Erro em /api/auth/me:', err);

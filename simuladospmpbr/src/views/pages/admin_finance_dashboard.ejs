@@ -23,6 +23,10 @@
     </form>
   </div>
 
+  <% if (msg) { %>
+    <div class="alert alert-info mt-3 mb-0 py-2"><%= msg %></div>
+  <% } %>
+
   <div class="row g-3 mt-2">
     <div class="col-12 col-md-4">
       <div class="card h-100">

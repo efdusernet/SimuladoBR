@@ -2,10 +2,21 @@ import { Router } from 'express';
 
 import { requireAdminBasicAuth } from './adminAuth.js';
 import { getFinanceKpis, getOrderDetail, listExpirations, listOrders, listRefundAndChargebackEvents } from '../db/finance.repo.js';
+import { listPaymentEventsForOrder, listRefundAndChargebackEventsV2 } from '../db/paymentEvents.repo.js';
+import { getActiveEntitlementByEmail } from '../db/commerce.repo.js';
+import { syncPremiumOnSimuladosBr } from '../integrations/simuladosbr/simuladosbr.client.js';
+import { refreshOrderFromAsaas } from '../db/orders.repo.js';
+import { recordAdminAudit } from '../db/adminAudit.repo.js';
 
 export const financeAdminRouter = Router();
 
 financeAdminRouter.use('/admin/finance', requireAdminBasicAuth);
+
+function getClientIp(req) {
+  const xf = req.headers['x-forwarded-for'];
+  if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim();
+  return req.ip || null;
+}
 
 function moneyBRL(cents) {
   const v = Number(cents ?? 0) / 100;
@@ -35,6 +46,14 @@ function toCsv(rows, headers) {
   return lines.join('\n');
 }
 
+function safeReturnTo(value) {
+  const s = String(value ?? '').trim();
+  if (!s) return null;
+  // Only allow internal admin paths.
+  if (!s.startsWith('/admin/finance')) return null;
+  return s;
+}
+
 financeAdminRouter.get('/admin/finance', async (req, res, next) => {
   try {
     const now = new Date();
@@ -46,11 +65,80 @@ financeAdminRouter.get('/admin/finance', async (req, res, next) => {
     return res.render('pages/admin_finance_dashboard', {
       title: 'Financeiro — Dashboard',
       query: { from, to },
+      msg: typeof req.query.msg === 'string' ? req.query.msg : null,
       kpis,
       fmt: { moneyBRL, pct }
     });
   } catch (err) {
     next(err);
+  }
+});
+
+// Operational actions (V2)
+financeAdminRouter.post('/admin/finance/actions/sync-premium', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email ?? '').trim().toLowerCase();
+    const returnTo = safeReturnTo(req.body?.returnTo) || '/admin/finance';
+    if (!email) {
+      return res.redirect(returnTo + (returnTo.includes('?') ? '&' : '?') + 'msg=' + encodeURIComponent('email obrigatório'));
+    }
+
+    const entitlement = await getActiveEntitlementByEmail(email);
+    const result = await syncPremiumOnSimuladosBr({ email, entitlement });
+
+    await recordAdminAudit({
+      actor: req.adminUser ?? null,
+      ip: getClientIp(req),
+      action: 'sync_premium',
+      target: email,
+      payload: { ok: true, entitlement: entitlement ? { id: entitlement.id, ends_at: entitlement.ends_at ?? null } : null, result }
+    });
+
+    return res.redirect(returnTo + (returnTo.includes('?') ? '&' : '?') + 'msg=' + encodeURIComponent('sync premium disparado'));
+  } catch (err) {
+    await recordAdminAudit({
+      actor: req.adminUser ?? null,
+      ip: getClientIp(req),
+      action: 'sync_premium_error',
+      target: String(req.body?.email ?? ''),
+      payload: { error: err?.message ?? String(err) }
+    });
+    return next(err);
+  }
+});
+
+financeAdminRouter.post('/admin/finance/actions/refresh-order', async (req, res, next) => {
+  try {
+    const orderId = String(req.body?.orderId ?? '').trim();
+    const returnTo = safeReturnTo(req.body?.returnTo) || `/admin/finance/orders/${encodeURIComponent(orderId || '')}`;
+    if (!orderId) {
+      return res.redirect('/admin/finance/orders?msg=' + encodeURIComponent('orderId obrigatório'));
+    }
+
+    const result = await refreshOrderFromAsaas({ orderId });
+
+    await recordAdminAudit({
+      actor: req.adminUser ?? null,
+      ip: getClientIp(req),
+      action: 'refresh_order_from_asaas',
+      target: orderId,
+      payload: result
+    });
+
+    const msg = result.ok
+      ? `refresh ok (order=${result.status}${result.paymentStatus ? `, asaas=${result.paymentStatus}` : ''})`
+      : `refresh falhou (${result.reason || 'unknown'})`;
+
+    return res.redirect(returnTo + (returnTo.includes('?') ? '&' : '?') + `msg=${encodeURIComponent(msg)}`);
+  } catch (err) {
+    await recordAdminAudit({
+      actor: req.adminUser ?? null,
+      ip: getClientIp(req),
+      action: 'refresh_order_from_asaas_error',
+      target: String(req.body?.orderId ?? ''),
+      payload: { error: err?.message ?? String(err) }
+    });
+    return next(err);
   }
 });
 
@@ -105,7 +193,15 @@ financeAdminRouter.get('/admin/finance/refunds', async (req, res, next) => {
   try {
     const format = String(req.query.format ?? '').toLowerCase();
 
-    const result = await listRefundAndChargebackEvents({
+    const v2 = await listRefundAndChargebackEventsV2({
+      from: req.query.from ?? null,
+      to: req.query.to ?? null,
+      email: typeof req.query.email === 'string' && req.query.email ? req.query.email : null,
+      page: req.query.page ?? 1,
+      pageSize: req.query.pageSize ?? 25
+    });
+
+    const result = v2 ?? await listRefundAndChargebackEvents({
       from: req.query.from ?? null,
       to: req.query.to ?? null,
       email: typeof req.query.email === 'string' && req.query.email ? req.query.email : null,
@@ -192,9 +288,17 @@ financeAdminRouter.get('/admin/finance/orders/:id', async (req, res, next) => {
       });
     }
 
+    const paymentEvents = await listPaymentEventsForOrder({
+      orderId: order.id,
+      paymentReference: order.payment_reference ?? null,
+      limit: 100
+    });
+
     return res.render('pages/admin_finance_order_detail', {
       title: `Financeiro — Pedido ${order.id}`,
       order,
+      paymentEvents,
+      query: req.query,
       fmt: { moneyBRL }
     });
   } catch (err) {

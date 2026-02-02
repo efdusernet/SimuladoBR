@@ -1,6 +1,7 @@
 import { getPool } from './pool.js';
 import { grantEntitlementForOrder, getActiveEntitlementByEmail, getOrderById, setEntitlementStatusByOrderId } from './commerce.repo.js';
 import { syncPremiumOnSimuladosBr } from '../integrations/simuladosbr/simuladosbr.client.js';
+import { getPayment } from '../integrations/asaas/asaas.client.js';
 
 export async function attachPaymentToOrder({ orderId, provider, reference, url, status, metadata }) {
   const pool = getPool();
@@ -77,6 +78,76 @@ function mapOrderStatusToEntitlementStatus(orderStatus) {
     default:
       return null;
   }
+}
+
+function mapAsaasPaymentStatusToOrderStatus(paymentStatus) {
+  const s = String(paymentStatus || '').toUpperCase();
+  switch (s) {
+    case 'RECEIVED':
+    case 'CONFIRMED':
+      return 'paid';
+    case 'REFUNDED':
+      return 'refunded';
+    case 'OVERDUE':
+      return 'expired';
+    case 'CANCELED':
+    case 'DELETED':
+      return 'canceled';
+    default:
+      return 'pending_payment';
+  }
+}
+
+export async function refreshOrderFromAsaas({ orderId }) {
+  const order = await getOrderById(orderId);
+  if (!order) return { ok: false, reason: 'ORDER_NOT_FOUND' };
+
+  const paymentId = order?.payment_metadata?.asaasPaymentId
+    ?? (order.payment_object_type === 'payment' ? order.payment_reference : null);
+
+  if (!paymentId) return { ok: false, reason: 'NO_PAYMENT_ID' };
+
+  const payment = await getPayment(paymentId);
+  const status = mapAsaasPaymentStatusToOrderStatus(payment?.status);
+
+  const paidAt = status === 'paid' ? new Date().toISOString() : null;
+
+  const updated = await setOrderStatusByPaymentReference({
+    reference: order.payment_reference,
+    status,
+    paidAt,
+    metadata: {
+      asaasPaymentId: payment?.id ?? paymentId,
+      asaasPaymentStatus: payment?.status ?? null,
+      asaasInvoiceUrl: payment?.invoiceUrl ?? order?.payment_metadata?.asaasInvoiceUrl ?? null,
+      asaasRefreshedAt: new Date().toISOString()
+    }
+  });
+
+  if (!updated?.id) return { ok: false, reason: 'ORDER_NOT_UPDATED' };
+
+  // Apply entitlement + premium sync rules similar to webhook processing.
+  if (updated?.status === 'paid') {
+    await grantEntitlementForOrder({ orderId: updated.id });
+  } else if (updated.status === 'refunded' || updated.status === 'canceled' || updated.status === 'expired') {
+    const entStatus = mapOrderStatusToEntitlementStatus(updated.status);
+    if (entStatus) {
+      await setEntitlementStatusByOrderId({ orderId: updated.id, status: entStatus });
+    }
+  }
+
+  // Premium sync is best-effort.
+  try {
+    const buyerEmail = order?.buyer_email;
+    if (buyerEmail) {
+      const entitlement = await getActiveEntitlementByEmail(String(buyerEmail).trim().toLowerCase());
+      await syncPremiumOnSimuladosBr({ email: String(buyerEmail).trim().toLowerCase(), entitlement });
+    }
+  } catch (_) {
+    // ignore
+  }
+
+  return { ok: true, status: updated.status, paymentStatus: payment?.status ?? null };
 }
 
 export async function updateOrderFromAsaasWebhook(payload) {

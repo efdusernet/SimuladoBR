@@ -151,3 +151,7 @@ export async function createCreditCardInstallmentPaymentLink({ name, description
     }
   });
 }
+
+export async function getPayment(paymentId) {
+  return asaasFetch(`/payments/${encodeURIComponent(String(paymentId))}`);
+}

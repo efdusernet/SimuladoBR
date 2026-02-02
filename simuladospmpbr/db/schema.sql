@@ -123,6 +123,44 @@ create table if not exists refund_requests (
   updated_at timestamptz not null default now()
 );
 
+-- Webhook timeline (V2): store each received payment event (e.g., Asaas webhooks)
+create table if not exists payment_events (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+
+  provider text not null, -- 'asaas'
+  event_type text not null, -- e.g. PAYMENT_CONFIRMED
+
+  payment_reference text null, -- payment.id OR paymentLink.id (what we store in orders.payment_reference)
+  payment_id text null,
+  payment_link_id text null,
+  external_reference text null, -- Asaas payment.externalReference (order id)
+  order_id uuid null references orders(id),
+
+  payload jsonb not null,
+  payload_hash text not null,
+  headers jsonb null,
+
+  unique (provider, payload_hash)
+);
+
+create index if not exists payment_events_created_at_idx on payment_events (created_at desc);
+create index if not exists payment_events_payment_ref_idx on payment_events (payment_reference);
+create index if not exists payment_events_order_id_idx on payment_events (order_id);
+
+-- Admin audit log (V2): track operational actions triggered via admin UI
+create table if not exists admin_audit_log (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  actor text null,
+  ip text null,
+  action text not null,
+  target text null,
+  payload jsonb null
+);
+
+create index if not exists admin_audit_log_created_at_idx on admin_audit_log (created_at desc);
+
 -- Seed plans (idempotent)
 -- NOTE: prices are placeholders; adjust as needed in production.
 insert into plans (id, name, description, price_cents, access_duration_days, is_free)

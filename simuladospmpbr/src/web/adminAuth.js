@@ -27,22 +27,24 @@ function isConfigured() {
   return !!(config.adminBasicAuth || config.adminPassword);
 }
 
-function isAllowedByBasicAuth(req) {
+function getBasicAuthCredsIfAllowed(req) {
   const creds = parseBasicAuth(req.headers.authorization);
-  if (!creds) return false;
+  if (!creds) return null;
 
   if (config.adminBasicAuth) {
     // Expected format: user:pass
     const idx = String(config.adminBasicAuth).indexOf(':');
-    if (idx < 0) return false;
+    if (idx < 0) return null;
     const user = String(config.adminBasicAuth).slice(0, idx);
     const pass = String(config.adminBasicAuth).slice(idx + 1);
-    return creds.username === user && creds.password === pass;
+    if (creds.username === user && creds.password === pass) return creds;
+    return null;
   }
 
   const expectedUser = config.adminUser || 'admin';
   const expectedPass = config.adminPassword || '';
-  return creds.username === expectedUser && creds.password === expectedPass;
+  if (creds.username === expectedUser && creds.password === expectedPass) return creds;
+  return null;
 }
 
 export function requireAdminBasicAuth(req, res, next) {
@@ -52,9 +54,13 @@ export function requireAdminBasicAuth(req, res, next) {
     return unauthorized(res);
   }
 
-  if (!isAllowedByBasicAuth(req)) {
+  const creds = getBasicAuthCredsIfAllowed(req);
+  if (!creds) {
     return unauthorized(res);
   }
+
+  // Expose to downstream handlers for audit logs.
+  req.adminUser = creds.username;
 
   return next();
 }

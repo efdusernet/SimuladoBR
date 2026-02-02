@@ -18,18 +18,19 @@
       "variant": "success"
     },
     "features": [
-      "Simulados (quiz 25 questões)",
-      "Indicadores e diagnóstico",
+      "Simulados (quiz 30 questões)",
+      "Indicadores e diagnóstico (Limitado)",
       "Revisão detalhada (respostas com os porquês)",
+      "Flashcards (limitado)",
       "Acesso ilimitado"
     ],
-    "updated_at": "2026-01-29T19:59:47.770Z"
+    "updated_at": "2026-02-01T22:52:15.753Z"
   },
   {
     "id": "pro-30",
     "name": "PRO 30 dias",
     "description": "Acesso completo por 30 dias.",
-    "price_cents": 19900,
+    "price_cents": 9900,
     "access_duration_days": 30,
     "is_free": false,
     "is_active": true,
@@ -44,20 +45,23 @@
       "variant": "info"
     },
     "features": [
-      "Simulados completos e quiz",
-      "Indicadores",
-      "--> Aprovação e Reprovação",
-      "--> Visão por Grupos de Processos e Domínios",
+      "+700 questões",
+      "Simulados completos e quizzes",
+      "Indicadores completos",
+      "Tenha Insights da IA Gemini (Google)",
       "Revisão guiada da tentativa",
-      "Suporte por e-mail"
+      "Acesso a +800 Flashcards",
+      "Suporte por e-mail e chat",
+      "Veja suas probabilidades de sucesso no exame",
+      "Compare seus resultados com outros candidatos"
     ],
-    "updated_at": "2026-01-29T19:59:47.770Z"
+    "updated_at": "2026-02-01T22:52:15.753Z"
   },
   {
     "id": "pro-60",
     "name": "PRO 60 dias",
     "description": "Acesso completo por 60 dias.",
-    "price_cents": 29900,
+    "price_cents": 17900,
     "access_duration_days": 60,
     "is_free": false,
     "is_active": true,
@@ -72,18 +76,23 @@
       "variant": "brand"
     },
     "features": [
-      "Simulados (quiz e completo)",
-      "Indicadores e diagnóstico",
+      "+700 questões",
+      "Simulados completos e quizzes",
+      "Indicadores completos",
+      "Tenha Insights da IA Gemini (Google)",
       "Revisão guiada da tentativa",
-      "Suporte por e-mail"
+      "Acesso a +800 Flashcards",
+      "Suporte por e-mail e chat",
+      "Veja suas probabilidades de sucesso no exame",
+      "Compare seus resultados com outros candidatos"
     ],
-    "updated_at": "2026-01-29T19:59:47.770Z"
+    "updated_at": "2026-02-01T22:52:15.753Z"
   },
   {
     "id": "pro-90",
     "name": "PRO 90 dias",
     "description": "Acesso completo por 90 dias.",
-    "price_cents": 39600,
+    "price_cents": 25900,
     "access_duration_days": 90,
     "is_free": false,
     "is_active": true,
@@ -101,18 +110,23 @@
       "text": "Mais escolhido"
     },
     "features": [
-      "Simulados (quiz e completo)",
-      "Indicadores e diagnóstico",
+      "+ 1100 questões",
+      "Simulados completos e quizzes",
+      "Indicadores completos",
+      "Tenha Insights da IA Gemini (Google)",
       "Revisão guiada da tentativa",
-      "Suporte por e-mail"
+      "Acesso a +800 Flashcards",
+      "Suporte por e-mail e chat",
+      "Veja suas probabilidades de sucesso no exame",
+      "Compare seus resultados com outros candidatos"
     ],
-    "updated_at": "2026-01-29T19:59:47.770Z"
+    "updated_at": "2026-02-01T22:52:15.753Z"
   },
   {
     "id": "pro-120",
     "name": "PRO 120 dias",
     "description": "Acesso completo por 120 dias.",
-    "price_cents": 49600,
+    "price_cents": 33900,
     "access_duration_days": 120,
     "is_free": false,
     "is_active": true,
@@ -127,18 +141,23 @@
       "variant": "purple"
     },
     "features": [
-      "Simulados (quiz e completo)",
-      "Indicadores e diagnóstico",
+      "+ 1100 questões",
+      "Simulados completos e quizzes",
+      "Indicadores completos",
+      "Tenha Insights da IA Gemini (Google)",
       "Revisão guiada da tentativa",
-      "Suporte por e-mail"
+      "Acesso a +800 Flashcards",
+      "Suporte por e-mail e chat",
+      "Veja suas probabilidades de sucesso no exame",
+      "Compare seus resultados com outros candidatos"
     ],
-    "updated_at": "2026-01-29T19:59:47.770Z"
+    "updated_at": "2026-02-01T22:52:15.753Z"
   },
   {
     "id": "pro-180",
     "name": "PRO 180 dias",
     "description": "Acesso completo por 180 dias.",
-    "price_cents": 69600,
+    "price_cents": 41900,
     "access_duration_days": 180,
     "is_free": false,
     "is_active": true,
@@ -153,11 +172,16 @@
       "variant": "purple"
     },
     "features": [
-      "Simulados (quiz e completo)",
-      "Indicadores e diagnóstico",
+      "+ 1100 questões",
+      "Simulados completos e quizzes",
+      "Indicadores completos",
+      "Tenha Insights da IA Gemini (Google)",
       "Revisão guiada da tentativa",
-      "Suporte por e-mail"
+      "Acesso a +800 Flashcards",
+      "Suporte por e-mail e chat",
+      "Veja suas probabilidades de sucesso no exame",
+      "Compare seus resultados com outros candidatos"
     ],
-    "updated_at": "2026-01-29T19:59:47.770Z"
+    "updated_at": "2026-02-01T22:52:15.753Z"
   }
 ]

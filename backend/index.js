@@ -597,6 +597,9 @@ app.get('/login', (req, res) => {
 	return res.sendFile(path.join(FRONTEND_DIR, 'login.html'));
 });
 
+// Internal (server-to-server) endpoints (no CSRF; protected by x-access-api-key)
+app.use('/internal/v1', require('./routes/internal_premium'));
+
 // CSRF token endpoint (versioned and legacy)
 app.get(`${API_V1}/csrf-token`, (req, res) => {
   const token = req.csrfToken();

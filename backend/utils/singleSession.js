@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../models');
 const { jwtSecret } = require('../config/security');
+const { enforcePremiumExpiry } = require('../services/premiumExpiry');
 
 function isJwtLike(token) {
   return /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(String(token || '').trim());
@@ -90,6 +91,10 @@ async function verifyJwtAndGetActiveUser(token) {
 
   const user = await db.User.findByPk(userId);
   if (!user) return { ok: false, status: 401, code: 'USER_NOT_FOUND', message: 'User not found' };
+
+  // Centralized premium expiry enforcement (timestamp-level, includes minutes/seconds).
+  // Keep this here to avoid duplicating checks across endpoints.
+  try { await enforcePremiumExpiry(user); } catch (_) { /* best-effort */ }
 
   return { ok: true, user, decoded };
 }

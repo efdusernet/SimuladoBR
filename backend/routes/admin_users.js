@@ -130,6 +130,63 @@ router.get('/:id/insights-snapshots', requireAdmin, async (req, res, next) => {
   }
 });
 
+// GET /api/admin/users/:id/premium-expires-at
+// Lê a data de expiração do Premium (PremiumExpiresAt) para um usuário.
+router.get('/:id/premium-expires-at', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params && req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return next(badRequest('User id inválido', 'INVALID_USER_ID'));
+
+    const user = await db.User.findByPk(id, { attributes: ['Id', 'PremiumExpiresAt'] });
+    if (!user) return next(notFound('Usuário não encontrado', 'USER_NOT_FOUND'));
+
+    return res.json({
+      Id: user.Id,
+      PremiumExpiresAt: user.PremiumExpiresAt ? new Date(user.PremiumExpiresAt).toISOString() : null,
+    });
+  } catch (e) {
+    console.error('[admin_users][PREMIUM_EXPIRES_AT_GET] error:', e && e.message);
+    return next(internalError('Internal error', 'ADMIN_USERS_PREMIUM_EXPIRES_AT_GET_ERROR', { error: e && e.message }));
+  }
+});
+
+// PUT /api/admin/users/:id/premium-expires-at
+// Atualiza a data de expiração do Premium (PremiumExpiresAt) para um usuário.
+// Body: { PremiumExpiresAt: string|null } (aceita ISO 8601; null limpa o campo)
+router.put('/:id/premium-expires-at', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params && req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return next(badRequest('User id inválido', 'INVALID_USER_ID'));
+
+    const user = await db.User.findByPk(id, { attributes: ['Id', 'PremiumExpiresAt', 'DataAlteracao'] });
+    if (!user) return next(notFound('Usuário não encontrado', 'USER_NOT_FOUND'));
+
+    const body = req.body || {};
+    const raw = (body.PremiumExpiresAt ?? body.premiumExpiresAt) ?? null;
+
+    let value = null;
+    if (raw != null && String(raw).trim() !== '') {
+      const dt = new Date(String(raw).trim());
+      if (!Number.isFinite(dt.getTime())) {
+        return next(badRequest('PremiumExpiresAt inválido (use ISO 8601 ou null)', 'INVALID_PREMIUM_EXPIRES_AT'));
+      }
+      value = dt;
+    }
+
+    user.PremiumExpiresAt = value;
+    user.DataAlteracao = new Date();
+    await user.save();
+
+    return res.json({
+      Id: user.Id,
+      PremiumExpiresAt: user.PremiumExpiresAt ? new Date(user.PremiumExpiresAt).toISOString() : null,
+    });
+  } catch (e) {
+    console.error('[admin_users][PREMIUM_EXPIRES_AT_PUT] error:', e && e.message);
+    return next(internalError('Internal error', 'ADMIN_USERS_PREMIUM_EXPIRES_AT_PUT_ERROR', { error: e && e.message }));
+  }
+});
+
 // GET /api/admin/users/:id
 // Lookup a single user for admin UIs (Id + Nome + NomeUsuario + Email)
 // Note: do not use regex params here because the current router/path-to-regexp version rejects them.

@@ -13,6 +13,7 @@ import { healthRouter } from './web/health.router.js';
 import { webhooksRouter } from './web/webhooks.router.js';
 import { debugRouter } from './web/debug.router.js';
 import { apiRouter } from './web/api.router.js';
+import { financeAdminRouter } from './web/financeAdmin.router.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,6 +56,7 @@ app.use(healthRouter);
 app.use(apiRouter);
 app.use(debugRouter);
 app.use(webhooksRouter);
+app.use(financeAdminRouter);
 app.use(pagesRouter);
 
 app.use((req, res) => {

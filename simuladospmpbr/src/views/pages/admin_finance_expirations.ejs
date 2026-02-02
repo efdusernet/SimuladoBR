@@ -1,0 +1,54 @@
+<%- include('../partials/head', { title }) %>
+<%- include('../partials/admin_nav') %>
+
+<div class="container py-4">
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+    <div>
+      <h1 class="h3 fw-bold mb-1">Expirações</h1>
+      <div class="text-secondary small">Entitlements com ends_at (planos não-vitalícios).</div>
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" href="?<%= new URLSearchParams({ ...query, format: 'csv' }).toString() %>">Exportar CSV</a>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 mt-2">
+    <% const buckets = [ {k:'d30', label:'D-30'}, {k:'d7', label:'D-7'}, {k:'d1', label:'D-1'}, {k:'expired', label:'Expirados'} ]; %>
+    <% for (const b of buckets) { %>
+      <a class="btn btn-sm <%= (bucket === b.k) ? 'btn-primary' : 'btn-outline-primary' %>" href="/admin/finance/expirations?bucket=<%= b.k %>"><%= b.label %></a>
+    <% } %>
+  </div>
+
+  <div class="text-secondary small mt-2">Total: <%= result.total %></div>
+
+  <div class="table-responsive mt-2">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Plano</th>
+          <th>Status</th>
+          <th>Ends at</th>
+          <th>Order</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% for (const e of result.rows) { %>
+          <tr>
+            <td><%= e.buyer_email %></td>
+            <td><%= e.plan_name %></td>
+            <td><span class="badge text-bg-light"><%= e.entitlement_status %></span></td>
+            <td class="text-nowrap"><%= e.ends_at ? new Date(e.ends_at).toLocaleString('pt-BR') : '' %></td>
+            <td>
+              <% if (e.order_id) { %>
+                <a href="/admin/finance/orders/<%= e.order_id %>"><%= e.order_id.slice(0, 8) %>…</a>
+              <% } else { %>
+                <span class="text-secondary">—</span>
+              <% } %>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

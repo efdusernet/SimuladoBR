@@ -171,3 +171,21 @@ export async function getActiveEntitlementByEmail(email) {
   );
   return rows[0] ?? null;
 }
+
+export async function setEntitlementStatusByOrderId({ orderId, status }) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `update entitlements
+     set status = $2::entitlement_status,
+         ends_at = case
+           when ends_at is null then now()
+           when ends_at > now() then now()
+           else ends_at
+         end
+     where order_id = $1
+       and status = 'active'
+     returning id, order_id, status, ends_at`,
+    [orderId, status]
+  );
+  return rows[0] ?? null;
+}

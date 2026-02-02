@@ -1,5 +1,6 @@
 import { getPool } from './pool.js';
-import { grantEntitlementForOrder } from './commerce.repo.js';
+import { grantEntitlementForOrder, getActiveEntitlementByEmail, getOrderById, setEntitlementStatusByOrderId } from './commerce.repo.js';
+import { syncPremiumOnSimuladosBr } from '../integrations/simuladosbr/simuladosbr.client.js';
 
 export async function attachPaymentToOrder({ orderId, provider, reference, url, status, metadata }) {
   const pool = getPool();
@@ -65,6 +66,19 @@ function mapAsaasEventToOrderStatus(event) {
   }
 }
 
+function mapOrderStatusToEntitlementStatus(orderStatus) {
+  switch (orderStatus) {
+    case 'refunded':
+      return 'refunded';
+    case 'canceled':
+      return 'revoked';
+    case 'expired':
+      return 'expired';
+    default:
+      return null;
+  }
+}
+
 export async function updateOrderFromAsaasWebhook(payload) {
   const event = payload?.event;
   const payment = payload?.payment;
@@ -97,5 +111,38 @@ export async function updateOrderFromAsaasWebhook(payload) {
   if (updated?.status === 'paid') {
     // Grant access after confirmation (PIX/CC approval/BOLETO compensation)
     await grantEntitlementForOrder({ orderId: updated.id });
+
+    // Bridge (idempotent): sync Premium in SimuladosBR based on the currently active entitlement.
+    try {
+      const order = await getOrderById(updated.id);
+      const buyerEmail = order?.buyer_email;
+      if (buyerEmail) {
+        const entitlement = await getActiveEntitlementByEmail(String(buyerEmail).trim().toLowerCase());
+        await syncPremiumOnSimuladosBr({ email: String(buyerEmail).trim().toLowerCase(), entitlement });
+      }
+    } catch (e) {
+      // Best-effort: do not fail webhook processing if cross-service sync fails.
+      // eslint-disable-next-line no-console
+      console.error('[asaas-webhook] premium sync to SimuladosBR failed:', e && e.message ? e.message : e);
+    }
+  } else if (updated?.id && (updated.status === 'refunded' || updated.status === 'canceled' || updated.status === 'expired')) {
+    // If payment got revoked/refunded/expired, revoke the entitlement for this specific order.
+    try {
+      const entStatus = mapOrderStatusToEntitlementStatus(updated.status);
+      if (entStatus) {
+        await setEntitlementStatusByOrderId({ orderId: updated.id, status: entStatus });
+      }
+
+      const order = await getOrderById(updated.id);
+      const buyerEmail = order?.buyer_email;
+      if (buyerEmail) {
+        const entitlement = await getActiveEntitlementByEmail(String(buyerEmail).trim().toLowerCase());
+        await syncPremiumOnSimuladosBr({ email: String(buyerEmail).trim().toLowerCase(), entitlement });
+      }
+    } catch (e) {
+      // Best-effort
+      // eslint-disable-next-line no-console
+      console.error('[asaas-webhook] revoke/sync failed:', e && e.message ? e.message : e);
+    }
   }
 }

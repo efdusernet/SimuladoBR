@@ -77,6 +77,9 @@ create table if not exists orders (
 
 create index if not exists orders_created_at_idx on orders (created_at desc);
 create index if not exists orders_payment_ref_idx on orders (payment_reference);
+create index if not exists orders_status_idx on orders (status);
+create index if not exists orders_paid_at_idx on orders (paid_at desc);
+create index if not exists buyers_email_idx on buyers (email);
 
 do $$
 begin
@@ -100,6 +103,7 @@ create table if not exists entitlements (
 );
 
 create index if not exists entitlements_buyer_idx on entitlements (buyer_id, status);
+create index if not exists entitlements_ends_at_idx on entitlements (ends_at);
 
 do $$
 begin

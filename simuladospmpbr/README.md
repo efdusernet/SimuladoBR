@@ -56,6 +56,29 @@ Healthcheck: `GET /healthz`.
 - Webhook (para atualização automática do status): `POST /webhooks/asaas`
 	- Se você definir um token de webhook no painel do Asaas, coloque o mesmo valor em `ASAAS_WEBHOOK_TOKEN`.
 
+## Ponte de acesso premium (sync com SimuladosBR)
+
+Quando o Asaas confirma ou revoga um pagamento, o checkout mantém o estado de acesso consistente no app principal (SimuladosBR) atualizando:
+
+- `Usuario.PremiumExpiresAt` (data fim do acesso)
+- `Usuario.BloqueioAtivado` (legado: premium quando `false`)
+
+Como funciona:
+
+- O webhook `POST /webhooks/asaas` atualiza `orders.status` com base no `payload.event`.
+- Em `paid` (`PAYMENT_CONFIRMED`/`PAYMENT_RECEIVED`), o sistema concede entitlement e sincroniza premium no SimuladosBR.
+- Em `refunded/canceled/expired` (ex.: `PAYMENT_REFUNDED`, `PAYMENT_CHARGEBACK`, `PAYMENT_DELETED`, `PAYMENT_OVERDUE`), ele revoga/expira o entitlement do pedido e re-sincroniza premium no SimuladosBR.
+
+A sincronização é **idempotente** e baseada no estado atual de entitlement:
+
+- Se existe entitlement ativo para o e-mail → `active=true` e `expiresAt=ends_at` (ou `null` para lifetime)
+- Se não existe → `active=false` (remove premium)
+
+Variáveis de ambiente necessárias no checkout:
+
+- `SIMULADOS_BR_BASE_URL` (base URL do backend do app principal, ex.: `https://app.seudominio.com`)
+- `ACCESS_API_KEY` (mesmo valor usado no SimuladosBR; enviado no header `x-access-api-key`)
+
 ## Smoke tests
 
 ```bash

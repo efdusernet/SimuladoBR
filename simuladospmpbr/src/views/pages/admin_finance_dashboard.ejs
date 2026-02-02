@@ -1,0 +1,126 @@
+<%- include('../partials/head', { title }) %>
+<%- include('../partials/admin_nav') %>
+
+<div class="container py-4">
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+    <div>
+      <h1 class="h3 fw-bold mb-1">Dashboard Financeiro</h1>
+      <div class="text-secondary small">Período do funil (created_at) e receita por paid_at.</div>
+    </div>
+
+    <form class="d-flex flex-wrap gap-2" method="get" action="/admin/finance">
+      <div>
+        <label class="form-label small mb-1">De</label>
+        <input class="form-control form-control-sm" type="datetime-local" name="from" value="<%= query.from ? String(query.from).slice(0,16) : '' %>" />
+      </div>
+      <div>
+        <label class="form-label small mb-1">Até</label>
+        <input class="form-control form-control-sm" type="datetime-local" name="to" value="<%= query.to ? String(query.to).slice(0,16) : '' %>" />
+      </div>
+      <div class="d-flex align-items-end">
+        <button class="btn btn-sm btn-primary" type="submit">Aplicar</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="row g-3 mt-2">
+    <div class="col-12 col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="text-secondary small">Receita (paid_at)</div>
+          <div class="h4 fw-bold mb-0"><%= fmt.moneyBRL(kpis.revenueCents) %></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="text-secondary small">Inadimplência (pending + expired)</div>
+          <div class="h4 fw-bold mb-0"><%= fmt.moneyBRL(kpis.delinquencyCents) %></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="text-secondary small">Conversão (proxy)</div>
+          <div class="h4 fw-bold mb-0"><%= fmt.pct(kpis.conversion) %></div>
+          <div class="text-secondary small">Paid: <%= kpis.paidCountByCreated %> / Created: <%= kpis.createdCount %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="text-secondary small">Reembolsos / Chargebacks (MVP)</div>
+          <% const _rcCount = (kpis.refundEventsCount ?? 0) + (kpis.chargebackEventsCount ?? 0); %>
+          <% const _rcRate = (kpis.paidCountByCreated ?? 0) > 0 ? (_rcCount / kpis.paidCountByCreated) : 0; %>
+          <div class="h4 fw-bold mb-0"><%= fmt.pct(_rcRate) %></div>
+          <div class="text-secondary small">
+            Total: <%= _rcCount %> (refund: <%= kpis.refundEventsCount ?? 0 %>, chargeback: <%= kpis.chargebackEventsCount ?? 0 %>)
+          </div>
+          <div class="text-secondary small">Valor estimado: <%= fmt.moneyBRL(kpis.refundChargebackCents ?? 0) %></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="text-secondary small">Churn (expirou e não renovou em 7 dias)</div>
+          <div class="h4 fw-bold mb-0"><%= fmt.pct(kpis.churnRate ?? 0) %></div>
+          <div class="text-secondary small">Churned emails: <%= kpis.churnedEmailsCount ?? 0 %> / Expired entitlements: <%= kpis.expiredEntitlementsCount ?? 0 %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-3">
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <div class="text-secondary small">Pedidos no período (created_at)</div>
+              <div class="h5 fw-bold mb-0"><%= kpis.createdCount %></div>
+            </div>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/finance/orders?from=<%= encodeURIComponent(query.from) %>&to=<%= encodeURIComponent(query.to) %>">Ver pedidos</a>
+          </div>
+          <hr />
+          <div class="d-flex flex-wrap gap-3 small">
+            <div><span class="badge text-bg-success">paid</span> <%= kpis.paidCountByCreated %></div>
+            <div><span class="badge text-bg-warning">pending</span> <%= kpis.pendingCount %></div>
+            <div><span class="badge text-bg-danger">overdue</span> <%= kpis.overdueCount %></div>
+            <div><span class="badge text-bg-secondary">canceled</span> <%= kpis.canceledCount %></div>
+            <div><span class="badge text-bg-dark">refunded</span> <%= kpis.refundedCount %></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <div class="text-secondary small">Atalhos</div>
+              <div class="h5 fw-bold mb-0">Operações</div>
+            </div>
+          </div>
+          <hr />
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/finance/refunds?from=<%= encodeURIComponent(query.from) %>&to=<%= encodeURIComponent(query.to) %>">Reembolsos/Chargebacks</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/finance/expirations?bucket=d7">Expira em 7 dias</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/finance/expirations?bucket=d1">Expira em 1 dia</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/finance/expirations?bucket=expired">Expirados</a>
+          </div>
+          <div class="text-secondary small mt-2">Obs: no MVP, eventos (refund/chargeback) vêm do último `payment_metadata.asaasEvent`.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,91 @@
+<%- include('../partials/head', { title }) %>
+<%- include('../partials/admin_nav') %>
+
+<div class="container py-4">
+  <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+    <div>
+      <h1 class="h4 fw-bold mb-1">Pedido</h1>
+      <div class="text-secondary small"><%= order.id %></div>
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" href="/admin/finance/orders">Voltar</a>
+  </div>
+
+  <div class="row g-3 mt-2">
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <div class="text-secondary small">Status</div>
+              <div class="h5 fw-bold mb-0"><%= order.status %></div>
+            </div>
+            <div>
+              <div class="text-secondary small">Valor</div>
+              <div class="h5 fw-bold mb-0"><%= fmt.moneyBRL(order.amount_cents) %></div>
+            </div>
+          </div>
+          <hr />
+          <div class="small">
+            <div><span class="text-secondary">Plano:</span> <strong><%= order.plan_name %></strong> (<%= order.plan_id %>)</div>
+            <div><span class="text-secondary">Comprador:</span> <strong><%= order.buyer_email %></strong> — <%= (order.buyer_first_name ?? '') %> <%= (order.buyer_last_name ?? '') %></div>
+            <div class="mt-2"><span class="text-secondary">Created:</span> <%= order.created_at ? new Date(order.created_at).toLocaleString('pt-BR') : '' %></div>
+            <div><span class="text-secondary">Paid:</span> <%= order.paid_at ? new Date(order.paid_at).toLocaleString('pt-BR') : '—' %></div>
+            <div><span class="text-secondary">Due date:</span> <%= order.due_date ?? '—' %></div>
+            <div><span class="text-secondary">Expires at:</span> <%= order.expires_at ? new Date(order.expires_at).toLocaleString('pt-BR') : '—' %></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="text-secondary small">Entitlement (vínculo por order_id)</div>
+          <% if (order.entitlement_id) { %>
+            <div class="small mt-2">
+              <div><span class="text-secondary">Status:</span> <%= order.entitlement_status %></div>
+              <div><span class="text-secondary">Starts:</span> <%= order.entitlement_starts_at ? new Date(order.entitlement_starts_at).toLocaleString('pt-BR') : '' %></div>
+              <div><span class="text-secondary">Ends:</span> <%= order.entitlement_ends_at ? new Date(order.entitlement_ends_at).toLocaleString('pt-BR') : '—' %></div>
+            </div>
+          <% } else { %>
+            <div class="text-secondary small mt-2">Nenhum entitlement encontrado para este pedido.</div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-secondary small">Pagamento</div>
+              <div class="fw-semibold"><%= order.payment_provider ?? '—' %></div>
+            </div>
+            <% if (order.payment_url) { %>
+              <a class="btn btn-sm btn-primary" target="_blank" rel="noreferrer" href="<%= order.payment_url %>">Abrir link</a>
+            <% } %>
+          </div>
+          <hr />
+          <div class="small">
+            <div><span class="text-secondary">payment_reference:</span> <%= order.payment_reference ?? '—' %></div>
+            <div><span class="text-secondary">object_type:</span> <%= order.payment_object_type ?? '—' %></div>
+            <div><span class="text-secondary">asaasEvent:</span> <%= order.payment_metadata?.asaasEvent ?? '—' %></div>
+            <div><span class="text-secondary">asaasPaymentId:</span> <%= order.payment_metadata?.asaasPaymentId ?? '—' %></div>
+            <div><span class="text-secondary">asaasPaymentStatus:</span> <%= order.payment_metadata?.asaasPaymentStatus ?? '—' %></div>
+            <% if (order.payment_metadata?.asaasInvoiceUrl) { %>
+              <div><span class="text-secondary">invoiceUrl:</span> <a target="_blank" rel="noreferrer" href="<%= order.payment_metadata.asaasInvoiceUrl %>"><%= order.payment_metadata.asaasInvoiceUrl %></a></div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="text-secondary small mb-2">payment_metadata (JSON)</div>
+          <pre class="small bg-light p-2 rounded" style="max-height: 420px; overflow:auto"><%= JSON.stringify(order.payment_metadata ?? {}, null, 2) %></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

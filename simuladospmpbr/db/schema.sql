@@ -161,6 +161,35 @@ create table if not exists admin_audit_log (
 
 create index if not exists admin_audit_log_created_at_idx on admin_audit_log (created_at desc);
 
+-- Admin auth (V3): admin users + login sessions
+create table if not exists admin_users (
+  id uuid primary key default gen_random_uuid(),
+  email citext not null unique,
+  password_hash text not null,
+  role text not null default 'admin',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  last_login_at timestamptz null
+);
+
+create index if not exists admin_users_created_at_idx on admin_users (created_at desc);
+
+create table if not exists admin_sessions (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  revoked_at timestamptz null,
+
+  user_id uuid not null references admin_users(id) on delete cascade,
+  token_hash text not null unique,
+
+  ip text null,
+  user_agent text null
+);
+
+create index if not exists admin_sessions_user_id_idx on admin_sessions (user_id, created_at desc);
+create index if not exists admin_sessions_expires_at_idx on admin_sessions (expires_at);
+
 -- Seed plans (idempotent)
 -- NOTE: prices are placeholders; adjust as needed in production.
 insert into plans (id, name, description, price_cents, access_duration_days, is_free)

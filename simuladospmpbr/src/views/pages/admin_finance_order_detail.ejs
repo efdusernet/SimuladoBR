@@ -68,10 +68,11 @@
               <% if (order.payment_url) { %>
                 <a class="btn btn-sm btn-primary" target="_blank" rel="noreferrer" href="<%= order.payment_url %>">Abrir link</a>
               <% } %>
-              <form method="post" action="/admin/finance/actions/refresh-order" class="m-0">
-                <input type="hidden" name="orderId" value="<%= order.id %>" />
-                <input type="hidden" name="returnTo" value="/admin/finance/orders/<%= order.id %>" />
-                <button class="btn btn-sm btn-outline-secondary" type="submit">Refresh Asaas</button>
+              <form method="post" action="/admin/finance/actions/refresh-order" class="d-inline">
+                <% if (locals.csrfToken) { %><input type="hidden" name="_csrf" value="<%= locals.csrfToken %>"><% } %>
+                <input type="hidden" name="orderId" value="<%= order.id %>">
+                <input type="hidden" name="returnTo" value="/admin/finance/orders/<%= order.id %>">
+                <button class="btn btn-outline-primary btn-sm" type="submit">Refresh Asaas</button>
               </form>
             </div>
           </div>
@@ -89,6 +90,7 @@
 
           <hr />
           <form method="post" action="/admin/finance/actions/sync-premium" class="row g-2 align-items-end">
+            <% if (locals.csrfToken) { %><input type="hidden" name="_csrf" value="<%= locals.csrfToken %>"><% } %>
             <div class="col-12 col-md-8">
               <label class="form-label small mb-1">Re-sync Premium (SimuladosBR)</label>
               <input class="form-control form-control-sm" name="email" value="<%= order.buyer_email ?? '' %>" />

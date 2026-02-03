@@ -12,6 +12,7 @@
     "lint": "node -c src/server.js",
     "db:check": "node scripts/db-check.js",
     "db:init": "node scripts/db-init.js",
+    "admin:create": "node scripts/admin-create.js",
     "smoke": "node scripts/smoke-test.js",
     "smoke:asaas": "node scripts/smoke-asaas-test.js"
   },

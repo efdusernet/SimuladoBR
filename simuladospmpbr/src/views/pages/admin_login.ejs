@@ -1,0 +1,30 @@
+<%- include('../partials/head', { title }) %>
+
+<div class="container py-5" style="max-width: 560px;">
+  <h1 class="h3 mb-3">Admin — Login</h1>
+
+  <% if (error) { %>
+    <div class="alert alert-danger" role="alert"><%= error %></div>
+  <% } %>
+
+  <form method="post" action="/admin/login" class="card p-4 shadow-sm">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="returnTo" value="<%= returnTo %>">
+
+    <div class="mb-3">
+      <label class="form-label" for="email">Email</label>
+      <input class="form-control" id="email" name="email" type="email" autocomplete="username" required value="<%= form?.email ?? '' %>">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="password">Senha</label>
+      <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+
+    <div class="d-grid">
+      <button class="btn btn-primary" type="submit">Entrar</button>
+    </div>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

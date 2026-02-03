@@ -157,9 +157,9 @@ function parseOrderIdFromRedirect(location) {
 async function runPaidFlow({ port, databaseUrl, accessApiKey, paymentMethod }) {
   const email = `asaas.${paymentMethod}.${Date.now()}@example.com`;
 
-  // GET checkout for CSRF + cookie
-  const checkoutGet = await httpRequest({ port, method: 'GET', pathName: '/checkout' });
-  if (checkoutGet.status !== 200) throw new Error(`/checkout GET expected 200, got ${checkoutGet.status}`);
+  // GET Home for CSRF + cookie ("/checkout" redirects to Home)
+  const checkoutGet = await httpRequest({ port, method: 'GET', pathName: '/?focus=checkout' });
+  if (checkoutGet.status !== 200) throw new Error(`/ GET expected 200, got ${checkoutGet.status}`);
 
   const csrfToken = findCsrfToken(checkoutGet.body);
   if (!csrfToken) throw new Error('Could not find CSRF token in /checkout HTML.');
@@ -224,6 +224,21 @@ async function runPaidFlow({ port, databaseUrl, accessApiKey, paymentMethod }) {
 
   if (webhookRes.status !== 200) {
     throw new Error(`/webhooks/asaas expected 200, got ${webhookRes.status}. Body: ${webhookRes.body.slice(0, 200)}`);
+  }
+
+  // Validate timeline row was recorded (best-effort; only if V2 table exists)
+  try {
+    const client = new Client({ connectionString: databaseUrl });
+    await client.connect();
+    const { rows: evRows } = await client.query(
+      `select count(*)::int as n from payment_events where order_id = $1`,
+      [orderId]
+    );
+    const n = evRows?.[0]?.n ?? 0;
+    if (n <= 0) throw new Error('no events recorded');
+    await client.end().catch(() => {});
+  } catch (e) {
+    throw new Error(`Expected payment_events row after webhook, but verification failed: ${e?.message ?? String(e)}`);
   }
 
   // Validate access

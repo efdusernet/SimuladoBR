@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import csrf from 'csurf';
 
-import { requireAdminBasicAuth } from './adminAuth.js';
+import { requireAdminSession } from './adminSessionAuth.js';
+import { config } from '../shared/config.js';
 import { getFinanceKpis, getOrderDetail, listExpirations, listOrders, listRefundAndChargebackEvents } from '../db/finance.repo.js';
 import { listPaymentEventsForOrder, listRefundAndChargebackEventsV2 } from '../db/paymentEvents.repo.js';
 import { getActiveEntitlementByEmail } from '../db/commerce.repo.js';
@@ -10,7 +12,17 @@ import { recordAdminAudit } from '../db/adminAudit.repo.js';
 
 export const financeAdminRouter = Router();
 
-financeAdminRouter.use('/admin/finance', requireAdminBasicAuth);
+const csrfProtection = csrf({ cookie: { key: config.csrfCookieName, sameSite: 'lax' } });
+
+financeAdminRouter.use('/admin/finance', requireAdminSession, csrfProtection, (req, res, next) => {
+  // Expose CSRF token to all admin finance views.
+  try {
+    res.locals.csrfToken = req.csrfToken();
+  } catch {
+    res.locals.csrfToken = null;
+  }
+  next();
+});
 
 function getClientIp(req) {
   const xf = req.headers['x-forwarded-for'];

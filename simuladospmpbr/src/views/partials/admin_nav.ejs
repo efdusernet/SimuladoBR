@@ -10,6 +10,10 @@
         <li class="nav-item"><a class="nav-link" href="/admin/finance/orders">Pedidos</a></li>
         <li class="nav-item"><a class="nav-link" href="/admin/finance/refunds">Reembolsos/Chargebacks</a></li>
         <li class="nav-item"><a class="nav-link" href="/admin/finance/expirations">Expirações</a></li>
+        <% if (locals.adminUser) { %>
+          <li class="nav-item"><span class="nav-link text-muted"><%= locals.adminUser %></span></li>
+          <li class="nav-item"><a class="btn btn-outline-danger btn-sm ms-lg-2" href="/admin/logout">Sair</a></li>
+        <% } %>
         <li class="nav-item ms-lg-2"><a class="btn btn-outline-secondary btn-sm" href="/">Site</a></li>
       </ul>
     </div>

@@ -14,6 +14,9 @@ import { webhooksRouter } from './web/webhooks.router.js';
 import { debugRouter } from './web/debug.router.js';
 import { apiRouter } from './web/api.router.js';
 import { financeAdminRouter } from './web/financeAdmin.router.js';
+import { adminRouter } from './web/admin.router.js';
+
+import { ensureBootstrapAdminUserIfConfigured } from './db/adminUsers.repo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,6 +59,7 @@ app.use(healthRouter);
 app.use(apiRouter);
 app.use(debugRouter);
 app.use(webhooksRouter);
+app.use(adminRouter);
 app.use(financeAdminRouter);
 app.use(pagesRouter);
 
@@ -93,6 +97,13 @@ const server = app.listen(config.port, () => {
   // eslint-disable-next-line no-console
   console.log(`[site] listening on http://localhost:${config.port}`);
 });
+
+// Best-effort: allow initial admin creation via env vars (only if there are no users yet).
+ensureBootstrapAdminUserIfConfigured()
+  // eslint-disable-next-line no-console
+  .then((r) => (r?.created ? console.log(`[admin] bootstrapped ${r.created.email}`) : null))
+  // eslint-disable-next-line no-console
+  .catch((e) => console.warn('[admin] bootstrap failed:', e?.message ?? String(e)));
 
 server.on('error', (err) => {
   if (err?.code === 'EADDRINUSE') {

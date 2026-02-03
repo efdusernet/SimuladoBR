@@ -322,8 +322,12 @@
     <!-- RESUMO -->
     <div class="resumo">
       <h3>Resumo da Personalização</h3>
-      <p>Quantidade de questões: <span id="resumo-qtd">-</span></p>
-      <p>Focos selecionados: <span id="resumo-focos">Nenhum selecionado</span></p>
+      <p>
+        <strong>Seu filtro:</strong>
+        <span id="resumo-focos" style="font-weight:600;color:#0b5ed7;">Nenhum selecionado</span>
+        <span style="color:#444;"> resulta em </span>
+        <span id="resumo-qtd">-</span> questões
+      </p>
       <p id="ineditasInfo" style="display:none;">Inéditas disponíveis: <span id="resumo-ineditas">-</span></p>
       <p id="errorMsg" style="display:none;margin-top:8px;color:#a23a2a;background:#fff4f2;border:1px solid #ffd2cc;padding:8px 10px;border-radius:8px;"></p>
       <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
@@ -672,15 +676,25 @@
         if (!filtrosSelecionados) {
           resumoQtd.textContent = quantidadeInput.value || '-';
         }
-      const nomes = [];
-      const pushFrom = (list, ids) => {
-        const map = new Map(list.map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
-        ids.forEach(id => { if (map.has(Number(id))) nomes.push(map.get(Number(id))); });
-      };
-      pushFrom(meta.dominios, selecionados.dominios);
-      pushFrom(meta.grupos, selecionados.grupos);
-      pushFrom(meta.categorias, selecionados.categorias);
-      resumoFocos.textContent = nomes.length ? nomes.join(', ') : 'Nenhum selecionado';
+      const labelMap = (list) => new Map((list || []).map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
+      const domMap = labelMap(meta.dominios);
+      const grpMap = labelMap(meta.grupos);
+      const catMap = labelMap(meta.categorias);
+
+      const pickLabels = (map, ids) => (ids || [])
+        .map((id) => map.get(Number(id)))
+        .filter(Boolean);
+
+      const domSel = pickLabels(domMap, selecionados.dominios);
+      const grpSel = pickLabels(grpMap, selecionados.grupos);
+      const catSel = pickLabels(catMap, selecionados.categorias);
+
+      const parts = [];
+      if (domSel.length) parts.push(`Domínio: ${domSel.join(' + ')}`);
+      if (grpSel.length) parts.push(`Grupo de Processos: ${grpSel.join(' + ')}`);
+      if (catSel.length) parts.push(`Abordagem: ${catSel.join(' + ')}`);
+
+      resumoFocos.textContent = parts.length ? parts.join(' COM ') : 'Nenhum selecionado';
         // Atualiza a contagem disponível para os filtros (se houver)
         scheduleAtualizarDisponiveis();
       // Se houver acesso a inéditas e sem filtros, mostrar total geral (sem filtros)
@@ -989,6 +1003,26 @@
         meta.grupos = meta.grupos || [];
         meta.categorias = meta.categorias || [];
       }
+
+      // Sanear seleções persistidas para garantir que IDs existam nas listas atuais.
+      try {
+        const toValidIdSet = (list) => {
+          const s = new Set();
+          (list || []).forEach((x) => {
+            const n = Number(x && x.id);
+            if (Number.isFinite(n) && n > 0) s.add(n);
+          });
+          return s;
+        };
+        const validDom = toValidIdSet(meta.dominios);
+        const validGrp = toValidIdSet(meta.grupos);
+        const validCat = toValidIdSet(meta.categorias);
+
+        selecionados.dominios = (selecionados.dominios || []).map(Number).filter((n) => Number.isFinite(n) && validDom.has(n));
+        selecionados.grupos = (selecionados.grupos || []).map(Number).filter((n) => Number.isFinite(n) && validGrp.has(n));
+        selecionados.categorias = (selecionados.categorias || []).map(Number).filter((n) => Number.isFinite(n) && validCat.has(n));
+      } catch(e) {}
+
       try {
         const saved = localStorage.getItem('examQuestionCount');
         if (saved) quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));

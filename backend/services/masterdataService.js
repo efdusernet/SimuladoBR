@@ -49,12 +49,56 @@ async function listSimpleTable(table) {
 }
 
 async function listGruposProcesso() {
-  // prefer 'grupoprocesso'; some DBs might use 'gruprocesso'
+  // Prefer 'grupoprocesso'; some DBs might use 'gruprocesso'
+  // Also prefer the code column used by questao.codgrupoprocesso when present.
+  async function listSmart(table) {
+    const cols = await sequelize.query(
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl`,
+      { replacements: { tbl: table }, type: sequelize.QueryTypes.SELECT }
+    );
+    const names = new Set((cols || []).map(c => c.column_name));
+    const types = new Map((cols || []).map(c => [c.column_name, c.data_type]));
+
+    let idCol = null;
+    if (names.has('codgrupoprocesso')) idCol = 'codgrupoprocesso';
+    else if (names.has('CodGrupoProcesso')) idCol = '"CodGrupoProcesso"';
+    else if (names.has('id')) idCol = 'id';
+    else if (names.has('Id')) idCol = '"Id"';
+
+    let descCol = null;
+    if (names.has('descricao')) descCol = 'descricao';
+    else if (names.has('Descricao')) descCol = '"Descricao"';
+
+    if (!idCol || !descCol) {
+      const err = new Error(`TABLE_MISSING_COLUMNS:${table}`);
+      err.code = 'TABLE_MISSING_COLUMNS';
+      err.meta = { table, columns: Array.from(names) };
+      throw err;
+    }
+
+    const conditions = [];
+    if (names.has('excluido')) conditions.push('(excluido = false OR excluido IS NULL)');
+    else if (names.has('Excluido')) conditions.push('("Excluido" = false OR "Excluido" IS NULL)');
+
+    if (names.has('status')) {
+      const t = String(types.get('status') || '').toLowerCase();
+      conditions.push(t === 'boolean' ? '(status = TRUE)' : '(status = 1)');
+    } else if (names.has('Status')) {
+      const t = String(types.get('Status') || '').toLowerCase();
+      conditions.push(t === 'boolean' ? '("Status" = TRUE)' : '("Status" = 1)');
+    }
+
+    const where = conditions.length ? ('WHERE ' + conditions.join(' AND ')) : '';
+    const sql = `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${table} ${where}`;
+    const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
+    return rows || [];
+  }
+
   try {
-    return await listSimpleTable('grupoprocesso');
+    return await listSmart('grupoprocesso');
   } catch (e) {
     try {
-      return await listSimpleTable('gruprocesso');
+      return await listSmart('gruprocesso');
     } catch (e2) {
       logger.error('[masterdata] both grupoprocesso/gruprocesso failed');
       throw e2;

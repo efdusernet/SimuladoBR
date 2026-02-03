@@ -14,6 +14,14 @@
   <link rel="stylesheet" href="../dist/styles.css" />
   <link rel="stylesheet" href="../styles.css" />
   <meta name="description" content="Exame completo com 180 questões" />
+  <style>
+    /* Estado do botão de marcar questão */
+    #bmark.mark-active{
+      border-color:#f59e0b; /* amber-500 */
+      background:#fffbeb;   /* amber-50 */
+      color:#92400e;        /* amber-800 */
+    }
+  </style>
 </head>
 <body>
   
@@ -395,6 +403,15 @@
     (function(){
       function openGrid(){
         try {
+          try {
+            const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+            const totalEl = document.getElementById('totalQuestions');
+            const total = totalEl ? Number((totalEl.textContent || '').trim()) : NaN;
+            if (!sid || !(Number.isFinite(total) && total > 0)) {
+              try { if (typeof showToast === 'function') showToast('Inicie o simulado para ver o grid.'); } catch(_){ }
+              return;
+            }
+          } catch(_){ }
           try { if (typeof window.captureCurrentAnswerSnapshot === 'function') window.captureCurrentAnswerSnapshot(); } catch(_){ }
           const modal = document.getElementById('gridModal');
           const frame = document.getElementById('gridFrame');
@@ -1102,6 +1119,51 @@
         try{ const raw = localStorage.getItem(key); if(!raw) return { key, list: [] }; const arr = JSON.parse(raw); return { key, list: Array.isArray(arr) ? arr : [] }; }catch(e){ return { key, list: [] }; }
       }
       function writeMarkedList(key, list){ try{ localStorage.setItem(key, JSON.stringify(list)); }catch(e){} }
+
+      function isCurrentQuestionMarked(){
+        try{
+          let curIdx = getCurrentIdxFromProgress();
+          if (curIdx === null || curIdx === undefined) curIdx = getCurrentIdxViaDom();
+          if (typeof curIdx !== 'number') return false;
+          const { list } = readMarkedList();
+          return Array.isArray(list) && list.some(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
+        }catch(_){ return false; }
+      }
+
+      function syncMarkButtonState(){
+        const btn = document.getElementById('bmark');
+        if (!btn) return;
+        const marked = isCurrentQuestionMarked();
+        btn.classList.toggle('mark-active', marked);
+        btn.setAttribute('aria-pressed', marked ? 'true' : 'false');
+        const label = marked ? 'Desmarcar questão' : 'Marcar questão';
+        const textNodes = Array.from(btn.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
+        if (textNodes.length){
+          textNodes[textNodes.length - 1].textContent = ' ' + label;
+        } else {
+          btn.textContent = label;
+        }
+      }
+
+      function hasActiveSession(){
+        try {
+          const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+          if (!sid) return false;
+          const totalEl = document.getElementById('totalQuestions');
+          const total = totalEl ? Number((totalEl.textContent || '').trim()) : NaN;
+          return Number.isFinite(total) && total > 0;
+        } catch(_){ return false; }
+      }
+
+      function syncControlsEnabled(){
+        const enabled = hasActiveSession();
+        const bmark = document.getElementById('bmark');
+        const bgrid = document.getElementById('bgrid');
+        if (bmark) bmark.disabled = !enabled;
+        if (bgrid) bgrid.disabled = !enabled;
+        if (enabled) syncMarkButtonState();
+      }
+
       function onMarkClick(){
         try{
           const letter = getSelectedLetter();
@@ -1114,18 +1176,21 @@
               // Questão já está marcada - REMOVER (toggle off)
               list.splice(i, 1);
               writeMarkedList(key, list);
+              syncMarkButtonState();
               try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} desmarcada.`); } catch(_){ }
             } else {
               // Questão não está marcada - ADICIONAR (toggle on)
               const entry = { currentIdx: curIdx, questionNumber, letter: letter || null, savedAt: new Date().toISOString() };
               list.push(entry);
               writeMarkedList(key, list);
+              syncMarkButtonState();
               try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
             }
           } else {
             const entry = { currentIdx: null, questionNumber: null, letter: letter || null, savedAt: new Date().toISOString() };
             list.push(entry);
             writeMarkedList(key, list);
+            syncMarkButtonState();
             try { if (typeof showToast === 'function') showToast(`Questão marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
           }
         } catch(err){ logger.warn('Falha ao salvar letra da opção marcada:', err); }
@@ -1139,12 +1204,50 @@
             const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
             if (i >= 0){ list[i].letter = letter || null; list[i].savedAt = new Date().toISOString(); writeMarkedList(key, list); }
           }
+          syncMarkButtonState();
           try { if (typeof window.__syncProgressIdxToLabel === 'function') window.__syncProgressIdxToLabel(); } catch(_){ }
         } catch(e) { /* noop */ }
       }
       function attach(){
         const btn = document.getElementById('bmark'); if (btn) btn.addEventListener('click', onMarkClick);
-        try { const radios = document.querySelectorAll('input[name="answer"]'); radios.forEach(r => r.addEventListener('change', onAnswerChanged)); } catch(_) {}
+
+        try {
+          const form = document.getElementById('answersForm');
+          if (form){
+            form.addEventListener('change', (ev)=>{
+              const t = ev && ev.target;
+              if (t && t.matches && t.matches('input[name="answer"]')) onAnswerChanged();
+            });
+          }
+        } catch(_) {}
+
+        try {
+          const qn = document.getElementById('questionNumber');
+          if (qn && 'MutationObserver' in window){
+            const obs = new MutationObserver(()=>{ syncMarkButtonState(); });
+            obs.observe(qn, { childList:true, characterData:true, subtree:true });
+          }
+        } catch(_) {}
+
+        try {
+          const tq = document.getElementById('totalQuestions');
+          if (tq && 'MutationObserver' in window){
+            const obs2 = new MutationObserver(()=>{ syncControlsEnabled(); });
+            obs2.observe(tq, { childList:true, characterData:true, subtree:true });
+          }
+        } catch(_) {}
+
+        // Habilita assim que a sessão for criada/carregada
+        try {
+          let tries = 0;
+          const t = setInterval(()=>{
+            tries += 1;
+            syncControlsEnabled();
+            if (hasActiveSession() || tries > 80) clearInterval(t);
+          }, 250);
+        } catch(_) {}
+
+        syncControlsEnabled();
       }
       if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', attach); } else { attach(); }
     })();

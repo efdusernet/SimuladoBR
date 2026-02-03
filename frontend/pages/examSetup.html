@@ -70,6 +70,45 @@
       min-height: 30px;
     }
 
+    /* Presets de quantidade */
+    .qtd-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .qtd-opt {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border: 1px solid #d6d9e0;
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.9rem;
+    }
+    .qtd-opt input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      min-width: 16px;
+      min-height: 16px;
+      cursor: pointer;
+    }
+    .qtd-opt.disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .qtd-opt .premium-badge {
+      font-size: 0.72rem;
+      color: #8a2be2;
+      border: 1px solid #e7d7ff;
+      background: #faf5ff;
+      padding: 1px 6px;
+      border-radius: 999px;
+    }
+
     /* Caixa "Somente questões inéditas" menor e discreta */
     #onlynew-wrapper input[type="checkbox"] {
       width: 16px;
@@ -297,9 +336,33 @@
       </div>
 
       <div class="input-group">
-        <label for="quantidade">Quantidade de questões:</label>
-        <input type="number" id="quantidade" min="1" />
-        <span id="limite-info"></span>
+        <label style="min-width:180px;">Quantidade de questões:</label>
+        <div class="qtd-presets" id="qtdPresets" aria-label="Escolha a quantidade de questões">
+          <label class="qtd-opt" data-qtd-label>
+            <input type="checkbox" data-qtd="25" />
+            <span>25</span>
+          </label>
+          <label class="qtd-opt" data-qtd-label>
+            <input type="checkbox" data-qtd="30" />
+            <span>30</span>
+          </label>
+          <label class="qtd-opt" data-qtd-label>
+            <input type="checkbox" data-qtd="50" data-premium-only="true" />
+            <span>50</span>
+            <span class="premium-badge" style="display:none;">só para premium</span>
+          </label>
+          <label class="qtd-opt" data-qtd-label>
+            <input type="checkbox" data-qtd="75" data-premium-only="true" />
+            <span>75</span>
+            <span class="premium-badge" style="display:none;">só para premium</span>
+          </label>
+          <label class="qtd-opt" data-qtd-label>
+            <input type="checkbox" data-qtd="90" data-premium-only="true" />
+            <span>90</span>
+            <span class="premium-badge" style="display:none;">só para premium</span>
+          </label>
+        </div>
+        <span id="limite-info" style="margin-left:6px;"></span>
       </div>
       <div class="input-group" id="onlynew-wrapper">
         <label for="onlyNew" style="min-width:180px;">Somente questões inéditas:</label>
@@ -325,8 +388,12 @@
       <p>
         <strong>Seu filtro:</strong>
         <span id="resumo-focos" style="font-weight:600;color:#0b5ed7;">Nenhum selecionado</span>
-        <span style="color:#444;"> resulta em </span>
-        <span id="resumo-qtd">-</span> questões
+        <span id="resumo-available-wrap">
+          <span style="color:#444;"> resulta em </span>
+          <span id="resumo-qtd">-</span> questões disponíveis
+        </span>
+        <span style="color:#444;"> — você vai iniciar com </span>
+        <span id="resumo-qtd-escolhida" style="font-weight:700;color:#198754;">-</span> questões
       </p>
       <p id="ineditasInfo" style="display:none;">Inéditas disponíveis: <span id="resumo-ineditas">-</span></p>
       <p id="errorMsg" style="display:none;margin-top:8px;color:#a23a2a;background:#fff4f2;border:1px solid #ffd2cc;padding:8px 10px;border-radius:8px;"></p>
@@ -420,10 +487,13 @@
   })();
 
   const examTypeSelect = document.getElementById('examType');
-  const quantidadeInput = document.getElementById('quantidade');
+  const qtdPresetsDiv = document.getElementById('qtdPresets');
+  const qtdPresetInputs = Array.from(document.querySelectorAll('#qtdPresets input[type="checkbox"][data-qtd]'));
   const onlyNewInput = document.getElementById('onlyNew');
   const onlyNewInfo = document.getElementById('onlynew-info');
     const resumoQtd = document.getElementById('resumo-qtd');
+    const resumoQtdEscolhida = document.getElementById('resumo-qtd-escolhida');
+    const resumoAvailableWrap = document.getElementById('resumo-available-wrap');
     const resumoFocos = document.getElementById('resumo-focos');
     const resumoIneditas = document.getElementById('resumo-ineditas');
     const ineditasInfo = document.getElementById('ineditasInfo');
@@ -446,6 +516,11 @@
   let onlyNewPremiumOnly = true;
   let allowOnlyNew = !bloqueado;
 
+  function getFreeUiLimit(){
+    // Requisito: usuários gratuitos podem escolher 25 ou 30.
+    return Math.max(Number(FREE_LIMIT) || 0, 30);
+  }
+
   function applyOnlyNewGate(){
     try {
       if (!onlyNewInput) return;
@@ -457,13 +532,80 @@
       } else {
         onlyNewInput.disabled = false;
         if (onlyNewInfo && !(onlyNewInput && onlyNewInput.checked)) {
-          onlyNewInfo.textContent = 'Usa apenas questões nunca respondidas.';
+          onlyNewInfo.textContent = 'Usar apenas questões nunca respondidas.';
         }
         if (ineditasInfo) ineditasInfo.style.display = '';
       }
     } catch(e){}
   }
-  let limiteQuestoes = bloqueado ? FREE_LIMIT : FULL_Q;
+  let limiteQuestoes = bloqueado ? getFreeUiLimit() : FULL_Q;
+
+  function getSelectedPresetCount(){
+    try {
+      const checked = qtdPresetInputs.find(i => i && i.checked);
+      if (!checked) return null;
+      const n = Number(checked.getAttribute('data-qtd'));
+      return Number.isFinite(n) ? n : null;
+    } catch(_){ return null; }
+  }
+
+  function setSelectedPresetCount(n){
+    try {
+      const target = Number(n);
+      qtdPresetInputs.forEach(inp => {
+        const v = Number(inp.getAttribute('data-qtd'));
+        inp.checked = (Number.isFinite(v) && v === target);
+      });
+    } catch(_){ }
+  }
+
+  function clearPresetSelection(){
+    try { qtdPresetInputs.forEach(inp => { inp.checked = false; }); } catch(_){ }
+  }
+
+  function ensureSinglePresetSelection(changed){
+    try {
+      if (!changed || !changed.checked) return;
+      qtdPresetInputs.forEach(inp => { if (inp !== changed) inp.checked = false; });
+    } catch(_){ }
+  }
+
+  function applyQuestionCountGate(){
+    // Usuário gratuito: só permitir 25 e 30
+    try {
+      qtdPresetInputs.forEach(inp => {
+        const qtd = Number(inp.getAttribute('data-qtd'));
+        const premiumOnly = inp.getAttribute('data-premium-only') === 'true';
+        const label = inp.closest('[data-qtd-label]');
+        const badge = label ? label.querySelector('.premium-badge') : null;
+
+        const shouldDisable = bloqueado && premiumOnly;
+        inp.disabled = !!shouldDisable;
+        if (shouldDisable && inp.checked) inp.checked = false;
+
+        if (label) {
+          label.classList.toggle('disabled', !!shouldDisable);
+          if (shouldDisable) {
+            label.title = 'só para premium';
+          } else {
+            label.title = '';
+          }
+        }
+        if (badge) {
+          badge.style.display = shouldDisable ? '' : 'none';
+        }
+      });
+    } catch(_){ }
+
+    // Default selection
+    try {
+      const selected = getSelectedPresetCount();
+      if (!selected) {
+        // free: 25; premium: deixar sem seleção para permitir "exame completo" por padrão
+        if (bloqueado) setSelectedPresetCount(25);
+      }
+    } catch(_){ }
+  }
   (async function initLimits(){
     try {
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
@@ -480,17 +622,17 @@
       allowOnlyNew = (!bloqueado) || (!onlyNewPremiumOnly);
     } catch(_){}
     // recompute with config
-    limiteQuestoes = bloqueado ? FREE_LIMIT : FULL_Q;
+    limiteQuestoes = bloqueado ? getFreeUiLimit() : FULL_Q;
     document.getElementById('limite-texto').textContent = bloqueado
-      ? `Usuário gratuito: limite de ${FREE_LIMIT} questões.`
+      ? `Usuário gratuito: limite de ${getFreeUiLimit()} questões.`
       : `Usuário pagante: limite de ${limiteQuestoes} questões.`;
     document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
-    quantidadeInput.setAttribute('max', String(limiteQuestoes));
+
+    applyQuestionCountGate();
 
     applyOnlyNewGate();
   })();
-  quantidadeInput.setAttribute('max', String(limiteQuestoes));
-    quantidadeInput.setAttribute('min', '1');
+  applyQuestionCountGate();
     // Inicializa campo Somente questões inéditas
     applyOnlyNewGate();
 
@@ -498,7 +640,7 @@
       if (!allowOnlyNew || !onlyNewInfo) return;
       const checked = !!(onlyNewInput && onlyNewInput.checked);
       if (!checked) {
-        onlyNewInfo.textContent = 'Usa apenas questões nunca respondidas.';
+        onlyNewInfo.textContent = 'Usar apenas questões nunca respondidas.';
         return;
       }
       if (opts && opts.pending) {
@@ -558,7 +700,7 @@
       const base = (BACKEND_BASE || '').replace(/\/$/, '');
       const url = base + '/api/exams/select';
       const token = getSessionToken();
-      // Usar count=1 para não acionar bypassFilters de FULL_Q no checkAvailability
+      // Usar count=1 para não acionar bypassFilters de FULL_Q em outras rotas auxiliares
       const payload = { count: 1, onlyCount: true, examType: currentExamType };
       if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
       if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
@@ -597,10 +739,19 @@
       const temFiltros = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
       if (!temFiltros) { return; }
       try { resumoQtd.textContent = '...'; } catch(_){ }
+      try { if (resumoQtdEscolhida) resumoQtdEscolhida.textContent = '...'; } catch(_){ }
       const disponiveis = await countForCurrentFilters();
       if (typeof disponiveis === 'number') {
         resumoQtd.textContent = String(disponiveis);
       }
+      // Atualiza a quantidade que o usuário vai iniciar (considerando regras 15/50/180 e plano)
+      try {
+        const desired = resolveDesiredCount();
+        const computed = computeFinalCount({ desired, available: (typeof disponiveis === 'number' ? disponiveis : null), hasFocos: true });
+        if (resumoQtdEscolhida && computed && typeof computed.finalCount === 'number') {
+          resumoQtdEscolhida.textContent = String(computed.finalCount);
+        }
+      } catch(_){ }
       // Atualiza indicador de inéditas
       try {
         resumoIneditas.textContent = '...';
@@ -655,13 +806,6 @@
           const idx = arr.indexOf(id);
           if (idx >= 0) { arr.splice(idx, 1); btn.classList.remove('active'); }
           else { arr.push(id); btn.classList.add('active'); }
-          // Ao selecionar qualquer filtro, limpar o campo de quantidade
-          try {
-            const totalSel = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length);
-            if (totalSel > 0) {
-              quantidadeInput.value = '';
-            }
-          } catch(_){ }
           atualizarResumo();
           salvarSelecoes();
         });
@@ -670,12 +814,19 @@
     }
 
     async function atualizarResumo() {
-      resumoQtd.textContent = quantidadeInput.value || '-';
-        // Se não houver filtros selecionados, manter o comportamento anterior (mostrar quantidade digitada)
-        const filtrosSelecionados = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
-        if (!filtrosSelecionados) {
-          resumoQtd.textContent = quantidadeInput.value || '-';
-        }
+      const filtrosSelecionados = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
+      // Disponibilidade só faz sentido quando há filtros; sem filtros, escondemos esse trecho.
+      try {
+        if (resumoAvailableWrap) resumoAvailableWrap.style.display = filtrosSelecionados ? '' : 'none';
+        if (!filtrosSelecionados) resumoQtd.textContent = '-';
+      } catch(_){ }
+
+      // Quantidade que o usuário vai iniciar (imediata; com filtros, será refinada após a contagem)
+      try {
+        const desired = resolveDesiredCount();
+        const computed = computeFinalCount({ desired, available: null, hasFocos: filtrosSelecionados });
+        if (resumoQtdEscolhida) resumoQtdEscolhida.textContent = String((computed && typeof computed.finalCount === 'number') ? computed.finalCount : (desired || '-'));
+      } catch(_){ }
       const labelMap = (list) => new Map((list || []).map(x => [Number(x.id), (x.descricao || x.label || String(x.id))]));
       const domMap = labelMap(meta.dominios);
       const grpMap = labelMap(meta.grupos);
@@ -758,82 +909,70 @@
       });
     });
 
-    // Quantity input with clamping
-    quantidadeInput.addEventListener('input', e => {
-      let valor = parseInt(e.target.value, 10);
-      if (Number.isNaN(valor)) { resumoQtd.textContent = '-'; return; }
-      valor = Math.max(1, Math.min(limiteQuestoes, valor));
-      e.target.value = String(valor);
-      atualizarResumo();
-    });
+    // Presets: manter apenas 1 marcado (comportamento tipo radio)
+    try {
+      qtdPresetInputs.forEach(inp => {
+        inp.addEventListener('change', () => {
+          ensureSinglePresetSelection(inp);
+          try {
+            const selected = getSelectedPresetCount();
+            if (selected) localStorage.setItem('examQuestionCount', String(selected));
+          } catch(_){ }
+          atualizarResumo();
+        });
+      });
+    } catch(_){ }
 
     function updateResumo(){ try { atualizarResumo(); } catch(e){} }
 
     function validateForm(){
       startError.style.display = 'none';
-      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
-      const raw = quantidadeInput.value;
-      const val = Number(raw);
-      // Permitir iniciar com apenas filtros se houver focos selecionados
-      if (!raw || Number.isNaN(val) || val < 1) {
-        if (hasFocos) return true; // permitido sem quantidade
-        startError.textContent = 'Informe a quantidade de questões ou selecione pelo menos um foco.';
-        startError.style.display = 'inline';
-        return false;
-      }
-      if (val > limiteQuestoes) {
-        startError.textContent = `Quantidade acima do limite (${limiteQuestoes}).`;
-        startError.style.display = 'inline';
-        return false;
-      }
+      // Agora a quantidade vem de presets (ou default). Sempre válido.
       return true;
     }
 
-    async function checkAvailability(count) {
-      const base = (BACKEND_BASE || '').replace(/\/$/, '');
-      const url = base + '/api/exams/select';
-  const token = getSessionToken();
-      const cnum = Number(count) || 0;
-      const payload = { count: cnum, onlyCount: true, examType: currentExamType };
-      // Regra: se quantidade for FULL_Q, não aplicar filtros de Domínio/Grupo/Área
-      const bypassFilters = (cnum === FULL_Q);
-      if (!bypassFilters) {
-        if (selecionados.grupos.length) payload.grupos = selecionados.grupos;
-        if (selecionados.dominios.length) payload.dominios = selecionados.dominios;
-      }
-      if (allowOnlyNew && onlyNewInput.checked) payload.onlyNew = true;
-      try {
-        const resp = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json', extra: { 'X-Exam-Type': currentExamType } }), body: JSON.stringify(payload) });
-        const txt = await resp.text();
-        let data; try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
-        if (data && typeof data.available === 'number') {
-          // Fallback: se count=FULL_Q e available=0, tentar novamente ignorando exam_type (base inteira)
-          if (bypassFilters && data.available === 0) {
-            try {
-              const resp2 = await fetch(url, { method: 'POST', headers: getExamAuthHeaders({ contentType: 'application/json' }), body: JSON.stringify({ count: cnum, onlyCount: true, ignoreExamType: true }) });
-              const txt2 = await resp2.text();
-              let data2; try { data2 = txt2 ? JSON.parse(txt2) : null; } catch { data2 = null; }
-              if (data2 && typeof data2.available === 'number') return data2.available;
-            } catch(_) { /* ignore */ }
-          }
-          return data.available;
-        }
-        return null;
-      } catch (e) { return null; }
+    function resolveDesiredCount(){
+      // Se o usuário escolheu um preset, usar ele; caso contrário, usar default por perfil.
+      const preset = getSelectedPresetCount();
+      if (preset) return preset;
+      return bloqueado ? 25 : (Number(limiteQuestoes) || FULL_Q);
     }
 
-    function resolveEffectiveCount(){
-      const raw = quantidadeInput.value;
-      const val = Number(raw);
-      const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
-      if (raw && !Number.isNaN(val) && val >= 1) {
-        return Math.max(1, Math.min(limiteQuestoes, val));
-      }
+    function computeFinalCount({ desired, available, hasFocos }){
+      let finalCount = Number(desired) || 0;
+      const FULL_TARGET = Number(limiteQuestoes) || FULL_Q;
+
       if (hasFocos) {
-        // quando usuário não informou quantidade, usar padrão por perfil: FREE_LIMIT (bloqueado) ou FULL_Q (premium)
-        return bloqueado ? FREE_LIMIT : FULL_Q;
+        // Sem disponibilidade calculada ainda: mostrar o desejado (vai ser refinado após a contagem)
+        if (typeof available !== 'number' || !Number.isFinite(available) || available < 0) {
+          // aplicar apenas limites de plano/tipo para não exibir valores impossíveis
+          if (bloqueado) finalCount = Math.min(finalCount || 25, getFreeUiLimit());
+          else finalCount = Math.min(finalCount || FULL_TARGET, FULL_TARGET);
+          return { finalCount, FULL_TARGET };
+        }
+
+        if (!bloqueado) {
+          // Premium
+          let cap = FULL_TARGET;
+          if (available < 50) cap = 15;
+          else if (available < FULL_TARGET) cap = 50;
+
+          finalCount = Math.min(finalCount || cap, cap);
+          if (finalCount < 15) finalCount = 15;
+        } else {
+          // Free
+          finalCount = Math.min(finalCount || 25, getFreeUiLimit());
+        }
+
+        // Nunca pedir mais do que existe.
+        finalCount = Math.min(finalCount, available);
+      } else {
+        // Sem filtros
+        if (bloqueado) finalCount = Math.min(finalCount || 25, getFreeUiLimit());
+        else finalCount = Math.min(finalCount || FULL_TARGET, FULL_TARGET);
       }
-      return null; // sem quantidade e sem focos -> inválido
+
+      return { finalCount, FULL_TARGET };
     }
 
     function showFullExamConfirm(onProceed){
@@ -857,111 +996,46 @@
       if (!validateForm()) return;
 
       const hasFocos = (selecionados.dominios.length + selecionados.grupos.length + selecionados.categorias.length) > 0;
-      const userProvided = !!quantidadeInput.value;
-      let effCount = resolveEffectiveCount();
 
-      // Novo comportamento: se houver filtros e o usuário NÃO informou quantidade,
-      // iniciar com a quantidade disponível pelos filtros (respeitando limite do plano)
-      if (!userProvided && hasFocos) {
-        const disponiveis = await countForCurrentFilters();
-        if (typeof disponiveis !== 'number' || disponiveis < 1) {
+      const desired = resolveDesiredCount();
+
+      // Se houver filtros, precisamos saber quantas questões existem para aplicar as regras (15/50/full).
+      let available = null;
+      if (hasFocos) {
+        available = await countForCurrentFilters();
+        if (typeof available !== 'number' || available < 1) {
           if (errorBox) {
             errorBox.innerHTML = `Nenhuma questão encontrada para os filtros selecionados.`;
             errorBox.style.display = '';
           }
           return;
         }
-        const finalCount = bloqueado ? Math.min(disponiveis, FREE_LIMIT) : disponiveis;
-        // Confirmar se exatamente FULL_Q (exame completo)
-        if (finalCount === FULL_Q) {
-          showFullExamConfirm(() => {
-            try {
-              localStorage.setItem('examQuestionCount', String(FULL_Q));
-              localStorage.setItem('examCountFromDefault', 'true');
-            } catch(e) {}
-            salvarSelecoes();
-            try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-            (window.top || window).location.assign('/pages/examFull.html');
-          });
-          return;
+      }
+
+      const computed = computeFinalCount({ desired, available, hasFocos });
+      const finalCount = computed && typeof computed.finalCount === 'number' ? computed.finalCount : (Number(desired) || 0);
+      const FULL_TARGET = computed && typeof computed.FULL_TARGET === 'number' ? computed.FULL_TARGET : (Number(limiteQuestoes) || FULL_Q);
+
+      // Faixa mínima para premium com filtros: 15
+      if (!bloqueado && hasFocos && finalCount < 15) {
+        if (errorBox) {
+          errorBox.innerHTML = `O filtro selecionado tem poucas questões para iniciar um simulado (mínimo: 15).`;
+          errorBox.style.display = '';
         }
-        try {
-          localStorage.setItem('examQuestionCount', String(finalCount));
-          localStorage.setItem('examCountFromDefault', 'true');
-        } catch(e) {}
-        salvarSelecoes();
-        try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-        (window.top || window).location.assign('/pages/exam.html');
         return;
       }
 
-      // Preflight: ask backend how many are available for current filters
-      const available = await checkAvailability(effCount);
-      if (typeof available === 'number' && available < effCount) {
-        // Show friendly message and offer an Adjust button
-        const btnId = 'ajustarQtdBtn';
-        // Premium: não exibir mensagem — autoajustar e seguir, se houver disponíveis
-        if (!bloqueado) {
-          if (available > 0) {
-            const suggested = available;
-            quantidadeInput.value = String(suggested);
-            updateResumo();
-            // Se ajustou para FULL_Q, exigir confirmação antes de redirecionar
-            if (suggested === FULL_Q) {
-              showFullExamConfirm(() => {
-                try {
-                  localStorage.setItem('examQuestionCount', String(FULL_Q));
-                  localStorage.setItem('examCountFromDefault', quantidadeInput.value ? 'false' : 'true');
-                } catch(e) {}
-                salvarSelecoes();
-                try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-                (window.top || window).location.assign('/pages/examFull.html');
-              });
-              return;
-            }
-            // Caso contrário (premium com ajuste < FULL_Q), prosseguir normalmente
-            try {
-              localStorage.setItem('examQuestionCount', String(suggested));
-              localStorage.setItem('examCountFromDefault', quantidadeInput.value ? 'false' : 'true');
-            } catch(e) {}
-            salvarSelecoes();
-            try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
-            (window.top || window).location.assign('/pages/exam.html');
-            return;
-          } else {
-            if (errorBox) {
-              errorBox.innerHTML = `Nenhuma questão encontrada para os filtros selecionados.`;
-              errorBox.style.display = '';
-            }
-            return;
-          }
-        }
-        // Bloqueado: mostrar mensagem com sugestão (cap FREE_LIMIT)
-        if (errorBox) {
-          const suggested = Math.min(available, FREE_LIMIT);
-          const msg = `Existem <strong>${available}</strong> questões que atendem aos filtros. No plano gratuito você pode iniciar com <strong>${suggested}</strong>.`;
-          errorBox.innerHTML = msg + (suggested > 0 ? ` <button id="${btnId}" type="button" style="margin-left:6px;background:#eef3ff;color:#2b6cb0;border:1px solid #c6d3ff;border-radius:6px;padding:4px 8px;cursor:pointer">Ajustar para ${suggested}</button>` : '');
-          errorBox.style.display = '';
-          const btn = document.getElementById(btnId);
-          if (btn) btn.onclick = () => {
-            quantidadeInput.value = String(suggested);
-            updateResumo();
-            validateForm();
-            errorBox.style.display = 'none';
-          };
-        }
-        return;
-      }
-      // Persistência: se usuário não informou quantidade, salvar o count efetivo depois na exam.html
-      // Entretanto, para a exam.html requisitar corretamente, salvamos agora o valor que será enviado —
-      // exceto quando effCount === FULL_Q, onde pediremos confirmação antes de redirecionar
-      // userProvided já calculado acima
-      if (effCount === FULL_Q) {
-        // pedir confirmação antes de seguir para a página dedicada
+      // Persist flags
+      try {
+        if (allowOnlyNew) localStorage.setItem('examOnlyNewQuestions', onlyNewInput && onlyNewInput.checked ? 'true' : 'false');
+      } catch(_){ }
+
+      // Exame completo (FULL_TARGET) vai para tela dedicada.
+      if (!hasFocos && !bloqueado && finalCount === FULL_TARGET) {
         showFullExamConfirm(() => {
           try {
-            localStorage.setItem('examQuestionCount', String(FULL_Q));
-            localStorage.setItem('examCountFromDefault', userProvided ? 'false' : 'true');
+            localStorage.setItem('examQuestionCount', String(finalCount));
+            localStorage.setItem('examCountFromDefault', getSelectedPresetCount() ? 'false' : 'true');
           } catch(e) {}
           salvarSelecoes();
           try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
@@ -969,9 +1043,10 @@
         });
         return;
       }
+
       try {
-        localStorage.setItem('examQuestionCount', String(effCount));
-        localStorage.setItem('examCountFromDefault', userProvided ? 'false' : 'true');
+        localStorage.setItem('examQuestionCount', String(finalCount));
+        localStorage.setItem('examCountFromDefault', getSelectedPresetCount() ? 'false' : 'true');
       } catch(e) {}
       salvarSelecoes();
       try { sessionStorage.setItem('startExam', 'true'); } catch(e) {}
@@ -1025,7 +1100,17 @@
 
       try {
         const saved = localStorage.getItem('examQuestionCount');
-        if (saved) quantidadeInput.value = String(Math.max(1, Math.min(limiteQuestoes, Number(saved))));
+        if (saved) {
+          const n = Number(saved);
+          // Se o valor salvo estiver entre os presets, reidratar seleção.
+          if ([25,30,50,75,90].includes(n)) {
+            setSelectedPresetCount(n);
+          } else {
+            // Caso contrário, não forçar seleção (premium pode cair no "exame completo" por padrão).
+            if (bloqueado) setSelectedPresetCount(25);
+            else clearPresetSelection();
+          }
+        }
       } catch(e) {}
       tabs.forEach(t => t.classList.remove('active'));
       const tabEl = document.querySelector(`.tab[data-aba="${abaAtual}"]`) || document.querySelector('.tab[data-aba="dominios"]');
@@ -1056,9 +1141,9 @@
         if (sel) {
           // Ajuste limite máximo proporcional ao tipo; manter cap de 25 para bloqueado
           const maxByType = Number(sel.numeroQuestoes) || FULL_Q;
-          limiteQuestoes = bloqueado ? Math.min(FREE_LIMIT, maxByType) : maxByType;
+          limiteQuestoes = bloqueado ? Math.min(getFreeUiLimit(), maxByType) : maxByType;
           document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
-          quantidadeInput.setAttribute('max', String(limiteQuestoes));
+          applyQuestionCountGate();
           try { localStorage.setItem('examBlueprint', JSON.stringify(sel)); } catch(e){}
         }
       } catch (e) {
@@ -1085,9 +1170,9 @@
       } catch(e){}
       // Reset quantity clamp on change
       const maxByType = (()=>{ try { const bp = JSON.parse(localStorage.getItem('examBlueprint')||'null'); return (bp && bp.numeroQuestoes) || FULL_Q; } catch(e){ return FULL_Q; } })();
-      limiteQuestoes = bloqueado ? Math.min(FREE_LIMIT, maxByType) : maxByType;
+      limiteQuestoes = bloqueado ? Math.min(getFreeUiLimit(), maxByType) : maxByType;
       document.getElementById('limite-info').textContent = `(máx. ${limiteQuestoes})`;
-      quantidadeInput.setAttribute('max', String(limiteQuestoes));
+      applyQuestionCountGate();
       atualizarResumo();
       // examType muda o escopo da contagem
       scheduleAtualizarDisponiveis();

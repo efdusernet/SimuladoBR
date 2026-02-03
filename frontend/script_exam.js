@@ -1593,16 +1593,118 @@
                 const dislike = $('dislikeBtn');
                 if (!like || !dislike) return; // safely skip if feedback UI not present
 
+                function getCurrentQuestionId(){
+                  try {
+                    const q = (Array.isArray(QUESTIONS) && QUESTIONS[currentIdx]) ? QUESTIONS[currentIdx] : null;
+                    const id = q && q.id != null ? Number(q.id) : NaN;
+                    return Number.isFinite(id) && id > 0 ? id : null;
+                  } catch(_){ return null; }
+                }
+
+                function applyVoteUi(vote){
+                  try { like.setAttribute('aria-pressed', String(vote === 1)); } catch(_){ }
+                  try { dislike.setAttribute('aria-pressed', String(vote === -1)); } catch(_){ }
+                }
+
+                async function fetchQuestionFeedback(questionId){
+                  const url = `/api/questions/${encodeURIComponent(String(questionId))}/feedback`;
+                  const resp = await fetch(url, {
+                    method: 'GET',
+                    headers: (() => {
+                      try {
+                        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                          return window.Auth.getAuthHeaders({ acceptJson: true });
+                        }
+                      } catch(_){ }
+                      const token = (localStorage.getItem('sessionToken') || '').trim();
+                      const h = {};
+                      if (token) h['X-Session-Token'] = token;
+                      return h;
+                    })(),
+                    credentials: 'include'
+                  });
+                  if (!resp.ok) throw new Error('feedback get failed: ' + resp.status);
+                  return await resp.json();
+                }
+
+                async function postQuestionVote(questionId, vote){
+                  const url = `/api/questions/${encodeURIComponent(String(questionId))}/feedback`;
+                  const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: (() => {
+                      try {
+                        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+                          return window.Auth.getAuthHeaders({ contentType: 'application/json' });
+                        }
+                      } catch(_){ }
+                      const token = (localStorage.getItem('sessionToken') || '').trim();
+                      const h = { 'Content-Type': 'application/json' };
+                      if (token) h['X-Session-Token'] = token;
+                      return h;
+                    })(),
+                    body: JSON.stringify({ vote }),
+                    credentials: 'include'
+                  });
+                  if (!resp.ok) throw new Error('feedback post failed: ' + resp.status);
+                  return await resp.json();
+                }
+
+                let lastQuestionId = null;
+                async function syncFromServer(){
+                  const qid = getCurrentQuestionId();
+                  lastQuestionId = qid;
+                  if (!qid) { applyVoteUi(0); return; }
+                  try {
+                    const data = await fetchQuestionFeedback(qid);
+                    // Avoid late response overriding newer question
+                    if (lastQuestionId !== qid) return;
+                    applyVoteUi(data && typeof data.myVote === 'number' ? data.myVote : 0);
+                  } catch(e){
+                    // Keep UI neutral on errors
+                    applyVoteUi(0);
+                  }
+                }
+
+                // Sync whenever the question changes
+                try {
+                  document.addEventListener('exam:question-index-changed', ()=>{ syncFromServer(); });
+                } catch(_){ }
+                try { setTimeout(syncFromServer, 200); } catch(_){ }
+
                 like.addEventListener('click', ()=>{
-                  const cur = like.getAttribute('aria-pressed') === 'true';
-                  like.setAttribute('aria-pressed', String(!cur));
-                  if (!cur && dislike) dislike.setAttribute('aria-pressed','false');
+                  (async ()=>{
+                    const qid = getCurrentQuestionId();
+                    if (!qid) return;
+                    const cur = like.getAttribute('aria-pressed') === 'true';
+                    const vote = cur ? 0 : 1;
+                    // optimistic UI
+                    applyVoteUi(vote);
+                    try {
+                      const data = await postQuestionVote(qid, vote);
+                      applyVoteUi(data && typeof data.myVote === 'number' ? data.myVote : vote);
+                    } catch(e){
+                      try { if (typeof showToast === 'function') showToast('Falha ao registrar seu voto.'); } catch(_){ }
+                      await syncFromServer();
+                    }
+                  })();
                 });
 
                 dislike.addEventListener('click', ()=>{
-                  const cur = dislike.getAttribute('aria-pressed') === 'true';
-                  dislike.setAttribute('aria-pressed', String(!cur));
-                  if (!cur && like) like.setAttribute('aria-pressed','false');
+                  (async ()=>{
+                    const qid = getCurrentQuestionId();
+                    if (!qid) return;
+                    const cur = dislike.getAttribute('aria-pressed') === 'true';
+                    const vote = cur ? 0 : -1;
+                    // optimistic UI
+                    applyVoteUi(vote);
+                    try {
+                      const data = await postQuestionVote(qid, vote);
+                      applyVoteUi(data && typeof data.myVote === 'number' ? data.myVote : vote);
+                    } catch(e){
+                      try { if (typeof showToast === 'function') showToast('Falha ao registrar seu voto.'); } catch(_){ }
+                      await syncFromServer();
+                    }
+                  })();
                 });
               } catch(e){}
             }
@@ -1622,7 +1724,49 @@
               });
             } catch(e){}
 
-            /* Controle de fonte (slider) */
+            /* Controle de fonte (slider)
+               - Ajusta o tamanho do enunciado (#questionText via --question-font-size)
+               - Persiste preferência no localStorage
+            */
+            const QUESTION_FONT_SIZE_STORAGE_KEY = 'ui_question_font_size_px';
+
+            function parseFontSizePx(value){
+              const n = Number.parseInt(String(value ?? ''), 10);
+              if (!Number.isInteger(n)) return null;
+              // Mantém alinhado ao range do input (min/max do HTML)
+              if (n < 12 || n > 24) return null;
+              return n;
+            }
+
+            function readSavedQuestionFontSizePx(){
+              try {
+                return parseFontSizePx(localStorage.getItem(QUESTION_FONT_SIZE_STORAGE_KEY));
+              } catch(_){
+                return null;
+              }
+            }
+
+            function writeSavedQuestionFontSizePx(px){
+              try { localStorage.setItem(QUESTION_FONT_SIZE_STORAGE_KEY, String(px)); } catch(_){ }
+            }
+
+            function applyManualQuestionFontSize(px){
+              const n = parseFontSizePx(px);
+              if (!n) return;
+
+              document.documentElement.style.setProperty('--question-font-size', `${n}px`);
+
+              // Line-height proporcional (mantém legibilidade ao aumentar a fonte)
+              const minFont = 12;
+              const maxFont = 24;
+              const ratio = (n - minFont) / (maxFont - minFont);
+              const lineH = Math.max(1.35, Math.min(1.7, 1.35 + ratio * 0.25));
+              document.documentElement.style.setProperty('--question-line-height', String(lineH));
+
+              // Marcar estado manual (para não ser sobrescrito pela heurística automática)
+              try { document.documentElement.setAttribute('data-question-font-manual', 'true'); } catch(_){ }
+            }
+
             function initFontControl(){
               const fontRange = $('fontRange');
               const fontToggle = $('fontToggle');
@@ -1631,11 +1775,22 @@
               // Se não houver controle de fonte na página (examFull), saia silenciosamente
               if (!fontRange || !fontSlider) return;
 
+              // Restaurar preferência (se existir)
+              try {
+                const saved = readSavedQuestionFontSizePx();
+                if (saved) {
+                  fontRange.value = String(saved);
+                  applyManualQuestionFontSize(saved);
+                  requestAnimationFrame(()=>{ positionTimer(); });
+                }
+              } catch(_){ }
+
               fontRange.addEventListener('input', (e)=>{
-                const v = e.target.value + 'px';
-                document.documentElement.style.setProperty('--base-font-size', v);
-                // reposicionar e readaptar tipografia
-                requestAnimationFrame(()=>{ adaptQuestionTypography(); positionTimer(); });
+                const px = parseFontSizePx(e && e.target && e.target.value);
+                if (!px) return;
+                applyManualQuestionFontSize(px);
+                writeSavedQuestionFontSizePx(px);
+                requestAnimationFrame(()=>{ positionTimer(); });
               });
 
               // Botão de toggle é opcional; só conecte se existir
@@ -1667,6 +1822,17 @@
                - Garante um mínimo e máximo e faz pequenos passos para preservar legibilidade.
             */
             function adaptQuestionTypography(){
+              // Se o usuário definiu um tamanho manual, respeitar e não sobrescrever
+              try {
+                const manualAttr = document.documentElement.getAttribute('data-question-font-manual');
+                const saved = readSavedQuestionFontSizePx();
+                if (manualAttr === 'true' || saved) {
+                  if (saved) applyManualQuestionFontSize(saved);
+                  positionTimer();
+                  return;
+                }
+              } catch(_){ }
+
               const p = $('questionText');
               const container = p.parentElement; // .question-content
               if (!p || !container) return;
@@ -1694,6 +1860,12 @@
 
               // aplicar
               document.documentElement.style.setProperty('--question-font-size', `${fontSize}px`);
+
+              // Se o slider existir, manter o valor refletindo o tamanho atual (apenas modo automático)
+              try {
+                const fontRange = $('fontRange');
+                if (fontRange && !fontRange.disabled) fontRange.value = String(fontSize);
+              } catch(_){ }
 
               // também ajustar line-height proporcionalmente
               const lineH = Math.max(1.35, Math.min(1.7, 1.2 + (fontSize - minFont) / (maxFont - minFont) * 0.4));

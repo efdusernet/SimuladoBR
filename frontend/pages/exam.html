@@ -22,6 +22,16 @@
     .btn-bump{ animation:bump 220ms ease-out; }
     @keyframes revealCorrect { 0%{ transform:translateY(0); } 35%{ transform:translateY(-2px); } 100%{ transform:translateY(0); } }
     .reveal-correct{ animation:revealCorrect 260ms ease-out; }
+    /* Estado do botão de marcar questão */
+    #bmark.mark-active{
+      border-color:#f59e0b; /* amber-500 */
+      background:#fffbeb;   /* amber-50 */
+      color:#92400e;        /* amber-800 */
+    }
+
+    /* Feedback thumbs colors */
+    #likeBtn[aria-pressed="true"]{ color:#2563eb; }
+    #dislikeBtn[aria-pressed="true"]{ color:#fca5a5; }
   </style>
 </head>
 <body>
@@ -33,7 +43,33 @@
 
   <main class="exam-container" role="main" style="margin-top:8px;">
     <header class="exam-header" style="margin-bottom:8px; padding:4px 0;">
-      <div class="header-left" aria-hidden="true"></div>
+      <div class="header-left">
+        <div class="resource-Buttons" id="resource-buttons" aria-live="polite">
+          <div class="inline-flex">
+            <button class="rounded-l-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bmark" type="button">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M6 2h12c.55 0 1 .45 1 1v17l-7-3-7 3V3c0-.55.45-1 1-1z"></path>
+              </svg>
+              Marcar questão
+            </button>
+
+            <button class="-ml-px rounded-r-sm border border-gray-200 px-3 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:z-10 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:outline-none disabled:pointer-events-auto disabled:opacity-50" id="bgrid" type="button">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="3" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="3" width="4" height="4" rx="0.8"></rect>
+                <rect x="3" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="10" width="4" height="4" rx="0.8"></rect>
+                <rect x="3" y="17" width="4" height="4" rx="0.8"></rect>
+                <rect x="10" y="17" width="4" height="4" rx="0.8"></rect>
+                <rect x="17" y="17" width="4" height="4" rx="0.8"></rect>
+              </svg>
+              Grid de questões
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div class="header-center" id="centerHeader">
         <div class="knowledge-area" id="knowledgeArea" aria-live="polite">Exemplo</div>
@@ -74,10 +110,14 @@
             Dica
           </button>
           <button id="likeBtn" class="icon-like" aria-pressed="false" title="Gostei" aria-label="Gostei">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s-6.716-4.35-9.062-7.018C-0.413 10.983 2.973 6 7.5 6c1.84 0 3.515.756 4.5 2.01C13.985 6.756 15.66 6 17.5 6 22.027 6 25.413 10.983 21.062 13.982 18.716 16.65 12 21 12 21z" stroke="currentColor" stroke-width="1.2" fill="currentColor"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+              <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13 1 6.59 7.41C6.22 7.78 6 8.3 6 8.83V19c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l2.02-4.71c.09-.23.14-.47.14-.72V10z" fill="currentColor"/>
+            </svg>
           </button>
           <button id="dislikeBtn" class="icon-dislike" aria-pressed="false" title="Não gostei" aria-label="Não gostei">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3s6.716 4.35 9.062 7.018C24.413 13.017 21.027 18 16.5 18c-1.84 0-3.515-.756-4.5-2.01C10.015 17.244 8.34 18 6.5 18 1.973 18 -1.413 13.017 2.938 10.018 5.284 7.35 12 3 12 3z" stroke="currentColor" stroke-width="1.2" fill="currentColor"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+              <path d="M22 3h-4v12h4V3zM2 14c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L11 23l6.41-6.41c.37-.37.59-.89.59-1.42V5c0-1.1-.9-2-2-2H7c-.83 0-1.54.5-1.84 1.22L3.14 8.93C3.05 9.16 3 9.4 3 9.65V14H2z" fill="currentColor"/>
+            </svg>
           </button>
         </div>
       </div>
@@ -244,6 +284,238 @@
       } catch(_){ }
     })();
   </script>
+
+  <!-- Modal de Grid de Questões (reaproveita grid.html) -->
+  <div id="gridModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="width: min(100%, 96vw); max-width: 1200px; height: min(88vh, 900px); display:flex; flex-direction:column; padding: 0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #ddd; background:#f7f7f7;">
+        <h2 style="margin:0; font-size:1rem;">Grid de Questões</h2>
+        <button id="closeGridModal" class="secondary-btn" type="button" style="margin-left:auto;">Fechar</button>
+      </div>
+      <iframe id="gridFrame" title="Grid de Questões" src="" style="flex:1; width:100%; height:100%; border:0; background:white;"></iframe>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      function openGrid(){
+        try {
+          try {
+            const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+            const totalEl = document.getElementById('totalQuestions');
+            const total = totalEl ? Number((totalEl.textContent || '').trim()) : NaN;
+            if (!sid || !(Number.isFinite(total) && total > 0)) {
+              try { if (typeof showToast === 'function') showToast('Inicie o simulado para ver o grid.'); } catch(_){ }
+              return;
+            }
+          } catch(_){ }
+          try { if (typeof window.captureCurrentAnswerSnapshot === 'function') window.captureCurrentAnswerSnapshot(); } catch(_){ }
+          const modal = document.getElementById('gridModal');
+          const frame = document.getElementById('gridFrame');
+          if (!modal || !frame) return;
+          frame.src = '/pages/grid.html?t=' + Date.now();
+          modal.style.display = '';
+          modal.setAttribute('aria-hidden','false');
+        } catch(e){}
+      }
+      function closeGrid(){
+        try {
+          const modal = document.getElementById('gridModal');
+          const frame = document.getElementById('gridFrame');
+          if (!modal) return;
+          modal.style.display = 'none';
+          modal.setAttribute('aria-hidden','true');
+          if (frame) frame.src = '';
+        } catch(e){}
+      }
+      function attachGridHandlers(){
+        const btn = document.getElementById('bgrid');
+        if (btn) btn.addEventListener('click', openGrid);
+        const close = document.getElementById('closeGridModal');
+        if (close) close.addEventListener('click', closeGrid);
+        window.addEventListener('keydown', (ev)=>{ if (ev.key === 'Escape') closeGrid(); });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachGridHandlers); else attachGridHandlers();
+    })();
+  </script>
+
+  <!-- Marcar questão: salva/desmarca em localStorage (usado pelo grid.html) -->
+  <script>
+    (function(){
+      function mapSpanIdToLetter(id){
+        if(!id) return null;
+        const m = id.match(/^opt(\d+)$/);
+        if(!m) return null;
+        const n = parseInt(m[1], 10);
+        const zeroBased = !!document.getElementById('opt0');
+        if (zeroBased) { if (n >= 0 && n <= 3) return ['A','B','C','D'][n]; }
+        else { if (n >= 1 && n <= 4) return String.fromCharCode(64 + n); }
+        return null;
+      }
+      function getSelectedLetter(){
+        const checked = document.querySelector('input[name="answer"]:checked');
+        if(!checked) return null;
+        let span = checked.nextElementSibling;
+        if (!span || !(span.classList && span.classList.contains('option-text'))){
+          const label = checked.closest && checked.closest('label');
+          if (label) span = label.querySelector('.option-text');
+        }
+        const sid = span && span.id || null;
+        let letter = mapSpanIdToLetter(sid);
+        if (!letter){
+          const idx = Number(checked.value);
+          if (Number.isInteger(idx) && idx >= 0 && idx <= 3) letter = ['A','B','C','D'][idx];
+        }
+        return letter;
+      }
+      function getCurrentIdxViaDom(){
+        try { const el = document.getElementById('questionNumber'); if (!el) return null; const n = Number((el.textContent||'').trim()); return (Number.isFinite(n) && n >= 1) ? n - 1 : null; } catch(e){ return null; }
+      }
+      function getCurrentIdxFromProgress(){
+        try{
+          const sid = window.currentSessionId || null;
+          const key = sid ? `progress_${sid}` : null;
+          if(key){ const raw = localStorage.getItem(key); if(raw){ const obj = JSON.parse(raw); if (obj && typeof obj.currentIdx === 'number') return obj.currentIdx; } }
+        }catch(e){}
+        return getCurrentIdxViaDom();
+      }
+      function readMarkedList(){
+        const sid = window.currentSessionId || '';
+        const key = sid ? `questoesMarcadas_${sid}` : 'questoesMarcadas';
+        try{ const raw = localStorage.getItem(key); if(!raw) return { key, list: [] }; const arr = JSON.parse(raw); return { key, list: Array.isArray(arr) ? arr : [] }; }catch(e){ return { key, list: [] }; }
+      }
+      function writeMarkedList(key, list){ try{ localStorage.setItem(key, JSON.stringify(list)); }catch(e){} }
+
+      function isCurrentQuestionMarked(){
+        try{
+          let curIdx = getCurrentIdxFromProgress();
+          if (curIdx === null || curIdx === undefined) curIdx = getCurrentIdxViaDom();
+          if (typeof curIdx !== 'number') return false;
+          const { list } = readMarkedList();
+          return Array.isArray(list) && list.some(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
+        }catch(_){ return false; }
+      }
+
+      function syncMarkButtonState(){
+        const btn = document.getElementById('bmark');
+        if (!btn) return;
+        const marked = isCurrentQuestionMarked();
+        btn.classList.toggle('mark-active', marked);
+        btn.setAttribute('aria-pressed', marked ? 'true' : 'false');
+        const label = marked ? 'Desmarcar questão' : 'Marcar questão';
+        const textNodes = Array.from(btn.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
+        if (textNodes.length){
+          textNodes[textNodes.length - 1].textContent = ' ' + label;
+        } else {
+          btn.textContent = label;
+        }
+      }
+
+      function hasActiveSession(){
+        try {
+          const sid = window.currentSessionId || localStorage.getItem('currentSessionId') || localStorage.getItem('tempSessionId');
+          if (!sid) return false;
+          const totalEl = document.getElementById('totalQuestions');
+          const total = totalEl ? Number((totalEl.textContent || '').trim()) : NaN;
+          return Number.isFinite(total) && total > 0;
+        } catch(_){ return false; }
+      }
+
+      function syncControlsEnabled(){
+        const enabled = hasActiveSession();
+        const bmark = document.getElementById('bmark');
+        const bgrid = document.getElementById('bgrid');
+        if (bmark) bmark.disabled = !enabled;
+        if (bgrid) bgrid.disabled = !enabled;
+        if (enabled) syncMarkButtonState();
+      }
+
+      function onMarkClick(){
+        try{
+          const letter = getSelectedLetter();
+          let curIdx = getCurrentIdxFromProgress(); if (curIdx === null || curIdx === undefined) curIdx = getCurrentIdxViaDom();
+          const questionNumber = (typeof curIdx === 'number') ? (curIdx + 1) : null;
+          const { key, list } = readMarkedList();
+          if (typeof curIdx === 'number'){
+            const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
+            if (i >= 0) {
+              list.splice(i, 1);
+              writeMarkedList(key, list);
+              syncMarkButtonState();
+              try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} desmarcada.`); } catch(_){ }
+            } else {
+              const entry = { currentIdx: curIdx, questionNumber, letter: letter || null, savedAt: new Date().toISOString() };
+              list.push(entry);
+              writeMarkedList(key, list);
+              syncMarkButtonState();
+              try { if (typeof showToast === 'function') showToast(`Questão ${questionNumber || ''} marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
+            }
+          } else {
+            const entry = { currentIdx: null, questionNumber: null, letter: letter || null, savedAt: new Date().toISOString() };
+            list.push(entry);
+            writeMarkedList(key, list);
+            syncMarkButtonState();
+            try { if (typeof showToast === 'function') showToast(`Questão marcada${letter ? ' ('+letter+')' : ''}.`); } catch(_){ }
+          }
+        } catch(err){ try { logger.warn('Falha ao salvar marcação da questão:', err); } catch(_){ } }
+      }
+      function onAnswerChanged(){
+        try {
+          const letter = getSelectedLetter();
+          let curIdx = getCurrentIdxFromProgress(); if (curIdx === null || curIdx === undefined) curIdx = getCurrentIdxViaDom();
+          const { key, list } = readMarkedList();
+          if (typeof curIdx === 'number' && Array.isArray(list)){
+            const i = list.findIndex(e => e && typeof e.currentIdx === 'number' && e.currentIdx === curIdx);
+            if (i >= 0){ list[i].letter = letter || null; list[i].savedAt = new Date().toISOString(); writeMarkedList(key, list); }
+          }
+          syncMarkButtonState();
+          try { if (typeof window.__syncProgressIdxToLabel === 'function') window.__syncProgressIdxToLabel(); } catch(_){ }
+        } catch(e) { /* noop */ }
+      }
+      function attach(){
+        const btn = document.getElementById('bmark');
+        if (btn) btn.addEventListener('click', onMarkClick);
+        try {
+          const form = document.getElementById('answersForm');
+          if (form){
+            form.addEventListener('change', (ev)=>{
+              const t = ev && ev.target;
+              if (t && t.matches && t.matches('input[name="answer"]')) onAnswerChanged();
+            });
+          }
+        } catch(_) {}
+
+        try {
+          const qn = document.getElementById('questionNumber');
+          if (qn && 'MutationObserver' in window){
+            const obs = new MutationObserver(()=>{ syncMarkButtonState(); });
+            obs.observe(qn, { childList:true, characterData:true, subtree:true });
+          }
+        } catch(_) {}
+
+        try {
+          const tq = document.getElementById('totalQuestions');
+          if (tq && 'MutationObserver' in window){
+            const obs2 = new MutationObserver(()=>{ syncControlsEnabled(); });
+            obs2.observe(tq, { childList:true, characterData:true, subtree:true });
+          }
+        } catch(_) {}
+
+        // Habilita assim que a sessão for criada/carregada
+        try {
+          let tries = 0;
+          const t = setInterval(()=>{
+            tries += 1;
+            syncControlsEnabled();
+            if (hasActiveSession() || tries > 80) clearInterval(t);
+          }, 250);
+        } catch(_) {}
+
+        syncControlsEnabled();
+      }
+      if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', attach); } else { attach(); }
+    })();
+  </script>
   <!-- DOMPurify for XSS protection -->
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
   <!-- Sanitization utilities -->
@@ -273,9 +545,25 @@
         // Read chosen question count from localStorage (set by examSetup)
         let q = null;
         try { q = localStorage.getItem('examQuestionCount'); } catch(e) { q = null; }
-        const parsed = q ? Number(q) : null;
+        let parsed = q ? Number(q) : null;
         // fallback to FullExam if not set
         const full = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
+        // Enforce plan rules (avoid stale localStorage values)
+        try {
+          const bloqueado = (localStorage.getItem('BloqueioAtivado') === 'true');
+          if (bloqueado) {
+            // Free users: only 25 or 30
+            const n = (parsed && !isNaN(parsed)) ? Number(parsed) : 0;
+            parsed = (n >= 30) ? 30 : 25;
+          } else {
+            // Premium: keep within 15..FullExam
+            const fullNum = (typeof window.FullExam === 'number') ? window.FullExam : (sessionStorage.getItem('FullExam') ? JSON.parse(sessionStorage.getItem('FullExam')) : null);
+            const max = Number(fullNum) || 180;
+            const n = (parsed && !isNaN(parsed)) ? Number(parsed) : 0;
+            if (n > 0) parsed = Math.max(15, Math.min(max, n));
+          }
+        } catch(_){ }
+
         const qtd = (parsed && !isNaN(parsed)) ? parsed : 0;
         // Guard: se não houver quantidade definida pelo setup e não vier com startExam, encaminhar para a configuração
         const shouldStart = (sessionStorage.getItem('startExam') === 'true');

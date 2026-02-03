@@ -4,6 +4,7 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const questionController = require('../controllers/questionController');
+const questionFeedbackController = require('../controllers/questionFeedbackController');
 const requireAdmin = require('../middleware/requireAdmin');
 const requireUserSession = require('../middleware/requireUserSession');
 
@@ -23,6 +24,16 @@ router.post('/', requireAdmin, questionController.createQuestion);
 // List and get by id
 // Public (authenticated user) read-only view of a single question (no admin role required)
 router.get('/view/:id', requireUserSession, questionController.getQuestionById);
+
+// Feedback (thumbs up/down) por questão
+// POST /api/questions/feedback/batch { questionIds: number[] }
+router.post('/feedback/batch', requireUserSession, questionFeedbackController.batchQuestionFeedback);
+
+// GET /api/questions/:id/feedback
+router.get('/:id/feedback', requireUserSession, questionFeedbackController.getQuestionFeedback);
+
+// POST /api/questions/:id/feedback { vote: 1 | -1 | 0 }
+router.post('/:id/feedback', requireUserSession, questionFeedbackController.upsertQuestionFeedback);
 
 router.get('/', requireAdmin, questionController.listQuestions);
 // Exists MUST come before the generic :id route to avoid shadowing ('exists' being treated as an id)

@@ -190,6 +190,10 @@ const examSchemas = {
     
     onlyNew: Joi.boolean()
       .optional(),
+
+    // Allow dropping exam_type filter (used by some frontend fallbacks)
+    ignoreExamType: Joi.boolean()
+      .optional(),
     
     sessionToken: Joi.string()
       .optional(),
@@ -203,6 +207,25 @@ const examSchemas = {
         'array.min': 'Selecione pelo menos um domínio',
         'array.max': 'Máximo de 10 domínios permitidos'
       }),
+
+    // Filters used by examSetup tabs
+    areas: Joi.array()
+      .items(Joi.number().integer().positive())
+      .min(1)
+      .max(20)
+      .optional(),
+
+    grupos: Joi.array()
+      .items(Joi.number().integer().positive())
+      .min(1)
+      .max(20)
+      .optional(),
+
+    categorias: Joi.array()
+      .items(Joi.number().integer().positive())
+      .min(1)
+      .max(20)
+      .optional(),
     
     nivel: Joi.number()
       .integer()

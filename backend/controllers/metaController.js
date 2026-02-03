@@ -3,6 +3,55 @@ const sequelize = require('../config/database');
 const { logger } = require('../utils/logger');
 const { internalError } = require('../middleware/errors');
 const userParamsStore = require('../services/userParamsStore');
+// Helper: list grupos de processo preferindo a coluna que casa com questao.codgrupoprocesso
+async function listGruposProcessoSmart(req, res, next, table) {
+  try {
+    const cols = await sequelize.query(
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl`,
+      { replacements: { tbl: table }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    const names = new Set((cols || []).map(c => c.column_name));
+    const types = new Map((cols || []).map(c => [c.column_name, c.data_type]));
+
+    // Prefer the code column used by questao: codgrupoprocesso
+    let idCol = null;
+    if (names.has('codgrupoprocesso')) idCol = 'codgrupoprocesso';
+    else if (names.has('CodGrupoProcesso')) idCol = '"CodGrupoProcesso"';
+    else if (names.has('CODGRUPOPROCESSO')) idCol = '"CODGRUPOPROCESSO"';
+    else if (names.has('id')) idCol = 'id';
+    else if (names.has('Id')) idCol = '"Id"';
+
+    let descCol = null;
+    if (names.has('descricao')) descCol = 'descricao';
+    else if (names.has('Descricao')) descCol = '"Descricao"';
+
+    if (!idCol || !descCol) {
+      logger.warn(`[meta] ${table} missing expected columns. columns=`, Array.from(names));
+      return next(internalError('Erro interno', 'TABLE_MISSING_COLUMNS', { table, columns: Array.from(names) }));
+    }
+
+    const whereClauses = [];
+    if (names.has('excluido')) whereClauses.push('(excluido = false OR excluido IS NULL)');
+    else if (names.has('Excluido')) whereClauses.push('("Excluido" = false OR "Excluido" IS NULL)');
+
+    if (names.has('status')) {
+      const t = String(types.get('status') || '').toLowerCase();
+      whereClauses.push(t === 'boolean' ? '(status = TRUE)' : '(status = 1)');
+    } else if (names.has('Status')) {
+      const t = String(types.get('Status') || '').toLowerCase();
+      whereClauses.push(t === 'boolean' ? '("Status" = TRUE)' : '("Status" = 1)');
+    }
+
+    const where = whereClauses.length ? ('WHERE ' + whereClauses.join(' AND ')) : '';
+    const sql = `SELECT ${idCol} AS id, ${descCol} AS descricao FROM ${table} ${where}`;
+    const rows = await sequelize.query(sql, { type: sequelize.QueryTypes.SELECT });
+    return res.json(rows || []);
+  } catch (e) {
+    logger.error(`[meta] listGruposProcessoSmart ${table} error`, e);
+    return next(internalError('Erro interno', 'GRUPO_PROCESSO_LIST_ERROR', e));
+  }
+}
 // Helper to run a robust select id, descricao from a table, adapting to column name casing
 async function listSimple(req, res, next, table) {
   try {
@@ -54,7 +103,7 @@ exports.listAreasConhecimento = (req, res, next) => listSimple(req, res, next, '
 exports.listGruposProcesso = async (req, res, next) => {
   // prefer 'grupoprocesso'; some DBs might use 'gruprocesso' — try fallback
   try {
-    return await listSimple(req, res, next, 'grupoprocesso');
+    return await listGruposProcessoSmart(req, res, next, 'grupoprocesso');
   } catch (e) {
     try { return await listSimple(req, res, next, 'gruprocesso'); } catch (e2) {
       logger.error('[meta] both grupoprocesso/gruprocesso failed');

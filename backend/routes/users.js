@@ -29,7 +29,7 @@ const registerLimiter = rateLimit({
 
 /**
  * POST /api/users
- * Cria usuário persistido no banco (tabela Usuario)
+ * Cria usuário persistido no banco (tabela usuario)
  */
 router.post('/', registerLimiter, validate(authSchemas.register), async (req, res, next) => {
     try {
@@ -228,7 +228,7 @@ router.get('/me', async (req, res, next) => {
 
 // PUT /api/users/me/exam-date
 // Atualiza a data prevista do exame real do próprio usuário.
-// Formato exigido: dd/mm/yyyy (armazenado em Usuario.data_exame).
+// Formato exigido: dd/mm/yyyy (armazenado em usuario.data_exame).
 router.put('/me/exam-date', async (req, res, next) => {
     try {
         const token = extractTokenFromRequest(req);
@@ -709,16 +709,15 @@ router.put('/me/password', async (req, res, next) => {
         if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
         const user = authRes.user;
 
-        const { currentPassword, newPassword } = req.body || {};
+        // Expect client-side SHA-256 hex (same as login flow). Stored hash is bcrypt(SHA-256).
+        const validated = userSchemas.changePassword.validate(req.body || {}, { abortEarly: false, stripUnknown: true, convert: true });
+        if (validated.error) {
+            const details = validated.error.details.map(d => ({ field: d.path.join('.'), message: d.message }));
+            return next(badRequest('Dados inválidos', 'VALIDATION_ERROR', { errors: details }));
+        }
+
+        const { currentPassword, newPassword } = validated.value;
         
-        if (!currentPassword || !newPassword) {
-            return next(badRequest('Senha atual e nova senha são obrigatórias', 'PASSWORDS_REQUIRED'));
-        }
-
-        if (newPassword.length < 6) {
-            return next(badRequest('Nova senha deve ter no mínimo 6 caracteres', 'PASSWORD_TOO_SHORT'));
-        }
-
         // Verify current password
         const isValid = await bcrypt.compare(currentPassword, user.SenhaHash);
         if (!isValid) {
@@ -730,6 +729,23 @@ router.put('/me/password', async (req, res, next) => {
         user.SenhaHash = newHash;
         user.DataAlteracao = new Date();
         await user.save();
+
+        // Best-effort audit log (do not block password change if the table isn't migrated yet)
+        try {
+            if (db.UserPasswordChangeLog && typeof db.UserPasswordChangeLog.create === 'function') {
+                await db.UserPasswordChangeLog.create({
+                    TargetUserId: user.Id,
+                    ActorUserId: user.Id,
+                    Origin: 'profile',
+                    Ip: req.ip || null,
+                    UserAgent: (req.get('user-agent') || '').slice(0, 4000) || null,
+                    ChangedAt: new Date()
+                });
+            }
+        } catch (e) {
+            const msg = (e && (e.message || e.toString())) || 'unknown error';
+            logger.warn('[user_password_change_log] failed to write audit log:', msg);
+        }
 
         return res.json({ message: 'Senha alterada com sucesso' });
     } catch (err) {

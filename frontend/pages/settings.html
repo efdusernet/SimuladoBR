@@ -135,6 +135,14 @@
       return h;
     }
 
+    async function sha256Hex(str) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(String(str || ''));
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     // Load user data
     async function loadUserData() {
       try {
@@ -293,10 +301,14 @@
           return;
         }
 
+        // API expects SHA-256 hex (same as login flow)
+        const currentPasswordHash = await sha256Hex(currentPassword);
+        const newPasswordHash = await sha256Hex(newPassword);
+
         const res = await fetch('/api/users/me/password', {
           method: 'PUT',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ currentPassword, newPassword })
+          body: JSON.stringify({ currentPassword: currentPasswordHash, newPassword: newPasswordHash })
         });
 
         if (!res.ok) {

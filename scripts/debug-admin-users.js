@@ -17,7 +17,7 @@ async function main() {
 
     const users = await db.sequelize.query(
       `SELECT u."Id", u."Email", u."NomeUsuario"
-       FROM public."Usuario" u
+       FROM public.usuario u
        WHERE EXISTS (
          SELECT 1
          FROM public.user_role ur
@@ -44,7 +44,7 @@ async function main() {
                   JOIN public.role r ON r.id = ur.role_id
                   WHERE ur.user_id = u."Id" AND r.slug = 'admin' AND (r.ativo = TRUE OR r.ativo IS NULL)
                 ) AS "HasAdminRole"
-         FROM public."Usuario" u
+         FROM public.usuario u
          WHERE LOWER(u."Email") = :email
          LIMIT 1`,
         { replacements: { email: emailLower }, type: db.Sequelize.QueryTypes.SELECT }

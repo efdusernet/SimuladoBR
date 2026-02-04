@@ -6,6 +6,8 @@
 const Joi = require('joi');
 const { logger } = require('../utils/logger');
 
+const FORBIDDEN_EMAIL_DOMAINS = new Set(['example.com', 'example.net', 'example.org']);
+
 // Common field validations
 const commonSchemas = {
   email: Joi.string()
@@ -13,6 +15,17 @@ const commonSchemas = {
     .max(255)
     .trim()
     .lowercase()
+    .custom((value, helpers) => {
+      try {
+        const v = String(value || '').trim().toLowerCase();
+        const parts = v.split('@');
+        const domain = (parts[1] || '').trim().toLowerCase();
+        if (domain && FORBIDDEN_EMAIL_DOMAINS.has(domain)) {
+          return helpers.message('Domínio de e-mail não é permitido');
+        }
+      } catch (_) { /* ignore */ }
+      return value;
+    }, 'Email domain restriction')
     .required()
     .messages({
       'string.email': 'E-mail deve ser válido',
@@ -430,6 +443,11 @@ const userSchemas = {
 
 // Admin schemas
 const adminSchemas = {
+  createUser: authSchemas.register.keys({
+    // Admin-only: allow creating a user already confirmed (unblocked) or not.
+    EmailConfirmado: Joi.boolean().optional()
+  }),
+
   markAbandoned: Joi.object({
     hoursThreshold: Joi.number()
       .integer()

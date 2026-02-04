@@ -28,7 +28,7 @@ BEGIN
     ALTER TABLE public.flashcard_feedback
       ADD CONSTRAINT fk_flashcard_feedback_user
       FOREIGN KEY (user_id)
-      REFERENCES public."Usuario" ("Id")
+      REFERENCES public.usuario ("Id")
       ON DELETE CASCADE;
   END IF;
 

@@ -21,7 +21,7 @@ async function listCommunicationRecipients() {
     const r = await communicationQuery(
       'SELECT cr.user_id, u."Nome" AS nome, u."NomeUsuario" AS nome_usuario, u."Email" AS email\n' +
         'FROM public.communication_recipient cr\n' +
-        'JOIN "Usuario" u ON u."Id" = cr.user_id\n' +
+        'JOIN public.usuario u ON u."Id" = cr.user_id\n' +
         'WHERE cr.active = TRUE\n' +
         'ORDER BY COALESCE(u."Nome", \'\') ASC, u."Id" ASC'
     );
@@ -37,7 +37,7 @@ async function listCommunicationRecipients() {
         const suffix = where ? ` (db=${where})` : '';
         console.warn(
           `[supportContactNotifier] communication tables missing; skipping emails (using ${info.source}${suffix}). ` +
-          `Fix: point COMMUNICATION_DATABASE_URL to the SimuladosBR DB (where public.communication_recipient + Usuario exist) and ensure SQL migration 043_create_communication_recipient.sql was applied.`
+          `Fix: point COMMUNICATION_DATABASE_URL to the SimuladosBR DB (where public.communication_recipient + usuario exist) and ensure SQL migration 043_create_communication_recipient.sql was applied.`
         );
       } catch (_) {
         try { console.warn('[supportContactNotifier] communication tables missing; skipping emails'); } catch (_) {}

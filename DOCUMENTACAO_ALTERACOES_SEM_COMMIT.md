@@ -25,7 +25,7 @@ Arquivo: `backend/sql/058_create_questao_like.sql`
 - Cria (se não existir) a tabela `public.questao_like` para persistir voto por **(questão, usuário)**.
 - Colunas:
   - `idquestao` (FK para `public.questao(id)`)
-  - `idusario` (FK para `public."Usuario"("Id")`)
+  - `idusario` (FK para `public.usuario("Id")`)
   - `like` (int, default 0)
   - `dislike` (int, default 0)
 - Restrições:

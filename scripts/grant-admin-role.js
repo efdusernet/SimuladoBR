@@ -54,7 +54,7 @@ async function main() {
 
     // Find user
     const userRows = await db.sequelize.query(
-      `SELECT "Id", "Email", "NomeUsuario" FROM public."Usuario" WHERE LOWER("Email") = :email LIMIT 1`,
+      `SELECT "Id", "Email", "NomeUsuario" FROM public.usuario WHERE LOWER("Email") = :email LIMIT 1`,
       { replacements: { email }, type: db.Sequelize.QueryTypes.SELECT }
     );
 

@@ -7,7 +7,7 @@ Este documento descreve a persistência diária dos KPIs/indicadores do endpoint
 - Fonte: `GET /api/ai/insights`
 - Frequência: **no máximo 1 registro por usuário por dia** (upsert por `(user_id, snapshot_date)`)
 - Público-alvo: **somente usuários pagantes**
-  - Regra atual: `Usuario.BloqueioAtivado = false`
+  - Regra atual: `usuario.BloqueioAtivado = false`
 - Tabela: `public.user_daily_snapshot`
 - Migração/DDL: `backend/sql/046_create_user_daily_snapshot.sql`
 

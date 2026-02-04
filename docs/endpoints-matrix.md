@@ -34,7 +34,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | POST | `/api/users` | None | Body: `{ Nome, Email, NomeUsuario?, SenhaHash?, ... }` | `{ Id, NomeUsuario, Email, EmailConfirmado, BloqueioAtivado, DataCadastro, DataAlteracao }` | Cria novo usuário. Envia token de verificação por email. |
 | GET | `/api/users` | None (dev only) | Query: `limit`, `offset` | `[{ Id, NomeUsuario, Email, ... }]` | Lista usuários (bloqueado em produção). |
 | GET | `/api/users/me` | JWT | — | `{ Id, NomeUsuario, Email, EmailConfirmado, BloqueioAtivado, DataCadastro, DataAlteracao, DataExame?, TipoUsuario }` | Dados do usuário autenticado + `DataExame` (se preenchido) + flag `TipoUsuario` (admin/user). |
-| PUT | `/api/users/me/exam-date` | JWT + CSRF | Body: `{ data_exame: "dd/mm/yyyy" }` | `{ success, DataExame }` | Define/atualiza data prevista do exame real (campo `Usuario.data_exame`). Valida formato e **bloqueia datas no passado**. |
+| PUT | `/api/users/me/exam-date` | JWT + CSRF | Body: `{ data_exame: "dd/mm/yyyy" }` | `{ success, DataExame }` | Define/atualiza data prevista do exame real (campo `usuario.data_exame`). Valida formato e **bloqueia datas no passado**. |
 | GET | `/api/users/me/stats/daily` | JWT | Query: `days` (1-180, default 30) | `{ days, data: [{ date, started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent, abandonRate, completionRate, purgeRate }] }` | Série diária de estatísticas de tentativas. |
 | GET | `/api/users/me/stats/summary` | JWT | Query: `days` (1-180, default 30) | `{ periodDays, started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent, abandonRate, completionRate, purgeRate }` | Resumo agregado do período. |
 

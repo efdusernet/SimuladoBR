@@ -60,8 +60,8 @@ Healthcheck: `GET /healthz`.
 
 Quando o Asaas confirma ou revoga um pagamento, o checkout mantém o estado de acesso consistente no app principal (SimuladosBR) atualizando:
 
-- `Usuario.PremiumExpiresAt` (data fim do acesso)
-- `Usuario.BloqueioAtivado` (legado: premium quando `false`)
+- `usuario.PremiumExpiresAt` (data fim do acesso)
+- `usuario.BloqueioAtivado` (legado: premium quando `false`)
 
 Como funciona:
 

@@ -30,7 +30,7 @@ router.get('/admins', requireAdmin, async (req, res, next) => {
 
     const rows = await db.sequelize.query(
       'SELECT u."Id" AS "Id", u."Nome" AS "Nome", u."NomeUsuario" AS "NomeUsuario", u."Email" AS "Email"\n' +
-      'FROM "Usuario" u\n' +
+      'FROM public.usuario u\n' +
       'JOIN public.user_role ur ON ur.user_id = u."Id"\n' +
       'JOIN public.role r ON r.id = ur.role_id\n' +
       'WHERE r.slug = :slug AND (r.ativo = TRUE OR r.ativo IS NULL)\n' +
@@ -56,7 +56,7 @@ router.get('/recipients', requireAdmin, async (req, res, next) => {
     const rows = await db.sequelize.query(
       'SELECT cr.user_id AS "UserId", u."Nome" AS "Nome", u."Email" AS "Email"\n' +
       'FROM public.communication_recipient cr\n' +
-      'JOIN "Usuario" u ON u."Id" = cr.user_id\n' +
+      'JOIN public.usuario u ON u."Id" = cr.user_id\n' +
       'WHERE cr.active = TRUE\n' +
       'ORDER BY COALESCE(u."Nome", \'\') ASC, u."Id" ASC',
       { type: db.Sequelize.QueryTypes.SELECT }

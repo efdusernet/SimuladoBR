@@ -25,7 +25,7 @@ async function diagnoseEmailMatching() {
                 column_default
             FROM information_schema.columns 
             WHERE table_schema = 'public' 
-            AND table_name = 'Usuario' 
+            AND table_name = 'usuario' 
             AND column_name = 'Email';
         `);
         console.log('Email column info:', JSON.stringify(collationResult, null, 2));
@@ -38,7 +38,7 @@ async function diagnoseEmailMatching() {
                 indexdef
             FROM pg_indexes 
             WHERE schemaname = 'public' 
-            AND tablename = 'Usuario' 
+            AND tablename = 'usuario' 
             AND indexdef ILIKE '%Email%';
         `);
         console.log('Email indexes:', JSON.stringify(indexResult, null, 2));
@@ -59,7 +59,7 @@ async function diagnoseEmailMatching() {
         // Using raw SQL with exact match
         const [rawExact] = await sequelize.query(`
             SELECT "Id", "Email", "NomeUsuario" 
-            FROM public."Usuario" 
+            FROM public.usuario 
             WHERE "Email" = :email
             LIMIT 1;
         `, { 
@@ -71,7 +71,7 @@ async function diagnoseEmailMatching() {
         // Using raw SQL with LIKE
         const [rawLike] = await sequelize.query(`
             SELECT "Id", "Email", "NomeUsuario" 
-            FROM public."Usuario" 
+            FROM public.usuario 
             WHERE "Email" LIKE :pattern
             LIMIT 1;
         `, { 
@@ -84,7 +84,7 @@ async function diagnoseEmailMatching() {
         console.log('\n4. Checking all similar emails...');
         const [similarEmails] = await sequelize.query(`
             SELECT "Id", "Email", "NomeUsuario" 
-            FROM public."Usuario" 
+            FROM public.usuario 
             WHERE "Email" LIKE 'eliel.deuclides%'
             ORDER BY "Email";
         `);
@@ -111,7 +111,7 @@ async function fixEmailMatching() {
         
         // This will set the collation to "C" which is binary and case-sensitive
         await sequelize.query(`
-            ALTER TABLE public."Usuario" 
+            ALTER TABLE public.usuario 
             ALTER COLUMN "Email" 
             TYPE TEXT COLLATE "C";
         `);
@@ -123,7 +123,7 @@ async function fixEmailMatching() {
             SELECT collation_name 
             FROM information_schema.columns 
             WHERE table_schema = 'public' 
-            AND table_name = 'Usuario' 
+            AND table_name = 'usuario' 
             AND column_name = 'Email';
         `);
         console.log('New collation:', verification);

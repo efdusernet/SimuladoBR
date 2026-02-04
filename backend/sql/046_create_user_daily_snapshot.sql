@@ -1,10 +1,10 @@
 -- 046_create_user_daily_snapshot.sql
 -- Daily snapshot of AI/Insights KPIs for temporal risk modeling.
--- Only recorded for paying users (Usuario.BloqueioAtivado = false) at application level.
+-- Only recorded for paying users (usuario.BloqueioAtivado = false) at application level.
 
 CREATE TABLE IF NOT EXISTS public.user_daily_snapshot (
   id BIGSERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES public."Usuario"("Id") ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES public.usuario("Id") ON DELETE CASCADE,
   snapshot_date DATE NOT NULL,
 
   period_days INTEGER NOT NULL,

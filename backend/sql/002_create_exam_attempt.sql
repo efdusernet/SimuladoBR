@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS exam_attempt (
   meta JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT fk_exam_attempt_user FOREIGN KEY (user_id) REFERENCES "Usuario"("Id"),
+  CONSTRAINT fk_exam_attempt_user FOREIGN KEY (user_id) REFERENCES public.usuario("Id"),
   CONSTRAINT fk_exam_attempt_type FOREIGN KEY (exam_type_id) REFERENCES exam_type(id)
 );
 

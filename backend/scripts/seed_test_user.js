@@ -1,7 +1,7 @@
 // Seed a test user directly in the DB (bypassing /api/users) for local debugging.
 // Usage (PowerShell): node backend/scripts/seed_test_user.js email@example.com MinhaSenha123
 // The login flow expects SenhaHash stored as bcrypt hash of the client-side SHA-256 hex.
-// This script reproduces that: plaintext -> sha256 hex -> bcrypt -> Usuario.SenhaHash
+// This script reproduces that: plaintext -> sha256 hex -> bcrypt -> usuario.SenhaHash
 
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });

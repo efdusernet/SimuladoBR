@@ -716,7 +716,7 @@ function buildExplainabilityForRiskMessage(message, { kpis, examInfo, indicators
 
   if (/prazo cr[ií]tico|exame est[aá] em|Risco de prazo/i.test(msg)) {
     add({
-      source: 'Usuario.data_exame',
+      source: 'usuario.data_exame',
       metric: 'daysToExam',
       label: 'Dias até o exame',
       value: daysToExam,

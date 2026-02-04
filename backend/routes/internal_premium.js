@@ -73,7 +73,7 @@ router.post('/premium/sync', async (req, res, next) => {
 // POST /internal/v1/premium/grant
 // Body: { email: string, days: number }
 // Auth: header x-access-api-key must match ACCESS_API_KEY
-// Effect: extends Usuario.PremiumExpiresAt by <days> starting from max(now, current PremiumExpiresAt)
+// Effect: extends usuario.PremiumExpiresAt by <days> starting from max(now, current PremiumExpiresAt)
 // and (for now) sets BloqueioAtivado=false (current premium gating).
 router.post('/premium/grant', async (req, res, next) => {
   try {

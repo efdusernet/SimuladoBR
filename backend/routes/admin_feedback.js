@@ -15,7 +15,7 @@ router.get('/pending', requireAdmin, async (req, res, next) => {
              u."Nome" AS "usuarioNome"
       FROM "Feedback" f
       LEFT JOIN "RetornoFeedback" r ON r.idfeedback = f.id
-      LEFT JOIN "Usuario" u ON u."Id" = f.reportadopor
+            LEFT JOIN public.usuario u ON u."Id" = f.reportadopor
       WHERE r.id IS NULL
       ORDER BY f.id DESC
     `);

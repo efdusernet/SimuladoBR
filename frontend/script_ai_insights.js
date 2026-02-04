@@ -267,7 +267,7 @@
         if (metric === 'trendDeltaScore7d') return '#scoreSection';
       }
 
-      if (src === 'Usuario.data_exame') return '#aiHeadline';
+  	  if (src === 'usuario.data_exame') return '#aiHeadline';
       return null;
     }
 

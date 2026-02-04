@@ -67,7 +67,7 @@ const env = {
   DATABASE_URL: getEnv('DATABASE_URL', ''),
   PGSSLMODE: getEnv('PGSSLMODE', 'disable'),
 
-  // Optional: separate DB for SimuladosBR (to read communication_recipient + Usuario)
+  // Optional: separate DB for SimuladosBR (to read communication_recipient + usuario)
   // If omitted, falls back to DATABASE_URL.
   COMMUNICATION_DATABASE_URL: getEnv('COMMUNICATION_DATABASE_URL', ''),
   COMMUNICATION_PGSSLMODE: getEnv('COMMUNICATION_PGSSLMODE', ''),

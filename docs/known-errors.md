@@ -39,12 +39,12 @@ Para um histórico detalhado de incidentes (ex.: o problema do menu Admin interm
 - Sintomas: No login, aparece a mensagem: `Conta bloqueada por muitas tentativas. Aguarde 4:48 para tentar novamente.` (o tempo varia).
 - Causa raiz:
   - O backend aplica um **bloqueio temporário por usuário** após repetidas falhas de senha.
-  - Regra atual: ao errar a senha, incrementa `Usuario.AccessFailedCount`; ao chegar em **5 falhas**, zera o contador e grava `Usuario.FimBloqueio = agora + 5 minutos`.
+  - Regra atual: ao errar a senha, incrementa `usuario.AccessFailedCount`; ao chegar em **3 falhas**, zera o contador e grava `usuario.FimBloqueio = agora + 5 minutos`.
   - Enquanto `FimBloqueio` estiver no futuro, o endpoint de login retorna `ACCOUNT_LOCKED` (HTTP 423) com `lockoutSecondsLeft`.
 - Observação importante:
   - Isso é diferente do rate limit por IP do endpoint `/api/auth/login` (HTTP 429, janela de 15 min). É possível “cair” em ambos, dependendo do caso.
 - Como verificar:
-  - Verificar no banco se `Usuario.FimBloqueio` está preenchido e maior que `NOW()` para o e-mail em questão.
+  - Verificar no banco se `usuario.FimBloqueio` está preenchido e maior que `NOW()` para o e-mail em questão.
   - No Network do browser, a resposta do POST `/api/auth/login` pode trazer `code: ACCOUNT_LOCKED` e os campos `lockoutUntil` / `lockoutSecondsLeft`.
 
 ### Workaround (desbloquear corrigindo na tabela)
@@ -52,7 +52,7 @@ Use somente em desenvolvimento/testes locais.
 
 **Opção A — via SQL (Postgres):**
 ```sql
-UPDATE "Usuario"
+UPDATE usuario
 SET "AccessFailedCount" = 0,
     "FimBloqueio" = NULL,
     "DataAlteracao" = NOW()

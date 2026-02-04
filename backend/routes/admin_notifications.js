@@ -63,7 +63,7 @@ router.get('/', requireAdmin, async (req, res, next) => {
   try {
     // Ordena por id DESC para evitar dependência de alias createdAt (coluna é createdat no schema)
     const list = await db.Notification.findAll({ order: [['id','DESC']], limit: 100 });
-    // Enriquecer com Nome (Usuario) quando targetType=user
+    // Enriquecer com Nome (usuário) quando targetType=user
     const userIds = Array.from(new Set(list
       .filter(n => n && n.targetType === 'user' && n.targetUserId)
       .map(n => Number(n.targetUserId))
@@ -86,7 +86,7 @@ router.get('/', requireAdmin, async (req, res, next) => {
             Id: u.Id,
             Nome: u.Nome,
             NomeUsuario: u.NomeUsuario,
-            display: `${(u.Nome||u.NomeUsuario||'Usuario')} - ${u.Id}`
+            display: `${(u.Nome||u.NomeUsuario||'Usuário')} - ${u.Id}`
           };
         }
       }

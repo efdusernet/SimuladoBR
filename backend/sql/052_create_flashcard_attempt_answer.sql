@@ -43,7 +43,7 @@ BEGIN
     ALTER TABLE public.flashcard_attempt_answer
       ADD CONSTRAINT fk_flashcard_attempt_answer_user
       FOREIGN KEY (user_id)
-      REFERENCES public."Usuario" ("Id")
+      REFERENCES public.usuario ("Id")
       ON DELETE CASCADE;
   END IF;
 

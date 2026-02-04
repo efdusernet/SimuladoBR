@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.user_role (
   role_id INTEGER NOT NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_user_role UNIQUE(user_id, role_id),
-  CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES public."Usuario"("Id") ON DELETE CASCADE,
+  CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES public.usuario("Id") ON DELETE CASCADE,
   CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES public.role(id) ON DELETE CASCADE
 );
 

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.communication_recipient (
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT fk_communication_recipient_user FOREIGN KEY (user_id) REFERENCES "Usuario"("Id")
+  CONSTRAINT fk_communication_recipient_user FOREIGN KEY (user_id) REFERENCES public.usuario("Id")
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_communication_recipient_user

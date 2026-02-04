@@ -348,7 +348,7 @@
             <div style="display:flex;flex-wrap:wrap;gap:10px">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                 <input type="checkbox" id="adminDbKeepUsers" checked style="width:18px;height:18px;cursor:pointer" />
-                <span style="font-size:0.9rem;color:var(--text)">Manter usuários (se desmarcar, preserva Usuario.id=21)</span>
+                <span style="font-size:0.9rem;color:var(--text)">Manter usuários (se desmarcar, preserva usuario.id=21)</span>
               </label>
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                 <input type="checkbox" id="adminDbKeepRbac" checked style="width:18px;height:18px;cursor:pointer" />
@@ -406,6 +406,143 @@
         </div>
       </div>
 
+      <!-- Accordion: Criar usuários -->
+      <div class="admin-accordion" id="adminCreateUsersAccordion" style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
+          <span style="font-size:1rem;font-weight:800;color:var(--text)">👤 Criar usuários</span>
+          <svg class="admin-accordion-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition:transform .3s;color:var(--muted)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="admin-accordion-content" style="display:none;padding:16px">
+          <div style="display:grid;gap:14px">
+            <div style="display:grid;gap:10px;padding:12px;border:1px solid var(--border);border-radius:10px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <div style="font-size:0.95rem;font-weight:900;color:var(--text)">➕ Novo usuário</div>
+                <div id="adminCreateUserStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div style="display:grid;gap:4px">
+                  <label for="adminCreateUserNome" style="font-size:0.75rem;color:var(--muted)">Nome</label>
+                  <input id="adminCreateUserNome" type="text" placeholder="Nome completo" autocomplete="off" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                </div>
+                <div style="display:grid;gap:4px">
+                  <label for="adminCreateUserNomeUsuario" style="font-size:0.75rem;color:var(--muted)">Nome de usuário</label>
+                  <input id="adminCreateUserNomeUsuario" type="text" placeholder="ex: joao.silva" autocomplete="off" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div style="display:grid;gap:4px">
+                  <label for="adminCreateUserEmail" style="font-size:0.75rem;color:var(--muted)">Email</label>
+                  <input id="adminCreateUserEmail" type="email" placeholder="email@dominio.com" autocomplete="off" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                </div>
+                <div style="display:flex;align-items:end;gap:10px">
+                  <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
+                    <input id="adminCreateUserEmailConfirmado" type="checkbox" checked />
+                    Email confirmado (desbloqueado)
+                  </label>
+                  <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
+                    <input id="adminCreateUserAsAdmin" type="checkbox" />
+                    Criar como admin (RBAC)
+                  </label>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div style="display:grid;gap:4px">
+                  <label for="adminCreateUserPassword" style="font-size:0.75rem;color:var(--muted)">Senha</label>
+                  <input id="adminCreateUserPassword" type="password" autocomplete="new-password" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                </div>
+                <div style="display:grid;gap:4px">
+                  <label for="adminCreateUserPassword2" style="font-size:0.75rem;color:var(--muted)">Confirmar senha</label>
+                  <input id="adminCreateUserPassword2" type="password" autocomplete="new-password" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button id="adminCreateUserBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Criar usuário</button>
+                <button id="adminCreateUserClearBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Limpar</button>
+              </div>
+              <div id="adminCreateUserOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+              <div style="font-size:0.78rem;color:var(--muted);line-height:1.35">A senha é convertida em SHA-256 no navegador e armazenada no backend como bcrypt(SHA-256).</div>
+            </div>
+
+            <div style="display:grid;gap:10px;padding:12px;border:1px solid var(--border);border-radius:10px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <div style="font-size:0.95rem;font-weight:900;color:var(--text)">🧰 Gerenciar usuário existente</div>
+                <div id="adminManageUserStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+                <div style="flex:1;min-width:260px;display:grid;gap:4px">
+                  <label for="adminManageUserSearch" style="font-size:0.75rem;color:var(--muted)">Buscar</label>
+                  <input id="adminManageUserSearch" type="text" placeholder="Nome, usuário, email ou ID" autocomplete="off" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                </div>
+                <button id="adminManageUserSearchBtn" type="button" style="min-width:140px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Buscar</button>
+                <button id="adminManageUserClearBtn" type="button" style="min-width:140px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Limpar</button>
+              </div>
+              <div id="adminManageUserSearchStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+              <div id="adminManageUserResults" style="display:grid;gap:8px"></div>
+
+              <div id="adminManageUserPanel" style="display:none;grid-template-columns:1fr;gap:10px;margin-top:6px;padding-top:10px;border-top:1px solid var(--border)">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                  <div style="display:grid;gap:4px">
+                    <label for="adminManageUserId" style="font-size:0.75rem;color:var(--muted)">ID</label>
+                    <input id="adminManageUserId" type="text" readonly style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                  </div>
+                  <div style="display:grid;gap:4px">
+                    <label for="adminManageUserEmailConfirmado" style="font-size:0.75rem;color:var(--muted)">Email confirmado</label>
+                    <input id="adminManageUserEmailConfirmado" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                  </div>
+                  <div style="display:grid;gap:4px">
+                    <label for="adminManageUserIsAdmin" style="font-size:0.75rem;color:var(--muted)">Admin (RBAC)</label>
+                    <input id="adminManageUserIsAdmin" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                  <div style="display:grid;gap:4px">
+                    <label for="adminManageUserNome" style="font-size:0.75rem;color:var(--muted)">Nome</label>
+                    <input id="adminManageUserNome" type="text" autocomplete="off" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                  </div>
+                  <div style="display:grid;gap:4px">
+                    <label for="adminManageUserNomeUsuario" style="font-size:0.75rem;color:var(--muted)">Nome de usuário</label>
+                    <input id="adminManageUserNomeUsuario" type="text" autocomplete="off" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                  </div>
+                  <div style="display:grid;gap:4px">
+                    <label for="adminManageUserEmail" style="font-size:0.75rem;color:var(--muted)">Email</label>
+                    <input id="adminManageUserEmail" type="email" autocomplete="off" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+                  <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
+                    <input id="adminManageUserAdminToggle" type="checkbox" />
+                    Admin (RBAC)
+                  </label>
+                  <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
+                    <input id="adminManageUserEmailConfirmadoToggle" type="checkbox" />
+                    EmailConfirmado
+                  </label>
+                  <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
+                    <input id="adminManageUserExcluidoToggle" type="checkbox" />
+                    Excluído (soft)
+                  </label>
+                  <div style="margin-left:auto;display:grid;gap:4px;min-width:180px">
+                    <label for="adminManageUserExcluido" style="font-size:0.75rem;color:var(--muted)">Excluído</label>
+                    <input id="adminManageUserExcluido" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                  <button id="adminManageUserSaveBtn" type="button" style="flex:1;min-width:160px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Salvar</button>
+                  <button id="adminManageUserReactivateBtn" type="button" style="flex:1;min-width:160px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Reativar (Excluido=false)</button>
+                  <button id="adminManageUserDeleteBtn" type="button" style="flex:1;min-width:160px;padding:10px;background:rgba(239,68,68,.12);color:var(--text);border:1px solid rgba(239,68,68,.35);border-radius:6px;font-size:0.9rem;font-weight:900;cursor:pointer">Excluir (soft)</button>
+                </div>
+                <div id="adminManageUserOutput" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:0.75rem;color:var(--text);max-height:220px;overflow-y:auto;white-space:pre-wrap"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Accordion: Outras Ferramentas -->
       <div id="adminAccordionTools" class="admin-accordion" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
         <button class="admin-accordion-header" type="button" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg);border:none;cursor:pointer;transition:background .2s">
@@ -430,6 +567,49 @@
                 <a href="/pages/admin/userParams.html" style="display:block;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:1px solid var(--border);background:transparent;font-weight:800">Parâmetro Usuários</a>
               </div>
               <div style="font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.3">Dica: o Data Explorer não aceita SQL livre; é um construtor seguro.</div>
+            </div>
+
+            <div style="height:1px;background:var(--border);opacity:.7"></div>
+
+            <div>
+              <div style="font-size:0.95rem;font-weight:900;color:var(--text);margin-bottom:8px">👑 Setup Usuário Admin</div>
+              <p style="font-size:0.85rem;color:var(--muted);margin:0 0 10px;line-height:1.4">Concede ou remove o role <span style="font-family:monospace">admin</span> via RBAC para um usuário.</p>
+
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+                <div style="flex:1;min-width:260px;display:grid;gap:4px">
+                  <label for="adminSetupAdminSearch" style="font-size:0.75rem;color:var(--muted)">Buscar usuário</label>
+                  <input id="adminSetupAdminSearch" type="text" placeholder="Nome, usuário, e-mail ou ID..." autocomplete="off" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem" />
+                </div>
+                <button id="adminSetupAdminSearchBtn" type="button" style="min-width:160px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Buscar</button>
+                <button id="adminSetupAdminClearBtn" type="button" style="min-width:140px;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer">Limpar</button>
+              </div>
+
+              <div id="adminSetupAdminSearchStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em"></div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px">
+                <div style="display:grid;gap:4px">
+                  <label for="adminSetupAdminIsAdmin" style="font-size:0.75rem;color:var(--muted)">Admin (RBAC)</label>
+                  <input id="adminSetupAdminIsAdmin" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                </div>
+                <div style="display:grid;gap:4px">
+                  <label for="adminSetupAdminIsAdminEffective" style="font-size:0.75rem;color:var(--muted)">Admin efetivo</label>
+                  <input id="adminSetupAdminIsAdminEffective" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                </div>
+                <div style="display:grid;gap:4px">
+                  <label for="adminSetupAdminRbacAvailable" style="font-size:0.75rem;color:var(--muted)">RBAC disponível</label>
+                  <input id="adminSetupAdminRbacAvailable" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                </div>
+              </div>
+
+              <div id="adminSetupAdminResults" style="display:grid;gap:8px;margin-top:10px"></div>
+
+              <div id="adminSetupAdminSelected" style="display:none;margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:10px"></div>
+
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+                <button id="adminSetupAdminGrantBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:0.9rem;font-weight:800;cursor:pointer" disabled>Promover a admin (RBAC)</button>
+                <button id="adminSetupAdminRevokeBtn" type="button" style="flex:1;min-width:180px;padding:10px;background:rgba(239,68,68,.12);color:var(--text);border:1px solid rgba(239,68,68,.35);border-radius:6px;font-size:0.9rem;font-weight:900;cursor:pointer" disabled>Remover admin (RBAC)</button>
+              </div>
+              <div id="adminSetupAdminActionStatus" style="font-size:0.72rem;color:var(--muted);min-height:1.1em;margin-top:6px"></div>
             </div>
 
             <div style="height:1px;background:var(--border);opacity:.7"></div>
@@ -2002,6 +2182,702 @@
         });
       }
 
+      function initAdminCreateUsers(){
+        const createAcc = document.getElementById('adminCreateUsersAccordion');
+
+        const nomeEl = document.getElementById('adminCreateUserNome');
+        const nomeUsuarioEl = document.getElementById('adminCreateUserNomeUsuario');
+        const emailEl = document.getElementById('adminCreateUserEmail');
+        const passEl = document.getElementById('adminCreateUserPassword');
+        const pass2El = document.getElementById('adminCreateUserPassword2');
+        const emailConfirmadoEl = document.getElementById('adminCreateUserEmailConfirmado');
+        const asAdminEl = document.getElementById('adminCreateUserAsAdmin');
+        const createBtn = document.getElementById('adminCreateUserBtn');
+        const clearCreateBtn = document.getElementById('adminCreateUserClearBtn');
+        const createStatusEl = document.getElementById('adminCreateUserStatus');
+        const createOutEl = document.getElementById('adminCreateUserOutput');
+
+        const manageSearchEl = document.getElementById('adminManageUserSearch');
+        const manageSearchBtn = document.getElementById('adminManageUserSearchBtn');
+        const manageClearBtn = document.getElementById('adminManageUserClearBtn');
+        const manageSearchStatusEl = document.getElementById('adminManageUserSearchStatus');
+        const manageResultsEl = document.getElementById('adminManageUserResults');
+        const managePanelEl = document.getElementById('adminManageUserPanel');
+
+        const manageIdEl = document.getElementById('adminManageUserId');
+        const manageNomeEl = document.getElementById('adminManageUserNome');
+        const manageNomeUsuarioEl = document.getElementById('adminManageUserNomeUsuario');
+        const manageEmailEl = document.getElementById('adminManageUserEmail');
+        const manageEmailConfirmadoEl = document.getElementById('adminManageUserEmailConfirmado');
+        const manageIsAdminEl = document.getElementById('adminManageUserIsAdmin');
+        const manageExcluidoEl = document.getElementById('adminManageUserExcluido');
+        const manageAdminToggleEl = document.getElementById('adminManageUserAdminToggle');
+        const manageEmailConfirmadoToggleEl = document.getElementById('adminManageUserEmailConfirmadoToggle');
+        const manageExcluidoToggleEl = document.getElementById('adminManageUserExcluidoToggle');
+        const manageSaveBtn = document.getElementById('adminManageUserSaveBtn');
+        const manageReactivateBtn = document.getElementById('adminManageUserReactivateBtn');
+        const manageDeleteBtn = document.getElementById('adminManageUserDeleteBtn');
+        const manageStatusEl = document.getElementById('adminManageUserStatus');
+        const manageOutEl = document.getElementById('adminManageUserOutput');
+
+        if (!createAcc) return;
+
+        function setCreateStatus(msg){ if (createStatusEl) createStatusEl.textContent = msg || ''; }
+        function setManageStatus(msg){ if (manageStatusEl) manageStatusEl.textContent = msg || ''; }
+        function setManageSearchStatus(msg){ if (manageSearchStatusEl) manageSearchStatusEl.textContent = msg || ''; }
+
+        function showOut(el, msg){
+          if (!el) return;
+          el.style.display = msg ? 'block' : 'none';
+          el.textContent = msg || '';
+        }
+
+        function escapeHtml(s){
+          return String(s || '').replace(/[&<>"']/g, (c)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+        }
+
+        async function sha256Hex(str){
+          const data = new TextEncoder().encode(String(str || ''));
+          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function clearCreate(){
+          try { if (nomeEl) nomeEl.value = ''; } catch(_){ }
+          try { if (nomeUsuarioEl) nomeUsuarioEl.value = ''; } catch(_){ }
+          try { if (emailEl) emailEl.value = ''; } catch(_){ }
+          try { if (passEl) passEl.value = ''; } catch(_){ }
+          try { if (pass2El) pass2El.value = ''; } catch(_){ }
+          try { if (emailConfirmadoEl) emailConfirmadoEl.checked = true; } catch(_){ }
+          try { if (asAdminEl) asAdminEl.checked = false; } catch(_){ }
+          setCreateStatus('');
+          showOut(createOutEl, '');
+        }
+
+        async function createUser(){
+          if (!emailEl || !passEl || !pass2El) return;
+          const email = String(emailEl.value || '').trim();
+          const pass = String(passEl.value || '');
+          const pass2 = String(pass2El.value || '');
+          const nome = nomeEl ? String(nomeEl.value || '').trim() : '';
+          const nomeUsuario = nomeUsuarioEl ? String(nomeUsuarioEl.value || '').trim() : '';
+          const emailConfirmado = !!(emailConfirmadoEl && emailConfirmadoEl.checked);
+          const createAsAdmin = !!(asAdminEl && asAdminEl.checked);
+
+          if (!email) { setCreateStatus('Informe o email.'); return; }
+          if (pass.length < 6) { setCreateStatus('Senha muito curta (mín. 6).'); return; }
+          if (pass !== pass2) { setCreateStatus('As senhas não coincidem.'); return; }
+
+          const msg = `Tem certeza que deseja CRIAR este usuário?\n\nEmail: ${email}${nomeUsuario ? `\nUsuário: ${nomeUsuario}` : ''}\nStatus: ${emailConfirmado ? 'DESBLOQUEADO (email confirmado)' : 'BLOQUEADO (email não confirmado)'}${createAsAdmin ? '\n\nE também promover a admin (RBAC).' : ''}`;
+          if (!confirm(msg)) { setCreateStatus('Ação cancelada.'); return; }
+
+          try {
+            if (createBtn) createBtn.disabled = true;
+            setCreateStatus('Gerando SHA-256 e criando...');
+            showOut(createOutEl, '');
+
+            const hashedPassword = await sha256Hex(pass);
+            const payload = {
+              Email: email,
+              SenhaHash: hashedPassword,
+              EmailConfirmado: emailConfirmado,
+            };
+            if (nome) payload.Nome = nome;
+            if (nomeUsuario) payload.NomeUsuario = nomeUsuario;
+
+            const r = await adminFetch('/api/admin/users', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!r.ok) {
+              setCreateStatus('');
+              showOut(createOutEl, `Erro ao criar (HTTP ${r.status})\n${JSON.stringify(r.data, null, 2)}`);
+              return;
+            }
+
+            const created = r.data || {};
+            let extra = '';
+            if (createAsAdmin && created.Id) {
+              setCreateStatus('Criado. Promovendo a admin...');
+              const r2 = await adminFetch(`/api/admin/users/${encodeURIComponent(created.Id)}/admin-role`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'grant' })
+              });
+              if (!r2.ok) {
+                extra = `\n\nFalha ao promover a admin (HTTP ${r2.status})\n${JSON.stringify(r2.data, null, 2)}`;
+              } else {
+                extra = `\n\nAdmin (RBAC): OK`;
+              }
+            }
+
+            setCreateStatus('OK.');
+            showOut(createOutEl, `Usuário criado:\n${JSON.stringify(created, null, 2)}${extra}`);
+          } catch (err) {
+            setCreateStatus('');
+            showOut(createOutEl, `Erro: ${err && err.message ? err.message : String(err)}`);
+          } finally {
+            if (createBtn) createBtn.disabled = false;
+          }
+        }
+
+        // Manage existing users
+        let manageSelectedId = 0;
+        let manageSelectedStatus = null;
+        let manageList = [];
+        let debounceT = null;
+
+        function clearManage(){
+          manageSelectedId = 0;
+          manageSelectedStatus = null;
+          manageList = [];
+          if (manageResultsEl) manageResultsEl.innerHTML = '';
+          if (managePanelEl) managePanelEl.style.display = 'none';
+          if (manageIdEl) manageIdEl.value = '';
+          if (manageNomeEl) manageNomeEl.value = '';
+          if (manageNomeUsuarioEl) manageNomeUsuarioEl.value = '';
+          if (manageEmailEl) manageEmailEl.value = '';
+          if (manageEmailConfirmadoEl) manageEmailConfirmadoEl.value = '—';
+          if (manageIsAdminEl) manageIsAdminEl.value = '—';
+          if (manageExcluidoEl) manageExcluidoEl.value = '—';
+          if (manageAdminToggleEl) manageAdminToggleEl.checked = false;
+          if (manageEmailConfirmadoToggleEl) manageEmailConfirmadoToggleEl.checked = false;
+          if (manageExcluidoToggleEl) manageExcluidoToggleEl.checked = false;
+          setManageSearchStatus('');
+          setManageStatus('');
+          showOut(manageOutEl, '');
+        }
+
+        function renderManageResults(items){
+          if (!manageResultsEl) return;
+          manageResultsEl.innerHTML = '';
+          const list = Array.isArray(items) ? items : [];
+          if (!list.length) {
+            const empty = document.createElement('div');
+            empty.style.fontSize = '0.85rem';
+            empty.style.color = 'var(--muted)';
+            empty.textContent = 'Nenhum resultado.';
+            manageResultsEl.appendChild(empty);
+            return;
+          }
+
+          list.forEach(u => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.style.textAlign = 'left';
+            btn.style.padding = '10px';
+            btn.style.border = '1px solid var(--border)';
+            btn.style.borderRadius = '10px';
+            btn.style.background = (manageSelectedId && Number(manageSelectedId) === Number(u.Id)) ? 'rgba(99,102,241,.08)' : 'transparent';
+            btn.style.cursor = 'pointer';
+            btn.style.color = 'var(--text)';
+            btn.style.fontWeight = '800';
+
+            const nome = (u.Nome || u.NomeUsuario || `User ${u.Id}`);
+            const email = (u.Email || '');
+            const nu = (u.NomeUsuario || '');
+            btn.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="display:grid;gap:2px">
+                <div style="font-size:0.9rem">${escapeHtml(nome)}</div>
+                <div style="font-size:0.78rem;color:var(--muted)">${escapeHtml(nu)}${nu && email ? ' — ' : ''}${escapeHtml(email)}</div>
+              </div>
+              <div style="font-size:0.75rem;color:var(--muted);font-family:monospace">#${escapeHtml(u.Id)}</div>
+            </div>`;
+
+            btn.addEventListener('click', ()=>selectManageUser(Number(u.Id)));
+            manageResultsEl.appendChild(btn);
+          });
+        }
+
+        async function selectManageUser(id){
+          manageSelectedId = Number(id) || 0;
+          manageSelectedStatus = null;
+          setManageStatus('Carregando usuário...');
+          showOut(manageOutEl, '');
+          renderManageResults(manageList);
+          if (managePanelEl) managePanelEl.style.display = 'none';
+
+          const r = await adminFetch(`/api/admin/users/${encodeURIComponent(manageSelectedId)}`, { method: 'GET' });
+          if (!r.ok) {
+            setManageStatus((r.data && (r.data.error || r.data.message)) ? (r.data.error || r.data.message) : `Falha (${r.status}).`);
+            return;
+          }
+
+          const u = r.data || {};
+          if (manageIdEl) manageIdEl.value = String(u.Id || manageSelectedId);
+          if (manageNomeEl) manageNomeEl.value = String(u.Nome || '');
+          if (manageNomeUsuarioEl) manageNomeUsuarioEl.value = String(u.NomeUsuario || '');
+          if (manageEmailEl) manageEmailEl.value = String(u.Email || '');
+          if (manageEmailConfirmadoEl) manageEmailConfirmadoEl.value = (u.EmailConfirmado ? 'Sim' : 'Não');
+          if (manageEmailConfirmadoToggleEl) manageEmailConfirmadoToggleEl.checked = !!u.EmailConfirmado;
+          if (manageExcluidoEl) manageExcluidoEl.value = u.Excluido ? 'Sim' : 'Não';
+          if (manageExcluidoToggleEl) manageExcluidoToggleEl.checked = !!u.Excluido;
+
+          const st = await adminFetch(`/api/admin/users/${encodeURIComponent(manageSelectedId)}/admin-status`, { method: 'GET' });
+          if (st.ok) {
+            manageSelectedStatus = st.data || null;
+            const isAdmin = !!(manageSelectedStatus && manageSelectedStatus.isAdminRbac);
+            if (manageIsAdminEl) manageIsAdminEl.value = isAdmin ? 'Sim' : 'Não';
+            if (manageAdminToggleEl) manageAdminToggleEl.checked = isAdmin;
+          } else {
+            if (manageIsAdminEl) manageIsAdminEl.value = '—';
+          }
+
+          if (managePanelEl) managePanelEl.style.display = 'grid';
+          setManageStatus('');
+        }
+
+        async function runManageSearch(q){
+          const query = String(q || '').trim();
+          if (!query) {
+            setManageSearchStatus('');
+            manageList = [];
+            renderManageResults([]);
+            return;
+          }
+
+          if (query.length < 2 && !/^\d+$/.test(query)) {
+            setManageSearchStatus('Digite pelo menos 2 caracteres (ou um ID numérico).');
+            manageList = [];
+            renderManageResults([]);
+            return;
+          }
+
+          setManageSearchStatus('Buscando...');
+          const r = await adminFetch(`/api/admin/users/search?q=${encodeURIComponent(query)}&limit=15`, { method: 'GET' });
+          if (!r.ok) {
+            setManageSearchStatus((r.data && (r.data.error || r.data.message)) ? (r.data.error || r.data.message) : `Falha (${r.status}).`);
+            manageList = [];
+            renderManageResults([]);
+            return;
+          }
+          manageList = (r.data && r.data.items) || [];
+          setManageSearchStatus(manageList.length ? '' : 'Nenhum resultado.');
+          renderManageResults(manageList);
+        }
+
+        async function saveManage(){
+          if (!manageSelectedId) return;
+
+          const nome = manageNomeEl ? String(manageNomeEl.value || '').trim() : '';
+          const nu = manageNomeUsuarioEl ? String(manageNomeUsuarioEl.value || '').trim() : '';
+          const email = manageEmailEl ? String(manageEmailEl.value || '').trim() : '';
+          const wantsAdmin = !!(manageAdminToggleEl && manageAdminToggleEl.checked);
+          const wantsEmailConfirmado = !!(manageEmailConfirmadoToggleEl && manageEmailConfirmadoToggleEl.checked);
+          const wantsExcluido = !!(manageExcluidoToggleEl && manageExcluidoToggleEl.checked);
+          const currentAdmin = !!(manageSelectedStatus && manageSelectedStatus.isAdminRbac);
+
+          const confirmMsg = `Tem certeza que deseja SALVAR alterações?\n\nUser #${manageSelectedId}${wantsAdmin !== currentAdmin ? `\nAdmin (RBAC): ${currentAdmin ? 'Sim' : 'Não'} → ${wantsAdmin ? 'Sim' : 'Não'}` : ''}${'\nEmailConfirmado: ' + (wantsEmailConfirmado ? 'Sim' : 'Não')}${'\nExcluído: ' + (wantsExcluido ? 'Sim' : 'Não')}`;
+          if (!confirm(confirmMsg)) { setManageStatus('Ação cancelada.'); return; }
+
+          try {
+            if (manageSaveBtn) manageSaveBtn.disabled = true;
+            if (manageDeleteBtn) manageDeleteBtn.disabled = true;
+            setManageStatus('Salvando...');
+            showOut(manageOutEl, '');
+
+            const payload = {
+              Nome: nome,
+              NomeUsuario: nu,
+              Email: email,
+              EmailConfirmado: wantsEmailConfirmado,
+              Excluido: wantsExcluido,
+            };
+
+            const r = await adminFetch(`/api/admin/users/${encodeURIComponent(manageSelectedId)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!r.ok) {
+              setManageStatus('');
+              showOut(manageOutEl, `Erro ao salvar (HTTP ${r.status})\n${JSON.stringify(r.data, null, 2)}`);
+              return;
+            }
+
+            if (wantsAdmin !== currentAdmin) {
+              setManageStatus(wantsAdmin ? 'Promovendo a admin...' : 'Removendo admin...');
+              const r2 = await adminFetch(`/api/admin/users/${encodeURIComponent(manageSelectedId)}/admin-role`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: wantsAdmin ? 'grant' : 'revoke', confirmSelf: true })
+              });
+              if (!r2.ok) {
+                setManageStatus('');
+                showOut(manageOutEl, `Usuário salvo, mas falha ao atualizar admin (HTTP ${r2.status})\n${JSON.stringify(r2.data, null, 2)}`);
+                await selectManageUser(manageSelectedId);
+                return;
+              }
+            }
+
+            setManageStatus('OK.');
+            showOut(manageOutEl, `Atualizado:\n${JSON.stringify(r.data, null, 2)}`);
+            await selectManageUser(manageSelectedId);
+          } catch (err) {
+            setManageStatus('');
+            showOut(manageOutEl, `Erro: ${err && err.message ? err.message : String(err)}`);
+          } finally {
+            if (manageSaveBtn) manageSaveBtn.disabled = false;
+            if (manageDeleteBtn) manageDeleteBtn.disabled = false;
+          }
+        }
+
+        async function deleteManage(){
+          if (!manageSelectedId) return;
+          if (!confirm(`Tem certeza que deseja EXCLUIR (soft) o usuário #${manageSelectedId}?`)) { setManageStatus('Ação cancelada.'); return; }
+          try {
+            if (manageDeleteBtn) manageDeleteBtn.disabled = true;
+            if (manageSaveBtn) manageSaveBtn.disabled = true;
+            setManageStatus('Excluindo...');
+            const r = await adminFetch(`/api/admin/users/${encodeURIComponent(manageSelectedId)}`, { method: 'DELETE' });
+            if (!r.ok) {
+              setManageStatus('');
+              showOut(manageOutEl, `Falha ao excluir (HTTP ${r.status})\n${JSON.stringify(r.data, null, 2)}`);
+              return;
+            }
+            setManageStatus('OK.');
+            showOut(manageOutEl, `Excluído (soft):\n${JSON.stringify(r.data, null, 2)}`);
+            await selectManageUser(manageSelectedId);
+          } catch (err) {
+            setManageStatus('');
+            showOut(manageOutEl, `Erro: ${err && err.message ? err.message : String(err)}`);
+          } finally {
+            if (manageDeleteBtn) manageDeleteBtn.disabled = false;
+            if (manageSaveBtn) manageSaveBtn.disabled = false;
+          }
+        }
+
+        async function reactivateManage(){
+          if (!manageSelectedId) return;
+          if (!confirm(`Tem certeza que deseja REATIVAR o usuário #${manageSelectedId} (Excluido=false)?`)) { setManageStatus('Ação cancelada.'); return; }
+          try {
+            if (manageReactivateBtn) manageReactivateBtn.disabled = true;
+            if (manageSaveBtn) manageSaveBtn.disabled = true;
+            if (manageDeleteBtn) manageDeleteBtn.disabled = true;
+            setManageStatus('Reativando...');
+            showOut(manageOutEl, '');
+
+            const r = await adminFetch(`/api/admin/users/${encodeURIComponent(manageSelectedId)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ Excluido: false })
+            });
+
+            if (!r.ok) {
+              setManageStatus('');
+              showOut(manageOutEl, `Falha ao reativar (HTTP ${r.status})\n${JSON.stringify(r.data, null, 2)}`);
+              return;
+            }
+
+            setManageStatus('OK.');
+            showOut(manageOutEl, `Reativado:\n${JSON.stringify(r.data, null, 2)}`);
+            await selectManageUser(manageSelectedId);
+          } catch (err) {
+            setManageStatus('');
+            showOut(manageOutEl, `Erro: ${err && err.message ? err.message : String(err)}`);
+          } finally {
+            if (manageReactivateBtn) manageReactivateBtn.disabled = false;
+            if (manageSaveBtn) manageSaveBtn.disabled = false;
+            if (manageDeleteBtn) manageDeleteBtn.disabled = false;
+          }
+        }
+
+        if (clearCreateBtn) clearCreateBtn.addEventListener('click', clearCreate);
+        if (createBtn) createBtn.addEventListener('click', createUser);
+
+        if (manageClearBtn) manageClearBtn.addEventListener('click', clearManage);
+        if (manageSearchBtn) manageSearchBtn.addEventListener('click', ()=>runManageSearch(manageSearchEl ? manageSearchEl.value : ''));
+        if (manageSearchEl) manageSearchEl.addEventListener('input', ()=>{
+          if (debounceT) clearTimeout(debounceT);
+          debounceT = setTimeout(()=>runManageSearch(manageSearchEl.value), 250);
+        });
+        if (manageSaveBtn) manageSaveBtn.addEventListener('click', saveManage);
+        if (manageReactivateBtn) manageReactivateBtn.addEventListener('click', reactivateManage);
+        if (manageDeleteBtn) manageDeleteBtn.addEventListener('click', deleteManage);
+
+        if (createAcc) {
+          const header = createAcc.querySelector('.admin-accordion-header');
+          if (header) {
+            header.addEventListener('click', ()=>{
+              setTimeout(()=>{
+                try {
+                  const content = createAcc.querySelector('.admin-accordion-content');
+                  if (content && content.style.display === 'block') {
+                    if (emailEl && !String(emailEl.value || '').trim()) emailEl.focus();
+                  }
+                } catch(_){ }
+              }, 0);
+            });
+          }
+        }
+      }
+
+      function initAdminSetupAdmin(){
+        const searchEl = document.getElementById('adminSetupAdminSearch');
+        const searchBtn = document.getElementById('adminSetupAdminSearchBtn');
+        const clearBtn = document.getElementById('adminSetupAdminClearBtn');
+        const resultsEl = document.getElementById('adminSetupAdminResults');
+        const searchStatusEl = document.getElementById('adminSetupAdminSearchStatus');
+        const selectedEl = document.getElementById('adminSetupAdminSelected');
+        const grantBtn = document.getElementById('adminSetupAdminGrantBtn');
+        const revokeBtn = document.getElementById('adminSetupAdminRevokeBtn');
+        const actionStatusEl = document.getElementById('adminSetupAdminActionStatus');
+        const toolsAccordion = document.getElementById('adminAccordionTools');
+        const isAdminEl = document.getElementById('adminSetupAdminIsAdmin');
+        const isAdminEffectiveEl = document.getElementById('adminSetupAdminIsAdminEffective');
+        const rbacAvailableEl = document.getElementById('adminSetupAdminRbacAvailable');
+
+        if (!searchEl || !resultsEl || !selectedEl || !grantBtn || !revokeBtn) return;
+
+        let debounceT = null;
+        let searchSeq = 0;
+        let selectedUser = null;
+        let selectedStatus = null;
+
+        function setSearchStatus(msg){ if (searchStatusEl) searchStatusEl.textContent = msg || ''; }
+        function setActionStatus(msg){ if (actionStatusEl) actionStatusEl.textContent = msg || ''; }
+
+        function escapeHtml(s){
+          return String(s || '').replace(/[&<>"']/g, (c)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+        }
+
+        function setStatusFields(st){
+          if (isAdminEl) {
+            if (!st) isAdminEl.value = 'Carregando...';
+            else isAdminEl.value = st.isAdminRbac ? 'Sim' : 'Não';
+          }
+          if (isAdminEffectiveEl) {
+            if (!st) isAdminEffectiveEl.value = 'Carregando...';
+            else isAdminEffectiveEl.value = st.isAdminEffective ? 'Sim' : 'Não';
+          }
+          if (rbacAvailableEl) {
+            if (!st) rbacAvailableEl.value = 'Carregando...';
+            else rbacAvailableEl.value = st.rbacAvailable ? 'Sim' : 'Não';
+          }
+        }
+
+        function renderSelected(){
+          if (!selectedUser){
+            selectedEl.style.display = 'none';
+            selectedEl.innerHTML = '';
+            grantBtn.disabled = true;
+            revokeBtn.disabled = true;
+            if (isAdminEl) isAdminEl.value = '—';
+            if (isAdminEffectiveEl) isAdminEffectiveEl.value = '—';
+            if (rbacAvailableEl) rbacAvailableEl.value = '—';
+            return;
+          }
+
+          const u = selectedUser;
+          const st = selectedStatus;
+
+          setStatusFields(st);
+
+          const name = escapeHtml(u.Nome || u.NomeUsuario || `User ${u.Id}`);
+          const username = escapeHtml(u.NomeUsuario || '');
+          const email = escapeHtml(u.Email || '');
+
+          let badges = '';
+          if (st) {
+            const rbac = st.rbacAvailable ? (st.isAdminRbac ? 'Admin (RBAC)' : 'Não admin (RBAC)') : 'RBAC indisponível';
+            const fb = st.isAdminFallback ? 'Admin (fallback)' : 'Sem fallback';
+            const eff = st.isAdminEffective ? 'Admin efetivo' : 'Não admin efetivo';
+            badges = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <span style="padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:0.75rem;color:var(--text)">${escapeHtml(rbac)}</span>
+              <span style="padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:0.75rem;color:var(--text)">${escapeHtml(fb)}</span>
+              <span style="padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:0.75rem;color:var(--text)">${escapeHtml(eff)}</span>
+            </div>`;
+          }
+
+          selectedEl.style.display = 'block';
+          selectedEl.innerHTML = `
+            <div style="display:grid;gap:4px">
+              <div style="font-size:0.9rem;font-weight:900;color:var(--text)">${name} <span style="font-size:0.75rem;color:var(--muted);font-weight:800">#${escapeHtml(u.Id)}</span></div>
+              <div style="font-size:0.82rem;color:var(--muted)">Usuário: <span style="font-family:monospace">${username || '-'}</span></div>
+              <div style="font-size:0.82rem;color:var(--muted)">Email: <span style="font-family:monospace">${email || '-'}</span></div>
+              ${badges}
+            </div>
+          `;
+
+          const canMutate = !!(st && st.rbacAvailable);
+          grantBtn.disabled = !canMutate || !!(st && st.isAdminRbac);
+          revokeBtn.disabled = !canMutate || !(st && st.isAdminRbac);
+        }
+
+        async function selectUser(u, listForRerender){
+          selectedUser = u;
+          selectedStatus = null;
+          setActionStatus('Carregando status...');
+          if (listForRerender) renderResults(listForRerender);
+          renderSelected();
+
+          const r = await adminFetch(`/api/admin/users/${encodeURIComponent(u.Id)}/admin-status`, { method: 'GET' });
+          if (!r.ok) {
+            setActionStatus((r.data && (r.data.error || r.data.message)) ? (r.data.error || r.data.message) : `Falha ao obter status (${r.status}).`);
+            renderSelected();
+            return;
+          }
+          selectedStatus = r.data || null;
+          setActionStatus('');
+          renderSelected();
+        }
+
+        function renderResults(items){
+          resultsEl.innerHTML = '';
+          const list = Array.isArray(items) ? items : [];
+          if (!list.length){
+            const empty = document.createElement('div');
+            empty.style.fontSize = '0.85rem';
+            empty.style.color = 'var(--muted)';
+            empty.textContent = 'Nenhum resultado.';
+            resultsEl.appendChild(empty);
+            return;
+          }
+
+          list.forEach(u => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.style.textAlign = 'left';
+            btn.style.padding = '10px';
+            btn.style.border = '1px solid var(--border)';
+            btn.style.borderRadius = '10px';
+            btn.style.background = (selectedUser && Number(selectedUser.Id) === Number(u.Id)) ? 'rgba(99,102,241,.08)' : 'transparent';
+            btn.style.cursor = 'pointer';
+            btn.style.color = 'var(--text)';
+            btn.style.fontWeight = '800';
+
+            const nome = (u.Nome || u.NomeUsuario || `User ${u.Id}`);
+            const email = (u.Email || '');
+            const nu = (u.NomeUsuario || '');
+            btn.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="display:grid;gap:2px">
+                <div style="font-size:0.9rem">${escapeHtml(nome)}</div>
+                <div style="font-size:0.78rem;color:var(--muted)">${escapeHtml(nu)}${nu && email ? ' — ' : ''}${escapeHtml(email)}</div>
+              </div>
+              <div style="font-size:0.75rem;color:var(--muted);font-family:monospace">#${escapeHtml(u.Id)}</div>
+            </div>`;
+
+            btn.addEventListener('click', async ()=>{
+              await selectUser(u, list);
+            });
+
+            resultsEl.appendChild(btn);
+          });
+        }
+
+        async function runSearch(q){
+          const query = String(q || '').trim();
+          const seq = ++searchSeq;
+
+          if (!query) {
+            setSearchStatus('');
+            resultsEl.innerHTML = '';
+            return;
+          }
+
+          if (query.length < 2 && !/^\d+$/.test(query)) {
+            setSearchStatus('Digite pelo menos 2 caracteres (ou um ID numérico).');
+            resultsEl.innerHTML = '';
+            return;
+          }
+
+          setSearchStatus('Buscando...');
+          const r = await adminFetch(`/api/admin/users/search?q=${encodeURIComponent(query)}&limit=15`, { method: 'GET' });
+          if (seq !== searchSeq) return;
+          if (!r.ok) {
+            setSearchStatus((r.data && (r.data.error || r.data.message)) ? (r.data.error || r.data.message) : `Falha (${r.status}).`);
+            resultsEl.innerHTML = '';
+            return;
+          }
+
+          const items = (r.data && r.data.items) || [];
+          setSearchStatus(items.length ? '' : 'Nenhum resultado.');
+          renderResults(items);
+
+          // Auto-select exact match by ID/email/username
+          const qLower = String(query).trim().toLowerCase();
+          let exact = null;
+          if (/^\d+$/.test(query)) exact = items.find(it => String(it.Id) === String(query));
+          if (!exact) exact = items.find(it => String(it.Email || '').trim().toLowerCase() === qLower);
+          if (!exact) exact = items.find(it => String(it.NomeUsuario || '').trim().toLowerCase() === qLower);
+          if (exact) await selectUser(exact, items);
+        }
+
+        async function mutateSelected(action){
+          if (!selectedUser) return;
+          const u = selectedUser;
+          const st = selectedStatus;
+          const current = !!(st && st.isAdminRbac);
+          const msg = action === 'grant'
+            ? `Tem certeza que deseja PROMOVER a admin (RBAC)?\n\nUser #${u.Id}\nEmail: ${u.Email || '-'}\nUsuário: ${u.NomeUsuario || '-'}\n\nAtual: ${current ? 'Já é admin' : 'Não é admin'}`
+            : `Tem certeza que deseja REMOVER admin (RBAC)?\n\nUser #${u.Id}\nEmail: ${u.Email || '-'}\nUsuário: ${u.NomeUsuario || '-'}\n\nAtual: ${current ? 'É admin' : 'Não é admin'}`;
+          if (!confirm(msg)) { setActionStatus('Ação cancelada.'); return; }
+
+          try {
+            grantBtn.disabled = true;
+            revokeBtn.disabled = true;
+            setActionStatus(action === 'grant' ? 'Promovendo...' : 'Removendo...');
+
+            const r = await adminFetch(`/api/admin/users/${encodeURIComponent(u.Id)}/admin-role`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action, confirmSelf: true })
+            });
+            if (!r.ok) {
+              setActionStatus((r.data && (r.data.error || r.data.message)) ? (r.data.error || r.data.message) : `Falha (${r.status}).`);
+              await selectUser(u);
+              return;
+            }
+
+            setActionStatus('OK.');
+            await selectUser(u);
+          } catch (err) {
+            setActionStatus(`Erro: ${err && err.message ? err.message : String(err)}`);
+          }
+        }
+
+        function clearAll(){
+          selectedUser = null;
+          selectedStatus = null;
+          resultsEl.innerHTML = '';
+          selectedEl.style.display = 'none';
+          selectedEl.innerHTML = '';
+          setSearchStatus('');
+          setActionStatus('');
+          if (searchEl) searchEl.value = '';
+          renderSelected();
+        }
+
+        if (clearBtn) clearBtn.addEventListener('click', clearAll);
+        if (searchBtn) searchBtn.addEventListener('click', ()=>runSearch(searchEl.value));
+        if (searchEl) searchEl.addEventListener('input', ()=>{
+          if (debounceT) clearTimeout(debounceT);
+          debounceT = setTimeout(()=>runSearch(searchEl.value), 250);
+        });
+        if (grantBtn) grantBtn.addEventListener('click', ()=>mutateSelected('grant'));
+        if (revokeBtn) revokeBtn.addEventListener('click', ()=>mutateSelected('revoke'));
+
+        if (toolsAccordion) {
+          const header = toolsAccordion.querySelector('.admin-accordion-header');
+          if (header) {
+            header.addEventListener('click', ()=>{
+              setTimeout(()=>{
+                try {
+                  const content = toolsAccordion.querySelector('.admin-accordion-content');
+                  if (content && content.style.display === 'block') {
+                    if (searchEl && !String(searchEl.value || '').trim()) searchEl.focus();
+                  }
+                } catch(_){ }
+              }, 0);
+            });
+          }
+        }
+      }
+
       function handleHashFocus(){
         const h = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
         if (!h) return;
@@ -2013,6 +2889,7 @@
           'eco': 'adminCurrentVersionAccordion',
           'override': 'adminUserOverrideAccordion',
           'reset-password': 'adminResetPasswordAccordion',
+          'create-users': 'adminCreateUsersAccordion',
           'snapshots': 'adminSnapshotsAccordion',
           'db': 'adminDbCleanupAccordion',
           'emulator': 'adminEmulatorAccordion',
@@ -2047,6 +2924,8 @@
         initAdminSnapshots();
         initAdminDbCleanup();
         initAdminEmulator();
+        initAdminCreateUsers();
+        initAdminSetupAdmin();
         initAdminCommunication();
         initReconcile();
         await loadAdminExamTypes();

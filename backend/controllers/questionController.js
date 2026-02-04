@@ -226,7 +226,7 @@ exports.createQuestion = async (req, res, next) => {
 			return next(badRequest('createdByUserId required', 'CREATED_BY_REQUIRED'));
 		}
 		try {
-			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: createdByUserId }, type: sequelize.QueryTypes.SELECT });
+			const urow = await sequelize.query('SELECT "Id" FROM public.usuario WHERE "Id" = :uid LIMIT 1', { replacements: { uid: createdByUserId }, type: sequelize.QueryTypes.SELECT });
 			if (!urow || !urow[0] || urow[0].Id == null) {
 				return next(badRequest('createdByUserId not found', 'CREATED_BY_NOT_FOUND'));
 			}
@@ -534,12 +534,12 @@ exports.updateQuestion = async (req, res, next) => {
 		const referencia = (b.referencia != null) ? String(b.referencia) : null;
 		// Audit: updatedByUserId for respostaopcao on update
 		const updatedByUserId = Number.isFinite(Number(b.updatedByUserId)) ? Number(b.updatedByUserId) : null;
-		// Validate updatedByUserId (must exist in Usuario)
+		// Validate updatedByUserId (must exist in usuario)
 		if (!Number.isFinite(updatedByUserId) || updatedByUserId <= 0) {
 			return next(badRequest('updatedByUserId required', 'UPDATED_BY_REQUIRED'));
 		}
 		try {
-			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: updatedByUserId }, type: sequelize.QueryTypes.SELECT });
+			const urow = await sequelize.query('SELECT "Id" FROM public.usuario WHERE "Id" = :uid LIMIT 1', { replacements: { uid: updatedByUserId }, type: sequelize.QueryTypes.SELECT });
 			if (!urow || !urow[0] || urow[0].Id == null) {
 				return next(badRequest('updatedByUserId not found', 'UPDATED_BY_NOT_FOUND'));
 			}
@@ -1037,7 +1037,7 @@ exports.bulkCreateQuestions = async (req, res, next) => {
 			return next(badRequest('createdByUserId required for bulk', 'CREATED_BY_REQUIRED'));
 		}
 		try {
-			const urow = await sequelize.query('SELECT "Id" FROM public."Usuario" WHERE "Id" = :uid LIMIT 1', { replacements: { uid: bulkCreatedByUserId }, type: sequelize.QueryTypes.SELECT });
+			const urow = await sequelize.query('SELECT "Id" FROM public.usuario WHERE "Id" = :uid LIMIT 1', { replacements: { uid: bulkCreatedByUserId }, type: sequelize.QueryTypes.SELECT });
 			if (!urow || !urow[0] || urow[0].Id == null) {
 				return next(badRequest('createdByUserId not found', 'CREATED_BY_NOT_FOUND'));
 			}

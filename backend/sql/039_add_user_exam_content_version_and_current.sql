@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS public.user_exam_content_version (
   notes TEXT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT fk_user_exam_content_user FOREIGN KEY (user_id) REFERENCES "Usuario"("Id"),
+  CONSTRAINT fk_user_exam_content_user FOREIGN KEY (user_id) REFERENCES public.usuario("Id"),
   CONSTRAINT fk_user_exam_content_type FOREIGN KEY (exam_type_id) REFERENCES exam_type(id),
   CONSTRAINT fk_user_exam_content_version FOREIGN KEY (exam_content_version_id) REFERENCES exam_content_version(id)
 );

@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.questao_like
         ON DELETE NO ACTION
         NOT VALID,
     CONSTRAINT questao_like_usuario_fk FOREIGN KEY (idusario)
-        REFERENCES public."Usuario" ("Id") MATCH SIMPLE
+        REFERENCES public.usuario ("Id") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION
 );

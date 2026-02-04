@@ -162,8 +162,8 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 const current = Number(user.AccessFailedCount || 0);
                 const next = current + 1;
                 let patch = { AccessFailedCount: next, DataAlteracao: new Date() };
-                // aplica bloqueio após 5 falhas
-                if (next >= 5) {
+                // aplica bloqueio após 3 falhas
+                if (next >= 3) {
                     const until = new Date(Date.now() + 5 * 60 * 1000);
                     patch = { ...patch, AccessFailedCount: 0, FimBloqueio: until };
                 }
@@ -179,8 +179,8 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 const current = Number(user.AccessFailedCount || 0);
                 const next = current + 1;
                 let patch = { AccessFailedCount: next, DataAlteracao: new Date() };
-                // aplica bloqueio após 5 falhas
-                if (next >= 5) {
+                // aplica bloqueio após 3 falhas
+                if (next >= 3) {
                     const until = new Date(Date.now() + 5 * 60 * 1000);
                     patch = { ...patch, AccessFailedCount: 0, FimBloqueio: until };
                 }

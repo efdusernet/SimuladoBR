@@ -92,7 +92,7 @@ module.exports = (sequelize, DataTypes) => {
 			field: 'Excluido'
 		}
 	}, {
-		tableName: 'Usuario',
+		tableName: 'usuario',
 		timestamps: false,
 		// Don't pluralize table name
 		freezeTableName: true

@@ -27,7 +27,7 @@ Leitura rápida recomendada (onboarding): `CONTEXT.md`, `FEATURES.md` e `KNOWN_I
 
 ## Premium por expiração (PremiumExpiresAt) + ponte com checkout (Asaas)
 
-O app principal (este backend) agora suporta um campo `Usuario.PremiumExpiresAt` (timestamptz no Postgres) para armazenar **até quando** o usuário tem acesso premium.
+O app principal (este backend) agora suporta um campo `usuario.PremiumExpiresAt` (timestamptz no Postgres) para armazenar **até quando** o usuário tem acesso premium.
 
 Estado atual do gating:
 

@@ -73,7 +73,7 @@ function getClassificationSets() {
     'ExamePMPRealizadoDetalhe',
     'Feedback',
     'RetornoFeedback',
-    'Usuario',
+    'usuario',
     'communication_recipient',
     'examSession',
     'exam_attempt',
@@ -99,6 +99,10 @@ function getClassificationSets() {
 function getDefaultKeepTables(opts, allTables) {
   const { master, transactional } = getClassificationSets();
   const keep = new Set(master);
+
+  const usuarioTableName = Array.isArray(allTables)
+    ? (allTables.find(t => String(t || '').toLowerCase() === 'usuario') || 'usuario')
+    : 'usuario';
 
   // Optional: user can extend masterdata list.
   if (opts && Array.isArray(opts.masterdataExtra)) {
@@ -132,9 +136,9 @@ function getDefaultKeepTables(opts, allTables) {
     keep.add('user_notification');
   }
 
-  // Special case: Usuario should never be TRUNCATEd (we may DELETE rows instead).
+  // Special case: usuario should never be TRUNCATEd (we may DELETE rows instead).
   // When keepUsers=true, we keep all rows. When keepUsers=false, we delete all except admin id=21.
-  keep.add('Usuario');
+  keep.add(usuarioTableName);
   if (opts && opts.keepUsers) {
     keep.add('EmailVerification');
     keep.add('user_active_session');
@@ -152,17 +156,18 @@ function getDefaultKeepTables(opts, allTables) {
     }
   }
 
-  return { keepSet: keep, unclassified };
+  return { keepSet: keep, unclassified, usuarioTableName };
 }
 
 function applyTruncateOverrides({ keepSet, truncateExtra, alwaysKeep } = {}) {
   const keep = keepSet instanceof Set ? keepSet : new Set();
-  const never = alwaysKeep instanceof Set ? alwaysKeep : new Set(['SequelizeMeta', 'Usuario']);
+  const never = alwaysKeep instanceof Set ? alwaysKeep : new Set(['SequelizeMeta', 'usuario']);
   const list = Array.isArray(truncateExtra) ? truncateExtra : [];
 
   for (const t of list) {
     const name = t != null ? String(t) : '';
     if (!name) continue;
+    if (name.toLowerCase() === 'usuario') continue;
     if (never.has(name)) continue;
     keep.delete(name);
   }
@@ -207,13 +212,13 @@ async function truncateTables(sequelize, tables, transaction) {
   return { truncated: list.length };
 }
 
-async function deleteUsersExceptAdmin(sequelize, { adminId = 21 } = {}, transaction) {
-  // Usuario is transactional, but must preserve the admin row.
+async function deleteUsersExceptAdmin(sequelize, { adminId = 21, tableName = 'usuario' } = {}, transaction) {
+  // usuario is transactional, but must preserve the admin row.
   // We intentionally do NOT reset sequences here.
-  const sql = `DELETE FROM public.${quoteIdent('Usuario')} WHERE id <> :adminId;`;
+  const sql = `DELETE FROM public.${quoteIdent(tableName)} WHERE id <> :adminId;`;
   const [res] = await sequelize.query(sql, { replacements: { adminId }, transaction });
   // res varies by dialect/driver; return a best-effort hint.
-  return { action: 'delete', table: 'Usuario', preserveUserId: adminId, result: res || null };
+  return { action: 'delete', table: tableName, preserveUserId: adminId, result: res || null };
 }
 
 async function cleanupNonMasterdata({
@@ -232,7 +237,7 @@ async function cleanupNonMasterdata({
   const sequelize = db.sequelize;
 
   const allTables = await listPublicTables(sequelize);
-  const { keepSet, unclassified } = getDefaultKeepTables(
+  const { keepSet, unclassified, usuarioTableName } = getDefaultKeepTables(
     {
       keepUsers,
       keepRbac,
@@ -247,7 +252,7 @@ async function cleanupNonMasterdata({
   );
 
   const { master } = getClassificationSets();
-  const alwaysKeep = new Set(['SequelizeMeta', 'Usuario', ...Array.from(master)]);
+  const alwaysKeep = new Set(['SequelizeMeta', usuarioTableName, ...Array.from(master)]);
 
   // Allow forcing some tables to be truncated even if they'd be kept by default.
   // (Useful when new transactional tables appear and are unclassified.)
@@ -259,13 +264,13 @@ async function cleanupNonMasterdata({
 
   const plan = computePlan(allTables, keepSet);
 
-  // Ensure Usuario is never truncated.
-  plan.truncate = plan.truncate.filter(t => t !== 'Usuario');
+  // Ensure usuario is never truncated.
+  plan.truncate = plan.truncate.filter(t => String(t || '').toLowerCase() !== 'usuario');
 
   const specialActions = [];
   if (!keepUsers) {
     specialActions.push({
-      table: 'Usuario',
+      table: usuarioTableName,
       action: `DELETE WHERE id <> ${Number(userAdminIdPreserve) || 21}`,
     });
   }
@@ -293,7 +298,7 @@ async function cleanupNonMasterdata({
     if (!keepUsers) {
       userCleanup = await deleteUsersExceptAdmin(
         sequelize,
-        { adminId: Number(userAdminIdPreserve) || 21 },
+        { adminId: Number(userAdminIdPreserve) || 21, tableName: usuarioTableName },
         t
       );
     }

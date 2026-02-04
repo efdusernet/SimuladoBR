@@ -76,6 +76,9 @@ db.CommunicationRecipient = require('./CommunicationRecipient')(sequelize, DataT
 // Single active session per user
 db.UserActiveSession = require('./UserActiveSession')(sequelize, DataTypes);
 
+// Password change audit log
+db.UserPasswordChangeLog = require('./UserPasswordChangeLog')(sequelize, DataTypes);
+
 
 // Associations
 if (db.User && db.EmailVerification) {
@@ -121,6 +124,12 @@ if (db.User && db.CommunicationRecipient) {
 if (db.User && db.UserActiveSession) {
   db.User.hasOne(db.UserActiveSession, { foreignKey: 'UserId' });
   db.UserActiveSession.belongsTo(db.User, { foreignKey: 'UserId' });
+}
+
+// Associations for password change audit log
+if (db.User && db.UserPasswordChangeLog) {
+  db.UserPasswordChangeLog.belongsTo(db.User, { foreignKey: 'TargetUserId', as: 'TargetUser' });
+  db.UserPasswordChangeLog.belongsTo(db.User, { foreignKey: 'ActorUserId', as: 'ActorUser' });
 }
 
 

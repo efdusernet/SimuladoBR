@@ -1136,8 +1136,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function validateEmail(email) {
-        // simples validação
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        // Validação simples + bloqueio de domínios reservados (RFC 2606)
+        const v = String(email || '').trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return false;
+        const parts = v.split('@');
+        const domain = (parts[1] || '').trim().toLowerCase();
+        if (!domain) return false;
+        const forbidden = new Set(['example.com', 'example.net', 'example.org']);
+        if (forbidden.has(domain)) return false;
+        return true;
     }
 
     function validateName(name) {
@@ -1436,7 +1443,82 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Persistent toast with countdown for lockout
     let _lockoutTimerId = null;
-    function startLockoutCountdown(secondsLeft) {
+    let _lockoutScope = null; // normalized identifier or 'global'
+
+    function normalizeIdentifierScope(identifier){
+        const v = String(identifier || '').trim().toLowerCase();
+        return v || null;
+    }
+
+    function getLockoutKey(scope){
+        const s = String(scope || '').trim().toLowerCase();
+        return `lockoutUntil:${s || 'global'}`;
+    }
+
+    function clearLockoutUntil(scope){
+        try { localStorage.removeItem(getLockoutKey(scope)); } catch(_){ }
+    }
+
+    function getLockoutUntil(scope){
+        try { return localStorage.getItem(getLockoutKey(scope)); } catch(_){ return null; }
+    }
+
+    function setLockoutUntil(scope, untilIso){
+        try {
+            // Remove legacy global key from older builds
+            try { localStorage.removeItem('lockoutUntil'); } catch(_){ }
+            localStorage.setItem(getLockoutKey(scope), String(untilIso));
+        } catch(_){ }
+    }
+
+    function clearLockoutUi(){
+        try { if (_lockoutTimerId) clearInterval(_lockoutTimerId); } catch(_){ }
+        _lockoutTimerId = null;
+        _lockoutScope = null;
+        try { const el = document.getElementById('simLockoutToast'); if (el) el.remove(); } catch(_){ }
+        try { const inf = document.getElementById('lockoutReleaseTime'); if (inf) inf.remove(); } catch(_){ }
+        try { if (submitBtn) submitBtn.disabled = false; } catch(_){ }
+    }
+
+    function applyLockoutForScope(scope){
+        try {
+            const normalizedScope = (scope === 'global') ? 'global' : normalizeIdentifierScope(scope);
+
+            // Prefer per-identifier lockout if we have one.
+            const untilStr = normalizedScope ? getLockoutUntil(normalizedScope) : null;
+            if (untilStr) {
+                const until = new Date(untilStr).getTime();
+                if (!Number.isFinite(until)) { clearLockoutUntil(normalizedScope); clearLockoutUi(); return; }
+                const now = Date.now();
+                if (until > now) {
+                    const secLeft = Math.max(1, Math.floor((until - now) / 1000));
+                    if (submitBtn) submitBtn.disabled = true;
+                    startLockoutCountdown(secLeft, normalizedScope);
+                    return;
+                }
+                clearLockoutUntil(normalizedScope);
+            }
+
+            // Fallback to global lockout (rate limit) if present.
+            const globalUntilStr = getLockoutUntil('global');
+            if (globalUntilStr) {
+                const untilG = new Date(globalUntilStr).getTime();
+                if (!Number.isFinite(untilG)) { clearLockoutUntil('global'); clearLockoutUi(); return; }
+                const nowG = Date.now();
+                if (untilG > nowG) {
+                    const secLeftG = Math.max(1, Math.floor((untilG - nowG) / 1000));
+                    if (submitBtn) submitBtn.disabled = true;
+                    startLockoutCountdown(secLeftG, 'global');
+                    return;
+                }
+                clearLockoutUntil('global');
+            }
+
+            clearLockoutUi();
+        } catch(e) { console.warn('applyLockoutForScope error', e); }
+    }
+
+    function startLockoutCountdown(secondsLeft, scope = 'global') {
         try {
             const id = 'simLockoutToast';
             let el = document.getElementById(id);
@@ -1473,7 +1555,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 // also show exact release time under the form
                 try {
-                    const untilIso = localStorage.getItem('lockoutUntil');
+                    const untilIso = getLockoutUntil(scope) || getLockoutUntil('global');
                     const infoEl = ensureLockoutReleaseInfo(untilIso);
                     // no-op if not on login modal
                 } catch(_){ }
@@ -1482,13 +1564,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear any previous timer
             if (_lockoutTimerId) { try { clearInterval(_lockoutTimerId); } catch(_){ } _lockoutTimerId = null; }
 
+            _lockoutScope = String(scope || 'global').trim().toLowerCase();
+
             let remaining = Number(secondsLeft || 300);
-            // ensure we have a consistent lockoutUntil to display
+            // ensure we have a consistent scoped lockoutUntil to display
             try {
-                let untilIso = localStorage.getItem('lockoutUntil');
+                let untilIso = getLockoutUntil(scope);
                 if (!untilIso) {
                     untilIso = new Date(Date.now() + remaining * 1000).toISOString();
-                    localStorage.setItem('lockoutUntil', untilIso);
+                    setLockoutUntil(scope, untilIso);
                 }
                 ensureLockoutReleaseInfo(untilIso);
             } catch(_){ }
@@ -1498,10 +1582,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (remaining <= 0) {
                     try { clearInterval(_lockoutTimerId); } catch(_){}
                     _lockoutTimerId = null;
+                    const endedScope = _lockoutScope;
+                    _lockoutScope = null;
                     try { el.remove(); } catch(_){ }
-                    try { localStorage.removeItem('lockoutUntil'); } catch(_){ }
+                    try { if (endedScope) clearLockoutUntil(endedScope); } catch(_){ }
                     try { const inf = document.getElementById('lockoutReleaseTime'); if (inf) inf.remove(); } catch(_){ }
-                    if (modalError) {
+                    // Only show expiration message if we're still on the same scope.
+                    const currentId = normalizeIdentifierScope(usernameInput ? usernameInput.value : '');
+                    const currentScope = currentId || 'global';
+                    if (modalError && (endedScope === 'global' || endedScope === currentScope)) {
                         modalError.style.color = '#2f855a';
                         modalError.textContent = 'O bloqueio expirou. Você já pode tentar novamente.';
                         modalError.style.display = 'block';
@@ -1542,18 +1631,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // On load, resume lockout countdown if persisted in localStorage
     function resumeLockoutIfAny(){
         try {
-            const untilStr = localStorage.getItem('lockoutUntil');
-            if (!untilStr) return;
-            const until = new Date(untilStr).getTime();
-            if (!Number.isFinite(until)) { localStorage.removeItem('lockoutUntil'); return; }
-            const now = Date.now();
-            if (until > now) {
-                const secLeft = Math.max(1, Math.floor((until - now) / 1000));
-                if (submitBtn) submitBtn.disabled = true;
-                startLockoutCountdown(secLeft);
-            } else {
-                localStorage.removeItem('lockoutUntil');
-            }
+            // Cleanup legacy key from older builds
+            try { localStorage.removeItem('lockoutUntil'); } catch(_){ }
+
+            const currentId = normalizeIdentifierScope(usernameInput ? usernameInput.value : '');
+            applyLockoutForScope(currentId);
         } catch(e) { console.warn('resumeLockoutIfAny error', e); }
     }
 
@@ -1577,7 +1659,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             if (!email || !validateEmail(email)) {
-                modalError.textContent = 'Informe um e-mail válido.';
+                modalError.textContent = 'Informe um e-mail válido (não use domínios de exemplo como example.com).';
                 modalError.style.display = 'block';
                 return;
             }
@@ -1631,8 +1713,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 modalError.style.display = 'block';
                 return;
             }
+        } else if (mode === 'login') {
+            // For login, only require a non-empty password.
+            // (Do not block short passwords client-side; let the server respond with INVALID_CREDENTIALS.)
+            if (!password) {
+                modalError.textContent = 'Informe sua senha.';
+                modalError.style.display = 'block';
+                return;
+            }
+        } else if (mode === 'verify') {
+            // Password is optional in verify mode (only used for auto-login).
         } else {
-            if (!password || password.length < 6) {
+            // Fallback for other modes
+            if (!password) {
                 modalError.textContent = 'Informe sua senha.';
                 modalError.style.display = 'block';
                 return;
@@ -1744,10 +1837,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             // persist lockout until to survive reloads
                             try {
                                 const untilIso = (data && data.lockoutUntil) ? String(data.lockoutUntil) : new Date(Date.now() + secLeft * 1000).toISOString();
-                                localStorage.setItem('lockoutUntil', untilIso);
+                                const scope = (res.status === 423) ? normalizeIdentifierScope(nomeUsuario) : 'global';
+                                setLockoutUntil(scope || 'global', untilIso);
                                 ensureLockoutReleaseInfo(untilIso);
                             } catch(_){ }
-                            startLockoutCountdown(secLeft);
+                            const scope2 = (res.status === 423) ? (normalizeIdentifierScope(nomeUsuario) || 'global') : 'global';
+                            startLockoutCountdown(secLeft, scope2);
                         } catch(_){}
                         return;
                     }
@@ -1757,7 +1852,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const user = data;
                 // persist JWT if provided
                 saveJwtFromResponse(user);
-                const nomeUsuarioStored = user.NomeUsuario || email;
+                const nomeUsuarioStored = user.NomeUsuario || user.Email || String(nomeUsuario || '').trim().toLowerCase() || email;
                 const userId = user.Id || user.id || null;
                 const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
 
@@ -1869,10 +1964,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (submitBtn) submitBtn.disabled = true;
                                 try {
                                     const untilIso = (data2 && data2.lockoutUntil) ? String(data2.lockoutUntil) : new Date(Date.now() + secLeft * 1000).toISOString();
-                                    localStorage.setItem('lockoutUntil', untilIso);
+                                    const scope = (r2.status === 423) ? (normalizeIdentifierScope(identifier) || 'global') : 'global';
+                                    setLockoutUntil(scope, untilIso);
                                     ensureLockoutReleaseInfo(untilIso);
                                 } catch(_){ }
-                                startLockoutCountdown(secLeft);
+                                const scope2 = (r2.status === 423) ? (normalizeIdentifierScope(identifier) || 'global') : 'global';
+                                startLockoutCountdown(secLeft, scope2);
                                 modalError.style.color = 'crimson';
                                 modalError.textContent = mapLoginErrorMessage(code2, msgRaw2);
                                 modalError.style.display = 'block';
@@ -1957,6 +2054,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (usernameInput && submitBtn) usernameInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
     if (passwordInput && submitBtn) passwordInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
     if (nameInput && submitBtn) nameInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
+
+    // When user changes identifier, lockout must be re-evaluated per account.
+    if (usernameInput) {
+        usernameInput.addEventListener('input', () => {
+            try {
+                if (modalError && modalError.style && modalError.style.display === 'block') {
+                    // If we were showing a lockout message, clear it; new identifier may be different.
+                    const t = String(modalError.textContent || '');
+                    if (t.includes('Conta bloqueada') || t.includes('bloqueio')) {
+                        modalError.style.display = 'none';
+                    }
+                }
+            } catch(_){ }
+            applyLockoutForScope(normalizeIdentifierScope(usernameInput.value));
+        });
+    }
 
     // toggle mode button já configurado anteriormente (linha ~731)
     // Expor funções para uso externo (index.html - card Simulador)

@@ -38,12 +38,12 @@ Retorna um “dashboard” de insights: KPIs agregados do período + série diá
   - Pode ser usado diretamente pela página `frontend/pages/InsightsIA.html`
   - Explicabilidade e rastreabilidade: a UI exibe “Por que a IA está dizendo isso?” com links para KPIs/INDs relevantes.
   - Snapshot diário (base para modelo temporal): ao chamar este endpoint, o backend faz **upsert 1x/dia** em `public.user_daily_snapshot`.
-    - **Somente usuários pagantes**: regra atual `Usuario.BloqueioAtivado = false`.
+    - **Somente usuários pagantes**: regra atual `usuario.BloqueioAtivado = false`.
     - Falhas ao gravar snapshot **não quebram** o retorno do endpoint (erro é apenas logado).
   - Regras adicionais (server-side, além do que a IA possa retornar):
     - Sempre adiciona um comentário contextual sobre KPIs (ex.: o que significa a **taxa de conclusão** no contexto).
     - Se `kpis.completionRate < 0.60`, garante um alerta em `ai.risks` para **baixa taxa de conclusão**.
-    - Se o usuário tiver `Usuario.data_exame` preenchido (formato `dd/mm/yyyy`) e o exame estiver em **menos de 75 dias**, adiciona um alerta de **prazo curto** que prioriza os riscos.
+    - Se o usuário tiver `usuario.data_exame` preenchido (formato `dd/mm/yyyy`) e o exame estiver em **menos de 75 dias**, adiciona um alerta de **prazo curto** que prioriza os riscos.
     - Se o exame estiver em **menos de 75 dias** e `kpis.completionRate < 0.30`, adiciona `ai.risks` com **risco de prazo**.
     - Inclui em `ai.actions7d` uma ação do tipo: **"Aumentar taxa de conclusão para X% (próximos 7 dias)"**.
 

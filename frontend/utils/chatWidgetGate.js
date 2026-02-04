@@ -1,5 +1,5 @@
 // Loads the support chat widget only for premium users on desktop layout.
-// Premium rule: Usuario.BloqueioAtivado === false.
+// Premium rule: usuario.BloqueioAtivado === false.
 
 (function () {
   const WIDGET_SRC = '/chat/widget/chat-widget.js';

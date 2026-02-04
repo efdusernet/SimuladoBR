@@ -44,6 +44,25 @@ function isRestrictedForExpiredPassword(user) {
 // Explicitly set bcrypt rounds for password hashing security
 const BCRYPT_ROUNDS = 12;
 
+// Mitigate timing-based user enumeration: make "user not found" take roughly
+// the same time as an invalid password check by doing a dummy bcrypt compare.
+let DUMMY_BCRYPT_HASH = null;
+try {
+    DUMMY_BCRYPT_HASH = bcrypt.hashSync('0'.repeat(64), BCRYPT_ROUNDS);
+} catch (_) {
+    DUMMY_BCRYPT_HASH = null;
+}
+
+function isHttpsRequest(req) {
+    try {
+        if (req && req.secure) return true;
+        const xf = (req && req.headers && req.headers['x-forwarded-proto']) ? String(req.headers['x-forwarded-proto']) : '';
+        return xf.toLowerCase().includes('https');
+    } catch (_) {
+        return false;
+    }
+}
+
 // Strict rate limiter for login endpoint
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -114,6 +133,8 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
         if (!user) {
             // Usuário inexistente: não há onde registrar falha
             security.loginFailure(req, identifier, 'user_not_found');
+            // Dummy compare to reduce timing oracle for account existence
+            try { if (DUMMY_BCRYPT_HASH) await bcrypt.compare(body.SenhaHash, DUMMY_BCRYPT_HASH); } catch (_) {}
             return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
         }
 
@@ -134,9 +155,45 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
             }
         } catch (_) { /* ignore */ }
 
-        // If email not confirmed, create/send verification token and ask user to validate
+        // If email not confirmed, create/send verification token and ask user to validate.
+        // Security hardening: avoid spamming emails by reusing a recent valid token.
         if (!user.EmailConfirmado) {
             try {
+                // If we recently issued a verification token (and it is still valid), reuse it.
+                try {
+                    const recent = await EmailVerification.findOne({
+                        where: {
+                            UserId: user.Id,
+                            Used: false,
+                            ForcedExpiration: false
+                        },
+                        order: [['CreatedAt', 'DESC']]
+                    });
+                    if (recent) {
+                        let isEmailVerificationToken = true;
+                        try {
+                            const meta = recent.Meta ? JSON.parse(recent.Meta) : {};
+                            // Password reset / email change tokens are not email-verification tokens.
+                            if (meta && (meta.type === 'password_reset' || meta.type === 'email_change')) {
+                                isEmailVerificationToken = false;
+                            }
+                        } catch (_) {}
+
+                        if (isEmailVerificationToken) {
+                            const createdAt = recent.CreatedAt ? new Date(recent.CreatedAt).getTime() : 0;
+                            const expiresAt = recent.ExpiresAt ? new Date(recent.ExpiresAt).getTime() : 0;
+                            const now = Date.now();
+                            const isFresh = createdAt && (now - createdAt) < (2 * 60 * 1000);
+                            const notExpired = !expiresAt || expiresAt > now;
+                            if (isFresh && notExpired) {
+                                // Don't send another email; keep same token active.
+                                security.loginFailure(req, identifier, 'email_not_confirmed_recent_token');
+                                return next(forbidden('E-mail não confirmado. Enviamos um token para o seu e-mail.', 'EMAIL_NOT_CONFIRMED'));
+                            }
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+
                 // Invalidar tokens anteriores não usados de verificação de email para este usuário
                 const existingTokens = await EmailVerification.findAll({
                     where: {
@@ -273,7 +330,8 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
             // Set httpOnly cookie for secure token storage
             const cookieOptions = {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+                // Prefer actual request scheme to avoid accidentally issuing non-secure cookies behind proxies.
+                secure: isHttpsRequest(req) || process.env.NODE_ENV === 'production',
                 sameSite: 'strict',
                 maxAge: 12 * 60 * 60 * 1000, // 12 hours in milliseconds
                 path: '/',
@@ -689,7 +747,7 @@ router.post('/logout', async (req, res, next) => {
         // Clear the httpOnly cookie
         res.clearCookie('sessionToken', {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isHttpsRequest(req) || process.env.NODE_ENV === 'production',
             sameSite: 'strict',
             path: '/',
             domain: getCookieDomainForRequest(req)

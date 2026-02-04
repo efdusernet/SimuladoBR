@@ -172,6 +172,14 @@ const authSchemas = {
     token: commonSchemas.token,
     senhaHash: commonSchemas.passwordHash
   }),
+
+  changeExpiredPassword: Joi.object({
+    identifier: Joi.alternatives().try(commonSchemas.email, commonSchemas.username).required().messages({
+      'any.required': 'Usuário ou e-mail é obrigatório'
+    }),
+    currentPasswordHash: commonSchemas.passwordHash,
+    newPasswordHash: commonSchemas.passwordHash
+  }),
   
   register: Joi.object({
     Email: commonSchemas.email,

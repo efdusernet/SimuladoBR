@@ -222,6 +222,8 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
         // Note: we still treat this as a login failure, but credentials were correct.
         if (isPasswordExpired(user)) {
             security.loginFailure(req, identifier, 'password_expired');
+
+            const restricted = isRestrictedForExpiredPassword(user);
             try {
                 // Best-effort: clear lockout counters since credentials are correct.
                 const patch = { DataAlteracao: new Date() };
@@ -229,8 +231,18 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 if (user.FimBloqueio) patch.FimBloqueio = null;
                 await user.update(patch);
             } catch (_) { /* ignore */ }
-            return next(forbidden('Senha expirada. Use "Esqueci minha senha" para definir uma nova senha.', 'PASSWORD_EXPIRED', {
+
+            if (restricted) {
+                return next(forbidden('Senha expirada. Sua conta está restrita e não pode alterar a senha no login.', 'PASSWORD_EXPIRED_ACCOUNT_RESTRICTED', {
+                    pwdExpired: true,
+                    canChangeExpiredPassword: false,
+                    pwdExpiredDate: user.PwdExpiredDate ? new Date(user.PwdExpiredDate).toISOString() : null,
+                }));
+            }
+
+            return next(forbidden('Senha expirada. Defina uma nova senha para continuar.', 'PASSWORD_EXPIRED', {
                 pwdExpired: true,
+                canChangeExpiredPassword: true,
                 pwdExpiredDate: user.PwdExpiredDate ? new Date(user.PwdExpiredDate).toISOString() : null,
             }));
         }
@@ -297,6 +309,99 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
     } catch (err) {
         logger.error('Erro em /api/auth/login:', err);
         return next(internalError('Erro interno', 'INTERNAL_ERROR_LOGIN'));
+    }
+});
+
+// POST /api/auth/change-expired-password
+// Body: { identifier, currentPasswordHash, newPasswordHash }
+// Used when login is denied due to PASSWORD_EXPIRED but account is eligible.
+router.post('/change-expired-password', loginLimiter, validate(authSchemas.changeExpiredPassword), async (req, res, next) => {
+    try {
+        const body = req.body || {};
+        const identifier = String(body.identifier || '').trim().toLowerCase();
+        const currentPasswordHash = String(body.currentPasswordHash || '').trim();
+        const newPasswordHash = String(body.newPasswordHash || '').trim();
+
+        let user = null;
+        if (Op) {
+            user = await User.findOne({
+                where: {
+                    [Op.or]: [
+                        { Email: identifier },
+                        { NomeUsuario: identifier }
+                    ]
+                }
+            });
+        } else {
+            user = await User.findOne({ where: { Email: identifier } });
+            if (!user) user = await User.findOne({ where: { NomeUsuario: identifier } });
+        }
+
+        if (!user) {
+            security.loginFailure(req, identifier, 'user_not_found_expired_change');
+            return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
+        }
+
+        // Respect lockout window.
+        try {
+            const now = Date.now();
+            const until = user.FimBloqueio ? new Date(user.FimBloqueio).getTime() : 0;
+            if (until && until > now) {
+                const secondsLeft = Math.ceil((until - now) / 1000);
+                return next(new (require('../middleware/errorHandler').AppError)(
+                    'Muitas tentativas. Sua conta foi bloqueada temporariamente. Aguarde 5 minutos antes de tentar novamente.',
+                    423,
+                    'ACCOUNT_LOCKED',
+                    { lockoutUntil: new Date(until).toISOString(), lockoutSecondsLeft: secondsLeft }
+                ));
+            }
+        } catch (_) { /* ignore */ }
+
+        // Must be expired to use this flow.
+        if (!isPasswordExpired(user)) {
+            return next(forbidden('Operação não permitida.', 'OPERATION_NOT_ALLOWED'));
+        }
+
+        // If expired, additional restrictions apply.
+        if (isRestrictedForExpiredPassword(user)) {
+            return next(forbidden('Não é permitido alterar a senha nesta conta (senha expirada + conta restrita).', 'PASSWORD_EXPIRED_ACCOUNT_RESTRICTED'));
+        }
+
+        if (!user.SenhaHash) {
+            return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
+        }
+
+        const match = await bcrypt.compare(currentPasswordHash, user.SenhaHash);
+        if (!match) {
+            // Incorrect current password – increment lockout counters like login.
+            try {
+                const current = Number(user.AccessFailedCount || 0);
+                const nextCount = current + 1;
+                let patch = { AccessFailedCount: nextCount, DataAlteracao: new Date() };
+                if (nextCount >= 3) {
+                    const until = new Date(Date.now() + 5 * 60 * 1000);
+                    patch = { ...patch, AccessFailedCount: 0, FimBloqueio: until };
+                }
+                await user.update(patch);
+            } catch (_) { /* ignore */ }
+            return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
+        }
+
+        // Store bcrypt(SHA-256 hex) and clear expiration flags.
+        const bcryptHash = await bcrypt.hash(newPasswordHash, BCRYPT_ROUNDS);
+        await user.update({
+            SenhaHash: bcryptHash,
+            PwdExpired: false,
+            PwdExpiredDate: null,
+            AccessFailedCount: 0,
+            FimBloqueio: null,
+            DataAlteracao: new Date(),
+        });
+
+        return res.json({ success: true, message: 'Senha alterada com sucesso. Agora faça login.' });
+    } catch (err) {
+        logger.error('Erro em /api/auth/change-expired-password:', err);
+        return next(internalError('Erro interno', 'INTERNAL_ERROR_CHANGE_EXPIRED_PASSWORD'));
     }
 });
 

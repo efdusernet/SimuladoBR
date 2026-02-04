@@ -840,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 
     // Helper to read/store JWT for protected APIs (e.g., indicators)
-    function saveJwtFromResponse(obj){
+    function saveJwtFromResponse(obj, fallbackIdentity){
         try {
             const tok = obj && obj.token ? String(obj.token) : '';
             const typ = obj && obj.tokenType ? String(obj.tokenType) : 'Bearer';
@@ -850,8 +850,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Keep backward compatibility with legacy code paths that still read `sessionToken`
                 // for API calls: store the JWT there as well.
                 localStorage.setItem('sessionToken', tok);
+                return true;
             }
-        } catch(_){}
+
+            // If the backend omits the token in JSON (recommended), ensure we don't keep a stale JWT.
+            try { localStorage.removeItem('jwtToken'); } catch(_){ }
+            try { localStorage.removeItem('jwtTokenType'); } catch(_){ }
+
+            // Prevent redirect loops caused by a remaining guest token after successful login.
+            const current = String(localStorage.getItem('sessionToken') || '').trim();
+            const isGuest = !!(current && current.endsWith && current.endsWith('#'));
+            if (!current || isGuest) {
+                const alt = (
+                    (obj && (obj.NomeUsuario || obj.Email || obj.Nome)) ||
+                    (fallbackIdentity ? String(fallbackIdentity) : '')
+                );
+                const altNorm = String(alt || '').trim().toLowerCase();
+                if (altNorm && !(altNorm.endsWith('#'))) {
+                    localStorage.setItem('sessionToken', altNorm);
+                }
+            }
+        } catch(_){ }
+        return false;
     }
     function getAuthHeaders(){
         try {
@@ -1937,7 +1957,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const user = data;
                 // persist JWT if provided
-                saveJwtFromResponse(user);
+                saveJwtFromResponse(user, String(nomeUsuario || '').trim().toLowerCase() || email);
                 const nomeUsuarioStored = user.NomeUsuario || user.Email || String(nomeUsuario || '').trim().toLowerCase() || email;
                 const userId = user.Id || user.id || null;
                 const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
@@ -2034,6 +2054,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const r2 = await fetch(loginUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include', // Important: send/receive cookies
                         body: JSON.stringify({ Email: identifier, SenhaHash: senhaHashClient })
                     });
                     const txt2 = await r2.text();
@@ -2070,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // behave as successful login
                     const user = data2;
                     // persist JWT if provided
-                    saveJwtFromResponse(user);
+                    saveJwtFromResponse(user, identifier);
                     const nomeUsuarioStored = user.NomeUsuario || user.Email || nomeUsuario || email;
                     const userId = user.Id || user.id || null;
                     const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;

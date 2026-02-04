@@ -41,6 +41,9 @@ Para um histórico detalhado de incidentes (ex.: o problema do menu Admin interm
   - O backend aplica um **bloqueio temporário por usuário** após repetidas falhas de senha.
   - Regra atual: ao errar a senha, incrementa `usuario.AccessFailedCount`; ao chegar em **3 falhas**, zera o contador e grava `usuario.FimBloqueio = agora + 5 minutos`.
   - Enquanto `FimBloqueio` estiver no futuro, o endpoint de login retorna `ACCOUNT_LOCKED` (HTTP 423) com `lockoutSecondsLeft`.
+- Observação (modo hardening):
+  - Se `HARDEN_AUTH_RESPONSES=true`, o backend só retorna `ACCOUNT_LOCKED` (423) **quando a senha informada está correta**.
+  - Se a senha estiver incorreta (ou o usuário não existir), o retorno tende a ser `INVALID_CREDENTIALS` (401) para evitar enumeração.
 - Observação importante:
   - Isso é diferente do rate limit por IP do endpoint `/api/auth/login` (HTTP 429, janela de 15 min). É possível “cair” em ambos, dependendo do caso.
 - Como verificar:

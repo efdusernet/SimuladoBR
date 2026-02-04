@@ -67,6 +67,18 @@ Variáveis de ambiente necessárias neste backend:
 
 - `ACCESS_API_KEY` (deve ser igual ao valor configurado no checkout para chamadas internas)
 
+Variáveis de ambiente (autenticação / segurança) — opcionais:
+
+- `HARDEN_AUTH_RESPONSES=true|false`
+	- Quando `true`, o login evita **enumeração de contas/estados**: só revela `EMAIL_NOT_CONFIRMED` e `ACCOUNT_LOCKED` **depois** da senha correta; caso contrário retorna `INVALID_CREDENTIALS`.
+- `AUTH_RETURN_TOKEN_IN_BODY=true|false`
+	- Controla se o `/api/auth/login` devolve `token`/`tokenType` no JSON.
+	- Default: `true` quando `HARDEN_AUTH_RESPONSES=false`; `false` quando `HARDEN_AUTH_RESPONSES=true`.
+	- Observação: o browser usa o cookie httpOnly `sessionToken`; clientes API que dependem de `Authorization: Bearer` podem querer manter `AUTH_RETURN_TOKEN_IN_BODY=true`.
+- `JWT_EXPIRES_IN` (ex.: `12h`) — duração do JWT emitido no login.
+- `ALLOW_INSECURE_TOKEN_TRANSPORT=true|false`
+	- Em produção, desabilita/permite transportar token via query/body (inseguro). Recomendado manter `false`.
+
 ## Esquema (foco em exam_type)
 
 - Tabela `exam_type` (id/slug/nome/duração/…); somente tipos ativos são usados.

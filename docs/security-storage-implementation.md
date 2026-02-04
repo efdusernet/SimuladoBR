@@ -14,15 +14,20 @@
 
 #### `backend/routes/auth.js`
 - ✅ Endpoint `/api/auth/login` agora define cookie httpOnly `sessionToken`
-  - Configurações: `httpOnly: true`, `secure: true` (produção), `sameSite: 'strict'`
+  - Configurações: `httpOnly: true`, `sameSite: 'strict'` e `secure` baseado no esquema HTTPS real (inclui suporte a proxy via `x-forwarded-proto`) **ou** `NODE_ENV=production`
   - Validade: 12 horas
 - ✅ Novo endpoint `/api/auth/logout` para limpar cookies do servidor
+
+**Flags opcionais (segurança do login):**
+- `HARDEN_AUTH_RESPONSES=true`: evita enumeração de contas/estados no login (ex.: só revela `EMAIL_NOT_CONFIRMED`/`ACCOUNT_LOCKED` após senha correta).
+- `AUTH_RETURN_TOKEN_IN_BODY=false`: omite `token`/`tokenType` do JSON no login (recomendado quando o fluxo é baseado em cookie httpOnly).
 
 **Configuração do Cookie:**
 ```javascript
 const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+  // Recomendado atrás de proxy: respeitar req.secure / x-forwarded-proto.
+  secure: isHttpsRequest(req) || process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     maxAge: 12 * 60 * 60 * 1000, // 12 horas
     path: '/'

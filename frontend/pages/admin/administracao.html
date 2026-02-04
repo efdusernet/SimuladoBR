@@ -526,12 +526,22 @@
                     EmailConfirmado
                   </label>
                   <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
+                    <input id="adminManageUserPwdExpiredToggle" type="checkbox" />
+                    Senha expirada
+                  </label>
+                  <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
                     <input id="adminManageUserExcluidoToggle" type="checkbox" />
                     Excluído (soft)
                   </label>
-                  <div style="margin-left:auto;display:grid;gap:4px;min-width:180px">
-                    <label for="adminManageUserExcluido" style="font-size:0.75rem;color:var(--muted)">Excluído</label>
-                    <input id="adminManageUserExcluido" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                  <div style="margin-left:auto;display:grid;gap:10px;min-width:180px">
+                    <div style="display:grid;gap:4px">
+                      <label for="adminManageUserPwdExpired" style="font-size:0.75rem;color:var(--muted)">Senha expirada</label>
+                      <input id="adminManageUserPwdExpired" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                    </div>
+                    <div style="display:grid;gap:4px">
+                      <label for="adminManageUserExcluido" style="font-size:0.75rem;color:var(--muted)">Excluído</label>
+                      <input id="adminManageUserExcluido" type="text" readonly value="—" style="padding:8px;border:1px solid var(--border);border-radius:6px;background:rgba(148,163,184,.08);color:var(--text);font-size:0.85rem" />
+                    </div>
                   </div>
                 </div>
 
@@ -2215,9 +2225,11 @@
         const manageEmailEl = document.getElementById('adminManageUserEmail');
         const manageEmailConfirmadoEl = document.getElementById('adminManageUserEmailConfirmado');
         const manageIsAdminEl = document.getElementById('adminManageUserIsAdmin');
+        const managePwdExpiredEl = document.getElementById('adminManageUserPwdExpired');
         const manageExcluidoEl = document.getElementById('adminManageUserExcluido');
         const manageAdminToggleEl = document.getElementById('adminManageUserAdminToggle');
         const manageEmailConfirmadoToggleEl = document.getElementById('adminManageUserEmailConfirmadoToggle');
+        const managePwdExpiredToggleEl = document.getElementById('adminManageUserPwdExpiredToggle');
         const manageExcluidoToggleEl = document.getElementById('adminManageUserExcluidoToggle');
         const manageSaveBtn = document.getElementById('adminManageUserSaveBtn');
         const manageReactivateBtn = document.getElementById('adminManageUserReactivateBtn');
@@ -2335,12 +2347,14 @@
         // Manage existing users
         let manageSelectedId = 0;
         let manageSelectedStatus = null;
+        let manageSelectedUser = null;
         let manageList = [];
         let debounceT = null;
 
         function clearManage(){
           manageSelectedId = 0;
           manageSelectedStatus = null;
+          manageSelectedUser = null;
           manageList = [];
           if (manageResultsEl) manageResultsEl.innerHTML = '';
           if (managePanelEl) managePanelEl.style.display = 'none';
@@ -2350,9 +2364,11 @@
           if (manageEmailEl) manageEmailEl.value = '';
           if (manageEmailConfirmadoEl) manageEmailConfirmadoEl.value = '—';
           if (manageIsAdminEl) manageIsAdminEl.value = '—';
+          if (managePwdExpiredEl) managePwdExpiredEl.value = '—';
           if (manageExcluidoEl) manageExcluidoEl.value = '—';
           if (manageAdminToggleEl) manageAdminToggleEl.checked = false;
           if (manageEmailConfirmadoToggleEl) manageEmailConfirmadoToggleEl.checked = false;
+          if (managePwdExpiredToggleEl) { managePwdExpiredToggleEl.checked = false; managePwdExpiredToggleEl.disabled = false; }
           if (manageExcluidoToggleEl) manageExcluidoToggleEl.checked = false;
           setManageSearchStatus('');
           setManageStatus('');
@@ -2403,6 +2419,7 @@
         async function selectManageUser(id){
           manageSelectedId = Number(id) || 0;
           manageSelectedStatus = null;
+          manageSelectedUser = null;
           setManageStatus('Carregando usuário...');
           showOut(manageOutEl, '');
           renderManageResults(manageList);
@@ -2415,12 +2432,19 @@
           }
 
           const u = r.data || {};
+          manageSelectedUser = u;
           if (manageIdEl) manageIdEl.value = String(u.Id || manageSelectedId);
           if (manageNomeEl) manageNomeEl.value = String(u.Nome || '');
           if (manageNomeUsuarioEl) manageNomeUsuarioEl.value = String(u.NomeUsuario || '');
           if (manageEmailEl) manageEmailEl.value = String(u.Email || '');
           if (manageEmailConfirmadoEl) manageEmailConfirmadoEl.value = (u.EmailConfirmado ? 'Sim' : 'Não');
           if (manageEmailConfirmadoToggleEl) manageEmailConfirmadoToggleEl.checked = !!u.EmailConfirmado;
+          if (managePwdExpiredEl) managePwdExpiredEl.value = u.PwdExpired ? 'Sim' : 'Não';
+          if (managePwdExpiredToggleEl) {
+            managePwdExpiredToggleEl.checked = !!u.PwdExpired;
+            // Only supports expiring via UI (not un-expiring). Keep disabled once expired.
+            managePwdExpiredToggleEl.disabled = !!u.PwdExpired;
+          }
           if (manageExcluidoEl) manageExcluidoEl.value = u.Excluido ? 'Sim' : 'Não';
           if (manageExcluidoToggleEl) manageExcluidoToggleEl.checked = !!u.Excluido;
 
@@ -2475,10 +2499,12 @@
           const email = manageEmailEl ? String(manageEmailEl.value || '').trim() : '';
           const wantsAdmin = !!(manageAdminToggleEl && manageAdminToggleEl.checked);
           const wantsEmailConfirmado = !!(manageEmailConfirmadoToggleEl && manageEmailConfirmadoToggleEl.checked);
+          const wantsPwdExpired = !!(managePwdExpiredToggleEl && managePwdExpiredToggleEl.checked);
           const wantsExcluido = !!(manageExcluidoToggleEl && manageExcluidoToggleEl.checked);
           const currentAdmin = !!(manageSelectedStatus && manageSelectedStatus.isAdminRbac);
+          const currentPwdExpired = !!(manageSelectedUser && manageSelectedUser.PwdExpired);
 
-          const confirmMsg = `Tem certeza que deseja SALVAR alterações?\n\nUser #${manageSelectedId}${wantsAdmin !== currentAdmin ? `\nAdmin (RBAC): ${currentAdmin ? 'Sim' : 'Não'} → ${wantsAdmin ? 'Sim' : 'Não'}` : ''}${'\nEmailConfirmado: ' + (wantsEmailConfirmado ? 'Sim' : 'Não')}${'\nExcluído: ' + (wantsExcluido ? 'Sim' : 'Não')}`;
+          const confirmMsg = `Tem certeza que deseja SALVAR alterações?\n\nUser #${manageSelectedId}${wantsAdmin !== currentAdmin ? `\nAdmin (RBAC): ${currentAdmin ? 'Sim' : 'Não'} → ${wantsAdmin ? 'Sim' : 'Não'}` : ''}${'\nEmailConfirmado: ' + (wantsEmailConfirmado ? 'Sim' : 'Não')}${'\nSenha expirada: ' + (wantsPwdExpired ? 'Sim' : 'Não')}${'\nExcluído: ' + (wantsExcluido ? 'Sim' : 'Não')}`;
           if (!confirm(confirmMsg)) { setManageStatus('Ação cancelada.'); return; }
 
           try {
@@ -2517,6 +2543,21 @@
               if (!r2.ok) {
                 setManageStatus('');
                 showOut(manageOutEl, `Usuário salvo, mas falha ao atualizar admin (HTTP ${r2.status})\n${JSON.stringify(r2.data, null, 2)}`);
+                await selectManageUser(manageSelectedId);
+                return;
+              }
+            }
+
+            if (wantsPwdExpired && !currentPwdExpired) {
+              setManageStatus('Expirando senha...');
+              const r3 = await adminFetch(`/api/admin/users/${encodeURIComponent(manageSelectedId)}/expire-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+              });
+              if (!r3.ok) {
+                setManageStatus('');
+                showOut(manageOutEl, `Usuário salvo, mas falha ao expirar senha (HTTP ${r3.status})\n${JSON.stringify(r3.data, null, 2)}`);
                 await selectManageUser(manageSelectedId);
                 return;
               }

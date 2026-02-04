@@ -709,6 +709,24 @@ router.put('/me/password', async (req, res, next) => {
         if (!authRes.ok) return next(unauthorized(authRes.message, authRes.code));
         const user = authRes.user;
 
+        const pwdExpired = (() => {
+            try {
+                if (user && user.PwdExpired === true) return true;
+                if (user && user.PwdExpiredDate) {
+                    const t = new Date(user.PwdExpiredDate).getTime();
+                    if (Number.isFinite(t) && t <= Date.now()) return true;
+                }
+            } catch (_) {}
+            return false;
+        })();
+
+        if (pwdExpired) {
+            const restricted = (user.BloqueioAtivado === true) || (user.EmailConfirmado !== true) || (user.Excluido === true);
+            if (restricted) {
+                return next(forbidden('Não é permitido alterar a senha nesta conta (senha expirada + conta restrita).', 'PASSWORD_EXPIRED_ACCOUNT_RESTRICTED'));
+            }
+        }
+
         // Expect client-side SHA-256 hex (same as login flow). Stored hash is bcrypt(SHA-256).
         const validated = userSchemas.changePassword.validate(req.body || {}, { abortEarly: false, stripUnknown: true, convert: true });
         if (validated.error) {
@@ -727,6 +745,9 @@ router.put('/me/password', async (req, res, next) => {
         // Hash new password
         const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
         user.SenhaHash = newHash;
+        // Clear expiration flags after changing password
+        if (typeof user.PwdExpired !== 'undefined') user.PwdExpired = false;
+        if (typeof user.PwdExpiredDate !== 'undefined') user.PwdExpiredDate = null;
         user.DataAlteracao = new Date();
         await user.save();
 

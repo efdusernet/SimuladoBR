@@ -1206,6 +1206,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (c === 'ACCOUNT_LOCKED') {
             return fallback || 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
         }
+        if (c === 'PASSWORD_EXPIRED') {
+            return fallback || 'Sua senha expirou. Use "Esqueci minha senha" para definir uma nova senha.';
+        }
+        if (c === 'PASSWORD_EXPIRED_ACCOUNT_RESTRICTED') {
+            return fallback || 'Sua senha expirou, mas sua conta está restrita (bloqueada/não confirmada/excluída). Contate o suporte.';
+        }
         if (c === 'TOO_MANY_REQUESTS') {
             return fallback || 'Muitas tentativas. Aguarde e tente novamente.';
         }

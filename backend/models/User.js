@@ -90,6 +90,17 @@ module.exports = (sequelize, DataTypes) => {
 			type: DataTypes.BOOLEAN,
 			allowNull: true,
 			field: 'Excluido'
+		},
+		PwdExpired: {
+			type: DataTypes.BOOLEAN,
+			allowNull: false,
+			defaultValue: false,
+			field: 'pwdexpired'
+		},
+		PwdExpiredDate: {
+			type: DataTypes.DATE,
+			allowNull: true,
+			field: 'pwdexpireddate'
 		}
 	}, {
 		tableName: 'usuario',

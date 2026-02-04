@@ -446,6 +446,8 @@ router.post('/reset-password', requireAdmin, async (req, res, next) => {
     const bcryptHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
     
     targetUser.SenhaHash = bcryptHash;
+    if (typeof targetUser.PwdExpired !== 'undefined') targetUser.PwdExpired = false;
+    if (typeof targetUser.PwdExpiredDate !== 'undefined') targetUser.PwdExpiredDate = null;
     targetUser.DataAlteracao = new Date();
     await targetUser.save();
 

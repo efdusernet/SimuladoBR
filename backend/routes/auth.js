@@ -16,6 +16,31 @@ const { generateSessionId, upsertActiveSession, verifyJwtAndGetActiveUser, extra
 const { getCookieDomainForRequest } = require('../utils/cookieDomain');
 const { enforcePremiumExpiry } = require('../services/premiumExpiry');
 
+function isPasswordExpired(user) {
+    try {
+        if (!user) return false;
+        if (user.PwdExpired === true) return true;
+        if (!user.PwdExpiredDate) return false;
+        const t = new Date(user.PwdExpiredDate).getTime();
+        if (!Number.isFinite(t)) return false;
+        return t <= Date.now();
+    } catch (_) {
+        return false;
+    }
+}
+
+function isRestrictedForExpiredPassword(user) {
+    try {
+        if (!user) return true;
+        if (user.BloqueioAtivado === true) return true;
+        if (user.EmailConfirmado !== true) return true;
+        if (user.Excluido === true) return true;
+        return false;
+    } catch (_) {
+        return true;
+    }
+}
+
 // Explicitly set bcrypt rounds for password hashing security
 const BCRYPT_ROUNDS = 12;
 
@@ -192,6 +217,23 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
         // Após validar a senha, aplica regra centralizada de expiração do premium.
         // (timestamp completo, incluindo minutos/segundos)
         try { await enforcePremiumExpiry(user); } catch (_) { /* best-effort */ }
+
+        // Deny login if password is expired.
+        // Note: we still treat this as a login failure, but credentials were correct.
+        if (isPasswordExpired(user)) {
+            security.loginFailure(req, identifier, 'password_expired');
+            try {
+                // Best-effort: clear lockout counters since credentials are correct.
+                const patch = { DataAlteracao: new Date() };
+                if (Number(user.AccessFailedCount || 0) !== 0) patch.AccessFailedCount = 0;
+                if (user.FimBloqueio) patch.FimBloqueio = null;
+                await user.update(patch);
+            } catch (_) { /* ignore */ }
+            return next(forbidden('Senha expirada. Use "Esqueci minha senha" para definir uma nova senha.', 'PASSWORD_EXPIRED', {
+                pwdExpired: true,
+                pwdExpiredDate: user.PwdExpiredDate ? new Date(user.PwdExpiredDate).toISOString() : null,
+            }));
+        }
 
         // Successful login - return minimal user info
         // Zera o contador de falhas, se necessário
@@ -444,11 +486,21 @@ router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword)
             return next(badRequest('Este código não é válido para recuperação de senha.', 'CODE_NOT_FOR_PASSWORD_RESET'));
         }
 
+        // If password is expired, enforce additional restrictions.
+        if (isPasswordExpired(user) && isRestrictedForExpiredPassword(user)) {
+            return next(forbidden('Não é permitido alterar a senha nesta conta (senha expirada + conta restrita).', 'PASSWORD_EXPIRED_ACCOUNT_RESTRICTED'));
+        }
+
         // Hash da senha com bcrypt (servidor)
         const hashedPassword = await bcrypt.hash(senhaHash, BCRYPT_ROUNDS);
 
-        // Atualizar senha do usuário
-        await user.update({ SenhaHash: hashedPassword });
+        // Atualizar senha do usuário (and clear expiration flags)
+        await user.update({
+            SenhaHash: hashedPassword,
+            PwdExpired: false,
+            PwdExpiredDate: null,
+            DataAlteracao: new Date(),
+        });
 
         // Marcar código como usado
         await verification.update({ Used: true });

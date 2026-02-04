@@ -21,7 +21,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
-| POST | `/api/auth/login` | None | Body: `{ Email, SenhaHash }` | `{ Id, NomeUsuario, Nome, Email, EmailConfirmado, BloqueioAtivado, token, tokenType }` | Login com email e senha (SHA256 client-side → bcrypt server). Emite JWT e define cookie httpOnly `sessionToken`. |
+| POST | `/api/auth/login` | None | Body: `{ Email, SenhaHash }` | `{ Id, NomeUsuario, Nome, Email, EmailConfirmado, BloqueioAtivado, token?, tokenType? }` | Login com email e senha (SHA256 client-side → bcrypt server). Emite JWT e define cookie httpOnly `sessionToken`. `token` pode ser omitido quando `HARDEN_AUTH_RESPONSES=true` (ou `AUTH_RETURN_TOKEN_IN_BODY=false`). |
 | POST | `/api/auth/verify` | None | Body/Query: `{ token }` | `{ message, userId }` | Verifica token de email (6 chars). Marca email como confirmado. |
 | GET | `/api/auth/me` | JWT | — | `{ Id, NomeUsuario, Nome, Email, EmailConfirmado, BloqueioAtivado }` | Retorna dados do usuário autenticado (cookie `sessionToken` ou `Authorization`). |
 

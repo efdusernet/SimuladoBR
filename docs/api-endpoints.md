@@ -333,6 +333,7 @@ Observações:
 - Token de sessão: JWT emitido em `/api/auth/login`.
   - Fluxo browser: cookie httpOnly `sessionToken`.
   - Fluxo API/Postman: `Authorization: Bearer <token>` (recomendado) ou `X-Session-Token: <token>` (legado).
+  - Observação: o `/api/auth/login` pode **omitir** `token`/`tokenType` no JSON quando `HARDEN_AUTH_RESPONSES=true` (ou `AUTH_RETURN_TOKEN_IN_BODY=false`).
 - Usuário com bloqueio: limites aplicados (ex.: máximo de 25 questões na seleção).
 - Exame completo: 180 questões, pausas conforme `ExamType` (se configurado).
 - Campo novo: `exam_attempt.exam_mode` armazena `quiz` ou `full` para cada tentativa. Persistência:

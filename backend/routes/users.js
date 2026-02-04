@@ -37,14 +37,38 @@ router.post('/', registerLimiter, validate(authSchemas.register), async (req, re
 
         const email = body.Email.trim().toLowerCase();
 
+        const requestedUsernameRaw = (body.NomeUsuario == null) ? '' : String(body.NomeUsuario);
+        const requestedUsername = requestedUsernameRaw.trim().toLowerCase();
+
         // verifica duplicidade
         const existing = await User.findOne({ where: { Email: email } });
         if (existing) {
             return next(conflict('Usuário com este e-mail já existe', 'EMAIL_ALREADY_EXISTS'));
         }
 
+        // Se NomeUsuario foi informado, garanta que é único (case-insensitive)
+        if (requestedUsername) {
+            let existingByUsername = null;
+            if (db.Sequelize && db.Sequelize.Op) {
+                const OpLocal = db.Sequelize.Op;
+                existingByUsername = await User.findOne({ where: { NomeUsuario: { [OpLocal.iLike]: requestedUsername } } });
+            } else {
+                existingByUsername = await User.findOne({ where: { NomeUsuario: requestedUsername } });
+            }
+            if (existingByUsername) {
+                return next(conflict('Nome de usuário já existe', 'USERNAME_ALREADY_EXISTS'));
+            }
+        }
+
         const sessionToken = (req.get('X-Session-Token') || '').trim();
-        const nomeUsuario = sessionToken ? sessionToken : (body.NomeUsuario || email);
+        // Prefer requested username; only fallback to header token if it looks like an identifier.
+        const st = sessionToken ? String(sessionToken).trim() : '';
+        const stLower = st.toLowerCase();
+        const stLooksIdentifier = !!(stLower && stLower.length <= 60 && (
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stLower) ||
+            /^[a-z0-9_.-]{3,50}$/.test(stLower)
+        ));
+        const nomeUsuario = requestedUsername || (stLooksIdentifier ? stLower : email);
 
         // If a SenhaHash (client-side SHA256 hex) is provided, bcrypt it before storing.
         let senhaHashToStore = null;

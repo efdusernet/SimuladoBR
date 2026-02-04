@@ -427,13 +427,38 @@ router.get('/:id', requireAdmin, async (req, res, next) => {
     const id = Number(req.params && req.params.id);
     if (!Number.isFinite(id) || id <= 0) return next(badRequest('User id inválido', 'INVALID_USER_ID'));
 
-    const user = await db.User.findByPk(id, { attributes: ['Id', 'Nome', 'NomeUsuario', 'Email', 'EmailConfirmado', 'Excluido', 'DataCadastro', 'DataAlteracao'] });
+    const user = await db.User.findByPk(id, { attributes: ['Id', 'Nome', 'NomeUsuario', 'Email', 'EmailConfirmado', 'Excluido', 'PwdExpired', 'PwdExpiredDate', 'DataCadastro', 'DataAlteracao'] });
     if (!user) return next(notFound('Usuário não encontrado', 'USER_NOT_FOUND'));
 
     return res.json(user);
   } catch (e) {
     console.error('[admin_users][GET] error:', e && e.message);
     return next(internalError('Internal error', 'ADMIN_USERS_GET_ERROR', { error: e && e.message }));
+  }
+});
+
+// POST /api/admin/users/:id/expire-password
+// Mark user's password as expired (PwdExpired=true, PwdExpiredDate=NOW)
+router.post('/:id/expire-password', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params && req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return next(badRequest('User id inválido', 'INVALID_USER_ID'));
+
+    const user = await db.User.findByPk(id, { attributes: ['Id'] });
+    if (!user) return next(notFound('Usuário não encontrado', 'USER_NOT_FOUND'));
+
+    await expiresUser(id, null);
+
+    const updated = await db.User.findByPk(id, { attributes: ['Id', 'PwdExpired', 'PwdExpiredDate'] });
+    return res.json({
+      Id: updated ? updated.Id : id,
+      PwdExpired: updated ? (updated.PwdExpired === true) : true,
+      PwdExpiredDate: (updated && updated.PwdExpiredDate) ? new Date(updated.PwdExpiredDate).toISOString() : null,
+      message: 'Senha marcada como expirada'
+    });
+  } catch (e) {
+    console.error('[admin_users][EXPIRE_PASSWORD] error:', e && e.message);
+    return next(internalError('Internal error', 'ADMIN_USERS_EXPIRE_PASSWORD_ERROR', { error: e && e.message }));
   }
 });
 

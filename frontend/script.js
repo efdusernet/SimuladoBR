@@ -1871,6 +1871,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const msgRaw = (data && data.message) ? data.message : (typeof data === 'string' ? data : `${res.status} ${res.statusText}`);
                     const msg = mapLoginErrorMessage(code, msgRaw);
                     // 403 is used for different auth states (email verify / password expired)
+                    // NOTE: backend does NOT expose `details` for 403 in production, so do not rely on canChangeExpiredPassword.
                     if (res.status === 403) {
                         const c = String(code || '').trim().toUpperCase();
                         if (c === 'EMAIL_NOT_CONFIRMED') {
@@ -1882,11 +1883,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             submitBtn.disabled = false;
                             return;
                         }
+
                         if (c === 'PASSWORD_EXPIRED') {
-                            const canChange = !!(data && typeof data === 'object' && data.canChangeExpiredPassword);
-                            if (canChange) {
-                                setModalMode('expired-password');
-                            }
+                            // Always switch to the expired-password form.
+                            setModalMode('expired-password');
                             modalError.style.color = 'crimson';
                             modalError.textContent = msg || 'Sua senha expirou. Defina uma nova senha para continuar.';
                             modalError.style.display = 'block';
@@ -1894,6 +1894,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
 
+                        if (c === 'PASSWORD_EXPIRED_ACCOUNT_RESTRICTED') {
+                            // Cannot change via login; ensure we are NOT stuck in verify UI.
+                            setModalMode('login');
+                            modalError.style.color = 'crimson';
+                            modalError.textContent = msg || 'Sua senha expirou, mas sua conta está restrita e não pode alterar a senha no login.';
+                            modalError.style.display = 'block';
+                            submitBtn.disabled = false;
+                            return;
+                        }
+
+                        // Fallback for other 403 codes: ensure mode is sane (not stuck in verify).
+                        setModalMode('login');
                         modalError.style.color = 'crimson';
                         modalError.textContent = msg || 'Acesso negado.';
                         modalError.style.display = 'block';

@@ -1233,6 +1233,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (c === 'PASSWORD_EXPIRED_ACCOUNT_RESTRICTED') {
             return fallback || 'Sua senha expirou, mas sua conta está restrita (bloqueada/não confirmada/excluída). Contate o suporte.';
         }
+        if (c === 'NEW_PASSWORD_SAME_AS_CURRENT') {
+            return fallback || 'A nova senha deve ser diferente da senha atual.';
+        }
         if (c === 'TOO_MANY_REQUESTS') {
             return fallback || 'Muitas tentativas. Aguarde e tente novamente.';
         }

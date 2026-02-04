@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (toggleModeBtn) {
             toggleModeBtn.addEventListener('click', () => {
                 const currentMode = (modal && modal.getAttribute('data-mode')) || 'register';
-                if (currentMode === 'forgot-password' || currentMode === 'reset-password') {
+                if (currentMode === 'forgot-password' || currentMode === 'reset-password' || currentMode === 'expired-password') {
                     setModalMode('login');
                 } else if (currentMode === 'login') {
                     setModalMode('register');
@@ -1033,6 +1033,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (toggleModeBtn) toggleModeBtn.textContent = 'Criar conta';
             if (modalError) { modalError.style.display = 'none'; modalError.style.color = ''; }
             if (usernameInput) usernameInput.focus();
+        } else if (mode === 'expired-password') {
+            if (nameInput) nameInput.style.display = 'none';
+            if (usernameInput) {
+                usernameInput.style.display = '';
+                usernameInput.placeholder = 'Usuário ou e-mail';
+            }
+            if (emailInput) emailInput.style.display = 'none';
+            if (verifyTokenInput) verifyTokenInput.style.display = 'none';
+            if (passwordInput) passwordInput.style.display = '';
+            if (newPasswordInput) newPasswordInput.style.display = '';
+            if (confirmPasswordInput) confirmPasswordInput.style.display = '';
+            if (confirmPasswordInput) confirmPasswordInput.placeholder = 'Confirmar nova senha';
+            if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
+            if (titleEl) titleEl.textContent = 'Senha expirada';
+            if (descEl) descEl.textContent = 'Sua senha expirou. Defina uma nova senha para continuar.';
+            if (submitBtn) submitBtn.textContent = 'Alterar senha';
+            if (toggleModeBtn) toggleModeBtn.textContent = 'Voltar ao login';
+            if (modalError) { modalError.style.display = 'none'; modalError.style.color = ''; }
+            try { if (newPasswordInput) newPasswordInput.value = ''; } catch(_){ }
+            try { if (confirmPasswordInput) confirmPasswordInput.value = ''; } catch(_){ }
+            if (newPasswordInput) newPasswordInput.focus();
         } else if (mode === 'forgot-password') {
             // Modo: solicitar reset de senha
             if (nameInput) nameInput.style.display = 'none';
@@ -1653,10 +1674,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const confirmPasswordRegister = (confirmPasswordInput && (confirmPasswordInput.value || '')) || '';
 
-        const mode = modal.getAttribute('data-mode') || 'register'; // 'register', 'login', 'forgot-password', 'reset-password'
+        const mode = modal.getAttribute('data-mode') || 'register'; // 'register', 'login', 'forgot-password', 'reset-password', 'expired-password'
 
         // Basic validations depend on mode
-        if (mode === 'login' || mode === 'verify') {
+        if (mode === 'login' || mode === 'verify' || mode === 'expired-password') {
             const identifier = nomeUsuario;
             if (!identifier || !validateLoginIdentifier(identifier)) {
                 modalError.textContent = 'Informe seu usuário (NomeUsuario) ou e-mail.';
@@ -1706,6 +1727,31 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!token || token.length < 6) {
                 modalError.textContent = 'Informe o código de verificação recebido por e-mail.';
+                modalError.style.display = 'block';
+                return;
+            }
+            if (!newPassword || newPassword.length < 6) {
+                modalError.textContent = 'Informe uma nova senha com pelo menos 6 caracteres.';
+                modalError.style.display = 'block';
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                modalError.textContent = 'As senhas não coincidem.';
+                modalError.style.display = 'block';
+                return;
+            }
+        } else if (mode === 'expired-password') {
+            const newPassword = newPasswordInput ? (newPasswordInput.value || '') : '';
+            const confirmPassword = confirmPasswordInput ? (confirmPasswordInput.value || '') : '';
+            const identifier = nomeUsuario;
+
+            if (!identifier || !validateLoginIdentifier(identifier)) {
+                modalError.textContent = 'Informe seu usuário (NomeUsuario) ou e-mail.';
+                modalError.style.display = 'block';
+                return;
+            }
+            if (!password) {
+                modalError.textContent = 'Informe sua senha atual.';
                 modalError.style.display = 'block';
                 return;
             }
@@ -1824,16 +1870,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     const code = (data && typeof data === 'object') ? data.code : null;
                     const msgRaw = (data && data.message) ? data.message : (typeof data === 'string' ? data : `${res.status} ${res.statusText}`);
                     const msg = mapLoginErrorMessage(code, msgRaw);
-                    // If email not confirmed, server returns 403 — switch modal to verify mode and inform user
+                    // 403 is used for different auth states (email verify / password expired)
                     if (res.status === 403) {
-                        setModalVerifyMode();
+                        const c = String(code || '').trim().toUpperCase();
+                        if (c === 'EMAIL_NOT_CONFIRMED') {
+                            setModalVerifyMode();
+                            modalError.style.color = 'crimson';
+                            modalError.textContent = msg || 'E-mail não confirmado. Verifique seu e-mail para o código.';
+                            modalError.style.display = 'block';
+                            if (verifyTokenInput) verifyTokenInput.value = '';
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                        if (c === 'PASSWORD_EXPIRED') {
+                            const canChange = !!(data && typeof data === 'object' && data.canChangeExpiredPassword);
+                            if (canChange) {
+                                setModalMode('expired-password');
+                            }
+                            modalError.style.color = 'crimson';
+                            modalError.textContent = msg || 'Sua senha expirou. Defina uma nova senha para continuar.';
+                            modalError.style.display = 'block';
+                            submitBtn.disabled = false;
+                            return;
+                        }
+
                         modalError.style.color = 'crimson';
-                        modalError.textContent = msg || 'E-mail não confirmado. Verifique seu e-mail para o código.';
+                        modalError.textContent = msg || 'Acesso negado.';
                         modalError.style.display = 'block';
-                        // keep email filled and show verify token input
-                        if (verifyTokenInput) verifyTokenInput.value = '';
                         submitBtn.disabled = false;
-                        return; // stop login flow here
+                        return;
                     }
                     // Lockout policy: show toast with live countdown and disable login until expiry
                     if (res.status === 423 || res.status === 429) {
@@ -2044,6 +2109,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     setModalMode('login');
                     submitBtn.disabled = false;
                 }
+            } else if (mode === 'expired-password') {
+                const identifier = String(nomeUsuario || '').trim().toLowerCase();
+                const newPassword = newPasswordInput ? (newPasswordInput.value || '') : '';
+
+                const currentHash = await hashPasswordSHA256(password);
+                const newHash = await hashPasswordSHA256(newPassword);
+
+                const BACKEND_BASE = SIMULADOS_CONFIG.BACKEND_BASE || 'http://localhost:3000';
+                const url = `${BACKEND_BASE.replace(/\/$/, '')}/api/auth/change-expired-password`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ identifier, currentPasswordHash: currentHash, newPasswordHash: newHash })
+                });
+
+                const text = await res.text();
+                let data;
+                try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+                if (!res.ok) {
+                    const code = (data && typeof data === 'object') ? data.code : null;
+                    const msgRaw = (data && data.message) ? data.message : (typeof data === 'string' ? data : `${res.status} ${res.statusText}`);
+                    const msg = mapLoginErrorMessage(code, msgRaw);
+                    throw new Error(msg || msgRaw || 'Falha ao alterar senha.');
+                }
+
+                setModalMode('login');
+                modalError.style.color = 'green';
+                modalError.textContent = 'Senha alterada com sucesso! Agora faça login.';
+                modalError.style.display = 'block';
+                try { if (passwordInput) passwordInput.value = ''; } catch(_){ }
+                try { if (newPasswordInput) newPasswordInput.value = ''; } catch(_){ }
+                try { if (confirmPasswordInput) confirmPasswordInput.value = ''; } catch(_){ }
             }
         } catch (err) {
             console.error('Erro no fluxo:', err);

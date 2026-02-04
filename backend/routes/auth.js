@@ -16,6 +16,97 @@ const { generateSessionId, upsertActiveSession, verifyJwtAndGetActiveUser, extra
 const { getCookieDomainForRequest } = require('../utils/cookieDomain');
 const { enforcePremiumExpiry } = require('../services/premiumExpiry');
 
+function isTrueEnv(name) {
+    const v = String(process.env[name] || '').trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
+function isHardenAuthResponsesEnabled() {
+    return isTrueEnv('HARDEN_AUTH_RESPONSES');
+}
+
+function shouldReturnTokenInBody(hardenMode) {
+    const raw = String(process.env.AUTH_RETURN_TOKEN_IN_BODY || '').trim().toLowerCase();
+    if (raw === 'true' || raw === '1' || raw === 'yes' || raw === 'on') return true;
+    if (raw === 'false' || raw === '0' || raw === 'no' || raw === 'off') return false;
+    // Default behavior: keep backward compatibility unless hardening is enabled.
+    return !hardenMode;
+}
+
+async function sendOrReuseVerificationTokenOnLogin(req, res, user, identifier) {
+    // Security hardening: avoid spamming emails by reusing a recent valid token.
+    try {
+        try {
+            const recent = await EmailVerification.findOne({
+                where: {
+                    UserId: user.Id,
+                    Used: false,
+                    ForcedExpiration: false
+                },
+                order: [['CreatedAt', 'DESC']]
+            });
+            if (recent) {
+                let isEmailVerificationToken = true;
+                try {
+                    const meta = recent.Meta ? JSON.parse(recent.Meta) : {};
+                    if (meta && (meta.type === 'password_reset' || meta.type === 'email_change')) {
+                        isEmailVerificationToken = false;
+                    }
+                } catch (_) {}
+
+                if (isEmailVerificationToken) {
+                    const createdAt = recent.CreatedAt ? new Date(recent.CreatedAt).getTime() : 0;
+                    const expiresAt = recent.ExpiresAt ? new Date(recent.ExpiresAt).getTime() : 0;
+                    const now = Date.now();
+                    const isFresh = createdAt && (now - createdAt) < (2 * 60 * 1000);
+                    const notExpired = !expiresAt || expiresAt > now;
+                    if (isFresh && notExpired) {
+                        security.loginFailure(req, identifier, 'email_not_confirmed_recent_token');
+                        return;
+                    }
+                }
+            }
+        } catch (_) { /* ignore */ }
+
+        const existingTokens = await EmailVerification.findAll({
+            where: {
+                UserId: user.Id,
+                Used: false
+            }
+        });
+
+                // Backward-compat cleanup: older builds attempted Domain=.localhost.
+        try {
+            const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+            if (!isProd) {
+                const hostRaw = String(req.get('host') || '').replace(/:\d+$/, '').toLowerCase();
+                if (hostRaw === 'localhost' || hostRaw.endsWith('.localhost')) {
+                            res && res.clearCookie && res.clearCookie('sessionToken', { domain: '.localhost', path: '/' });
+                }
+            }
+        } catch (_) {}
+
+        for (const oldToken of existingTokens) {
+            try {
+                const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
+                if (!oldMeta.type || (oldMeta.type !== 'password_reset' && oldMeta.type !== 'email_change')) {
+                    await oldToken.update({ ForcedExpiration: true });
+                    logger.info(`[login-email-verification] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${user.Id}`);
+                }
+            } catch (e) {
+                logger.warn('[login-email-verification] Erro ao processar meta de token antigo:', e);
+            }
+        }
+
+        const token = require('../utils/codegen').generateVerificationCode(6).toUpperCase();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await EmailVerification.create({ UserId: user.Id, Token: token, ExpiresAt: expiresAt, Used: false, CreatedAt: new Date() });
+        await sendVerificationEmail(user.Email, token);
+    } catch (e) {
+        logger.error('Erro criando/enviando token verificação no login:', e);
+    }
+}
+
 function isPasswordExpired(user) {
     try {
         if (!user) return false;
@@ -106,6 +197,7 @@ const registerLimiter = rateLimit({
 // POST /api/auth/login
 router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res, next) => {
     try {
+        const hardenMode = isHardenAuthResponsesEnabled();
         const body = req.body || {};
         if (!body.Email || typeof body.Email !== 'string') {
             return next(badRequest('Usuário ou e-mail obrigatório', 'IDENTIFIER_REQUIRED'));
@@ -146,94 +238,36 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 const secondsLeft = Math.ceil((until - now) / 1000);
                 security.loginFailure(req, identifier, 'account_locked');
                 security.suspiciousActivity(req, `Account locked until ${new Date(until).toISOString()} - repeated failed attempts`);
-                                return next(new (require('../middleware/errorHandler').AppError)(
-                                    'Muitas tentativas de login. Sua conta foi bloqueada temporariamente. Aguarde 5 minutos antes de tentar novamente.',
-                                    423,
-                                    'ACCOUNT_LOCKED',
-                                    { lockoutUntil: new Date(until).toISOString(), lockoutSecondsLeft: secondsLeft }
-                                ));
+
+                // In hardened mode, avoid revealing lockout for unknown/invalid credentials.
+                // Only reveal lockout details if the provided password is correct.
+                if (hardenMode) {
+                    let isCorrectPassword = false;
+                    try {
+                        if (user.SenhaHash) {
+                            isCorrectPassword = await bcrypt.compare(body.SenhaHash, user.SenhaHash);
+                        } else if (DUMMY_BCRYPT_HASH) {
+                            await bcrypt.compare(body.SenhaHash, DUMMY_BCRYPT_HASH);
+                        }
+                    } catch (_) {}
+                    if (!isCorrectPassword) {
+                        return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
+                    }
+                }
+
+                return next(new (require('../middleware/errorHandler').AppError)(
+                    'Muitas tentativas de login. Sua conta foi bloqueada temporariamente. Aguarde 5 minutos antes de tentar novamente.',
+                    423,
+                    'ACCOUNT_LOCKED',
+                    { lockoutUntil: new Date(until).toISOString(), lockoutSecondsLeft: secondsLeft }
+                ));
             }
         } catch (_) { /* ignore */ }
 
         // If email not confirmed, create/send verification token and ask user to validate.
-        // Security hardening: avoid spamming emails by reusing a recent valid token.
-        if (!user.EmailConfirmado) {
-            try {
-                // If we recently issued a verification token (and it is still valid), reuse it.
-                try {
-                    const recent = await EmailVerification.findOne({
-                        where: {
-                            UserId: user.Id,
-                            Used: false,
-                            ForcedExpiration: false
-                        },
-                        order: [['CreatedAt', 'DESC']]
-                    });
-                    if (recent) {
-                        let isEmailVerificationToken = true;
-                        try {
-                            const meta = recent.Meta ? JSON.parse(recent.Meta) : {};
-                            // Password reset / email change tokens are not email-verification tokens.
-                            if (meta && (meta.type === 'password_reset' || meta.type === 'email_change')) {
-                                isEmailVerificationToken = false;
-                            }
-                        } catch (_) {}
-
-                        if (isEmailVerificationToken) {
-                            const createdAt = recent.CreatedAt ? new Date(recent.CreatedAt).getTime() : 0;
-                            const expiresAt = recent.ExpiresAt ? new Date(recent.ExpiresAt).getTime() : 0;
-                            const now = Date.now();
-                            const isFresh = createdAt && (now - createdAt) < (2 * 60 * 1000);
-                            const notExpired = !expiresAt || expiresAt > now;
-                            if (isFresh && notExpired) {
-                                // Don't send another email; keep same token active.
-                                security.loginFailure(req, identifier, 'email_not_confirmed_recent_token');
-                                return next(forbidden('E-mail não confirmado. Enviamos um token para o seu e-mail.', 'EMAIL_NOT_CONFIRMED'));
-                            }
-                        }
-                    }
-                } catch (_) { /* ignore */ }
-
-                // Invalidar tokens anteriores não usados de verificação de email para este usuário
-                const existingTokens = await EmailVerification.findAll({
-                    where: {
-                        UserId: user.Id,
-                        Used: false
-                    }
-                });
-
-                // Backward-compat cleanup: older builds attempted Domain=.localhost.
-                try {
-                    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
-                    if (!isProd) {
-                        const hostRaw = String(req.get('host') || '').replace(/:\d+$/, '').toLowerCase();
-                        if (hostRaw === 'localhost' || hostRaw.endsWith('.localhost')) {
-                            res.clearCookie('sessionToken', { domain: '.localhost', path: '/' });
-                        }
-                    }
-                } catch (_) {}
-
-                for (const oldToken of existingTokens) {
-                    try {
-                        const oldMeta = oldToken.Meta ? JSON.parse(oldToken.Meta) : {};
-                        // Se não tem meta ou se é verificação de email (não tem type ou type não é password_reset/email_change)
-                        if (!oldMeta.type || (oldMeta.type !== 'password_reset' && oldMeta.type !== 'email_change')) {
-                            await oldToken.update({ ForcedExpiration: true });
-                            logger.info(`[login-email-verification] Token anterior ${oldToken.Token} forçadamente expirado para UserId ${user.Id}`);
-                        }
-                    } catch (e) {
-                        logger.warn('[login-email-verification] Erro ao processar meta de token antigo:', e);
-                    }
-                }
-
-                const token = require('../utils/codegen').generateVerificationCode(6).toUpperCase();
-                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-                await EmailVerification.create({ UserId: user.Id, Token: token, ExpiresAt: expiresAt, Used: false, CreatedAt: new Date() });
-                
-                await sendVerificationEmail(user.Email, token);
-            } catch (e) {
-                logger.error('Erro criando/enviando token verificação no login:', e);
-            }
+        // In hardened mode, defer this until AFTER password verification (prevents account-state enumeration).
+        if (!hardenMode && !user.EmailConfirmado) {
+            await sendOrReuseVerificationTokenOnLogin(req, res, user, identifier);
             security.loginFailure(req, identifier, 'email_not_confirmed');
             return next(forbidden('E-mail não confirmado. Enviamos um token para o seu e-mail.', 'EMAIL_NOT_CONFIRMED'));
         }
@@ -251,6 +285,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 }
                 await user.update(patch);
             } catch (_) { /* ignore */ }
+            if (hardenMode) return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
             return next(unauthorized('Usuário sem senha cadastrada', 'USER_WITHOUT_PASSWORD'));
         }
 
@@ -269,6 +304,13 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
                 await user.update(patch);
             } catch (_) { /* ignore */ }
             return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
+        }
+
+        // If hardening is enabled, only now reveal email-not-confirmed state.
+        if (hardenMode && !user.EmailConfirmado) {
+            await sendOrReuseVerificationTokenOnLogin(req, res, user, identifier);
+            security.loginFailure(req, identifier, 'email_not_confirmed');
+            return next(forbidden('E-mail não confirmado. Enviamos um token para o seu e-mail.', 'EMAIL_NOT_CONFIRMED'));
         }
 
         // Após validar a senha, aplica regra centralizada de expiração do premium.
@@ -343,16 +385,22 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
         // Log successful login
         security.loginSuccess(req, user);
 
-        return res.json({
+        const responseBody = {
             Id: user.Id,
             NomeUsuario: user.NomeUsuario,
             Nome: user.Nome,
             Email: user.Email,
             EmailConfirmado: user.EmailConfirmado,
-            BloqueioAtivado: user.BloqueioAtivado,
-            token, // Still return token for backward compatibility
-            tokenType: token ? 'Bearer' : null
-        });
+            BloqueioAtivado: user.BloqueioAtivado
+        };
+
+        // Optionally omit token from JSON body (rely on httpOnly cookie).
+        if (shouldReturnTokenInBody(hardenMode)) {
+            responseBody.token = token;
+            responseBody.tokenType = token ? 'Bearer' : null;
+        }
+
+        return res.json(responseBody);
 
         // Best-effort: clear legacy Domain=.localhost variant too.
         try {

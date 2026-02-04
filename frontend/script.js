@@ -285,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('emailModal');
     const emailInput = document.getElementById('emailInput');
     const nameInput = document.getElementById('nameInput');
+    const usernameInput = document.getElementById('usernameInput');
     const passwordInput = document.getElementById('passwordInput');
     const verifyTokenInput = document.getElementById('verifyTokenInput');
     const newPasswordInput = document.getElementById('newPasswordInput');
@@ -1015,24 +1016,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'login'){
             // hide name field
             if (nameInput) nameInput.style.display = 'none';
+            if (usernameInput) {
+                usernameInput.style.display = '';
+                usernameInput.placeholder = 'Usuário ou e-mail';
+            }
+            if (emailInput) emailInput.style.display = 'none';
             if (verifyTokenInput) verifyTokenInput.style.display = 'none';
             if (newPasswordInput) newPasswordInput.style.display = 'none';
             if (confirmPasswordInput) confirmPasswordInput.style.display = 'none';
             if (passwordInput) passwordInput.style.display = '';
+            if (confirmPasswordInput) confirmPasswordInput.value = '';
             if (forgotPasswordLink) forgotPasswordLink.style.display = 'block';
             if (titleEl) titleEl.textContent = 'Entrar';
-            if (descEl) descEl.textContent = 'Informe seu e-mail e senha para entrar.';
+            if (descEl) descEl.textContent = 'Informe seu usuário (NomeUsuario) ou e-mail e sua senha para entrar.';
             if (submitBtn) submitBtn.textContent = 'Entrar';
             if (toggleModeBtn) toggleModeBtn.textContent = 'Criar conta';
             if (modalError) { modalError.style.display = 'none'; modalError.style.color = ''; }
-            if (passwordInput) passwordInput.focus();
+            if (usernameInput) usernameInput.focus();
         } else if (mode === 'forgot-password') {
             // Modo: solicitar reset de senha
             if (nameInput) nameInput.style.display = 'none';
+            if (usernameInput) usernameInput.style.display = 'none';
+            if (emailInput) emailInput.style.display = '';
             if (passwordInput) passwordInput.style.display = 'none';
             if (verifyTokenInput) verifyTokenInput.style.display = 'none';
             if (newPasswordInput) newPasswordInput.style.display = 'none';
             if (confirmPasswordInput) confirmPasswordInput.style.display = 'none';
+            if (confirmPasswordInput) confirmPasswordInput.value = '';
             if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
             if (titleEl) titleEl.textContent = 'Recuperar Senha';
             if (descEl) descEl.textContent = 'Informe seu e-mail para receber o código de recuperação.';
@@ -1043,10 +1053,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'reset-password') {
             // Modo: informar código e nova senha
             if (nameInput) nameInput.style.display = 'none';
+            if (usernameInput) usernameInput.style.display = 'none';
+            if (emailInput) emailInput.style.display = '';
             if (passwordInput) passwordInput.style.display = 'none';
             if (verifyTokenInput) verifyTokenInput.style.display = '';
             if (newPasswordInput) newPasswordInput.style.display = '';
             if (confirmPasswordInput) confirmPasswordInput.style.display = '';
+            if (confirmPasswordInput) confirmPasswordInput.placeholder = 'Confirmar nova senha';
             if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
             if (titleEl) titleEl.textContent = 'Redefinir Senha';
             if (descEl) descEl.textContent = 'Informe o código recebido por e-mail e sua nova senha.';
@@ -1057,13 +1070,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // register
             if (nameInput) nameInput.style.display = '';
+            if (usernameInput) {
+                usernameInput.style.display = '';
+                usernameInput.placeholder = 'Usuário (ex.: joao)';
+            }
+            if (emailInput) emailInput.style.display = '';
             if (passwordInput) passwordInput.style.display = '';
             if (verifyTokenInput) verifyTokenInput.style.display = 'none';
             if (newPasswordInput) newPasswordInput.style.display = 'none';
-            if (confirmPasswordInput) confirmPasswordInput.style.display = 'none';
+            if (confirmPasswordInput) confirmPasswordInput.style.display = '';
+            if (confirmPasswordInput) confirmPasswordInput.placeholder = 'Confirmar senha';
             if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
             if (titleEl) titleEl.textContent = 'Registro obrigatório';
-            if (descEl) descEl.textContent = 'Por favor, informe seu nome, e-mail e senha para registrar o aplicativo.';
+            if (descEl) descEl.textContent = 'Por favor, informe seu nome, usuário, e-mail e senha para registrar o aplicativo.';
             if (submitBtn) submitBtn.textContent = 'Registrar';
             if (toggleModeBtn) toggleModeBtn.textContent = 'Já tenho conta';
             if (modalError) { modalError.style.display = 'none'; modalError.style.color = ''; }
@@ -1077,9 +1096,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const titleEl = modal.querySelector('h2');
         const descEl = modal.querySelector('p');
         if (nameInput) nameInput.style.display = 'none';
+        if (emailInput) emailInput.style.display = 'none';
+        if (usernameInput) {
+            usernameInput.style.display = '';
+            usernameInput.placeholder = 'Usuário ou e-mail';
+        }
+        if (passwordInput) passwordInput.style.display = '';
         if (verifyTokenInput) verifyTokenInput.style.display = '';
+        if (newPasswordInput) newPasswordInput.style.display = 'none';
+        if (confirmPasswordInput) confirmPasswordInput.style.display = 'none';
+        if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
         if (titleEl) titleEl.textContent = 'Verificação de e-mail';
-        if (descEl) descEl.textContent = 'Informe o código enviado para seu e-mail e clique em Validar.';
+        if (descEl) descEl.textContent = 'Informe seu usuário (NomeUsuario) ou e-mail e o código enviado, e clique em Validar.';
         if (submitBtn) submitBtn.textContent = 'Validar';
         if (toggleModeBtn) toggleModeBtn.textContent = 'Já tenho conta';
         if (verifyTokenInput) verifyTokenInput.focus();
@@ -1116,6 +1144,73 @@ document.addEventListener('DOMContentLoaded', () => {
         return typeof name === 'string' && name.trim().length >= 2;
     }
 
+    function validateUsername(username) {
+        const u = String(username || '').trim().toLowerCase();
+        if (u.length < 3 || u.length > 50) return false;
+        return /^[a-z0-9_.-]+$/.test(u);
+    }
+
+    function looksLikeEmail(s) {
+        const v = String(s || '').trim();
+        return v.includes('@');
+    }
+
+    function validateLoginIdentifier(identifier) {
+        const v = String(identifier || '').trim();
+        if (!v) return false;
+        if (looksLikeEmail(v)) return validateEmail(v);
+        return validateUsername(v);
+    }
+
+    function mapVerifyErrorMessage(code, fallbackMessage) {
+        const c = String(code || '').trim().toUpperCase();
+        const fallback = (fallbackMessage && String(fallbackMessage).trim()) ? String(fallbackMessage).trim() : '';
+
+        // Prefer consistent, user-friendly messages (and avoid leaking whether a user exists).
+        if (c === 'USER_NOT_FOUND' || c === 'INVALID_TOKEN') {
+            return 'Código ou usuário/e-mail inválido. Confira e tente novamente.';
+        }
+        if (c === 'TOKEN_EXPIRED') {
+            return 'Este código expirou. Solicite um novo código e tente novamente.';
+        }
+        if (c === 'TOKEN_FORCED_EXPIRED') {
+            return 'Este código foi invalidado porque você solicitou um novo. Use o código mais recente.';
+        }
+        if (c === 'BAD_REQUEST' || c === 'UNPROCESSABLE_ENTITY') {
+            return fallback || 'Dados inválidos. Confira e tente novamente.';
+        }
+        return fallback || 'Não foi possível validar o código. Tente novamente.';
+    }
+
+    function mapLoginErrorMessage(code, fallbackMessage) {
+        const c = String(code || '').trim().toUpperCase();
+        const fallback = (fallbackMessage && String(fallbackMessage).trim()) ? String(fallbackMessage).trim() : '';
+
+        // Avoid account enumeration in common auth failures.
+        if (c === 'INVALID_CREDENTIALS') {
+            return 'Usuário/e-mail ou senha inválidos.';
+        }
+        if (c === 'USER_WITHOUT_PASSWORD') {
+            return 'Esta conta não possui senha cadastrada. Use "Esqueci minha senha" para definir uma senha.';
+        }
+        if (c === 'EMAIL_NOT_CONFIRMED') {
+            return fallback || 'E-mail não confirmado. Digite o código enviado para seu e-mail.';
+        }
+        if (c === 'ACCOUNT_LOCKED') {
+            return fallback || 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+        }
+        if (c === 'TOO_MANY_REQUESTS') {
+            return fallback || 'Muitas tentativas. Aguarde e tente novamente.';
+        }
+        if (c === 'IDENTIFIER_REQUIRED') {
+            return 'Informe seu usuário (NomeUsuario) ou e-mail.';
+        }
+        if (c === 'PASSWORD_REQUIRED') {
+            return 'Informe sua senha.';
+        }
+        return fallback || 'Não foi possível fazer login. Tente novamente.';
+    }
+
     // Hash password with SHA-256 and return hex string
     async function hashPasswordSHA256(password) {
         const enc = new TextEncoder();
@@ -1126,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return hashHex;
     }
 
-    async function registerUser(email, nome, senhaHash = null) {
+    async function registerUser(email, nome, nomeUsuario, senhaHash = null) {
         // Build payload exactly as requested
         const now = new Date().toISOString();
         const payload = {
@@ -1135,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             EmailConfirmado: false,
             BloqueioAtivado: true,
             FimBloqueio: null,
-            NomeUsuario: email,    // token da sessão que será o email
+            NomeUsuario: nomeUsuario,
             SenhaHash: senhaHash,
             NumeroTelefone: null,
             Nome: nome,
@@ -1463,17 +1558,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (modal && submitBtn && emailInput) submitBtn.addEventListener('click', async () => {
-        const email = emailInput.value && emailInput.value.trim();
-        const nome = nameInput.value && nameInput.value.trim();
+        const email = emailInput ? (emailInput.value && emailInput.value.trim()) : '';
+        const nome = nameInput ? (nameInput.value && nameInput.value.trim()) : '';
+        const nomeUsuario = usernameInput ? (usernameInput.value && usernameInput.value.trim()) : '';
         const password = passwordInput ? (passwordInput.value || '') : '';
+
+        const confirmPasswordRegister = (confirmPasswordInput && (confirmPasswordInput.value || '')) || '';
 
         const mode = modal.getAttribute('data-mode') || 'register'; // 'register', 'login', 'forgot-password', 'reset-password'
 
-        // Basic validations
-        if (!email || !validateEmail(email)) {
-            modalError.textContent = 'Informe um e-mail válido.';
-            modalError.style.display = 'block';
-            return;
+        // Basic validations depend on mode
+        if (mode === 'login' || mode === 'verify') {
+            const identifier = nomeUsuario;
+            if (!identifier || !validateLoginIdentifier(identifier)) {
+                modalError.textContent = 'Informe seu usuário (NomeUsuario) ou e-mail.';
+                modalError.style.display = 'block';
+                return;
+            }
+        } else {
+            if (!email || !validateEmail(email)) {
+                modalError.textContent = 'Informe um e-mail válido.';
+                modalError.style.display = 'block';
+                return;
+            }
         }
 
         if (mode === 'register') {
@@ -1482,8 +1589,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 modalError.style.display = 'block';
                 return;
             }
+            if (!nomeUsuario || !validateUsername(nomeUsuario)) {
+                modalError.textContent = 'Informe um usuário válido (3–50 chars, a-z, 0-9, _, . ou -).';
+                modalError.style.display = 'block';
+                return;
+            }
             if (!password || password.length < 6) {
                 modalError.textContent = 'Informe uma senha com pelo menos 6 caracteres.';
+                modalError.style.display = 'block';
+                return;
+            }
+            if (!confirmPasswordRegister || confirmPasswordRegister.length < 6) {
+                modalError.textContent = 'Confirme sua senha.';
+                modalError.style.display = 'block';
+                return;
+            }
+            if (password !== confirmPasswordRegister) {
+                modalError.textContent = 'As senhas não coincidem.';
                 modalError.style.display = 'block';
                 return;
             }
@@ -1525,7 +1647,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // hash password client-side (SHA-256 hex)
                 const senhaHashClient = await hashPasswordSHA256(password);
                 // call register with SenhaHash
-                const created = await registerUser(email, nome, senhaHashClient);
+                const created = await registerUser(email, nome, String(nomeUsuario || '').trim().toLowerCase(), senhaHashClient);
 
                 // After creating account, switch to login mode and ask user to login
                 modal.setAttribute('data-mode', 'login');
@@ -1594,13 +1716,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include', // Important: send/receive cookies
-                    body: JSON.stringify({ Email: email, SenhaHash: senhaHashClient })
+                    body: JSON.stringify({ Email: String(nomeUsuario || '').trim().toLowerCase(), SenhaHash: senhaHashClient })
                 });
                 const text = await res.text();
                 let data;
                 try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
                 if (!res.ok) {
-                    const msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : `${res.status} ${res.statusText}`);
+                    const code = (data && typeof data === 'object') ? data.code : null;
+                    const msgRaw = (data && data.message) ? data.message : (typeof data === 'string' ? data : `${res.status} ${res.statusText}`);
+                    const msg = mapLoginErrorMessage(code, msgRaw);
                     // If email not confirmed, server returns 403 — switch modal to verify mode and inform user
                     if (res.status === 403) {
                         setModalVerifyMode();
@@ -1695,21 +1819,27 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (mode === 'verify') {
                 // verify token flow
                 const token = verifyTokenInput && verifyTokenInput.value && verifyTokenInput.value.trim();
-                if (!token) {
+                if (!token || token.length < 6) {
                     modalError.textContent = 'Informe o código de verificação recebido por e-mail.';
                     modalError.style.display = 'block';
                     submitBtn.disabled = false;
                     return;
                 }
+                const identifier = String(nomeUsuario || '').trim().toLowerCase();
                 const BACKEND_BASE = SIMULADOS_CONFIG.BACKEND_BASE || 'http://localhost:3000';
                 const url = `${BACKEND_BASE.replace(/\/$/, '')}/api/auth/verify`;
-                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, identifier })
+                });
                 const text = await res.text();
                 let data;
                 try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
                 if (!res.ok) {
+                    const code = (data && typeof data === 'object') ? data.code : null;
                     const msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : `${res.status} ${res.statusText}`);
-                    throw new Error(msg);
+                    throw new Error(mapVerifyErrorMessage(code, msg));
                 }
 
                 // verified successfully. Attempt auto-login if password is present, otherwise switch to login mode
@@ -1720,19 +1850,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (password && password.length >= 6) {
                     const senhaHashClient = await hashPasswordSHA256(password);
                     const loginUrl = `${SIMULADOS_CONFIG.BACKEND_BASE.replace(/\/$/, '')}/api/auth/login`;
-                    const r2 = await fetch(loginUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Email: email, SenhaHash: senhaHashClient }) });
+                    const r2 = await fetch(loginUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ Email: identifier, SenhaHash: senhaHashClient })
+                    });
                     const txt2 = await r2.text();
                     let data2;
                     try { data2 = txt2 ? JSON.parse(txt2) : null; } catch (e) { data2 = txt2; }
                     if (!r2.ok) {
-                        const msg = (data2 && data2.message) ? data2.message : (typeof data2 === 'string' ? data2 : `${r2.status} ${r2.statusText}`);
-                        throw new Error(msg);
+                        const code2 = (data2 && typeof data2 === 'object') ? data2.code : null;
+                        const msgRaw2 = (data2 && data2.message) ? data2.message : (typeof data2 === 'string' ? data2 : `${r2.status} ${r2.statusText}`);
+
+                        // Respect lockout/rate-limit signals even on auto-login.
+                        if (r2.status === 423 || r2.status === 429) {
+                            try {
+                                const secLeft = (data2 && typeof data2.lockoutSecondsLeft === 'number') ? Math.max(1, Math.floor(data2.lockoutSecondsLeft)) : 300;
+                                if (submitBtn) submitBtn.disabled = true;
+                                try {
+                                    const untilIso = (data2 && data2.lockoutUntil) ? String(data2.lockoutUntil) : new Date(Date.now() + secLeft * 1000).toISOString();
+                                    localStorage.setItem('lockoutUntil', untilIso);
+                                    ensureLockoutReleaseInfo(untilIso);
+                                } catch(_){ }
+                                startLockoutCountdown(secLeft);
+                                modalError.style.color = 'crimson';
+                                modalError.textContent = mapLoginErrorMessage(code2, msgRaw2);
+                                modalError.style.display = 'block';
+                                return;
+                            } catch(_){
+                                throw new Error(mapLoginErrorMessage(code2, msgRaw2));
+                            }
+                        }
+
+                        throw new Error(mapLoginErrorMessage(code2, msgRaw2));
                     }
                     // behave as successful login
                     const user = data2;
                     // persist JWT if provided
                     saveJwtFromResponse(user);
-                    const nomeUsuarioStored = user.NomeUsuario || email;
+                    const nomeUsuarioStored = user.NomeUsuario || user.Email || nomeUsuario || email;
                     const userId = user.Id || user.id || null;
                     const nomeReal = user.Nome || user.NomeUsuario || nomeUsuarioStored;
 
@@ -1798,6 +1954,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Optionally allow Enter key inside input
     if (emailInput && submitBtn) emailInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
+    if (usernameInput && submitBtn) usernameInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
     if (passwordInput && submitBtn) passwordInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
     if (nameInput && submitBtn) nameInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') submitBtn.click(); });
 

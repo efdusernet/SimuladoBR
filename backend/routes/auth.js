@@ -10,7 +10,7 @@ const { sendVerificationEmail } = require('../utils/mailer');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/security');
 const { authSchemas, validate } = require('../middleware/validation');
-const { security, audit } = require('../utils/logger');
+const { logger, security, audit } = require('../utils/logger');
 const { badRequest, unauthorized, forbidden, notFound, tooManyRequests, internalError } = require('../middleware/errors');
 const { generateSessionId, upsertActiveSession, verifyJwtAndGetActiveUser, extractTokenFromRequest } = require('../utils/singleSession');
 const { getCookieDomainForRequest } = require('../utils/cookieDomain');
@@ -64,17 +64,31 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
     try {
         const body = req.body || {};
         if (!body.Email || typeof body.Email !== 'string') {
-            return next(badRequest('Email obrigatório', 'EMAIL_REQUIRED'));
+            return next(badRequest('Usuário ou e-mail obrigatório', 'IDENTIFIER_REQUIRED'));
         }
         if (!body.SenhaHash || typeof body.SenhaHash !== 'string') {
             return next(badRequest('Senha obrigatória', 'PASSWORD_REQUIRED'));
         }
 
-        const email = body.Email.trim().toLowerCase();
-        const user = await User.findOne({ where: { Email: email } });
+        const identifier = body.Email.trim().toLowerCase();
+
+        let user = null;
+        if (Op) {
+            user = await User.findOne({
+                where: {
+                    [Op.or]: [
+                        { Email: identifier },
+                        { NomeUsuario: identifier }
+                    ]
+                }
+            });
+        } else {
+            user = await User.findOne({ where: { Email: identifier } });
+            if (!user) user = await User.findOne({ where: { NomeUsuario: identifier } });
+        }
         if (!user) {
             // Usuário inexistente: não há onde registrar falha
-            security.loginFailure(req, email, 'user_not_found');
+            security.loginFailure(req, identifier, 'user_not_found');
             return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
         }
 
@@ -84,7 +98,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
             const until = user.FimBloqueio ? new Date(user.FimBloqueio).getTime() : 0;
             if (until && until > now) {
                 const secondsLeft = Math.ceil((until - now) / 1000);
-                security.loginFailure(req, email, 'account_locked');
+                security.loginFailure(req, identifier, 'account_locked');
                 security.suspiciousActivity(req, `Account locked until ${new Date(until).toISOString()} - repeated failed attempts`);
                                 return next(new (require('../middleware/errorHandler').AppError)(
                                     'Muitas tentativas de login. Sua conta foi bloqueada temporariamente. Aguarde 5 minutos antes de tentar novamente.',
@@ -138,7 +152,7 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
             } catch (e) {
                 logger.error('Erro criando/enviando token verificação no login:', e);
             }
-            security.loginFailure(req, email, 'email_not_confirmed');
+            security.loginFailure(req, identifier, 'email_not_confirmed');
             return next(forbidden('E-mail não confirmado. Enviamos um token para o seu e-mail.', 'EMAIL_NOT_CONFIRMED'));
         }
 
@@ -248,9 +262,35 @@ router.post('/login', loginLimiter, validate(authSchemas.login), async (req, res
 router.post('/verify', validate(authSchemas.verify), async (req, res, next) => {
     try {
         const token = req.body.token.trim().toUpperCase();
+        const identifierRaw = (req.body && req.body.identifier != null) ? String(req.body.identifier) : '';
+        const identifier = identifierRaw.trim().toLowerCase();
 
         const now = new Date();
-        const record = await EmailVerification.findOne({ where: { Token: token, Used: false } });
+        let record = null;
+        let user = null;
+
+        // If an identifier is provided, bind the token to that specific user.
+        if (identifier) {
+            if (Op) {
+                user = await User.findOne({
+                    where: {
+                        [Op.or]: [
+                            { Email: identifier },
+                            { NomeUsuario: identifier }
+                        ]
+                    }
+                });
+            } else {
+                user = await User.findOne({ where: { Email: identifier } });
+                if (!user) user = await User.findOne({ where: { NomeUsuario: identifier } });
+            }
+
+            if (!user) return next(notFound('Usuário não encontrado', 'USER_NOT_FOUND'));
+            record = await EmailVerification.findOne({ where: { Token: token, Used: false, UserId: user.Id } });
+        } else {
+            // Backward-compatible behavior: token-only lookup (global)
+            record = await EmailVerification.findOne({ where: { Token: token, Used: false } });
+        }
         if (!record) return next(badRequest('Token inválido ou já utilizado', 'INVALID_TOKEN'));
         if (record.ForcedExpiration) return next(badRequest('Este código foi invalidado porque você solicitou um novo. Use o código mais recente.', 'TOKEN_FORCED_EXPIRED'));
         if (record.ExpiresAt && new Date(record.ExpiresAt) < now) return next(badRequest('Token expirado', 'TOKEN_EXPIRED'));
@@ -259,7 +299,7 @@ router.post('/verify', validate(authSchemas.verify), async (req, res, next) => {
         record.Used = true;
         await record.save();
 
-        const user = await User.findByPk(record.UserId);
+        if (!user) user = await User.findByPk(record.UserId);
         if (user) {
             user.EmailConfirmado = true;
             user.DataAlteracao = new Date();

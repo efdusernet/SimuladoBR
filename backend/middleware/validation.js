@@ -137,12 +137,17 @@ const commonSchemas = {
 // Authentication schemas
 const authSchemas = {
   login: Joi.object({
-    Email: commonSchemas.email,
+    // Allow login by email OR NomeUsuario (username). Kept field name 'Email' for backward compatibility.
+    Email: Joi.alternatives().try(commonSchemas.email, commonSchemas.username).required().messages({
+      'any.required': 'Usuário ou e-mail é obrigatório'
+    }),
     SenhaHash: commonSchemas.passwordHash
   }),
   
   verify: Joi.object({
-    token: commonSchemas.token
+    token: commonSchemas.token,
+    // Optional: allow binding token to a specific user (email or NomeUsuario)
+    identifier: Joi.alternatives().try(commonSchemas.email, commonSchemas.username).optional()
   }),
   
   forgotPassword: Joi.object({

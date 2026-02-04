@@ -387,6 +387,18 @@ router.post('/change-expired-password', loginLimiter, validate(authSchemas.chang
             return next(unauthorized('Credenciais inválidas', 'INVALID_CREDENTIALS'));
         }
 
+        // Enforce: new password must differ from the current password.
+        // (Client sends SHA-256 hex; stored hash is bcrypt(SHA-256).)
+        if (newPasswordHash && currentPasswordHash && newPasswordHash === currentPasswordHash) {
+            return next(badRequest('A nova senha deve ser diferente da senha atual.', 'NEW_PASSWORD_SAME_AS_CURRENT'));
+        }
+        try {
+            const sameAsCurrent = await bcrypt.compare(newPasswordHash, user.SenhaHash);
+            if (sameAsCurrent) {
+                return next(badRequest('A nova senha deve ser diferente da senha atual.', 'NEW_PASSWORD_SAME_AS_CURRENT'));
+            }
+        } catch (_) { /* ignore */ }
+
         // Store bcrypt(SHA-256 hex) and clear expiration flags.
         const bcryptHash = await bcrypt.hash(newPasswordHash, BCRYPT_ROUNDS);
         await user.update({
@@ -594,6 +606,17 @@ router.post('/reset-password', resetLimiter, validate(authSchemas.resetPassword)
         // If password is expired, enforce additional restrictions.
         if (isPasswordExpired(user) && isRestrictedForExpiredPassword(user)) {
             return next(forbidden('Não é permitido alterar a senha nesta conta (senha expirada + conta restrita).', 'PASSWORD_EXPIRED_ACCOUNT_RESTRICTED'));
+        }
+
+        // Enforce: new password must differ from the current password (if one exists).
+        // (Client sends SHA-256 hex; stored hash is bcrypt(SHA-256).)
+        if (user.SenhaHash) {
+            try {
+                const sameAsCurrent = await bcrypt.compare(String(senhaHash || '').trim(), user.SenhaHash);
+                if (sameAsCurrent) {
+                    return next(badRequest('A nova senha deve ser diferente da senha atual.', 'NEW_PASSWORD_SAME_AS_CURRENT'));
+                }
+            } catch (_) { /* ignore */ }
         }
 
         // Hash da senha com bcrypt (servidor)

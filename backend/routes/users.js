@@ -742,6 +742,12 @@ router.put('/me/password', async (req, res, next) => {
             return next(unauthorized('Senha atual incorreta', 'INVALID_PASSWORD'));
         }
 
+        // Enforce: new password must differ from the current password.
+        // (Client sends SHA-256 hex; stored hash is bcrypt(SHA-256).)
+        if (newPassword && currentPassword && newPassword === currentPassword) {
+            return next(badRequest('A nova senha deve ser diferente da senha atual.', 'NEW_PASSWORD_SAME_AS_CURRENT'));
+        }
+
         // Hash new password
         const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
         user.SenhaHash = newHash;

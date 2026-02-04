@@ -442,6 +442,10 @@
                     Email confirmado (desbloqueado)
                   </label>
                   <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
+                    <input id="adminCreateUserPwdExpired" type="checkbox" />
+                    Senha expirada
+                  </label>
+                  <label style="display:flex;gap:8px;align-items:center;font-size:0.82rem;color:var(--text);font-weight:800">
                     <input id="adminCreateUserAsAdmin" type="checkbox" />
                     Criar como admin (RBAC)
                   </label>
@@ -2191,6 +2195,7 @@
         const passEl = document.getElementById('adminCreateUserPassword');
         const pass2El = document.getElementById('adminCreateUserPassword2');
         const emailConfirmadoEl = document.getElementById('adminCreateUserEmailConfirmado');
+        const pwdExpiredEl = document.getElementById('adminCreateUserPwdExpired');
         const asAdminEl = document.getElementById('adminCreateUserAsAdmin');
         const createBtn = document.getElementById('adminCreateUserBtn');
         const clearCreateBtn = document.getElementById('adminCreateUserClearBtn');
@@ -2250,6 +2255,7 @@
           try { if (passEl) passEl.value = ''; } catch(_){ }
           try { if (pass2El) pass2El.value = ''; } catch(_){ }
           try { if (emailConfirmadoEl) emailConfirmadoEl.checked = true; } catch(_){ }
+          try { if (pwdExpiredEl) pwdExpiredEl.checked = false; } catch(_){ }
           try { if (asAdminEl) asAdminEl.checked = false; } catch(_){ }
           setCreateStatus('');
           showOut(createOutEl, '');
@@ -2263,13 +2269,14 @@
           const nome = nomeEl ? String(nomeEl.value || '').trim() : '';
           const nomeUsuario = nomeUsuarioEl ? String(nomeUsuarioEl.value || '').trim() : '';
           const emailConfirmado = !!(emailConfirmadoEl && emailConfirmadoEl.checked);
+          const pwdExpired = !!(pwdExpiredEl && pwdExpiredEl.checked);
           const createAsAdmin = !!(asAdminEl && asAdminEl.checked);
 
           if (!email) { setCreateStatus('Informe o email.'); return; }
           if (pass.length < 6) { setCreateStatus('Senha muito curta (mín. 6).'); return; }
           if (pass !== pass2) { setCreateStatus('As senhas não coincidem.'); return; }
 
-          const msg = `Tem certeza que deseja CRIAR este usuário?\n\nEmail: ${email}${nomeUsuario ? `\nUsuário: ${nomeUsuario}` : ''}\nStatus: ${emailConfirmado ? 'DESBLOQUEADO (email confirmado)' : 'BLOQUEADO (email não confirmado)'}${createAsAdmin ? '\n\nE também promover a admin (RBAC).' : ''}`;
+          const msg = `Tem certeza que deseja CRIAR este usuário?\n\nEmail: ${email}${nomeUsuario ? `\nUsuário: ${nomeUsuario}` : ''}\nStatus: ${emailConfirmado ? 'DESBLOQUEADO (email confirmado)' : 'BLOQUEADO (email não confirmado)'}${pwdExpired ? '\nSenha: EXPIRADA (usuário precisará trocar no login)' : ''}${createAsAdmin ? '\n\nE também promover a admin (RBAC).' : ''}`;
           if (!confirm(msg)) { setCreateStatus('Ação cancelada.'); return; }
 
           try {
@@ -2283,6 +2290,7 @@
               SenhaHash: hashedPassword,
               EmailConfirmado: emailConfirmado,
             };
+            if (pwdExpired) payload.PwdExpired = true;
             if (nome) payload.Nome = nome;
             if (nomeUsuario) payload.NomeUsuario = nomeUsuario;
 

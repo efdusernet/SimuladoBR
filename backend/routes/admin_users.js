@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const { logger } = require('../utils/logger');
 const { badRequest, notFound, internalError, conflict } = require('../middleware/errors');
 const { authSchemas, adminSchemas, validate } = require('../middleware/validation');
+const { expiresUser } = require('../services/expiresUser');
 
 async function getAdminRoleIdOrCreate(){
   // Returns role id for slug='admin'. Creates the role if missing.
@@ -133,6 +134,19 @@ router.post('/', requireAdmin, validate(adminSchemas.createUser), async (req, re
       Excluido: false,
     });
 
+    // Optionally force password expiration at birth.
+    if (body.PwdExpired === true && created && created.Id) {
+      try {
+        await expiresUser(created.Id, null);
+        // Keep in-memory model consistent for the response (best-effort)
+        created.PwdExpired = true;
+        created.PwdExpiredDate = new Date();
+      } catch (err) {
+        // Best-effort: do not fail user creation.
+        logger && logger.warn ? logger.warn('[admin_users][CREATE] expiresUser failed:', err && err.message) : console.warn('[admin_users][CREATE] expiresUser failed:', err && err.message);
+      }
+    }
+
     return res.status(201).json({
       Id: created.Id,
       Nome: created.Nome,
@@ -140,6 +154,8 @@ router.post('/', requireAdmin, validate(adminSchemas.createUser), async (req, re
       Email: created.Email,
       EmailConfirmado: created.EmailConfirmado,
       Excluido: created.Excluido,
+      PwdExpired: created.PwdExpired === true,
+      PwdExpiredDate: created.PwdExpiredDate ? new Date(created.PwdExpiredDate).toISOString() : null,
       DataCadastro: created.DataCadastro ? new Date(created.DataCadastro).toISOString() : null,
       DataAlteracao: created.DataAlteracao ? new Date(created.DataAlteracao).toISOString() : null,
     });

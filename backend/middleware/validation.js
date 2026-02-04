@@ -453,7 +453,9 @@ const userSchemas = {
 const adminSchemas = {
   createUser: authSchemas.register.keys({
     // Admin-only: allow creating a user already confirmed (unblocked) or not.
-    EmailConfirmado: Joi.boolean().optional()
+    EmailConfirmado: Joi.boolean().optional(),
+    // Admin-only: allow creating a user with an expired password (forces change at first login).
+    PwdExpired: Joi.boolean().optional()
   }),
 
   markAbandoned: Joi.object({

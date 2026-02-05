@@ -5,6 +5,9 @@
   const meEmailEl = document.getElementById('meEmail');
   const lastUpdatedEl = document.getElementById('lastUpdated');
 
+  let quotaBlocked = false;
+  let quotaSnapshot = null;
+
   const defaultLoadingText = loadingEl ? loadingEl.textContent : 'Carregando insights...';
 
   const kpiReadiness = document.getElementById('kpiReadiness');
@@ -107,6 +110,40 @@
     if (!loadingEl) return;
     loadingEl.textContent = String(msg || '');
     loadingEl.style.display = 'block';
+  }
+
+  function applyQuotaToButton(){
+    if (!btn) return;
+    if (!quotaBlocked) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Bloqueado';
+
+    const used = quotaSnapshot && quotaSnapshot.quota ? quotaSnapshot.quota.usedClicks : null;
+    const max = quotaSnapshot && quotaSnapshot.quota ? quotaSnapshot.quota.maxClicks : null;
+    const model = quotaSnapshot && quotaSnapshot.model ? String(quotaSnapshot.model) : 'gemini-2.5-flash';
+    const providerRaw = quotaSnapshot && quotaSnapshot.provider ? String(quotaSnapshot.provider) : 'gemini';
+    const provider = providerRaw.toLowerCase() === 'gemini' ? 'Gemini' : providerRaw;
+
+    const msg = (used != null && max != null)
+      ? `Limite atingido para IA (${provider} · ${model}): ${used}/${max}.`
+      : `Limite atingido para IA (${provider} · ${model}).`;
+    setHint(msg);
+  }
+
+  async function refreshQuotaStatus(){
+    try {
+      const resp = await fetch('/api/ai/insights/gemini-usage', {
+        headers: buildAuthHeaders(),
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (!resp.ok) return;
+      const payload = await resp.json();
+      quotaSnapshot = payload;
+      quotaBlocked = Boolean(payload && payload.quota && payload.quota.blocked);
+      applyQuotaToButton();
+    } catch(_){ }
   }
 
   function fmtDateTime(ts){
@@ -929,6 +966,11 @@
   }
 
   async function loadAll(){
+    if (quotaBlocked) {
+      applyQuotaToButton();
+      return;
+    }
+
     setLoading(true);
     setError(false);
 
@@ -961,6 +1003,21 @@
           // ignore
         }
 
+        if (resp.status === 429 && payload && payload.code === 'INSIGHTS_GEMINI_FLASH_CLICK_LIMIT_REACHED') {
+          quotaBlocked = true;
+          quotaSnapshot = payload && payload.details ? {
+            provider: (payload.details && payload.details.provider) ? payload.details.provider : 'gemini',
+            model: (payload.details && payload.details.model) ? payload.details.model : 'gemini-2.5-flash',
+            quota: {
+              usedClicks: payload.details.usedClicks,
+              maxClicks: payload.details.maxClicks,
+              blocked: true,
+            }
+          } : null;
+          applyQuotaToButton();
+          throw new Error('QUOTA_BLOCKED');
+        }
+
         if (resp.status === 403 && payload && payload.code === 'PREMIUM_REQUIRED') {
           throw new Error('PREMIUM_REQUIRED');
         }
@@ -974,6 +1031,9 @@
       const data = await resp.json();
       render(data);
 
+      // After a successful run, refresh quota (the server may have recorded the click).
+      refreshQuotaStatus();
+
       const email = (me && (me.Email || me.email)) ? String(me.Email || me.email) : null;
       const storedAt = Date.now();
       saveCached({ storedAt, days, email, filters, data });
@@ -982,7 +1042,9 @@
     } catch(e) {
       logger.error(e);
 
-      if (String(e && e.message || '') === 'PREMIUM_REQUIRED') {
+      if (String(e && e.message || '') === 'QUOTA_BLOCKED') {
+        setError(true, 'Limite atingido para gerar Insights por IA (Gemini).');
+      } else if (String(e && e.message || '') === 'PREMIUM_REQUIRED') {
         setError(true, 'Recurso Premium. Faça upgrade para acessar os Insights da IA.');
         setHint('Acesso premium necessário para Insights da IA.');
       } else {
@@ -996,10 +1058,15 @@
       setLoading(false);
     } finally {
       if (btn) {
-        btn.disabled = false;
-        const old = btn.dataset._oldText;
-        if (old) btn.textContent = old;
-        delete btn.dataset._oldText;
+        if (!quotaBlocked) {
+          btn.disabled = false;
+          const old = btn.dataset._oldText;
+          if (old) btn.textContent = old;
+          delete btn.dataset._oldText;
+        } else {
+          delete btn.dataset._oldText;
+          applyQuotaToButton();
+        }
       }
     }
   }
@@ -1033,4 +1100,7 @@
 
   // Popular dropdown de domínios e manter seleção (se existir)
   loadDomainsGeral();
+
+  // Quota (Gemini 2.5 Flash): bloqueia o botão se o usuário já atingiu o limite
+  refreshQuotaStatus();
 })();

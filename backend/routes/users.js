@@ -14,6 +14,7 @@ const { generateVerificationCode } = require('../utils/codegen');
 const { sendVerificationEmail } = require('../utils/mailer');
 const bcrypt = require('bcryptjs');
 const { authSchemas, userSchemas, validate } = require('../middleware/validation');
+const { computePremiumRemainingFromUser } = require('../utils/premiumRemaining');
 
 // Explicitly set bcrypt rounds for password hashing security
 const BCRYPT_ROUNDS = 12;
@@ -241,26 +242,7 @@ router.get('/me/premium-remaining', async (req, res, next) => {
 
         const user = authRes.user;
 
-        const isPremium = Boolean(user) && user.BloqueioAtivado === false;
-        const expiresAt = user && user.PremiumExpiresAt ? new Date(user.PremiumExpiresAt) : null;
-        const expiresAtMs = expiresAt && Number.isFinite(expiresAt.getTime()) ? expiresAt.getTime() : null;
-
-        const lifetime = isPremium && !expiresAtMs;
-        const remainingDays = (() => {
-            if (!isPremium) return 0;
-            if (lifetime) return null;
-            const ms = expiresAtMs != null ? (expiresAtMs - Date.now()) : 0;
-            const dayMs = 24 * 60 * 60 * 1000;
-            return Math.max(0, Math.ceil(ms / dayMs));
-        })();
-
-        return res.json({
-            isPremium,
-            lifetime,
-            PremiumExpiresAt: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null,
-            remainingDays,
-            serverNow: new Date().toISOString(),
-        });
+        return res.json(computePremiumRemainingFromUser(user));
     } catch (err) {
         logger.error('Erro /users/me/premium-remaining:', err);
         return next(internalError('Internal error', 'USER_PREMIUM_REMAINING_ERROR', err));

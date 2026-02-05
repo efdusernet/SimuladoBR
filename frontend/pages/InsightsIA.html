@@ -82,6 +82,21 @@
       background: rgba(255,255,255,0.06);
       color: #fff;
     }
+
+    /* Ensure the domain filter select stays readable (dark gray background) */
+    #filterDomain{
+      background: #2a2a2a;
+      color: #fff;
+      color-scheme: dark;
+    }
+    #filterDomain option{
+      background: #2a2a2a;
+      color: #f3f4f6;
+    }
+    #filterDomain:focus-visible{
+      outline: 3px solid rgba(34,197,94,0.55);
+      outline-offset: 2px;
+    }
     .controls input[type='number']{ min-width: 140px; }
     .controls button{
       padding: 8px 12px;

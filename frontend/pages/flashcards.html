@@ -382,6 +382,23 @@
       border-radius: 16px;
     }
 
+    /* Mobile / reduced-motion: avoid 3D flip (can blur on some devices) */
+    @media (max-width: 520px), (prefers-reduced-motion: reduce) {
+      .anki-card{ perspective: none; }
+      .anki-inner{ transform: none !important; transition: none !important; }
+      .anki-card.flipped .anki-inner{ transform: none !important; }
+
+      .anki-face{
+        position: relative;
+        inset: auto;
+        backface-visibility: visible;
+        transform: none !important;
+      }
+      .anki-back{ display: none; }
+      .anki-card.flipped .anki-front{ display: none; }
+      .anki-card.flipped .anki-back{ display: flex; }
+    }
+
 
     /* Desktop layout integration: keep content readable */
     body[data-layout='desktop'] .content{ background: transparent !important; }
@@ -803,6 +820,7 @@
             const wrapper = btn.closest('.anki-card');
             if (!wrapper) return;
             wrapper.classList.toggle('flipped');
+            try { btn.setAttribute('aria-expanded', wrapper.classList.contains('flipped') ? 'true' : 'false'); } catch(_){ }
           });
 		  btn.addEventListener('keydown', (e) => {
 			const k = e && e.key ? String(e.key) : '';
@@ -811,6 +829,7 @@
 			const wrapper = btn.closest('.anki-card');
 			if (!wrapper) return;
 			wrapper.classList.toggle('flipped');
+      try { btn.setAttribute('aria-expanded', wrapper.classList.contains('flipped') ? 'true' : 'false'); } catch(_){ }
 		  });
         });
 

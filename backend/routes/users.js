@@ -226,6 +226,47 @@ router.get('/me', async (req, res, next) => {
     }
 });
 
+// GET /api/users/me/premium-remaining
+// Retorna quanto tempo (em dias) ainda falta para o usuário deixar de ser pagante.
+// Regra: PremiumExpiresAt=null => lifetime (acesso vitalício), desde que BloqueioAtivado=false.
+router.get('/me/premium-remaining', async (req, res, next) => {
+    try {
+        const token = extractTokenFromRequest(req);
+        const authRes = await verifyJwtAndGetActiveUser(token);
+        if (!authRes.ok) {
+            if (authRes.status === 401) return next(unauthorized(authRes.message, authRes.code));
+            if (authRes.status === 403) return next(forbidden(authRes.message, authRes.code));
+            return next(unauthorized(authRes.message, authRes.code));
+        }
+
+        const user = authRes.user;
+
+        const isPremium = Boolean(user) && user.BloqueioAtivado === false;
+        const expiresAt = user && user.PremiumExpiresAt ? new Date(user.PremiumExpiresAt) : null;
+        const expiresAtMs = expiresAt && Number.isFinite(expiresAt.getTime()) ? expiresAt.getTime() : null;
+
+        const lifetime = isPremium && !expiresAtMs;
+        const remainingDays = (() => {
+            if (!isPremium) return 0;
+            if (lifetime) return null;
+            const ms = expiresAtMs != null ? (expiresAtMs - Date.now()) : 0;
+            const dayMs = 24 * 60 * 60 * 1000;
+            return Math.max(0, Math.ceil(ms / dayMs));
+        })();
+
+        return res.json({
+            isPremium,
+            lifetime,
+            PremiumExpiresAt: expiresAtMs != null ? new Date(expiresAtMs).toISOString() : null,
+            remainingDays,
+            serverNow: new Date().toISOString(),
+        });
+    } catch (err) {
+        logger.error('Erro /users/me/premium-remaining:', err);
+        return next(internalError('Internal error', 'USER_PREMIUM_REMAINING_ERROR', err));
+    }
+});
+
 // PUT /api/users/me/exam-date
 // Atualiza a data prevista do exame real do próprio usuário.
 // Formato exigido: dd/mm/yyyy (armazenado em usuario.data_exame).

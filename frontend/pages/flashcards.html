@@ -399,6 +399,19 @@
       .anki-card.flipped .anki-back{ display: flex; }
     }
 
+    /* Desktop: smaller answer buttons (keep mobile tap targets large) */
+    @media (min-width: 768px) {
+      .anki-actions{ padding: 8px 10px; gap: 8px; }
+      .anki-actions-left{ gap: 8px; }
+      .anki-answer-btn{
+        height: 32px;
+        padding: 0 10px;
+        font-size: 0.84rem;
+        border-radius: 10px;
+        flex: 1 1 96px;
+      }
+    }
+
 
     /* Desktop layout integration: keep content readable */
     body[data-layout='desktop'] .content{ background: transparent !important; }

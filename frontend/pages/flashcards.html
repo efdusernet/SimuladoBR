@@ -184,14 +184,16 @@
     .anki-card{
       perspective: 1100px;
       width: 100%;
-      min-height: 180px;
+      /* Give enough vertical space so back-face actions never get clipped */
+      min-height: clamp(240px, 34vh, 340px);
     }
     .anki-inner{
       position: relative;
       width: 100%;
-      min-height: 180px;
+      min-height: clamp(240px, 34vh, 340px);
       transform-style: preserve-3d;
       transition: transform 420ms cubic-bezier(.2,.8,.2,1);
+      will-change: transform;
     }
     .anki-card.flipped .anki-inner{
       transform: rotateY(180deg);
@@ -234,7 +236,7 @@
 
     .anki-top{
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       justify-content: space-between;
       gap: 8px;
       padding: 8px 9px;
@@ -242,7 +244,7 @@
       border-bottom: 1px solid rgba(255,255,255,0.16);
     }
     .anki-left{ display:flex; align-items:center; gap:6px; flex-wrap: wrap; }
-    .anki-right{ display:flex; align-items:center; gap:8px; }
+    .anki-right{ display:flex; align-items:center; gap:8px; flex-wrap: wrap; justify-content:flex-end; }
     .anki-badge{
       font-size: 0.65rem;
       font-weight: 800;
@@ -264,28 +266,44 @@
     }
     .anki-hint{ font-size: 0.65rem; opacity: 0.9; }
 
-    .anki-toggle{
-      height: 24px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.22);
-      padding: 0 8px;
-      font-size: 0.78rem;
-      font-weight: 900;
-      cursor: pointer;
-      background: rgba(239,68,68,0.22);
-      color: inherit;
-      box-shadow: 0 2px 0 rgba(0,0,0,0.25);
-      transition: transform 120ms ease, background 150ms ease, box-shadow 150ms ease;
-      user-select: none;
+    /* Back-face footer actions (always visible) */
+    .anki-actions{
+      display:flex;
+      gap: 10px;
+      padding: 10px 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      background: rgba(255,255,255,0.10);
+      border-top: 1px solid rgba(255,255,255,0.16);
     }
-    .anki-toggle:hover{ background: rgba(239,68,68,0.28); }
-    .anki-toggle.correct{
-      background: rgba(34,197,94,0.26);
+    .anki-actions-left{ display:flex; gap: 10px; flex: 1; flex-wrap: wrap; align-items: center; }
+    .anki-answer-btn{
+      flex: 1 1 110px;
+      min-width: 0;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.22);
+      padding: 0 12px;
+      font-size: 0.92rem;
+      font-weight: 950;
+      cursor: pointer;
+      color: #fff;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.22);
+      transition: transform 120ms ease, background 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .anki-answer-btn:disabled{ opacity: 0.65; cursor: not-allowed; }
+    .anki-answer-btn[data-correct="false"]{ background: rgba(239,68,68,0.26); }
+    .anki-answer-btn[data-correct="false"]:hover{ background: rgba(239,68,68,0.34); }
+    .anki-answer-btn[data-correct="true"]{ background: rgba(34,197,94,0.24); }
+    .anki-answer-btn[data-correct="true"]:hover{ background: rgba(34,197,94,0.32); }
+    .anki-answer-btn.selected{
+      border-color: rgba(255,255,255,0.46);
       box-shadow: inset 0 2px 0 rgba(0,0,0,0.25);
       transform: translateY(1px);
     }
-    .anki-toggle.correct:hover{ background: rgba(34,197,94,0.32); }
-    .anki-toggle:disabled{ opacity: 0.65; cursor: not-allowed; }
 
     /* Feedback (thumbs up/down) */
     .fc-feedback{
@@ -293,7 +311,7 @@
       flex-direction: column;
       align-items: flex-end;
       gap: 5px;
-      margin-top: 5px;
+      margin-top: 0;
     }
     .fc-feedback-actions{ display:flex; gap: 6px; }
     .fc-vote-btn{
@@ -331,14 +349,17 @@
       padding: 12px 12px 14px;
       display:flex;
       flex: 1;
+      min-height: 0;
       align-items:center;
       justify-content: center;
       text-align:center;
+      overflow: auto;
     }
     /* Reduce only the main card text (body), keep headers/tags unchanged */
     .anki-body .anki-text{
-      font-size: 0.78rem;
-      line-height: 1.22;
+      /* More readable across devices */
+      font-size: clamp(0.92rem, 0.8vw + 0.72rem, 1.12rem);
+      line-height: 1.28;
       font-weight: 800;
       word-break: break-word;
       white-space: pre-wrap;
@@ -706,8 +727,6 @@
 		  if (abordagemLabel) tags.push(escapeHtml(abordagemLabel));
 		  if (it.basics === true || String(it.basics).toLowerCase() === 'true') tags.push('Fundamentos');
 		  const tagsHtml = tags.map(t => `<span class="anki-tag">${t}</span>`).join('');
-      const toggleHtml = `<button type="button" class="anki-toggle" data-state="incorrect" aria-pressed="false" title="Clique para alternar entre Errei/Acertei">Errei</button>`;
-
       const feedbackHtml = `
         <div class="fc-feedback" data-fc-feedback>
           <div class="fc-feedback-actions">
@@ -730,6 +749,16 @@
             <span><span class="muted">likes</span> <span data-fc-like-count>0</span></span>
             <span><span class="muted">dislikes</span> <span data-fc-dislike-count>0</span></span>
           </div>
+        </div>
+      `;
+
+      const actionsHtml = `
+        <div class="anki-actions" aria-label="Marcar resultado do flashcard">
+          <div class="anki-actions-left">
+            <button type="button" class="anki-answer-btn" data-correct="false" aria-pressed="false" title="Marcar como Errei">Errei</button>
+            <button type="button" class="anki-answer-btn" data-correct="true" aria-pressed="false" title="Marcar como Acertei">Acertei</button>
+          </div>
+          ${feedbackHtml}
         </div>
       `;
 
@@ -757,11 +786,10 @@
 					</div>
             <div class="anki-right">
             <span class="anki-hint">Resposta</span>
-            ${toggleHtml}
-            ${feedbackHtml}
             </div>
                     </div>
                     <div class="anki-body"><div class="anki-text">${a}</div></div>
+                    ${actionsHtml}
                   </div>
                 </div>
               </div>
@@ -786,34 +814,41 @@
 		  });
         });
 
-    // Toggle score (prevent flip)
-    els.grid.querySelectorAll('.anki-card .anki-toggle').forEach((toggleBtn) => {
-      toggleBtn.addEventListener('click', async (e) => {
+    // Score buttons (prevent flip)
+    els.grid.querySelectorAll('.anki-card .anki-answer-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
         try { e.preventDefault(); e.stopPropagation(); } catch(_){ }
         if (!game.active || !game.attemptId) {
           setStatus("Clique em 'Novo jogo' para iniciar.", 'error');
           return;
         }
-        const wrapper = toggleBtn.closest('.anki-card');
+
+        const wrapper = btn.closest('.anki-card');
         if (!wrapper) return;
         const idStr = wrapper.getAttribute('data-id');
         const flashcardId = Number.parseInt(String(idStr||''), 10);
         if (!Number.isInteger(flashcardId) || flashcardId <= 0) return;
 
-        const prevState = toggleBtn.getAttribute('data-state') || 'incorrect';
-        const nextState = prevState === 'correct' ? 'incorrect' : 'correct';
-        const correct = nextState === 'correct';
+        const correct = String(btn.getAttribute('data-correct') || '') === 'true';
+        const prev = String(wrapper.getAttribute('data-answer') || '').trim();
+        const next = correct ? 'correct' : 'incorrect';
 
-        // Optimistic UI update
-        toggleBtn.setAttribute('data-state', nextState);
-        toggleBtn.classList.toggle('correct', correct);
-        toggleBtn.textContent = correct ? 'Acertei' : 'Errei';
-        toggleBtn.setAttribute('aria-pressed', correct ? 'true' : 'false');
-
-        // Card style feedback
+        // Optimistic UI
+        wrapper.setAttribute('data-answer', next);
         wrapper.classList.toggle('state-incorrect', !correct);
+        try {
+          const buttons = Array.from(wrapper.querySelectorAll('.anki-answer-btn'));
+          buttons.forEach((b) => {
+            const bCorrect = String(b.getAttribute('data-correct') || '') === 'true';
+            b.classList.toggle('selected', bCorrect === correct);
+            b.setAttribute('aria-pressed', (bCorrect === correct) ? 'true' : 'false');
+          });
+        } catch(_){ }
 
-        toggleBtn.disabled = true;
+        // Disable both buttons while saving
+        const allBtns = Array.from(wrapper.querySelectorAll('.anki-answer-btn'));
+        allBtns.forEach((b) => { try { b.disabled = true; } catch(_){ } });
+
         try {
           const resp = await fetch(`/api/flashcards/attempts/${encodeURIComponent(String(game.attemptId))}/answer`, {
             method: 'POST',
@@ -825,28 +860,46 @@
             let msg = `Falha ao salvar (${resp.status}).`;
             try { const data = await resp.json(); if (data && data.message) msg = String(data.message); } catch(_){ }
             setStatus(msg, 'error');
+
             // Revert UI
-            toggleBtn.setAttribute('data-state', prevState);
-            const backToCorrect = prevState === 'correct';
-            toggleBtn.classList.toggle('correct', backToCorrect);
-            toggleBtn.textContent = backToCorrect ? 'Acertei' : 'Errei';
-            toggleBtn.setAttribute('aria-pressed', backToCorrect ? 'true' : 'false');
-            wrapper.classList.toggle('state-incorrect', !backToCorrect);
+            wrapper.setAttribute('data-answer', prev);
+            if (prev === 'correct') wrapper.classList.toggle('state-incorrect', false);
+            else if (prev === 'incorrect') wrapper.classList.toggle('state-incorrect', true);
+            else wrapper.classList.toggle('state-incorrect', false);
+
+            try {
+              const buttons = Array.from(wrapper.querySelectorAll('.anki-answer-btn'));
+              buttons.forEach((b) => {
+                const bCorrect = String(b.getAttribute('data-correct') || '') === 'true';
+                const shouldSelect = (prev === 'correct') ? bCorrect : (prev === 'incorrect') ? !bCorrect : false;
+                b.classList.toggle('selected', shouldSelect);
+                b.setAttribute('aria-pressed', shouldSelect ? 'true' : 'false');
+              });
+            } catch(_){ }
+
             return;
           }
           setStatus(correct ? 'Marcado: acerto.' : 'Marcado: erro.', 'info');
         } catch (err) {
           try { logger.error('[flashcards] score error', err); } catch(_){ }
           setStatus('Erro ao salvar acerto/erro. Verifique login/servidor.', 'error');
+
           // Revert UI
-          toggleBtn.setAttribute('data-state', prevState);
-          const backToCorrect = prevState === 'correct';
-          toggleBtn.classList.toggle('correct', backToCorrect);
-          toggleBtn.textContent = backToCorrect ? 'Acertei' : 'Errei';
-          toggleBtn.setAttribute('aria-pressed', backToCorrect ? 'true' : 'false');
-          wrapper.classList.toggle('state-incorrect', !backToCorrect);
+          wrapper.setAttribute('data-answer', prev);
+          if (prev === 'correct') wrapper.classList.toggle('state-incorrect', false);
+          else if (prev === 'incorrect') wrapper.classList.toggle('state-incorrect', true);
+          else wrapper.classList.toggle('state-incorrect', false);
+          try {
+            const buttons = Array.from(wrapper.querySelectorAll('.anki-answer-btn'));
+            buttons.forEach((b) => {
+              const bCorrect = String(b.getAttribute('data-correct') || '') === 'true';
+              const shouldSelect = (prev === 'correct') ? bCorrect : (prev === 'incorrect') ? !bCorrect : false;
+              b.classList.toggle('selected', shouldSelect);
+              b.setAttribute('aria-pressed', shouldSelect ? 'true' : 'false');
+            });
+          } catch(_){ }
         } finally {
-          toggleBtn.disabled = false;
+          allBtns.forEach((b) => { try { b.disabled = false; } catch(_){ } });
         }
       });
     });

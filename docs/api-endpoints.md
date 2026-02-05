@@ -40,12 +40,38 @@ Retorna um “dashboard” de insights: KPIs agregados do período + série diá
   - Snapshot diário (base para modelo temporal): ao chamar este endpoint, o backend faz **upsert 1x/dia** em `public.user_daily_snapshot`.
     - **Somente usuários pagantes**: regra atual `usuario.BloqueioAtivado = false`.
     - Falhas ao gravar snapshot **não quebram** o retorno do endpoint (erro é apenas logado).
+  - Quota de geração por IA (Gemini · `gemini-2.5-flash`):
+    - Objetivo: limitar quantas vezes o usuário pode clicar no botão `#btnCarregar` (InsightsIA) quando o resultado for “Gerado por IA (Gemini · gemini-2.5-flash)”.
+    - A quota só é aplicada quando **ambas** as condições forem verdade:
+      - `LLM_PROVIDER=gemini`
+      - `GEMINI_MODEL=gemini-2.5-flash`
+    - A contagem é persistida em `public.user_ai_insights_click` (migração `backend/sql/062_create_user_ai_insights_click.sql`).
+    - Regras por usuário premium (usa a mesma lógica de `/api/users/me/premium-remaining`):
+      - 1 a 30 dias restantes: **5** cliques
+      - 31 a 60 dias restantes: **20** cliques
+      - 61 a 90 dias restantes: **30** cliques
+      - 91 a 180 dias restantes: **40** cliques
+      - `PremiumExpiresAt = null` e `BloqueioAtivado=false`: **vitalício** (sem limite)
+    - Erro quando exceder:
+      - HTTP `429`
+      - `code`: `INSIGHTS_GEMINI_FLASH_CLICK_LIMIT_REACHED`
+      - Observação: `details` pode não ser exposto fora de `development`.
   - Regras adicionais (server-side, além do que a IA possa retornar):
     - Sempre adiciona um comentário contextual sobre KPIs (ex.: o que significa a **taxa de conclusão** no contexto).
     - Se `kpis.completionRate < 0.60`, garante um alerta em `ai.risks` para **baixa taxa de conclusão**.
     - Se o usuário tiver `usuario.data_exame` preenchido (formato `dd/mm/yyyy`) e o exame estiver em **menos de 75 dias**, adiciona um alerta de **prazo curto** que prioriza os riscos.
     - Se o exame estiver em **menos de 75 dias** e `kpis.completionRate < 0.30`, adiciona `ai.risks` com **risco de prazo**.
     - Inclui em `ai.actions7d` uma ação do tipo: **"Aumentar taxa de conclusão para X% (próximos 7 dias)"**.
+
+## GET /api/ai/insights/gemini-usage
+Retorna o status de quota/uso para a geração de Insights via “Gemini · gemini-2.5-flash” (usado pela UI para bloquear/desabilitar o botão `#btnCarregar`).
+
+- Auth: JWT
+- Response (sucesso):
+  - `{ success: true, provider, model, configured, premium, quota }`
+  - `configured`: `true` quando `LLM_PROVIDER=gemini` e `GEMINI_MODEL=gemini-2.5-flash`
+  - `premium`: mesmo formato de `/api/users/me/premium-remaining`
+  - `quota`: `{ maxClicks, usedClicks, blocked }`
 
 ## GET /api/admin/users/:id/insights-snapshots?days=90&includePayload=0
 Lista snapshots diários gravados a partir do `/api/ai/insights`.
@@ -85,6 +111,15 @@ Retorna dados básicos do usuário autenticado.
 
 - Auth: JWT
 - Response (sucesso): inclui `DataExame` quando disponível.
+
+## GET /api/users/me/premium-remaining
+Retorna quanto tempo de premium ainda resta para o usuário, em dias.
+
+- Auth: JWT
+- Regra:
+  - `BloqueioAtivado=false` e `PremiumExpiresAt=null` ⇒ `lifetime=true` e `remainingDays=null`.
+  - Se `BloqueioAtivado=true` ⇒ `isPremium=false` e `remainingDays=0`.
+- Response (sucesso): `{ isPremium, lifetime, PremiumExpiresAt, remainingDays, serverNow }`
 
 ## PUT /api/users/me/exam-date
 Atualiza a data prevista do exame real do próprio usuário.

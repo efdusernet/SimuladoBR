@@ -34,6 +34,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | POST | `/api/users` | None | Body: `{ Nome, Email, NomeUsuario?, SenhaHash?, ... }` | `{ Id, NomeUsuario, Email, EmailConfirmado, BloqueioAtivado, DataCadastro, DataAlteracao }` | Cria novo usuário. Envia token de verificação por email. |
 | GET | `/api/users` | None (dev only) | Query: `limit`, `offset` | `[{ Id, NomeUsuario, Email, ... }]` | Lista usuários (bloqueado em produção). |
 | GET | `/api/users/me` | JWT | — | `{ Id, NomeUsuario, Email, EmailConfirmado, BloqueioAtivado, DataCadastro, DataAlteracao, DataExame?, TipoUsuario }` | Dados do usuário autenticado + `DataExame` (se preenchido) + flag `TipoUsuario` (admin/user). |
+| GET | `/api/users/me/premium-remaining` | JWT | — | `{ isPremium, lifetime, PremiumExpiresAt, remainingDays, serverNow }` | Dias restantes de premium; `PremiumExpiresAt=null` + `BloqueioAtivado=false` => vitalício (`remainingDays=null`). |
 | PUT | `/api/users/me/exam-date` | JWT + CSRF | Body: `{ data_exame: "dd/mm/yyyy" }` | `{ success, DataExame }` | Define/atualiza data prevista do exame real (campo `usuario.data_exame`). Valida formato e **bloqueia datas no passado**. |
 | GET | `/api/users/me/stats/daily` | JWT | Query: `days` (1-180, default 30) | `{ days, data: [{ date, started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent, abandonRate, completionRate, purgeRate }] }` | Série diária de estatísticas de tentativas. |
 | GET | `/api/users/me/stats/summary` | JWT | Query: `days` (1-180, default 30) | `{ periodDays, started, finished, abandoned, timeout, lowProgress, purged, avgScorePercent, abandonRate, completionRate, purgeRate }` | Resumo agregado do período. |
@@ -45,6 +46,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 | Método | Endpoint | Auth | Params | Response | Descrição |
 |--------|----------|------|--------|----------|-----------|
 | GET | `/api/ai/insights` | JWT | Query: `days` (1-180, default 30) | `{ success, meta, kpis, timeseries, ai, indicators?, indicatorsSummary?, studyPlan? }` | Dashboard de insights para `frontend/pages/InsightsIA.html` (KPIs + série + recomendações). Inclui `ai.explainability` (rastreabilidade) e grava snapshot diário para pagantes (`BloqueioAtivado=false`). |
+| GET | `/api/ai/insights/gemini-usage` | JWT | — | `{ success, provider, model, configured, premium, quota }` | Status/uso de quota para “Gemini · gemini-2.5-flash” (UI usa para bloquear `#btnCarregar`). |
 
 ### IA + Web Context (Admin)
 

@@ -1,13 +1,22 @@
 /**
  * CSRF Token Management Utility
  * Handles fetching and including CSRF tokens in API requests
+ *
+ * NOTE: This file may be included more than once (e.g., via dynamic HTML components).
+ * It must be idempotent to avoid global redeclaration errors and double-wrapping fetch.
  */
 
-class CSRFManager {
-  constructor() {
-    this.token = null;
-    this.fetching = null;
+(function initSimuladosCsrf(){
+  if (window.__SIMULADOS_CSRF_V1_LOADED__) {
+    return;
   }
+  window.__SIMULADOS_CSRF_V1_LOADED__ = true;
+
+  class CSRFManager {
+    constructor() {
+      this.token = null;
+      this.fetching = null;
+    }
 
   /**
    * Get CSRF token from cookie
@@ -113,16 +122,24 @@ class CSRFManager {
     this.token = null;
     return this.fetchToken();
   }
-}
+  }
 
-// Global instance
-window.csrfManager = new CSRFManager();
+  // Expose constructor for debugging/advanced usage
+  window.CSRFManager = window.CSRFManager || CSRFManager;
+
+  // Global instance (preserve if already present)
+  window.csrfManager = (window.csrfManager && typeof window.csrfManager.getToken === 'function')
+    ? window.csrfManager
+    : new CSRFManager();
 
 /**
  * Enhanced fetch wrapper with automatic CSRF token injection
  */
-const originalFetch = window.fetch;
-window.fetch = async function(url, options = {}) {
+  // Only wrap fetch once
+  const originalFetch = window.__SIMULADOS_CSRF_ORIGINAL_FETCH__ || window.fetch;
+  window.__SIMULADOS_CSRF_ORIGINAL_FETCH__ = originalFetch;
+
+  window.fetch = async function(url, options = {}) {
   // Determine request target
   const urlObj = typeof url === 'string' ? new URL(url, window.location.origin) : url;
   const reqOrigin = urlObj.origin;
@@ -201,29 +218,30 @@ window.fetch = async function(url, options = {}) {
   }
 
   return resp;
-};
+  };
 
 // Initialize on page load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    logger.info('[CSRF] Initializing on DOMContentLoaded');
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      logger.info('[CSRF] Initializing on DOMContentLoaded');
+      window.csrfManager.getToken().catch(() => {
+        logger.warn('[CSRF] Initial CSRF token fetch failed');
+      });
+    });
+  } else {
+    logger.info('[CSRF] Initializing immediately (DOM already loaded)');
     window.csrfManager.getToken().catch(() => {
       logger.warn('[CSRF] Initial CSRF token fetch failed');
     });
-  });
-} else {
-  logger.info('[CSRF] Initializing immediately (DOM already loaded)');
-  window.csrfManager.getToken().catch(() => {
-    logger.warn('[CSRF] Initial CSRF token fetch failed');
-  });
-}
+  }
 
 // Refresh token after login
-window.addEventListener('user-login', () => {
-  window.csrfManager.refresh().catch(() => {
-    logger.warn('CSRF token refresh after login failed');
+  window.addEventListener('user-login', () => {
+    window.csrfManager.refresh().catch(() => {
+      logger.warn('CSRF token refresh after login failed');
+    });
   });
-});
 
-// Available globally via window.csrfManager
-// If you need to use as module, add type="module" to script tag
+  // Available globally via window.csrfManager
+  // If you need to use as module, add type="module" to script tag
+})();

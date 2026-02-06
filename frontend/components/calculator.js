@@ -8,9 +8,172 @@
   let displayEl = null;
 
   let input = '0';
-  let acc = null;
-  let pendingOp = null;
   let justEvaluated = false;
+
+  const OPS = ['+', '−', '×', '÷'];
+
+  function isOp(ch){
+    return OPS.includes(ch);
+  }
+
+  function toInternalExpr(expr){
+    return String(expr || '')
+      .replace(/\s+/g, '')
+      .replace(/×/g, '*')
+      .replace(/÷/g, '/')
+      .replace(/−/g, '-');
+  }
+
+  function isDigit(ch){
+    return ch >= '0' && ch <= '9';
+  }
+
+  function isNumberChar(ch){
+    return isDigit(ch) || ch === '.';
+  }
+
+  function tokenize(expr){
+    const s = toInternalExpr(expr);
+    const tokens = [];
+    let i = 0;
+    while (i < s.length) {
+      const ch = s[i];
+      if (ch === '(' || ch === ')') { tokens.push({ t: ch }); i++; continue; }
+      if (ch === '+' || ch === '-' || ch === '*' || ch === '/') {
+        tokens.push({ t: 'op', v: ch });
+        i++;
+        continue;
+      }
+
+      if (isDigit(ch) || ch === '.') {
+        let j = i;
+        let dotCount = 0;
+        while (j < s.length && (isDigit(s[j]) || s[j] === '.')) {
+          if (s[j] === '.') dotCount++;
+          if (dotCount > 1) break;
+          j++;
+        }
+        const raw = s.slice(i, j);
+        if (raw === '.' || raw === '-.') return null;
+        const num = Number(raw);
+        if (!Number.isFinite(num)) return null;
+        tokens.push({ t: 'num', v: num, raw });
+        i = j;
+        continue;
+      }
+
+      // Invalid char
+      return null;
+    }
+    return tokens;
+  }
+
+  function toRpn(tokens){
+    const out = [];
+    const stack = [];
+
+    // Convert unary minus to a dedicated operator 'u-'
+    const normalized = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok.t === 'op' && tok.v === '-') {
+        const prev = normalized.length ? normalized[normalized.length - 1] : null;
+        const isUnary = !prev || prev.t === '(' || (prev.t === 'op' && prev.v !== ')');
+        if (isUnary) {
+          normalized.push({ t: 'op', v: 'u-' });
+          continue;
+        }
+      }
+      normalized.push(tok);
+    }
+
+    const prec = (op) => {
+      if (op === 'u-') return 3;
+      if (op === '*' || op === '/') return 2;
+      if (op === '+' || op === '-') return 1;
+      return 0;
+    };
+    const rightAssoc = (op) => op === 'u-';
+
+    for (const tok of normalized) {
+      if (tok.t === 'num') { out.push(tok); continue; }
+      if (tok.t === '(') { stack.push(tok); continue; }
+      if (tok.t === ')') {
+        while (stack.length && stack[stack.length - 1].t !== '(') {
+          out.push(stack.pop());
+        }
+        if (!stack.length) return null; // mismatched
+        stack.pop();
+        continue;
+      }
+      if (tok.t === 'op') {
+        while (stack.length) {
+          const top = stack[stack.length - 1];
+          if (top.t !== 'op') break;
+          const pTop = prec(top.v);
+          const pTok = prec(tok.v);
+          if (pTop > pTok || (pTop === pTok && !rightAssoc(tok.v))) {
+            out.push(stack.pop());
+          } else {
+            break;
+          }
+        }
+        stack.push(tok);
+        continue;
+      }
+      return null;
+    }
+
+    while (stack.length) {
+      const top = stack.pop();
+      if (top.t === '(' || top.t === ')') return null;
+      out.push(top);
+    }
+    return out;
+  }
+
+  function evalRpn(rpn){
+    const st = [];
+    for (const tok of rpn) {
+      if (tok.t === 'num') { st.push(tok.v); continue; }
+      if (tok.t === 'op') {
+        if (tok.v === 'u-') {
+          if (st.length < 1) return NaN;
+          const a = st.pop();
+          st.push(-a);
+          continue;
+        }
+        if (st.length < 2) return NaN;
+        const b = st.pop();
+        const a = st.pop();
+        let r;
+        switch (tok.v) {
+          case '+': r = a + b; break;
+          case '-': r = a - b; break;
+          case '*': r = a * b; break;
+          case '/':
+            if (b === 0) return NaN;
+            r = a / b;
+            break;
+          default: return NaN;
+        }
+        if (!Number.isFinite(r)) return NaN;
+        st.push(r);
+        continue;
+      }
+      return NaN;
+    }
+    if (st.length !== 1) return NaN;
+    return st[0];
+  }
+
+  function evaluateExpression(expr){
+    const tokens = tokenize(expr);
+    if (!tokens || !tokens.length) return NaN;
+    const rpn = toRpn(tokens);
+    if (!rpn) return NaN;
+    return evalRpn(rpn);
+  }
 
   function fmtNumber(n){
     if (n === null || n === undefined) return '0';
@@ -21,7 +184,7 @@
   }
 
   function parseInput(){
-    const v = Number(input);
+    const v = Number(toInternalExpr(input));
     return Number.isFinite(v) ? v : NaN;
   }
 
@@ -36,34 +199,35 @@
 
   function resetAll(){
     input = '0';
-    acc = null;
-    pendingOp = null;
     justEvaluated = false;
     syncDisplay();
   }
 
-  function doOp(a, op, b){
-    switch(op){
-      case '+': return a + b;
-      case '−':
-      case '-': return a - b;
-      case '×':
-      case '*': return a * b;
-      case '÷':
-      case '/':
-        if (b === 0) return NaN;
-        return a / b;
-      default:
-        return b;
-    }
+  function lastChar(){
+    return input ? input.slice(-1) : '';
+  }
+
+  function canImplicitMultiply(){
+    const ch = lastChar();
+    if (!ch) return false;
+    return isNumberChar(ch) || ch === ')';
+  }
+
+  function stripTrailingOps(){
+    while (input.length && isOp(lastChar())) input = input.slice(0, -1);
   }
 
   function pressDigit(d){
     if (input === 'Erro') input = '0';
-    if (justEvaluated && !pendingOp){
+    if (justEvaluated){
       input = '0';
       justEvaluated = false;
     }
+
+    if (canImplicitMultiply() && lastChar() === ')') {
+      input += '×';
+    }
+
     if (input === '0') input = String(d);
     else input += String(d);
     syncDisplay();
@@ -71,11 +235,21 @@
 
   function pressDot(){
     if (input === 'Erro') input = '0';
-    if (justEvaluated && !pendingOp){
+    if (justEvaluated){
       input = '0';
       justEvaluated = false;
     }
-    if (!input.includes('.')) input += '.';
+
+    // Allow one dot per current number segment
+    for (let i = input.length - 1; i >= 0; i--) {
+      const ch = input[i];
+      if (ch === '.') return;
+      if (!isNumberChar(ch)) break;
+    }
+
+    if (canImplicitMultiply() && lastChar() === ')') input += '×';
+    if (!isNumberChar(lastChar())) input += '0';
+    input += '.';
     syncDisplay();
   }
 
@@ -89,63 +263,101 @@
 
   function pressSign(){
     if (input === 'Erro') { input = '0'; }
-    if (input === '0' || input === '0.') { syncDisplay(); return; }
-    if (input.startsWith('-')) input = input.slice(1);
-    else input = '-' + input;
+
+    // Toggle sign of the last number segment
+    const s = input;
+    let end = s.length - 1;
+    while (end >= 0 && s[end] === ' ') end--;
+    if (end < 0) { syncDisplay(); return; }
+
+    // If cursor is at ')' we don't try to negate groups (keep it simple)
+    if (s[end] === ')') { syncDisplay(); return; }
+
+    // Find start of number
+    let start = end;
+    while (start >= 0 && isNumberChar(s[start])) start--;
+    const numStart = start + 1;
+    if (numStart > end) { syncDisplay(); return; }
+
+    // Check for a unary '-' just before the number
+    const before = start >= 0 ? s[start] : '';
+    const before2 = start - 1 >= 0 ? s[start - 1] : '';
+    const canBeUnary = !before || before === '(' || isOp(before) || before2 === '(';
+    if (before === '−' && canBeUnary) {
+      input = s.slice(0, start) + s.slice(numStart);
+    } else {
+      input = s.slice(0, numStart) ? (s.slice(0, numStart) + '−' + s.slice(numStart)) : ('−' + s.slice(numStart));
+    }
     syncDisplay();
   }
 
   function pressOp(op){
     if (input === 'Erro') return;
 
-    const current = parseInput();
-    if (!Number.isFinite(current)) return;
+    if (justEvaluated) justEvaluated = false;
 
-    if (acc === null){
-      acc = current;
-    } else if (pendingOp && !justEvaluated){
-      const r = doOp(acc, pendingOp, current);
-      if (!Number.isFinite(r)) {
-        input = 'Erro';
-        acc = null;
-        pendingOp = null;
-        justEvaluated = false;
-        syncDisplay();
-        return;
-      }
-      acc = r;
-      input = fmtNumber(r);
+    // Replace trailing operator
+    stripTrailingOps();
+    if (!input || input === '0') {
+      if (op === '−') input = '−';
+      else return;
+    } else {
+      input += op;
+    }
+    syncDisplay();
+  }
+
+  function pressParen(p){
+    if (input === 'Erro') input = '0';
+    if (justEvaluated) { input = '0'; justEvaluated = false; }
+    const ch = String(p);
+    if (ch !== '(' && ch !== ')') return;
+
+    if (ch === '(') {
+      if (canImplicitMultiply()) input += '×';
+      if (input === '0') input = '(';
+      else input += '(';
+      syncDisplay();
+      return;
     }
 
-    pendingOp = op;
-    justEvaluated = false;
-    input = '0';
+    // ')': only allow if there is an unmatched '('
+    const s = input;
+    let bal = 0;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === '(') bal++;
+      else if (s[i] === ')') bal--;
+    }
+    if (bal <= 0) return;
+
+    const last = lastChar();
+    if (!last || isOp(last) || last === '(') return;
+    input += ')';
     syncDisplay();
   }
 
   function pressEquals(){
     if (input === 'Erro') return;
-    const current = parseInput();
-    if (!Number.isFinite(current)) return;
 
-    if (pendingOp && acc !== null){
-      const r = doOp(acc, pendingOp, current);
-      if (!Number.isFinite(r)) {
-        input = 'Erro';
-        acc = null;
-        pendingOp = null;
-        justEvaluated = false;
-        syncDisplay();
-        return;
+    // Auto-close parentheses
+    try {
+      let bal = 0;
+      for (const ch of input) {
+        if (ch === '(') bal++;
+        else if (ch === ')') bal--;
       }
-      input = fmtNumber(r);
-      acc = null;
-      pendingOp = null;
-      justEvaluated = true;
+      if (bal > 0) input += ')'.repeat(Math.min(bal, 20));
+    } catch(_){ }
+
+    const r = evaluateExpression(input);
+    if (!Number.isFinite(r)) {
+      input = 'Erro';
+      justEvaluated = false;
       syncDisplay();
       return;
     }
 
+    input = fmtNumber(r);
     justEvaluated = true;
     syncDisplay();
   }
@@ -250,27 +462,30 @@
         <div class="sim-calc-grid">
           <button type="button" class="sim-calc-btn danger" data-action="clear">C</button>
           <button type="button" class="sim-calc-btn" data-action="back">⌫</button>
-          <button type="button" class="sim-calc-btn" data-action="sign">±</button>
-          <button type="button" class="sim-calc-btn op" data-action="op" data-op="÷">÷</button>
+          <button type="button" class="sim-calc-btn" data-action="paren" data-paren="(">(</button>
+          <button type="button" class="sim-calc-btn" data-action="paren" data-paren=")">)</button>
 
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="7">7</button>
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="8">8</button>
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="9">9</button>
-          <button type="button" class="sim-calc-btn op" data-action="op" data-op="×">×</button>
+          <button type="button" class="sim-calc-btn op" data-action="op" data-op="÷">÷</button>
 
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="4">4</button>
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="5">5</button>
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="6">6</button>
-          <button type="button" class="sim-calc-btn op" data-action="op" data-op="−">−</button>
+          <button type="button" class="sim-calc-btn op" data-action="op" data-op="×">×</button>
 
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="1">1</button>
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="2">2</button>
           <button type="button" class="sim-calc-btn" data-action="digit" data-digit="3">3</button>
-          <button type="button" class="sim-calc-btn op" data-action="op" data-op="+">+</button>
+          <button type="button" class="sim-calc-btn op" data-action="op" data-op="−">−</button>
 
           <button type="button" class="sim-calc-btn wide" data-action="digit" data-digit="0">0</button>
           <button type="button" class="sim-calc-btn" data-action="dot">.</button>
-          <button type="button" class="sim-calc-btn eq" data-action="eq">=</button>
+          <button type="button" class="sim-calc-btn op" data-action="op" data-op="+">+</button>
+
+          <button type="button" class="sim-calc-btn wide" data-action="sign">±</button>
+          <button type="button" class="sim-calc-btn eq wide" data-action="eq">=</button>
         </div>
       </div>
     `;
@@ -295,6 +510,7 @@
       if (act === 'clear') return resetAll();
       if (act === 'back') return pressBackspace();
       if (act === 'sign') return pressSign();
+      if (act === 'paren') return pressParen(t.getAttribute('data-paren'));
       if (act === 'dot') return pressDot();
       if (act === 'eq') return pressEquals();
       if (act === 'digit') return pressDigit(t.getAttribute('data-digit'));
@@ -311,6 +527,8 @@
 
       if (/^[0-9]$/.test(ev.key)) { ev.preventDefault(); pressDigit(ev.key); return; }
       if (ev.key === '.') { ev.preventDefault(); pressDot(); return; }
+      if (ev.key === '(' || ev.key === ')') { ev.preventDefault(); pressParen(ev.key); return; }
+      if (ev.key === ',') { ev.preventDefault(); pressDot(); return; }
 
       if (ev.key === '+' || ev.key === '-' || ev.key === '*' || ev.key === '/') {
         ev.preventDefault();
@@ -360,8 +578,6 @@
     const n = Number(v);
     if (!Number.isFinite(n)) return;
     input = fmtNumber(n);
-    acc = null;
-    pendingOp = null;
     justEvaluated = true;
     syncDisplay();
   }

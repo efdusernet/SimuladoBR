@@ -304,6 +304,9 @@ const examSchemas = {
         Joi.alternatives().try(
           Joi.object({
             questionId: commonSchemas.questionId,
+            // Optional question metadata (sent by client)
+            isMath: Joi.boolean().optional(),
+            is_math: Joi.boolean().optional(),
             selectedOption: Joi.number()
               .integer()
               .min(1)
@@ -327,6 +330,9 @@ const examSchemas = {
           // Typed responses (advanced interactions)
           Joi.object({
             questionId: commonSchemas.questionId,
+            // Optional question metadata (sent by client)
+            isMath: Joi.boolean().optional(),
+            is_math: Joi.boolean().optional(),
             // Canonical shape: { response: { pairs: { [leftId]: rightId } } }
             response: Joi.alternatives().try(
               Joi.object({
@@ -360,6 +366,9 @@ const examSchemas = {
           // Legacy format (optionId/optionIds). Keep this last because it's intentionally permissive.
           Joi.object({
             questionId: commonSchemas.questionId,
+            // Optional question metadata (sent by client)
+            isMath: Joi.boolean().optional(),
+            is_math: Joi.boolean().optional(),
             optionId: Joi.number().integer().positive().optional(),
             optionIds: Joi.array().items(Joi.number().integer().positive()).optional(),
             timeTaken: Joi.number().integer().min(0).max(300).optional()

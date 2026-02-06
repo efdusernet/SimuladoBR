@@ -1,11 +1,96 @@
 (function(){
   const STYLE_ID = 'simulados-calculator-style';
   const OVERLAY_ID = 'simulados-calculator-overlay';
+  const POS_STORAGE_KEY = 'simulados_calculator_pos_v1';
 
   let mounted = false;
   let overlayEl = null;
   let dialogEl = null;
   let displayEl = null;
+
+  // Drag state (translate offsets in px)
+  let dragDx = 0;
+  let dragDy = 0;
+  let dragActive = false;
+  let dragPointerId = null;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragStartDx = 0;
+  let dragStartDy = 0;
+  let posLoaded = false;
+
+  function applyDragTransform(){
+    if (!dialogEl) return;
+    try { dialogEl.style.setProperty('--sim-calc-dx', `${Math.round(dragDx)}px`); } catch(_){ }
+    try { dialogEl.style.setProperty('--sim-calc-dy', `${Math.round(dragDy)}px`); } catch(_){ }
+  }
+
+  function clampToViewport(nextDx, nextDy){
+    if (!overlayEl || !dialogEl) return { dx: nextDx, dy: nextDy };
+    try {
+      // Predict final rect by applying temp values
+      const prevDx = dragDx;
+      const prevDy = dragDy;
+      dragDx = nextDx;
+      dragDy = nextDy;
+      applyDragTransform();
+
+      const pad = 8;
+      const r = dialogEl.getBoundingClientRect();
+      const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+      const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+
+      let dx = nextDx;
+      let dy = nextDy;
+
+      if (vw > 0) {
+        if (r.left < pad) dx += (pad - r.left);
+        if (r.right > vw - pad) dx -= (r.right - (vw - pad));
+      }
+      if (vh > 0) {
+        if (r.top < pad) dy += (pad - r.top);
+        if (r.bottom > vh - pad) dy -= (r.bottom - (vh - pad));
+      }
+
+      // Restore then return clamped values
+      dragDx = prevDx;
+      dragDy = prevDy;
+      applyDragTransform();
+      return { dx, dy };
+    } catch (_){
+      return { dx: nextDx, dy: nextDy };
+    }
+  }
+
+  function loadPositionOnce(){
+    if (posLoaded) return;
+    posLoaded = true;
+    try {
+      const raw = localStorage.getItem(POS_STORAGE_KEY);
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      const dx = Number(obj && obj.dx);
+      const dy = Number(obj && obj.dy);
+      if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+      // Sanity bounds to avoid huge offsets
+      dragDx = Math.max(-5000, Math.min(5000, dx));
+      dragDy = Math.max(-5000, Math.min(5000, dy));
+      applyDragTransform();
+    } catch(_){ }
+  }
+
+  function savePosition(){
+    try {
+      localStorage.setItem(POS_STORAGE_KEY, JSON.stringify({ dx: dragDx, dy: dragDy }));
+    } catch(_){ }
+  }
+
+  function resetPositionToCenter(){
+    dragDx = 0;
+    dragDy = 0;
+    applyDragTransform();
+    savePosition();
+  }
 
   let input = '0';
   let justEvaluated = false;
@@ -377,6 +462,10 @@
       }
       #${OVERLAY_ID}[data-open="1"]{ display: flex; }
       #${OVERLAY_ID} .sim-calc{
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) translate(var(--sim-calc-dx, 0px), var(--sim-calc-dy, 0px));
         width: min(320px, 96vw);
         background: #1f2937;
         color: #f9fafb;
@@ -391,7 +480,11 @@
         padding: 10px 12px;
         background: rgba(255,255,255,0.06);
         border-bottom: 1px solid rgba(255,255,255,0.10);
+        cursor: grab;
+        user-select: none;
+        touch-action: none;
       }
+      #${OVERLAY_ID} .sim-calc[data-dragging="1"] .sim-calc-header{ cursor: grabbing; }
       #${OVERLAY_ID} .sim-calc-title{ font-weight: 900; font-size: 0.92rem; opacity: 0.95; }
       #${OVERLAY_ID} .sim-calc-close{
         border: 1px solid rgba(255,255,255,0.16);
@@ -495,6 +588,78 @@
     dialogEl = overlayEl.querySelector('.sim-calc');
     displayEl = overlayEl.querySelector('[data-role="display"]');
 
+    function startDrag(ev){
+      try {
+        if (!ev) return;
+        // Only primary button for mouse; touch/pen ok
+        if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+        // Avoid starting drag when clicking the close button
+        const t = ev.target;
+        if (t && t instanceof HTMLElement) {
+          if (t.closest && t.closest('.sim-calc-close')) return;
+        }
+
+        dragActive = true;
+        dragPointerId = ev.pointerId;
+        dragStartX = ev.clientX;
+        dragStartY = ev.clientY;
+        dragStartDx = dragDx;
+        dragStartDy = dragDy;
+        try { dialogEl.setAttribute('data-dragging', '1'); } catch(_){ }
+
+        try { ev.preventDefault(); } catch(_){ }
+        try { header.setPointerCapture(ev.pointerId); } catch(_){ }
+      } catch(_){ }
+    }
+
+    function moveDrag(ev){
+      try {
+        if (!dragActive) return;
+        if (dragPointerId != null && ev.pointerId !== dragPointerId) return;
+        const nx = dragStartDx + (ev.clientX - dragStartX);
+        const ny = dragStartDy + (ev.clientY - dragStartY);
+        const clamped = clampToViewport(nx, ny);
+        dragDx = clamped.dx;
+        dragDy = clamped.dy;
+        applyDragTransform();
+        try { ev.preventDefault(); } catch(_){ }
+      } catch(_){ }
+    }
+
+    function endDrag(ev){
+      try {
+        if (!dragActive) return;
+        if (dragPointerId != null && ev.pointerId !== dragPointerId) return;
+        dragActive = false;
+        dragPointerId = null;
+        try { dialogEl.removeAttribute('data-dragging'); } catch(_){ }
+        try { savePosition(); } catch(_){ }
+        try { ev.preventDefault(); } catch(_){ }
+      } catch(_){ }
+    }
+
+    const header = overlayEl.querySelector('.sim-calc-header');
+    if (header) {
+      header.addEventListener('pointerdown', startDrag);
+      header.addEventListener('pointermove', moveDrag);
+      header.addEventListener('pointerup', endDrag);
+      header.addEventListener('pointercancel', endDrag);
+      header.addEventListener('dblclick', (ev)=>{
+        try { ev.preventDefault(); } catch(_){ }
+        resetPositionToCenter();
+      });
+    }
+
+    window.addEventListener('resize', ()=>{
+      try {
+        const clamped = clampToViewport(dragDx, dragDy);
+        dragDx = clamped.dx;
+        dragDy = clamped.dy;
+        applyDragTransform();
+        savePosition();
+      } catch(_){ }
+    });
+
     overlayEl.addEventListener('click', (ev)=>{
       if (ev.target === overlayEl) close();
     });
@@ -544,6 +709,7 @@
     injectStyle();
     buildDom();
     mounted = true;
+    loadPositionOnce();
     resetAll();
   }
 
@@ -554,6 +720,13 @@
 
   function open(){
     ensure();
+    // Clamp position before showing (in case viewport changed)
+    try {
+      const clamped = clampToViewport(dragDx, dragDy);
+      dragDx = clamped.dx;
+      dragDy = clamped.dy;
+      applyDragTransform();
+    } catch(_){ }
     overlayEl.setAttribute('data-open', '1');
     overlayEl.setAttribute('aria-hidden', 'false');
     try {

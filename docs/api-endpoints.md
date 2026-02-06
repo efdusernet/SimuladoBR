@@ -235,6 +235,8 @@ Seleciona e retorna um conjunto de questões (com opções) e cria uma tentativa
   - `dominios?: number[]`, `areas?: number[]`, `grupos?: number[]`
   - `onlyCount?: boolean` (pré-checagem)
 - Response (sucesso): `{ sessionId, total, attemptId, examMode, exam, questions }`
+  - `questions[]` inclui (além dos campos existentes) `is_math?: boolean` quando disponível no schema.
+    - Uso típico: habilitar/ocultar UX de calculadora (“Calc”) apenas em questões marcadas como matemáticas.
 
 ## POST /api/exams/start-on-demand
 Inicia sessão persistindo perguntas, sem retornar o conteúdo completo de cada questão (fluxo alternativo).
@@ -255,7 +257,7 @@ Registra respostas (parciais ou finais), computa nota na submissão final e ence
 - Headers: JWT (`Authorization` ou `X-Session-Token`)
 - Body:
   - `sessionId: string`
-  - `answers: Array<{ questionId: number, optionId?: number, optionIds?: number[], response?: any }>`
+  - `answers: Array<{ questionId: number, optionId?: number, optionIds?: number[], response?: any, isMath?: boolean, is_math?: boolean }>`
   - `partial?: boolean` (default false; quando true, não encerra tentativa)
 - Response (final): `{ sessionId, attemptId, examAttemptId, totalQuestions, totalCorrect, details }`
 - Efeitos colaterais (final): atualiza `exam_attempt` com `Corretas`, `Total`, `ScorePercent`, `Aprovado`, `FinishedAt`, `Status='finished'`.
@@ -263,6 +265,8 @@ Registra respostas (parciais ou finais), computa nota na submissão final e ence
 - **Validação de completude (frontend)**: Ao finalizar exame completo (`examFull.html`), valida-se se pelo menos 95% das questões foram respondidas:
   - Se ≥ 95%: prossegue com submit normal
   - Se < 95%: exibe modal de aviso; usuário pode sair sem salvar (não chama submit) ou continuar respondendo
+
+Observação: `answers[].isMath`/`answers[].is_math` são campos auxiliares (metadados) enviados pelo frontend. Eles não alteram a correção/score, mas ajudam a manter paridade entre UI e payload.
 
 ## POST /api/exams/:sessionId/pause/start
 Inicia pausa (exame completo com checkpoints).

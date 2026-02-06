@@ -157,3 +157,27 @@ Essas classes **não alteram o fundo do card**. Elas aplicam **borda mais espess
 ### Observação de UX
 
 O objetivo das faixas é dar feedback visual rápido de “nível” sem competir com a cor da barra (`--sb-hbar-color`). Se algum tema/layout alterar o background do container pai, manter o card com fundo neutro ajuda a preservar legibilidade do texto e da tooltip da barra.
+
+---
+
+## Calculator — Modal de calculadora
+
+Componente de calculadora exibido como modal (overlay) e usado no runner de exames.
+
+- Arquivo: `frontend/components/calculator.js`
+- Uso atual:
+  - `frontend/pages/exam.html` e `frontend/pages/examFull.html`: botão “Calc” no topo.
+  - O botão fica habilitado apenas quando a questão atual estiver marcada como matemática (`isMath === true` no frontend; originado de `questions[].is_math` no `/api/exams/select`).
+
+### API
+
+- `window.Calculator.open()`: abre o modal.
+- `window.Calculator.close()`: fecha o modal.
+
+### UX
+
+- Arrastar: o modal pode ser arrastado pela barra de título (drag com pointer events).
+- Limites: a posição é “clampada” para não sair da viewport.
+- Persistência: a posição é persistida em `localStorage`.
+  - Key: `simulados_calculator_pos_v1`
+- Reset: duplo clique na barra de título restaura/centraliza a posição.

@@ -8,12 +8,16 @@ This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
 ### Added
 - Admin: nova página/hub em `/pages/admin/administracao.html` (substitui o modal).
+- Exames (runner): botão “Calc” no topo, habilitado apenas em questões com `isMath === true`, abrindo modal de calculadora.
+- UI: modal de calculadora arrastável, com persistência de posição e reset por duplo clique no header.
 
 ### Changed
 - Navegação: entrada “Admin” (sidebar/home) direciona para a nova página.
 - Sidebar: “Indicadores → Visão Geral” renomeado para “Resultados/Comparativo” com dica/tooltip.
 - Conta/Settings: título “Configurações da Conta” ganha destaque (pill) para melhor legibilidade no tema escuro.
 - Backend: `/pages/admin/` redireciona para `/pages/admin/administracao.html` e `/pages/admin` passa a ser servido estaticamente (HTML acessível; APIs admin continuam protegidas).
+- API (Exames): `/api/exams/select` passa a retornar `questions[].is_math?` (quando disponível no schema) para suportar UX condicional.
+- API (Exames): `/api/exams/submit` aceita `answers[].isMath?`/`answers[].is_math?` como metadado no payload.
 
 ### Fixed
 - Admin: ações `POST/PUT/DELETE` na página usam `X-CSRF-Token` (cookie `csrfToken`) e base same-origin, evitando 403/CSRF e problemas de host (`localhost` vs `app.localhost`).

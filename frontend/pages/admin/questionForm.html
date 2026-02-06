@@ -159,6 +159,13 @@
         </div>
       </div>
       <div>
+        <label for="isMath">Matemática</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="checkbox" id="isMath" />
+          <span class="hint">Marca como questão de matemática</span>
+        </div>
+      </div>
+      <div>
         <label for="iddominiogeral">Domínio Geral</label>
         <select id="iddominiogeral"></select>
       </div>
@@ -323,6 +330,13 @@
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="checkbox" id="isPretestNav" />
             <span class="hint">Marca como pré-teste (não conta para pontuação)</span>
+          </div>
+        </div>
+        <div>
+          <label for="isMathNav">Matemática</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" id="isMathNav" />
+            <span class="hint">Marca como questão de matemática</span>
           </div>
         </div>
         <div>
@@ -1479,6 +1493,7 @@
         tiposlug,
         seed: !!$('seed').checked,
         is_pretest: !!$('isPretest').checked,
+        is_math: !!$('isMath').checked,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
         iddominio_desempenho: iddominio_desempenho ? Number(iddominio_desempenho) : undefined,
@@ -1531,6 +1546,7 @@
       try { $('referencia').value = ''; } catch(_){ }
       try { $('seed').checked = false; } catch{}
       try { $('isPretest').checked = false; } catch{}
+      try { $('isMath').checked = false; } catch{}
       // limpar selects e tipo
       try { $('examType').value = ''; } catch{}
       try { $('versaoExame').value = ''; } catch{}
@@ -1625,6 +1641,7 @@
         'tipoNav',
         'seedNav',
         'isPretestNav',
+        'isMathNav',
         'iddominiogeralNav',
         'iddominio_desempenhoNav',
         'grupoNav',
@@ -1790,6 +1807,7 @@
         try { applyTipoVisibility('Nav'); } catch(_){ }
         try { $('seedNav').checked = !!q.seed; } catch(_){ }
         try { $('isPretestNav').checked = !!(q.is_pretest ?? q.isPretest); } catch(_){ }
+        try { $('isMathNav').checked = !!(q.is_math ?? q.isMath); } catch(_){ }
         
         // Wait for selects to be populated before setting values
         await Promise.all([
@@ -2088,6 +2106,7 @@
         tiposlug,
         seed: !!$('seedNav').checked,
         is_pretest: !!$('isPretestNav').checked,
+        is_math: !!$('isMathNav').checked,
         examTypeId: examTypeId ? Number(examTypeId) : undefined,
         versao_exame: versao_exame || undefined,
         iddominio_desempenho: iddominio_desempenho ? Number(iddominio_desempenho) : undefined,

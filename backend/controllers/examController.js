@@ -289,9 +289,25 @@ exports.selectQuestions = async (req, res, next) => {
     const PRETEST_COUNT_TARGET = (examMode === 'full') ? 5 : 0; // fixed 5 for full exam
     const REGULAR_TARGET = Math.max(FULL_TOTAL - PRETEST_COUNT_TARGET, 0);
 
+    // Optional question metadata: is_math / "isMath" (schema-aware)
+    let isMathSelectExpr = 'NULL::boolean AS is_math';
+    try {
+      const cols = await sequelize.query(
+        `SELECT column_name
+           FROM information_schema.columns
+          WHERE table_schema='public'
+            AND table_name='questao'`,
+        { type: sequelize.QueryTypes.SELECT }
+      );
+      const names = new Set((cols || []).map(c => String(c && c.column_name)));
+      if (names.has('is_math')) isMathSelectExpr = 'q.is_math AS is_math';
+      else if (names.has('isMath')) isMathSelectExpr = 'q."isMath" AS is_math';
+    } catch (_) { /* ignore */ }
+
     const baseQuestionSelect = (extraWhere, limit, extraReplacements = {}) => {
       const queryReplacements = { ...replacements, limit, ...extraReplacements };
       return sequelize.query(`SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl",
+              ${isMathSelectExpr},
               q.interacaospec AS interacaospec,
               eg.descricao AS explicacao
         FROM questao q
@@ -315,6 +331,7 @@ exports.selectQuestions = async (req, res, next) => {
       // Fetch the explicitly selected questions in a single query, then reorder to match input.
       const qRows = await sequelize.query(
         `SELECT q.id, q.descricao, q.tiposlug AS tiposlug, q.multiplaescolha AS multiplaescolha, q.imagem_url AS imagem_url, q.imagem_url AS "imagemUrl",
+          ${isMathSelectExpr},
                 q.interacaospec AS interacaospec,
                 eg.descricao AS explicacao
            FROM questao q
@@ -376,6 +393,7 @@ exports.selectQuestions = async (req, res, next) => {
           id: q.id,
           descricao: q.descricao,
           explicacao: q.explicacao,
+          is_math: (q.is_math === true || q.is_math === 't' || q.is_math === 1 || q.is_math === '1'),
           imagem_url: q.imagem_url || null,
           imagemUrl: q.imagem_url || q.imagemUrl || null,
           type,
@@ -597,7 +615,7 @@ exports.selectQuestions = async (req, res, next) => {
         const interacao = advanced && matchColumns.isMatchColumnsSlug(type)
           ? matchColumns.toPublicMatchColumnsSpec(q.interacaospec)
           : null;
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, interacao, options: advanced ? [] : (optsByQ[q.id] || []), _isPreTest: q._isPreTest };
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, is_math: (q.is_math === true || q.is_math === 't' || q.is_math === 1 || q.is_math === '1'), imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, interacao, options: advanced ? [] : (optsByQ[q.id] || []), _isPreTest: q._isPreTest };
       });
       // (removed post-mapping Q266 debug)
       ids = allIds;
@@ -635,7 +653,7 @@ exports.selectQuestions = async (req, res, next) => {
         const interacao = advanced && matchColumns.isMatchColumnsSlug(type)
           ? matchColumns.toPublicMatchColumnsSpec(q.interacaospec)
           : null;
-        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, interacao, options: advanced ? [] : (optsByQ[q.id] || []) };
+        return { id: q.id, descricao: q.descricao, explicacao: q.explicacao, is_math: (q.is_math === true || q.is_math === 't' || q.is_math === 1 || q.is_math === '1'), imagem_url: q.imagem_url || null, imagemUrl: q.imagem_url || q.imagemUrl || null, type, interacao, options: advanced ? [] : (optsByQ[q.id] || []) };
       });
       // (removed legacy Q266 debug)
     }

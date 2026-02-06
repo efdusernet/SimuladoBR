@@ -1213,9 +1213,10 @@
                     ? (window.__mcInstances[qKey] || (idKey ? window.__mcInstances[idxKey] : null))
                     : null;
                   const isMatchColumns = (qType === 'match_columns') || (!!(mcInst && typeof mcInst.getValue === 'function'));
+                  const isMath = !!(q && q.isMath);
 
                   if (isMatchColumns) {
-                    const obj = { questionId };
+                    const obj = { questionId, isMath };
                     const spec = getInteractionSpec(q);
 
                     function normalizePairs(p){
@@ -1304,12 +1305,12 @@
                   })();
                   if (isMulti) {
                     const optionIds = Array.isArray(a && a.optionIds) ? a.optionIds.map(Number).filter(n => Number.isFinite(n) && n > 0) : [];
-                    const obj = { questionId };
+                    const obj = { questionId, isMath };
                     if (optionIds.length) obj.optionIds = optionIds;
                     answers.push(obj);
                   } else {
                     const optionId = (a && a.optionId != null && String(a.optionId).trim() !== '') ? Number(a.optionId) : null;
-                    const obj = { questionId };
+                    const obj = { questionId, isMath };
                     if (Number.isFinite(optionId) && optionId > 0) obj.optionId = optionId;
                     answers.push(obj);
                   }
@@ -1522,6 +1523,7 @@
                   const a = ANSWERS[qKey];
                   const questionId = q && q.id ? Number(q.id) : null;
                   const qType = (q && typeof q.type === 'string') ? q.type.trim().toLowerCase() : '';
+                  const isMath = !!(q && q.isMath);
 
                   if (qType === 'match_columns') {
                     let resp = null;
@@ -1537,7 +1539,7 @@
                         if (pairs) resp = { pairs };
                       } catch(_){ }
                     }
-                    if (questionId && resp) answers.push({ questionId, response: resp });
+                    if (questionId && resp) answers.push({ questionId, isMath, response: resp });
                     continue;
                   }
                   const isMulti = (function(){
@@ -1546,10 +1548,10 @@
                   })();
                   if (isMulti) {
                     const optionIds = Array.isArray(a && a.optionIds) ? a.optionIds.map(Number).filter(n => Number.isFinite(n)) : [];
-                    if (questionId && optionIds.length) answers.push({ questionId, optionIds });
+                    if (questionId && optionIds.length) answers.push({ questionId, isMath, optionIds });
                   } else {
                     const optionId = (a && a.optionId != null && a.optionId !== '') ? Number(a.optionId) : null;
-                    if (questionId && Number.isFinite(optionId)) answers.push({ questionId, optionId });
+                    if (questionId && Number.isFinite(optionId)) answers.push({ questionId, isMath, optionId });
                   }
                 }
                 if (!answers.length) return { ok: true, saved: 0 };
@@ -2427,6 +2429,8 @@
                                 interacaospec: (q.interacaospec || null),
                                 // Keep pretest marker if present
                                 _isPreTest: (q._isPreTest === true || q.isPreTest === true),
+                                // Preserve isMath flag from questao
+                                isMath: !!(q && (q.is_math === true || q.is_math === 't' || q.is_math === 1 || q.is_math === '1' || q.isMath === true)),
                                 descricao: q.descricao,
                                 explicacao: q.explicacao,
                                 idprocesso: q.idprocesso,
@@ -2616,6 +2620,8 @@
                       interacaospec: (q.interacaospec || null),
                       // Keep pretest marker if present
                       _isPreTest: (q._isPreTest === true || q.isPreTest === true),
+                      // Preserve isMath flag from questao
+                      isMath: !!(q && (q.is_math === true || q.is_math === 't' || q.is_math === 1 || q.is_math === '1' || q.isMath === true)),
                       descricao: q.descricao,
                       explicacao: q.explicacao,
                       idprocesso: q.idprocesso,

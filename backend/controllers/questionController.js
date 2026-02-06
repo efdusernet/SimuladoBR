@@ -141,6 +141,15 @@ exports.createQuestion = async (req, res, next) => {
 			if (parsed == null) return next(badRequest('is_pretest invalid', 'IS_PRETEST_INVALID'));
 			is_pretest = parsed;
 		}
+
+		// Optional: mark question as math-related.
+		let is_math = false;
+		if (Object.prototype.hasOwnProperty.call(b, 'is_math') || Object.prototype.hasOwnProperty.call(b, 'isMath') || Object.prototype.hasOwnProperty.call(b, 'ismath') || Object.prototype.hasOwnProperty.call(b, 'IsMath')) {
+			const raw = Object.prototype.hasOwnProperty.call(b, 'is_math') ? b.is_math : (Object.prototype.hasOwnProperty.call(b, 'isMath') ? b.isMath : (Object.prototype.hasOwnProperty.call(b, 'ismath') ? b.ismath : b.IsMath));
+			const parsed = parseOptionalBoolean(raw);
+			if (parsed == null) return next(badRequest('is_math invalid', 'IS_MATH_INVALID'));
+			is_math = parsed;
+		}
 		// seed is mandatory
 		let seed = null;
 		if (typeof b.seed === 'boolean') seed = b.seed;
@@ -252,16 +261,19 @@ exports.createQuestion = async (req, res, next) => {
 		const hasQuestaoRef = qCols && qCols.has('referencia');
 		const hasQuestaoInteracao = qCols && qCols.has('interacaospec');
 		const hasQuestaoPretest = qCols && qCols.has('is_pretest');
+		const colQuestaoIsMath = _pickColumn(qCols, ['is_math', 'isMath', 'ismath', 'IsMath']);
+		const hasQuestaoIsMath = Boolean(colQuestaoIsMath);
 		const insertQ = `INSERT INTO public.questao (
 			iddominio_desempenho, idstatus, descricao, datacadastro, dataalteracao,
 			criadousuario, alteradousuario, excluido, seed, nivel,
 			idprincipio, dica, multiplaescolha, id_abordagem, codgrupoprocesso, tiposlug, exam_type_id, iddominiogeral, imagem_url, codniveldificuldade, id_task, versao_exame${hasQuestaoPretest ? ', is_pretest' : ''}${hasQuestaoInteracao ? ', interacaospec' : ''}${hasQuestaoExp ? ', explicacao' : ''}${hasQuestaoRef ? ', referencia' : ''}
+			${hasQuestaoIsMath ? `, ${_quoteIdent(colQuestaoIsMath)}` : ''}
 		) VALUES (
 			:iddominio_desempenho, 1, :descricao, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
 			:createdByUserId, :createdByUserId, false, :seed, 1,
-			:idprincipio, :dica, :multipla, :id_abordagem, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame${hasQuestaoPretest ? ', :is_pretest' : ''}${hasQuestaoInteracao ? ', :interacaospec' : ''}${hasQuestaoExp ? ', :explicacao' : ''}${hasQuestaoRef ? ', :referencia' : ''}
+			:idprincipio, :dica, :multipla, :id_abordagem, :codgrupoprocesso, :tiposlug, :exam_type_id, :iddominiogeral, :imagem_url, :codniveldificuldade, :id_task, :versao_exame${hasQuestaoPretest ? ', :is_pretest' : ''}${hasQuestaoInteracao ? ', :interacaospec' : ''}${hasQuestaoExp ? ', :explicacao' : ''}${hasQuestaoRef ? ', :referencia' : ''}${hasQuestaoIsMath ? ', :is_math' : ''}
 		) RETURNING id`;
-		const r = await sequelize.query(insertQ, { replacements: { iddominio_desempenho: iddominioDesempenho, descricao, dica, multipla, seed, codgrupoprocesso, id_abordagem, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, is_pretest, createdByUserId, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: referencia || null }, type: sequelize.QueryTypes.INSERT, transaction: t });
+		const r = await sequelize.query(insertQ, { replacements: { iddominio_desempenho: iddominioDesempenho, descricao, dica, multipla, seed, codgrupoprocesso, id_abordagem, tiposlug: tiposlug || (multipla ? 'multi' : 'single'), exam_type_id: resolvedExamTypeId, iddominiogeral, idprincipio, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, is_pretest, is_math, createdByUserId, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: referencia || null }, type: sequelize.QueryTypes.INSERT, transaction: t });
 			// Sequelize returns [result, metadata]; get id via second element row if needed
 			// Safer: fetch with SELECT currval... but RETURNING should give us id in r[0][0].id depending on dialect
 			const insertedRow = Array.isArray(r) && r[0] && Array.isArray(r[0]) ? r[0][0] : null;
@@ -367,8 +379,10 @@ exports.getQuestionById = async (req, res, next) => {
 		const hasQuestaoRef = qCols && qCols.has('referencia');
 		const hasQuestaoInteracao = qCols && qCols.has('interacaospec');
 		const hasQuestaoPretest = qCols && qCols.has('is_pretest');
+		const colQuestaoIsMath = _pickColumn(qCols, ['is_math', 'isMath', 'ismath', 'IsMath']);
+		const hasQuestaoIsMath = Boolean(colQuestaoIsMath);
 
-	const qsql = `SELECT q.id, q.descricao, q.tiposlug, ${hasQuestaoInteracao ? 'q.interacaospec,' : ''} ${hasQuestaoPretest ? 'q.is_pretest,' : ''} q.iddominio_desempenho, NULL AS codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.id_abordagem,
+	const qsql = `SELECT q.id, q.descricao, q.tiposlug, ${hasQuestaoInteracao ? 'q.interacaospec,' : ''} ${hasQuestaoPretest ? 'q.is_pretest,' : ''} ${hasQuestaoIsMath ? `q.${_quoteIdent(colQuestaoIsMath)} AS is_math,` : ''} q.iddominio_desempenho, NULL AS codareaconhecimento, q.codgrupoprocesso, q.iddominiogeral, q.idprincipio, q.id_abordagem,
 						 q.seed,
 									 q.dica, q.imagem_url, q.multiplaescolha, q.codniveldificuldade, q.id_task, q.exam_type_id,
 									 ${hasQuestaoExp ? 'q.explicacao,' : ''}
@@ -413,6 +427,7 @@ exports.getQuestionById = async (req, res, next) => {
 			tiposlug: base.tiposlug,
 			interacao,
 			is_pretest: (hasQuestaoPretest ? (base.is_pretest === true || base.is_pretest === 't') : false),
+			is_math: (hasQuestaoIsMath ? (base.is_math === true || base.is_math === 't') : false),
 			seed: base.seed === true || base.seed === 't',
 			iddominio_desempenho: base.iddominio_desempenho,
 			codareaconhecimento: base.codareaconhecimento,
@@ -471,6 +486,15 @@ exports.updateQuestion = async (req, res, next) => {
 			const parsed = parseOptionalBoolean(raw);
 			if (parsed == null) return next(badRequest('is_pretest invalid', 'IS_PRETEST_INVALID'));
 			is_pretest = parsed;
+		}
+
+		// Optional on update: if provided, update; if omitted, keep current.
+		let is_math = null;
+		if (Object.prototype.hasOwnProperty.call(b, 'is_math') || Object.prototype.hasOwnProperty.call(b, 'isMath') || Object.prototype.hasOwnProperty.call(b, 'ismath') || Object.prototype.hasOwnProperty.call(b, 'IsMath')) {
+			const raw = Object.prototype.hasOwnProperty.call(b, 'is_math') ? b.is_math : (Object.prototype.hasOwnProperty.call(b, 'isMath') ? b.isMath : (Object.prototype.hasOwnProperty.call(b, 'ismath') ? b.ismath : b.IsMath));
+			const parsed = parseOptionalBoolean(raw);
+			if (parsed == null) return next(badRequest('is_math invalid', 'IS_MATH_INVALID'));
+			is_math = parsed;
 		}
 		// seed is mandatory
 		let seed = null;
@@ -569,10 +593,13 @@ exports.updateQuestion = async (req, res, next) => {
 			const hasQuestaoRef = qCols && qCols.has('referencia');
 			const hasQuestaoInteracao = qCols && qCols.has('interacaospec');
 			const hasQuestaoPretest = qCols && qCols.has('is_pretest');
+			const colQuestaoIsMath = _pickColumn(qCols, ['is_math', 'isMath', 'ismath', 'IsMath']);
+			const hasQuestaoIsMath = Boolean(colQuestaoIsMath);
 			const shouldUpdateInteracao = Boolean(hasQuestaoInteracao) && (matchColumns.isMatchColumnsSlug(tiposlug) || isBasicType || hasInteracaoInput);
 			const upQ = `UPDATE public.questao SET
 				descricao = :descricao,
 				${hasQuestaoPretest ? 'is_pretest = COALESCE(:is_pretest, is_pretest),' : ''}
+				${hasQuestaoIsMath ? `${_quoteIdent(colQuestaoIsMath)} = COALESCE(:is_math, ${_quoteIdent(colQuestaoIsMath)}),` : ''}
 				${shouldUpdateInteracao ? 'interacaospec = :interacaospec,' : ''}
 				${hasQuestaoExp ? 'explicacao = :explicacao,' : ''}
 				${hasQuestaoRef ? 'referencia = :referencia,' : ''}
@@ -593,7 +620,7 @@ exports.updateQuestion = async (req, res, next) => {
 				alteradousuario = :updatedByUserId,
 				dataalteracao = CURRENT_TIMESTAMP
 			WHERE id = :id`;
-			await sequelize.query(upQ, { replacements: { id, descricao, is_pretest, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: (referencia != null ? String(referencia) : null), tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio_desempenho: iddominioDesempenho, codgrupoprocesso, iddominiogeral, idprincipio, id_abordagem, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
+			await sequelize.query(upQ, { replacements: { id, descricao, is_pretest, is_math, interacaospec: interacaospecParam, explicacao: explicacao || null, referencia: (referencia != null ? String(referencia) : null), tiposlug: tiposlug || (multipla ? 'multi' : 'single'), multipla, seed, iddominio_desempenho: iddominioDesempenho, codgrupoprocesso, iddominiogeral, idprincipio, id_abordagem, dica, imagem_url: imagemUrl, codniveldificuldade, id_task, versao_exame: versaoExame, exam_type_id: resolvedExamTypeId, updatedByUserId }, type: sequelize.QueryTypes.UPDATE, transaction: t });
 
 			// Opções (respostaopcao) + explicações (explicacaoguia)
 			// Regra:

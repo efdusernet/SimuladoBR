@@ -1,0 +1,20 @@
+# Normalize line endings across platforms.
+# With `core.autocrlf=true` on Windows, Git will checkout CRLF locally while
+# keeping LF in the repository. This avoids noisy EOL warnings for Windows devs.
+* text=auto
+
+# Force LF only for POSIX-only files
+*.sh text eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.7z binary
+*.mp3 binary
+*.mp4 binary

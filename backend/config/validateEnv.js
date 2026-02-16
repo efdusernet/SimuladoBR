@@ -138,6 +138,87 @@ function getSafeDbConfig() {
   };
 }
 
+function isMarketplaceDbConfigured() {
+  const url = process.env.MARKETPLACE_DB_URL;
+  if (url && String(url).trim() !== '') return true;
+  const anyParts = [
+    'MARKETPLACE_DB_NAME',
+    'MARKETPLACE_DB_USER',
+    'MARKETPLACE_DB_PASSWORD',
+    'MARKETPLACE_DB_HOST'
+  ].some(k => {
+    const v = process.env[k];
+    return v != null && String(v).trim() !== '';
+  });
+  return anyParts;
+}
+
+function getSafeMarketplaceDbConfig() {
+  const url = process.env.MARKETPLACE_DB_URL;
+  if (url && String(url).trim() !== '') {
+    return {
+      url: sanitizeConnectionString(String(url)),
+      configured: true,
+    };
+  }
+  return {
+    host: process.env.MARKETPLACE_DB_HOST || '[not set]',
+    port: process.env.MARKETPLACE_DB_PORT || 5432,
+    database: process.env.MARKETPLACE_DB_NAME || '[not set]',
+    user: process.env.MARKETPLACE_DB_USER ? maskSensitiveValue(process.env.MARKETPLACE_DB_USER) : '[not set]',
+    configured: isMarketplaceDbConfigured(),
+  };
+}
+
+function validateMarketplaceEnvVars() {
+  if (!isMarketplaceDbConfigured()) return;
+
+  const errors = [];
+  const url = process.env.MARKETPLACE_DB_URL;
+  if (url && String(url).trim() !== '') {
+    try {
+      const parsed = new URL(String(url));
+      const proto = String(parsed.protocol || '').toLowerCase();
+      if (proto !== 'postgres:' && proto !== 'postgresql:') {
+        errors.push('MARKETPLACE_DB_URL must start with postgres:// or postgresql://');
+      }
+    } catch (_) {
+      errors.push('MARKETPLACE_DB_URL must be a valid URL');
+    }
+  } else {
+    const required = [
+      'MARKETPLACE_DB_NAME',
+      'MARKETPLACE_DB_USER',
+      'MARKETPLACE_DB_PASSWORD',
+      'MARKETPLACE_DB_HOST'
+    ];
+    required.forEach(varName => {
+      const value = process.env[varName];
+      if (!value || String(value).trim() === '') {
+        errors.push(`${varName} is required (or set MARKETPLACE_DB_URL)`);
+      }
+    });
+
+    const dbPort = process.env.MARKETPLACE_DB_PORT;
+    if (dbPort) {
+      const portNum = Number(dbPort);
+      if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+        errors.push('MARKETPLACE_DB_PORT must be a valid port number (1-65535)');
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    console.error('\n❌ MARKETPLACE ENVIRONMENT CONFIGURATION ERRORS:\n');
+    errors.forEach((error, index) => {
+      console.error(`  ${index + 1}. ${error}`);
+    });
+    console.error('\n💡 Please check your .env file and ensure marketplace DB variables are set correctly.\n');
+
+    throw new Error(`Marketplace environment validation failed: ${errors.length} error(s) found`);
+  }
+}
+
 /**
  * Masks sensitive values for safe logging
  * Shows first 2 characters, rest as asterisks
@@ -161,6 +242,8 @@ function validateOnLoad() {
   
   try {
     validateRequiredEnvVars();
+    // Marketplace DB is optional. If configured, validate it too.
+    validateMarketplaceEnvVars();
   } catch (error) {
     // Re-throw to prevent application from starting
     throw error;
@@ -169,8 +252,11 @@ function validateOnLoad() {
 
 module.exports = {
   validateRequiredEnvVars,
+  validateMarketplaceEnvVars,
+  isMarketplaceDbConfigured,
   sanitizeConnectionString,
   getSafeDbConfig,
+  getSafeMarketplaceDbConfig,
   maskSensitiveValue,
   validateOnLoad
 };

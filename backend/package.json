@@ -10,6 +10,7 @@
     "start:sync:win": "powershell -NoProfile -ExecutionPolicy Bypass -File start-sync-windows.ps1",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:apply-sql": "node scripts/apply_sql.js",
+    "db:apply-sql:marketplace": "node scripts/apply_sql_marketplace.js",
     "role:grant-admin": "node scripts/grant_admin.js"
   },
   "keywords": [],

@@ -139,7 +139,7 @@ function getSafeDbConfig() {
 }
 
 function isMarketplaceDbConfigured() {
-  const url = process.env.MARKETPLACE_DB_URL;
+  const url = process.env.MARKETPLACE_DB_URL || process.env.DATABASE_URL;
   if (url && String(url).trim() !== '') return true;
   const anyParts = [
     'MARKETPLACE_DB_NAME',
@@ -154,7 +154,7 @@ function isMarketplaceDbConfigured() {
 }
 
 function getSafeMarketplaceDbConfig() {
-  const url = process.env.MARKETPLACE_DB_URL;
+  const url = process.env.MARKETPLACE_DB_URL || process.env.DATABASE_URL;
   if (url && String(url).trim() !== '') {
     return {
       url: sanitizeConnectionString(String(url)),
@@ -174,16 +174,16 @@ function validateMarketplaceEnvVars() {
   if (!isMarketplaceDbConfigured()) return;
 
   const errors = [];
-  const url = process.env.MARKETPLACE_DB_URL;
+  const url = process.env.MARKETPLACE_DB_URL || process.env.DATABASE_URL;
   if (url && String(url).trim() !== '') {
     try {
       const parsed = new URL(String(url));
       const proto = String(parsed.protocol || '').toLowerCase();
       if (proto !== 'postgres:' && proto !== 'postgresql:') {
-        errors.push('MARKETPLACE_DB_URL must start with postgres:// or postgresql://');
+        errors.push('MARKETPLACE_DB_URL (or DATABASE_URL) must start with postgres:// or postgresql://');
       }
     } catch (_) {
-      errors.push('MARKETPLACE_DB_URL must be a valid URL');
+      errors.push('MARKETPLACE_DB_URL (or DATABASE_URL) must be a valid URL');
     }
   } else {
     const required = [

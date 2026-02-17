@@ -4,7 +4,10 @@ Este guia é um atalho para subir a **segunda base** (Marketplace DB) e aplicar 
 
 ## 1) Configurar env vars
 
-Edite `backend/.env` (ou o `.env` na raiz, dependendo do seu setup) e configure **uma** opção:
+Edite `backend/.env` (recomendado) e configure **uma** opção:
+
+> Importante: prefira `MARKETPLACE_DB_URL`.
+> Em algumas máquinas, `DATABASE_URL` já existe no ambiente (ex.: chat-service) e pode fazer o backend apontar para o banco errado.
 
 ### Opção A: URL única
 
@@ -31,6 +34,10 @@ Crie o database vazio (exemplo):
 Dentro de `backend/`:
 
 - `npm run db:apply-sql:marketplace`
+
+Dica: depois de subir o backend, valide o banco conectado em runtime (admin):
+
+- `GET /api/v1/admin/marketplace/access/debug/db`
 
 Isso executa os scripts em `backend/sql_marketplace/` em ordem crescente.
 

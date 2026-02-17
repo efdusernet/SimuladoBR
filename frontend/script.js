@@ -8,8 +8,10 @@ class SafeRedirect {
             this.allowedPaths = [
                 '/',
                 '/index.html',
+                '/home.html',
                 '/login',
                 '/login.html',
+                '/v2/index.html',
                 '/pages/exam.html',
                 '/pages/examFull.html',
                 '/pages/examSetup.html',
@@ -2012,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
                     } catch(_){ }
-                    if (!target) target = '/';
+                    if (!target) target = '/home.html';
                     try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
                     safeRedirect.safeRedirect(target, '/');
                 } catch (e) { console.warn('Erro redirect login:', e); }
@@ -2136,7 +2138,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                         } catch(_){ }
-                        if (!target) target = '/';
+                        if (!target) target = '/home.html';
                         try { sessionStorage.removeItem('postLoginRedirect'); } catch(_){ }
                         safeRedirect.safeRedirect(target, '/');
                     } catch (e) { console.warn('Erro redirect login:', e); }

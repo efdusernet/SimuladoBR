@@ -266,7 +266,77 @@ Recomendação:
 
 ---
 
-## 10) Plano de Implementação (incremental)
+## 10) Decisão de Interface (Hub de Provas) — como direcionar o usuário
+
+O objetivo aqui é **não quebrar a experiência atual do PMP**, mas permitir que o usuário entre no app e seja direcionado de forma determinística para:
+
+- **PMP (legado / versão atual)** — usando o fluxo/telas existentes.
+- **Outras provas (ex.: OAB 1ª fase)** — usando novas telas/fluxos conforme o engine/blueprint.
+
+### 10.1 Princípio
+
+- A decisão de UI é feita a partir de um **“App Context”** calculado no Core (pois depende de login, plano e direitos).
+- “Banco original vs banco novo” não deve ser um switch de UI: a Opção B mantém **Core DB (original)** para identidade/tentativas/entitlements e usa **Marketplace DB** apenas como repositório de conteúdo. O usuário sempre está no mesmo app e mesma conta; o que muda é a **prova/experiência** e o **conteúdo habilitado**.
+
+### 10.2 Fonte da verdade (inputs)
+
+Inputs típicos para roteamento:
+
+- **Deep link** (URL) — ex.: `?exam=PMP` ou `/exams/OAB1F`.
+- Preferência do usuário (**última prova usada**) — ex.: `localStorage:lastExamId`.
+- Campo no Core DB (opcional) — ex.: `users.default_exam_id`.
+- **Entitlements** (Core DB) — quais provas/packs o usuário pode acessar.
+- Feature flags (Core) — ex.: liberar OAB para beta-testers.
+
+### 10.3 Árvore de decisão (determinística)
+
+1) Se não autenticado → vai para `login`.
+2) Se autenticado → frontend chama `GET /api/app/bootstrap` (ou similar) e recebe:
+   - `availableExams[]` (ex.: `PMP`, `OAB1F`)
+   - `defaultExamId` (já resolvido no servidor)
+   - para cada exam: `uiEntry` = `legacy` | `v2` (qual “casca” de UI abrir)
+   - `reasonCodes` (opcional) quando o usuário não tem acesso
+3) O frontend escolhe `targetExamId` nesta ordem:
+   - `exam` vindo da URL (se permitido)
+   - `lastExamId` salvo localmente (se permitido)
+   - `defaultExamId` do servidor (se permitido)
+   - se só existir 1 prova disponível → essa
+   - caso contrário → exibe o **Hub de Provas**
+4) Redireciona/abre a UI daquela prova conforme `uiEntry`:
+   - `legacy` → telas existentes do PMP (sem reescrever tudo agora)
+   - `v2` → nova rota/telas (ex.: `/exams/:examId/...`)
+
+### 10.4 Tela (Hub de Provas)
+
+Uma tela simples, com cards:
+
+- **PMP (Clássico)**
+  - botão: “Continuar”
+  - resumo: “Seu simulador PMP atual”
+  - opcional: “Último simulado em …”
+- **OAB 1ª Fase** (quando habilitado)
+  - botão: “Entrar”
+  - status: “Beta” / “Em breve” / “Requer acesso”
+
+Essa tela também é onde faz sentido mostrar:
+
+- quais packs estão habilitados por prova
+- ação “Loja” (comprar packs) quando aplicável
+
+### 10.5 Contrato sugerido: `GET /api/app/bootstrap`
+
+Resposta (exemplo conceitual):
+
+- `user`: `{ id, name }`
+- `availableExams`: `[{ examId, title, uiEntry, enabled, reasonCodes? }]`
+- `defaultExamId`: `"PMP"`
+- `storeEnabled`: boolean
+
+Importante: o frontend **não decide** permissões; ele só renderiza com base no que o Core retorna.
+
+---
+
+## 11) Plano de Implementação (incremental)
 
 1. Criar conexão `dbMarketplace` e validação de env vars
 2. Criar migrations do marketplace DB (vendors/packs/versions/questions/options)
@@ -277,7 +347,7 @@ Recomendação:
 
 ---
 
-## 11) Perguntas em aberto
+## 12) Perguntas em aberto
 
 - Licença “sempre última versão” vs “versão fixa” (impacta entitlements)
 - Armazenamento de assets (DB vs filesystem vs object storage)

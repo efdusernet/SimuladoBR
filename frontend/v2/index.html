@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SimuladosBR — UI v2</title>
+  <meta name="theme-color" content="#363636">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
+  <script src="/utils/csrf.js"></script>
+  <script src="/utils/logout.js"></script>
+
+  <link rel="stylesheet" href="/v2/v2.css">
+</head>
+<body>
+  <div class="app" id="appRoot">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">SB</div>
+        <div class="brand-text">
+          <div class="brand-title">SimuladosBR</div>
+          <div class="brand-sub" id="brandSub">UI v2</div>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <a class="link" href="/home.html">Hub</a>
+        <a class="link" href="/">PMP clássico</a>
+        <button class="btn" id="btnLogout" type="button">Sair</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <aside class="nav">
+        <button class="nav-item" type="button" data-route="#/">Início</button>
+        <button class="nav-item" type="button" data-route="#/simulado">Simulado</button>
+        <button class="nav-item" type="button" data-route="#/config">Config</button>
+      </aside>
+
+      <section class="content">
+        <div class="banner" id="banner">
+          <div class="dot" id="statusDot" aria-hidden="true"></div>
+          <div class="banner-text">
+            <div class="banner-title" id="statusTitle">Carregando…</div>
+            <div class="banner-sub" id="statusSub">Validando sessão e prova selecionada.</div>
+          </div>
+          <div class="pill" id="pillExam">—</div>
+        </div>
+
+        <div id="viewRoot" class="view"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/v2/app.js" defer></script>
+</body>
+</html>

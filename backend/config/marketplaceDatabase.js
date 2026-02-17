@@ -2,14 +2,23 @@ const { Sequelize } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 
-// Load env: prefer backend/.env; if absent, fallback to project root .env
+// Load env from both locations (backend first, then root), without overriding existing vars.
+// This avoids surprises when backend/.env exists but some vars (e.g., DATABASE_URL) are only in root .env.
 const backendEnv = path.resolve(__dirname, '../.env');
 const rootEnv = path.resolve(__dirname, '..', '..', '.env');
 let chosenEnv = backendEnv;
-if (!fs.existsSync(backendEnv) && fs.existsSync(rootEnv)) {
+
+if (fs.existsSync(backendEnv)) {
+  require('dotenv').config({ path: backendEnv });
+} else if (fs.existsSync(rootEnv)) {
   chosenEnv = rootEnv;
+  require('dotenv').config({ path: rootEnv });
 }
-require('dotenv').config({ path: chosenEnv });
+
+// Merge root env (do not override) when both files exist.
+if (fs.existsSync(backendEnv) && fs.existsSync(rootEnv)) {
+  require('dotenv').config({ path: rootEnv });
+}
 
 const {
   validateMarketplaceEnvVars,
@@ -41,7 +50,7 @@ if (process.env.SEQUELIZE_LOG === 'true') {
   console.log('[marketplace-db] connecting with config:', getSafeMarketplaceDbConfig());
 }
 
-const url = process.env.MARKETPLACE_DB_URL;
+const url = process.env.MARKETPLACE_DB_URL || process.env.DATABASE_URL;
 const dbName = process.env.MARKETPLACE_DB_NAME;
 const dbUser = process.env.MARKETPLACE_DB_USER;
 const rawPass = process.env.MARKETPLACE_DB_PASSWORD;

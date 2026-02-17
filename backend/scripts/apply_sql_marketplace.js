@@ -12,8 +12,20 @@
 const fs = require('fs');
 const path = require('path');
 
-// Load .env from repo root (keeps current script behavior similar to apply_sql.js)
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+// Load env from both locations (backend first, then root), without overriding existing vars.
+const backendEnv = path.resolve(__dirname, '..', '.env');
+const rootEnv = path.resolve(__dirname, '..', '..', '.env');
+
+if (fs.existsSync(backendEnv)) {
+  require('dotenv').config({ path: backendEnv });
+} else if (fs.existsSync(rootEnv)) {
+  require('dotenv').config({ path: rootEnv });
+}
+
+// Merge root env (do not override) when both files exist.
+if (fs.existsSync(backendEnv) && fs.existsSync(rootEnv)) {
+  require('dotenv').config({ path: rootEnv });
+}
 
 const { sequelize, configured } = require('../config/marketplaceDatabase');
 

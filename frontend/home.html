@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SimuladosBR — Início</title>
+
+  <meta name="theme-color" content="#363636">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+
+  <script src="/utils/logger.js"></script>
+  <script src="/utils/auth.js"></script>
+  <script src="/utils/csrf.js"></script>
+
+  <style>
+    :root{
+      --bg: #363636;
+      --bg-top: #404040;
+      --bg-bottom: #2b2b2b;
+      --panel: rgba(255,255,255,.06);
+      --border: rgba(255,255,255,.08);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --brand: #22c55e;
+      --brand-700: #16a34a;
+      --danger: #ef4444;
+      --shadow: 0 20px 40px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+    *{ box-sizing:border-box; }
+    html, body{ height:100%; }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(255,255,255,.12), transparent),
+                  radial-gradient(900px 500px at 90% 10%, rgba(0,0,0,.55), transparent),
+                  linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans;
+      display:grid;
+      place-items:center;
+      padding: 28px 16px;
+    }
+    .card{
+      width: min(720px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      display:grid;
+      gap: 12px;
+    }
+    .title{
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .sub{
+      margin: 0;
+      color: var(--muted);
+      font-size: .95rem;
+      line-height: 1.35;
+    }
+    .status{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.25);
+      color: var(--muted);
+      font-size: .95rem;
+    }
+    .dot{ width:10px; height:10px; border-radius:50%; background: var(--brand); box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
+    .dot.warn{ background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.18); }
+    .dot.err{ background: var(--danger); box-shadow: 0 0 0 3px rgba(239,68,68,.18); }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .exam-btn{
+      appearance:none;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      padding: 14px 14px;
+      text-align:left;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .15s ease, background .15s ease;
+    }
+    .exam-btn:hover{ background: rgba(0,0,0,.32); border-color: rgba(34,197,94,.35); }
+    .exam-btn:active{ transform: translateY(1px); }
+    .exam-title{ font-weight: 700; margin: 0 0 4px 0; }
+    .exam-meta{ margin: 0; color: var(--muted); font-size: .85rem; }
+
+    .actions{
+      display:flex;
+      gap: 10px;
+      justify-content:flex-end;
+      margin-top: 6px;
+    }
+
+    .link{
+      color: var(--muted);
+      text-decoration:none;
+      font-size: .9rem;
+    }
+    .link:hover{ text-decoration:underline; color: #d1d5db; }
+
+    .error{
+      display:none;
+      border: 1px solid rgba(239,68,68,.30);
+      background: rgba(239,68,68,.12);
+      color: #fecaca;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: .92rem;
+      line-height: 1.35;
+      white-space: pre-wrap;
+    }
+  </style>
+
+  <script>
+    (function(){
+      try {
+        var o = String((window.location && window.location.origin) || '');
+        var base = /^https?:/i.test(o) ? o : 'http://app.localhost:3000';
+        window.SIMULADOS_CONFIG = Object.assign({ BACKEND_BASE: base }, window.SIMULADOS_CONFIG || {});
+      } catch(_){ }
+    })();
+
+    function getBackendBase(){
+      try {
+        const base = (window.SIMULADOS_CONFIG && window.SIMULADOS_CONFIG.BACKEND_BASE) || '';
+        return String(base || '').trim().replace(/\/$/, '');
+      } catch(_){
+        return '';
+      }
+    }
+
+    function buildHeaders(){
+      try {
+        if (window.Auth && typeof window.Auth.getAuthHeaders === 'function') {
+          return window.Auth.getAuthHeaders({ acceptJson: true });
+        }
+      } catch(_){ }
+      return { 'Accept': 'application/json' };
+    }
+
+    function goLogin(){
+      const here = '/home.html' + (window.location && window.location.search ? String(window.location.search) : '');
+      window.location.assign('/login?redirect=' + encodeURIComponent(here));
+    }
+
+    function routeToExam(exam){
+      const examId = String(exam && exam.examId || 'PMP');
+      const uiEntry = String(exam && exam.uiEntry || (examId === 'PMP' ? 'legacy' : 'v2'));
+
+      try { localStorage.setItem('selectedExamId', examId); } catch(_){ }
+
+      if (uiEntry === 'legacy') {
+        window.location.assign('/');
+        return;
+      }
+
+      const target = '/v2/index.html?exam=' + encodeURIComponent(examId);
+      window.location.assign(target);
+    }
+
+    async function loadBootstrap(){
+      const statusEl = document.getElementById('statusText');
+      const dotEl = document.getElementById('statusDot');
+      const gridEl = document.getElementById('examGrid');
+      const errorEl = document.getElementById('errorBox');
+
+      function setStatus(text, kind){
+        if (statusEl) statusEl.textContent = String(text || '');
+        if (dotEl) {
+          dotEl.classList.remove('warn');
+          dotEl.classList.remove('err');
+          if (kind === 'warn') dotEl.classList.add('warn');
+          if (kind === 'err') dotEl.classList.add('err');
+        }
+      }
+
+      function showError(message){
+        if (!errorEl) return;
+        errorEl.style.display = 'block';
+        errorEl.textContent = String(message || 'Erro');
+      }
+
+      setStatus('Carregando suas provas…');
+
+      const base = getBackendBase();
+      const url = (base || '') + '/api/v1/app/bootstrap';
+
+      let resp;
+      try {
+        resp = await fetch(url, {
+          method: 'GET',
+          headers: buildHeaders(),
+          credentials: 'include',
+          cache: 'no-store',
+          redirect: 'follow'
+        });
+      } catch (e) {
+        setStatus('Falha de conexão', 'err');
+        showError((e && e.message) ? e.message : String(e));
+        return;
+      }
+
+      if (resp.status === 401 || resp.status === 403) {
+        goLogin();
+        return;
+      }
+
+      if (!resp.ok) {
+        setStatus('Erro ao carregar', 'err');
+        const text = await resp.text().catch(() => '');
+        showError(text || (resp.status + ' ' + resp.statusText));
+        return;
+      }
+
+      const data = await resp.json().catch(() => null);
+      const exams = (data && Array.isArray(data.availableExams)) ? data.availableExams : [];
+      const defaultExamId = (data && data.defaultExamId) ? String(data.defaultExamId) : null;
+
+      if (!exams.length) {
+        setStatus('Nenhuma prova liberada. Indo para o PMP…', 'warn');
+        routeToExam({ examId: 'PMP', uiEntry: 'legacy', title: 'PMP (Clássico)' });
+        return;
+      }
+
+      if (exams.length === 1) {
+        setStatus('Abrindo…');
+        routeToExam(exams[0]);
+        return;
+      }
+
+      setStatus('Escolha uma prova para continuar');
+
+      // Render Hub
+      if (gridEl) gridEl.innerHTML = '';
+      for (const ex of exams) {
+        const examId = String(ex && ex.examId || '');
+        if (!examId) continue;
+        const title = String(ex && ex.title || examId);
+        const uiEntry = String(ex && ex.uiEntry || (examId === 'PMP' ? 'legacy' : 'v2'));
+        const source = String(ex && ex.source || '');
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'exam-btn';
+        btn.addEventListener('click', () => routeToExam(ex));
+
+        const t = document.createElement('div');
+        t.className = 'exam-title';
+        t.textContent = title;
+
+        const m = document.createElement('div');
+        m.className = 'exam-meta';
+        m.textContent = 'Entrada: ' + uiEntry + (source ? (' • fonte: ' + source) : '');
+
+        btn.appendChild(t);
+        btn.appendChild(m);
+
+        // Highlight default exam
+        if (defaultExamId && defaultExamId === examId) {
+          btn.style.borderColor = 'rgba(34,197,94,.55)';
+          btn.style.background = 'rgba(34,197,94,.10)';
+        }
+
+        gridEl && gridEl.appendChild(btn);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadBootstrap();
+    });
+  </script>
+</head>
+<body>
+  <div class="card">
+    <h1 class="title">Início</h1>
+    <p class="sub">Essa tela decide automaticamente para qual interface te direcionar (PMP clássico ou UI v2). Se você tiver mais de uma prova liberada, ela vira um Hub de Provas.</p>
+
+    <div class="status">
+      <span id="statusDot" class="dot" aria-hidden="true"></span>
+      <span id="statusText">Carregando…</span>
+    </div>
+
+    <div id="errorBox" class="error"></div>
+
+    <div id="examGrid" class="grid" aria-label="Provas disponíveis"></div>
+
+    <div class="actions">
+      <a class="link" href="/">Ir para o PMP clássico</a>
+      <a class="link" href="/login">Trocar usuário</a>
+    </div>
+  </div>
+</body>
+</html>

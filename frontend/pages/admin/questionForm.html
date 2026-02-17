@@ -86,6 +86,10 @@
     .tab-section{ display:none; }
     .tab-section.active{ display:block; }
     .dup-warning{ border-color:#ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
+    .breadcrumb{ display:flex; align-items:center; gap:8px; margin:0 0 12px 0; font-size:.9rem; color:#64748b; }
+    .breadcrumb a{ color:#1d4ed8; text-decoration:none; font-weight:700; }
+    .breadcrumb a:hover{ text-decoration:underline; }
+    .breadcrumb .sep{ color:#cbd5e1; }
   </style>
 </head>
 <body>
@@ -93,12 +97,17 @@
     <span class="ui-menu-icon-set-hamburger-mobile" aria-hidden="true"></span>
   </button>
   <nav id="pageMenu" class="menu-panel" aria-hidden="true" aria-label="Menu rápido">
-    <a href="/" rel="noopener">Início (Menu)</a>
+    <a href="/home.html" rel="noopener">Início (Menu)</a>
     <a href="/pages/admin/questionForm.html" rel="noopener">Cadastrar Questão</a>
     <a href="/pages/admin/questionBulk.html" rel="noopener">Upload em Lote</a>
   </nav>
 
   <div class="container">
+    <div class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/home.html">Home</a>
+      <span class="sep">/</span>
+      <a href="/pages/admin/administracao.html">Administração</a>
+    </div>
     <div class="tabs">
       <div class="tab active" data-target="sec-nova">Nova questão</div>
       <div class="tab" data-target="sec-nav">Navegação</div>

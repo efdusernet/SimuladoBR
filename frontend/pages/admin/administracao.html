@@ -37,6 +37,10 @@
     .topbar{ display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
     .topbar h1{ margin:0; font-size:1.25rem; }
     .muted{ color: var(--muted, #94a3b8); }
+    .breadcrumb{ display:flex; align-items:center; gap:8px; margin:0 0 6px 0; font-size:.85rem; color: var(--muted, #94a3b8); }
+    .breadcrumb a{ color: var(--muted, #cbd5e1); text-decoration:none; font-weight:900; }
+    .breadcrumb a:hover{ text-decoration:underline; }
+    .breadcrumb .sep{ opacity:.7; }
     .btn{ padding:8px 12px; border-radius:8px; border:1px solid var(--border, #1f2937); background: var(--panel, #0f172a); color: var(--text, #e5e7eb); cursor:pointer; font-weight:800; }
     .btn:hover{ filter: brightness(1.08); }
     .btn-danger{ background:#b91c1c; border-color:#7f1d1d; }
@@ -48,9 +52,9 @@
   <div class="wrap">
     <div class="topbar">
       <div>
-        <div class="muted" style="font-size:.85rem;margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <a href="/index.html" style="color:var(--muted);text-decoration:none;font-weight:900">Home</a>
-          <span style="opacity:.7">/</span>
+        <div class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/home.html">Home</a>
+          <span class="sep">/</span>
           <span style="color:var(--text);font-weight:900">Administração</span>
         </div>
         <h1>Administração</h1>

@@ -8,6 +8,10 @@
   <style>
     body{ background:#0f172a; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }
     .wrap{ max-width:960px; margin:20px auto; padding:16px; background:#111827; border:1px solid #1f2937; border-radius:10px; }
+    .breadcrumb{ display:flex; align-items:center; gap:8px; margin:0 0 10px 0; font-size:.85rem; color:#94a3b8; }
+    .breadcrumb a{ color:#cbd5e1; text-decoration:none; font-weight:800; }
+    .breadcrumb a:hover{ text-decoration:underline; }
+    .breadcrumb .sep{ color:#64748b; }
     table{ width:100%; border-collapse:collapse; margin-top:10px; }
     th, td{ border-bottom:1px solid #1f2937; padding:8px; text-align:left; font-size:.9rem; }
     th{ color:#a5b4fc; }
@@ -43,6 +47,11 @@
   </nav>
   
   <div class="wrap">
+    <nav class="breadcrumb" aria-label="breadcrumb">
+      <a href="/home.html">Home</a>
+      <span class="sep">/</span>
+      <a href="/pages/admin/administracao.html">Administração</a>
+    </nav>
     <h1 style="margin:0 0 10px;">Feedbacks pendentes</h1>
     <p style="color:#94a3b8">Somente administradores. Responda abaixo; a resposta será vinculada ao feedback e à questão.</p>
     <div id="status" class="status"></div>

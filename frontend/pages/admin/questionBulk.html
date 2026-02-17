@@ -21,10 +21,19 @@
     .inline > *{ flex: 1 1 240px; }
     code{ background:#f6f8fa; padding:2px 4px; border-radius:4px; }
     pre{ background:#f6f8fa; padding:10px; border-radius:8px; overflow:auto; }
+    .breadcrumb{ display:flex; align-items:center; gap:8px; margin:0 0 12px 0; font-size:.9rem; color:#64748b; }
+    .breadcrumb a{ color:#1d4ed8; text-decoration:none; font-weight:700; }
+    .breadcrumb a:hover{ text-decoration:underline; }
+    .breadcrumb .sep{ color:#cbd5e1; }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/home.html">Home</a>
+      <span class="sep">/</span>
+      <a href="/pages/admin/administracao.html">Administração</a>
+    </div>
     <h1>Carga de Questões (JSON/XML)</h1>
 
     <div class="row inline">

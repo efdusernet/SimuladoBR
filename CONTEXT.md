@@ -90,6 +90,7 @@ Referências:
 4) `docs/api-endpoints.md`
 5) `NOTES.md`
 6) `docs/known-errors.md`
+7) `docs/content-protection.md`
 
 ## Convenções úteis
 

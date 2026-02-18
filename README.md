@@ -293,6 +293,7 @@ Coleção e instruções em: `postman/README.md`
 - CSRF: docs/csrf-implementation.md
 - Logging: docs/logging-guide.md
 - Endpoints da API: docs/api-endpoints.md
+- Proteção de conteúdo (best-effort): docs/content-protection.md
 - Implementação (chat-service + parâmetros free/premium + UI admin): docs/IMPLEMENTATION_ADMIN_USER_PARAMS_CHAT_SERVICE.md
 - IA com contexto da Web (admin): docs/ai-web-context.md
 - IA — Classificação de Questões (admin): docs/ai-question-classification.md

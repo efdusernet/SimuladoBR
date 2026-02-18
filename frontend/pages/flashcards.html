@@ -7,6 +7,23 @@
   <script src="/utils/csrf.js"></script>
   <script src="/utils/layoutManager.js"></script>
   <script src="/utils/logout.js"></script>
+  <script src="/utils/contentProtection.js"></script>
+  <script>
+    (function(){
+      try {
+        if (window.ContentProtection && typeof window.ContentProtection.enable === 'function') {
+          window.ContentProtection.enable({
+            disableCopyPaste: true,
+            disableContextMenu: true,
+            disableSelection: true,
+            disablePrint: true,
+            warnOnPrintScreen: true,
+            printMessage: 'Impressão desativada nesta tela.'
+          });
+        }
+      } catch(_){ }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Flashcards - SimuladosBR</title>
 

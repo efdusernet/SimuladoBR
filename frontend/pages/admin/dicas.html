@@ -8,6 +8,23 @@
   <script src="/utils/auth.js"></script>
   <script src="/utils/csrf.js"></script>
   <script src="/utils/logout.js"></script>
+  <script src="/utils/contentProtection.js"></script>
+  <script>
+    (function(){
+      try {
+        if (window.ContentProtection && typeof window.ContentProtection.enable === 'function') {
+          window.ContentProtection.enable({
+            disableCopyPaste: true,
+            disableContextMenu: true,
+            disableSelection: true,
+            disablePrint: true,
+            warnOnPrintScreen: true,
+            printMessage: 'Impressão desativada nesta tela.'
+          });
+        }
+      } catch(_){ }
+    })();
+  </script>
   <link rel="stylesheet" href="../../styles.css" />
   <style>
     body{ background:#0f172a; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans; }

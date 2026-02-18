@@ -9,7 +9,7 @@ Issue #7 from the improvement proposal addressed several security concerns:
 - ✅ Sanitized error messages (no credential exposure)
 - ✅ Connection pool configuration
 - ✅ Safe logging utilities
-- ✅ .env.example template
+- ✅ `.env` ignored by git
 
 ## Environment Variable Validation
 
@@ -102,11 +102,9 @@ console.log(sanitizeConnectionString(connStr));
 
 ### Initial Setup
 
-1. **Copy the example environment file:**
-   ```bash
-   cd backend
-   cp .env.example .env
-   ```
+1. **Create your local environment file:**
+   - Create `backend/.env` (this repo ignores it via `.gitignore`).
+   - Fill in the required variables listed above.
 
 2. **Generate a secure JWT secret:**
    ```bash
@@ -130,7 +128,6 @@ console.log(sanitizeConnectionString(connStr));
 - [ ] `.env` is listed in `.gitignore`
 - [ ] JWT_SECRET is at least 32 characters
 - [ ] Database password is strong (12+ chars, mixed case, numbers, symbols)
-- [ ] `.env.example` has no real credentials
 - [ ] Production uses separate credentials from development
 - [ ] SEQUELIZE_LOG=false in production (no SQL logging)
 - [ ] DB_SSL=true in production environments

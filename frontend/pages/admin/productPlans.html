@@ -17,6 +17,10 @@
     .muted{ color:#94a3b8; }
     .small{ font-size:.85rem; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .breadcrumb{ display:flex; align-items:center; gap:8px; margin:0 0 6px 0; font-size:.85rem; color:#94a3b8; }
+    .breadcrumb a{ color:#cbd5e1; text-decoration:none; font-weight:800; }
+    .breadcrumb a:hover{ text-decoration:underline; }
+    .breadcrumb .sep{ color:#64748b; }
 
     .btn{ padding:8px 12px; border-radius:8px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; cursor:pointer; font-weight:700; }
     .btn:hover{ border-color:#334155; }
@@ -103,6 +107,11 @@
   <div class="wrap">
     <div class="topbar">
       <div>
+        <div class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/home.html">Home</a>
+          <span class="sep">/</span>
+          <a href="/pages/admin/administracao.html">Administração</a>
+        </div>
         <h1>Planos do Produto (Admin)</h1>
         <div class="muted small">Gerencie os cards de planos/benefícios exibidos na Home do marketing. Salva via <span class="mono">/api/admin/product-plans</span> (CSRF automático).</div>
       </div>
@@ -804,7 +813,7 @@
   $('btnDelete').onclick = del;
   $('btnDuplicate').onclick = duplicate;
 
-  $('btnHome').onclick = () => { window.location.href = '/index.html'; };
+  $('btnHome').onclick = () => { window.location.href = '/home.html'; };
   $('btnLogout').onclick = async () => { try { await window.Logout.logout(); } catch(_) {} };
 
   // live preview

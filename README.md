@@ -19,6 +19,9 @@ Leitura rápida recomendada (onboarding): `CONTEXT.md`, `FEATURES.md` e `KNOWN_I
 - Autenticação atual: JWT com sessão única por usuário (cookie httpOnly `sessionToken` no browser; ou `Authorization: Bearer <token>` / `X-Session-Token: <token>` em clientes).
 - Review de tentativas finalizadas:
 	- Endpoint `GET /api/exams/result/:attemptId` e páginas `frontend/pages/examReviewFull.html` / `frontend/pages/examReviewQuiz.html`.
+- Home pós-login (multi-exames): página `/home.html` chama `GET /api/v1/app/bootstrap` e redireciona para a UI correta por prova (legado vs UI v2).
+- UI v2 (shell): entrypoint `/v2/index.html?exam=<EXAM_ID>` quando o bootstrap retornar `uiEntry="v2"`.
+- Proteção de conteúdo (best-effort) em páginas sensíveis (simulado/revisão/dicas/flashcards): ver `docs/content-protection.md`.
 - Chat-service integrado via reverse-proxy em `/chat/*`.
 - Insights da IA:
 	- Endpoint `GET /api/ai/insights` expandido com `ai.explainability` (rastreabilidade do porquê dos alertas) e plano 7 dias.

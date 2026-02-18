@@ -8,11 +8,19 @@ This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 
 ### Added
 - Admin: nova página/hub em `/pages/admin/administracao.html` (substitui o modal).
+- App: Home pós-login em `/home.html` que chama `GET /api/v1/app/bootstrap` e redireciona para a UI correta (legado vs UI v2) por prova.
+- Marketplace (opção B / segunda base): suporte a DB separado para catálogo de provas/pacotes e controle de acesso por usuário.
+- Marketplace: endpoint `GET /api/v1/app/bootstrap` (autenticado) com `{ availableExams, defaultExamId, routing }`.
+- UI v2 (shell): entrypoint em `/v2/index.html?exam=<EXAM_ID>` (usado quando `uiEntry === "v2"`).
+- Frontend: utilitário de fricção de conteúdo em `frontend/utils/contentProtection.js`.
+- Docs: guia de proteção de conteúdo em `docs/content-protection.md`.
 - Exames (runner): botão “Calc” no topo, habilitado apenas em questões com `isMath === true`, abrindo modal de calculadora.
 - UI: modal de calculadora arrastável, com persistência de posição e reset por duplo clique no header.
 
 ### Changed
 - Navegação: entrada “Admin” (sidebar/home) direciona para a nova página.
+- Admin: breadcrumbs padronizados com link “Home” apontando para `/home.html`.
+- Setup/segurança: backend não depende mais de `backend/.env.example` no repo (setup passa a ser via `backend/.env`, ignorado no git).
 - Sidebar: “Indicadores → Visão Geral” renomeado para “Resultados/Comparativo” com dica/tooltip.
 - Conta/Settings: título “Configurações da Conta” ganha destaque (pill) para melhor legibilidade no tema escuro.
 - Backend: `/pages/admin/` redireciona para `/pages/admin/administracao.html` e `/pages/admin` passa a ser servido estaticamente (HTML acessível; APIs admin continuam protegidas).
@@ -22,6 +30,9 @@ This project adheres to semantic versioning. Dates are in YYYY-MM-DD.
 ### Fixed
 - Admin: ações `POST/PUT/DELETE` na página usam `X-CSRF-Token` (cookie `csrfToken`) e base same-origin, evitando 403/CSRF e problemas de host (`localhost` vs `app.localhost`).
 - Backend: `requireAdmin` evita redirect HTML em rotas `/api/*` (retorna erro JSON para chamadas de API).
+
+### Security
+- Frontend (best-effort): bloqueio de copiar/colar, menu de contexto e impressão em páginas sensíveis; mitigação/aviso para PrintScreen (não bloqueável de forma confiável no browser).
 
 ## [1.2.2] - 2026-01-29
 

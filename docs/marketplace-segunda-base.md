@@ -291,7 +291,7 @@ Inputs típicos para roteamento:
 ### 10.3 Árvore de decisão (determinística)
 
 1) Se não autenticado → vai para `login`.
-2) Se autenticado → frontend chama `GET /api/app/bootstrap` (ou similar) e recebe:
+2) Se autenticado → frontend chama `GET /api/v1/app/bootstrap` e recebe:
    - `availableExams[]` (ex.: `PMP`, `OAB1F`)
    - `defaultExamId` (já resolvido no servidor)
    - para cada exam: `uiEntry` = `legacy` | `v2` (qual “casca” de UI abrir)
@@ -324,6 +324,11 @@ Essa tela também é onde faz sentido mostrar:
 - ação “Loja” (comprar packs) quando aplicável
 
 ### 10.5 Contrato sugerido: `GET /api/app/bootstrap`
+
+Implementação atual:
+
+- `GET /api/v1/app/bootstrap` (autenticado)
+- Página de entrada recomendada no frontend: `/home.html`
 
 Resposta (exemplo conceitual):
 

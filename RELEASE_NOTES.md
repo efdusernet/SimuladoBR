@@ -20,6 +20,25 @@ Date: 2025-11-12
 - Tag: v1.0.0
 - Compare: fb7c51a..da61682
 
+---
+
+# Unreleased (2026-02-18)
+
+## Highlights
+- Home pós-login em `/home.html` com bootstrap (`GET /api/v1/app/bootstrap`) e roteamento por prova para UI legado vs UI v2.
+- Marketplace (opção B / segunda base): base para catálogo de provas e controle de acesso por usuário.
+- UI v2 shell em `/v2/index.html?exam=<EXAM_ID>` quando `uiEntry === "v2"`.
+
+## Segurança (best-effort)
+- Proteção de conteúdo no frontend (copiar/colar, menu de contexto, impressão) em páginas sensíveis; aviso/mitigação para PrintScreen.
+- Guia: `docs/content-protection.md`.
+
+## Admin/UI
+- Breadcrumbs e links “Home” padronizados para `/home.html` em páginas administrativas.
+
+## Setup
+- O backend passa a não depender de template `backend/.env.example` no repo; setup é via `backend/.env` (ignorado pelo git).
+
 
 # v1.0.1
 

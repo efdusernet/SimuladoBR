@@ -57,6 +57,11 @@ Esse script define (apenas para o processo atual):
 
 - `http://app.localhost:3000`
 
+Entrada pós-login / multi-exames:
+
+- O frontend usa `/home.html` como home neutra para decidir qual UI abrir.
+- Ela chama `GET /api/v1/app/bootstrap` e redireciona conforme `availableExams[].uiEntry`.
+
 Se `CHAT_SERVICE_EMBED=true`, você também pode acessar o chat-service diretamente em:
 - `http://chat.localhost:3000`
 

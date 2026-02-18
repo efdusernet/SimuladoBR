@@ -9,6 +9,23 @@
   <link rel="stylesheet" href="../styles.css" />
   <script src="../components/gridReview.js"></script>
   <script src="../utils/matchColumns.js"></script>
+  <script src="/utils/contentProtection.js"></script>
+  <script>
+    (function(){
+      try {
+        if (window.ContentProtection && typeof window.ContentProtection.enable === 'function') {
+          window.ContentProtection.enable({
+            disableCopyPaste: true,
+            disableContextMenu: true,
+            disableSelection: true,
+            disablePrint: true,
+            warnOnPrintScreen: true,
+            printMessage: 'Impressão desativada nesta tela de revisão.'
+          });
+        }
+      } catch(_){ }
+    })();
+  </script>
   <style>
     .ans-correct{ border:1px solid #16a34a; background:#ecfdf5; }
     .ans-wrong{ border:1px solid #dc2626; background:#fef2f2; }

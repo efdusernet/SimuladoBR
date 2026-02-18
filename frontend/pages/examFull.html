@@ -7,6 +7,23 @@
   <!-- CSRF Protection (adds X-CSRF-Token for /api requests) -->
   <script src="/utils/csrf.js"></script>
   <script src="/utils/auth.js"></script>
+  <script src="/utils/contentProtection.js"></script>
+  <script>
+    (function(){
+      try {
+        if (window.ContentProtection && typeof window.ContentProtection.enable === 'function') {
+          window.ContentProtection.enable({
+            disableCopyPaste: true,
+            disableContextMenu: true,
+            disableSelection: true,
+            disablePrint: true,
+            warnOnPrintScreen: true,
+            printMessage: 'Impressão desativada nesta tela de simulado.'
+          });
+        }
+      } catch(_){ }
+    })();
+  </script>
   <!-- Support chat widget (served via backend /chat proxy) -->
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Simulado — Exame Completo</title>

@@ -23,7 +23,7 @@ async function requireInsightsAccess(req, res, next) {
 	}
 }
 
-// Dashboard de Insights (baseado em métricas agregadas + (opcional) geração via Ollama)
+// Dashboard de Insights (baseado em métricas agregadas + (opcional) geração via Gemini)
 router.get('/insights/gemini-usage', requireUserSession, requireInsightsAccess, aiController.getGeminiFlashUsage);
 router.get('/insights', requireUserSession, requireInsightsAccess, aiController.getInsightsDashboard);
 

@@ -1,21 +1,16 @@
-const ollama = require('./ollamaClient');
 const gemini = require('./geminiClient');
 const { env } = require('../config/env');
 
 function getProvider() {
-  return String(env.LLM_PROVIDER || 'ollama').trim().toLowerCase();
+  return 'gemini';
 }
 
 function isEnabled() {
-  const provider = getProvider();
-  if (provider === 'gemini') return gemini.isEnabled();
-  return Boolean(env.OLLAMA_ENABLED);
+  return gemini.isEnabled();
 }
 
 async function chat(args) {
-  const provider = getProvider();
-  if (provider === 'gemini') return gemini.chat(args);
-  return ollama.chat(args);
+  return gemini.chat(args);
 }
 
 module.exports = {

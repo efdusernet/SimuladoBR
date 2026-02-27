@@ -1107,7 +1107,7 @@ async function getInsightsDashboard(req, res, next) {
       finished: r.finished,
     }));
 
-    // Keep the AI prompt compact (Ollama can time out with large payloads)
+    // Keep the AI prompt compact (LLM can time out with large payloads)
     const timeseriesForAi = series.slice(-14).map(r => ({
       date: r.date,
       avgScorePercent: r.avgScorePercent,
@@ -1298,7 +1298,6 @@ async function getInsightsDashboard(req, res, next) {
             indicatorsSummary,
             llm: {
               usedLlm: Boolean(llm.usedLlm),
-              usedOllama: Boolean(llm.usedOllama),
               provider: llm.llmProvider || null,
               model: llm.model || null,
             },
@@ -1407,7 +1406,6 @@ async function getInsightsDashboard(req, res, next) {
       success: true,
       meta: {
         generatedAt: new Date().toISOString(),
-        usedOllama: Boolean(llm.usedOllama),
         usedLlm: Boolean(llm.usedLlm),
         llmProvider: llm.llmProvider || null,
         model: llm.model || null,

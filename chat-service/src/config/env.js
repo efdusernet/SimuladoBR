@@ -94,12 +94,6 @@ const env = {
   JWT_ALGORITHMS: parseCsv(getEnv('JWT_ALGORITHMS', 'RS256')),
 
   // LLM (optional)
-  LLM_PROVIDER: getEnv('LLM_PROVIDER', 'ollama').toLowerCase(),
-  OLLAMA_ENABLED: getEnv('OLLAMA_ENABLED', '').toLowerCase() === 'true',
-  OLLAMA_URL: getEnv('OLLAMA_URL', 'http://localhost:11434'),
-  OLLAMA_MODEL: getEnv('OLLAMA_MODEL', 'llama3.1:8b'),
-  OLLAMA_TIMEOUT_MS: getEnvInt('OLLAMA_TIMEOUT_MS', 60000, { min: 5000, max: 900000 }),
-
   GEMINI_API_KEY: getEnv('GEMINI_API_KEY', ''),
   GEMINI_API_BASE: getEnv('GEMINI_API_BASE', 'https://generativelanguage.googleapis.com/v1beta'),
   GEMINI_MODEL: getEnv('GEMINI_MODEL', 'gemini-1.5-flash'),

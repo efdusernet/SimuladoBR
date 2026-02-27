@@ -12,8 +12,6 @@ function normalizeModelName(model) {
 }
 
 function isGeminiFlashConfigured() {
-  const provider = normalizeProvider(process.env.LLM_PROVIDER || 'ollama');
-  if (provider !== TARGET_PROVIDER) return false;
   const model = normalizeModelName(process.env.GEMINI_MODEL || '');
   return normalizeModelName(model) === TARGET_MODEL;
 }

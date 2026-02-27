@@ -28,7 +28,18 @@ const dbName = process.env.DB_NAME;
 const dbUser = process.env.DB_USER;
 const dbPass = process.env.DB_PASSWORD;
 const dbHost = process.env.DB_HOST;
-const dbPort = process.env.DB_PORT || 5432;
+const dbPort = process.env.DB_PORT ? Number(process.env.DB_PORT) : 5432;
+
+function toInt(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+const usingPgBouncer = String(process.env.PGBOUNCER || '').trim().toLowerCase() === 'true' || dbPort === 6432;
+const poolMax = toInt(process.env.DB_POOL_MAX, usingPgBouncer ? 10 : 20);
+const poolMin = toInt(process.env.DB_POOL_MIN, usingPgBouncer ? 0 : 5);
+const poolAcquireMs = toInt(process.env.DB_POOL_ACQUIRE_MS, 30_000);
+const poolIdleMs = toInt(process.env.DB_POOL_IDLE_MS, 10_000);
 
 // Additional safety check
 if (!dbName || !dbUser || !dbPass) {
@@ -42,11 +53,17 @@ const sequelize = new Sequelize(dbName, dbUser, dbPass, {
   dialect: 'postgres',
   logging: false,
   pool: {
-    max: 20,
-    min: 5,
-    acquire: 30000,
-    idle: 10000
-  }
+    max: poolMax,
+    min: poolMin,
+    acquire: poolAcquireMs,
+    idle: poolIdleMs,
+  },
+  dialectOptions: {
+    ssl: process.env.DB_SSL === 'true' ? {
+      require: true,
+      rejectUnauthorized: false
+    } : false
+  },
 });
 
 const db = {};

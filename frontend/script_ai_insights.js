@@ -937,13 +937,13 @@
     renderIndicators(data);
     renderFlashcards(data);
 
-    // Used Ollama badge
-    const badge = document.getElementById('ollamaBadge');
+    // Used LLM badge
+    const badge = document.getElementById('aiBadge');
     if (badge && data && data.meta) {
-      const used = (data.meta.usedLlm != null) ? Boolean(data.meta.usedLlm) : Boolean(data.meta.usedOllama);
-      const provider = (data.meta.llmProvider ? String(data.meta.llmProvider) : (data.meta.usedOllama ? 'ollama' : '')).toLowerCase();
-      const label = provider === 'gemini' ? 'Gemini' : 'Ollama';
-      badge.textContent = used ? `Gerado por IA (${label}${data.meta.model ? ' · ' + data.meta.model : ''})` : 'Gerado por regras (fallback)';
+      const used = Boolean(data.meta.usedLlm);
+      badge.textContent = used
+        ? `Gerado por IA (Gemini${data.meta.model ? ' · ' + data.meta.model : ''})`
+        : 'Gerado por regras (fallback)';
     }
   }
 

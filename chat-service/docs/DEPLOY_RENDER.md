@@ -37,7 +37,7 @@ Essenciais:
 - `NODE_ENV=production`
 - `DATABASE_URL=...` (do Postgres do Render)
 - `PGSSLMODE=require` (ou conforme recomendado)
-- `CORS_ORIGINS=https://simuladosbr.com,https://www.simuladosbr.com`
+- `CORS_ORIGINS=https://www.simuladorbr.com.br`
 
 Admin:
 

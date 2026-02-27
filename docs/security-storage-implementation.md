@@ -168,7 +168,7 @@ curl -X POST http://app.localhost:3000/api/auth/logout \
 ### Variáveis de Ambiente Necessárias
 ```env
 NODE_ENV=production
-FRONTEND_URL=https://seu-dominio.com
+FRONTEND_URL=https://www.simuladorbr.com.br
 JWT_SECRET=<secret-64-chars>
 ```
 
@@ -176,7 +176,7 @@ JWT_SECRET=<secret-64-chars>
 ```nginx
 # Permitir cookies em proxy reverso
 proxy_cookie_path / /;
-proxy_cookie_domain localhost seu-dominio.com;
+proxy_cookie_domain localhost www.simuladorbr.com.br;
 ```
 
 ### HTTPS Obrigatório em Produção

@@ -5,7 +5,7 @@ Este guia é uma receita “padrão Ubuntu” para produção.
 ## 0) Suposições
 
 - Ubuntu 22.04+ (ou similar)
-- Domínio apontado para a VPS (ex.: `chat.seudominio.com`)
+- Domínio apontado para a VPS (ex.: `www.simuladorbr.com.br`)
 - Postgres remoto (recomendado) ou local
 
 ## 1) Instalar dependências
@@ -33,7 +33,7 @@ Com variáveis (exemplos, sem segredos):
 - `PORT=4010`
 - `DATABASE_URL=...`
 - `PGSSLMODE=require`
-- `CORS_ORIGINS=https://simuladosbr.com,https://www.simuladosbr.com`
+- `CORS_ORIGINS=https://www.simuladorbr.com.br`
 - `ADMIN_TOKEN=...`
 
 Ajuste permissões para evitar leitura indevida.
@@ -95,22 +95,32 @@ curl http://127.0.0.1:4010/health
 
 ## 6) Nginx (reverse proxy + WebSocket)
 
-Crie um site, ex.: `/etc/nginx/sites-available/chat-service`:
+Se você expõe o chat-service para o SimuladosBR via `https://www.simuladorbr.com.br/chat/*`, você pode:
+
+- manter o chat-service **apenas interno** em `http://127.0.0.1:4010` (recomendado)
+- e configurar o Nginx do domínio principal para fazer o mount em `/chat`
+
+Exemplo de bloco (dentro do site do domínio principal):
 
 ```nginx
 server {
-  server_name chat.seudominio.com;
+  server_name www.simuladorbr.com.br;
 
-  location / {
-    proxy_pass http://127.0.0.1:4010;
+  # Garanta que /chat redireciona para /chat/
+  location = /chat { return 301 /chat/; }
+
+  # Mount do chat-service em /chat/* (strip do prefixo /chat/)
+  location /chat/ {
+    proxy_pass http://127.0.0.1:4010/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
   }
 
-  location /v1/admin/ws {
-    proxy_pass http://127.0.0.1:4010;
+  # WebSocket do painel admin (sob /chat)
+  location /chat/v1/admin/ws {
+    proxy_pass http://127.0.0.1:4010/v1/admin/ws;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -135,10 +145,10 @@ Após emitir o certificado, ajuste o server block para TLS (o certbot costuma fa
 
 ## 8) Validação
 
-- `https://chat.seudominio.com/health` ok
-- `https://chat.seudominio.com/widget/chat-widget.js` carrega
-- `https://chat.seudominio.com/admin/` abre
-- painel recebe atualizações (WS) via `/v1/admin/ws`
+- `https://www.simuladorbr.com.br/chat/health` ok
+- `https://www.simuladorbr.com.br/chat/widget/chat-widget.js` carrega
+- `https://www.simuladorbr.com.br/chat/admin/` abre
+- painel recebe atualizações (WS) via `/chat/v1/admin/ws`
 - widget funciona no SimuladosBR (CORS e domínio correto)
 
 ## 9) Notas importantes

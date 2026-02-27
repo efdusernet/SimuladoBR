@@ -77,8 +77,8 @@ No HTML base do SimuladosBR (layout global), inclua:
 
 ```html
 <script
-  src="https://SEU_CHAT_SERVICE/widget/chat-widget.js"
-  data-chat-api="https://SEU_CHAT_SERVICE"
+  src="https://www.simuladorbr.com.br/chat/widget/chat-widget.js"
+  data-chat-api="https://www.simuladorbr.com.br/chat"
   data-chat-title="Suporte"
 ></script>
 ```
@@ -92,9 +92,7 @@ O browser só vai conseguir chamar o chat-service se `CORS_ORIGINS` incluir a or
 
 Exemplos de origins comuns:
 
-- `https://simuladosbr.com`
-- `https://www.simuladosbr.com`
-- `https://app.simuladosbr.com`
+- `https://www.simuladorbr.com.br`
 - `http://app.localhost:3000` (dev)
 
 Ajuste `CORS_ORIGINS` para o seu caso.

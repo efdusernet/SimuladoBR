@@ -18,14 +18,14 @@ Docs relacionadas (fora de `/api/exams`):
 - `docs/flashcards-admin.md`
 
 ## GET /api/ai/insights?days=30
-Retorna um “dashboard” de insights: KPIs agregados do período + série diária + recomendações geradas (Ollama quando habilitado; fallback por regras quando não).
+Retorna um “dashboard” de insights: KPIs agregados do período + série diária + recomendações geradas (Gemini quando configurado; fallback por regras quando não).
 
 - Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
 - Query:
   - `days` (1–180; default 30)
 - Response (sucesso):
   - `success`: `true`
-  - `meta`: `{ generatedAt, usedOllama, usedLlm, llmProvider?, model? }` *(campos extras podem existir em `development`)*
+  - `meta`: `{ generatedAt, usedLlm, llmProvider?, model? }` *(campos extras podem existir em `development`)*
   - `kpis`: `{ readinessScore, consistencyScore, avgScorePercent, completionRate, abandonRate, trendDeltaScore7d, passProbabilityPercent?, passProbabilityOverallPercent?, passProbabilityThresholdPercent? }`
   - `timeseries`: lista diária com `{ date, avgScorePercent, completionRate, abandonRate, started, finished }`
   - `ai`: `{ headline, insights[], risks[], actions7d[], focusAreas[], explainability? }`
@@ -42,9 +42,7 @@ Retorna um “dashboard” de insights: KPIs agregados do período + série diá
     - Falhas ao gravar snapshot **não quebram** o retorno do endpoint (erro é apenas logado).
   - Quota de geração por IA (Gemini · `gemini-2.5-flash`):
     - Objetivo: limitar quantas vezes o usuário pode clicar no botão `#btnCarregar` (InsightsIA) quando o resultado for “Gerado por IA (Gemini · gemini-2.5-flash)”.
-    - A quota só é aplicada quando **ambas** as condições forem verdade:
-      - `LLM_PROVIDER=gemini`
-      - `GEMINI_MODEL=gemini-2.5-flash`
+    - A quota só é aplicada quando `GEMINI_MODEL=gemini-2.5-flash`.
     - A contagem é persistida em `public.user_ai_insights_click` (migração `backend/sql/062_create_user_ai_insights_click.sql`).
     - Regras por usuário premium (usa a mesma lógica de `/api/users/me/premium-remaining`):
       - 1 a 30 dias restantes: **5** cliques
@@ -69,7 +67,7 @@ Retorna o status de quota/uso para a geração de Insights via “Gemini · gemi
 - Auth: JWT
 - Response (sucesso):
   - `{ success: true, provider, model, configured, premium, quota }`
-  - `configured`: `true` quando `LLM_PROVIDER=gemini` e `GEMINI_MODEL=gemini-2.5-flash`
+  - `configured`: `true` quando `GEMINI_MODEL=gemini-2.5-flash`
   - `premium`: mesmo formato de `/api/users/me/premium-remaining`
   - `quota`: `{ maxClicks, usedClicks, blocked }`
 
@@ -93,7 +91,7 @@ Detalhes do armazenamento (tabela, campos e regras): ver `docs/insights-snapshot
 Esses endpoints são **somente admin** e permitem:
 - buscar na internet (Bing/SerpAPI),
 - fazer fetch seguro de páginas (anti-SSRF),
-- e passar o conteúdo como contexto para o Ollama (ex.: auditoria de questão).
+- e passar o conteúdo como contexto para o Gemini (ex.: auditoria de questão).
 
 Documentação completa (config, segurança, exemplos): ver `docs/ai-web-context.md`.
 

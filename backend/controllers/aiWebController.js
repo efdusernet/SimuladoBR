@@ -387,33 +387,19 @@ async function classifyQuestion(req, res, next) {
 
     const llmProvider = llmClient.getProvider();
     if (!llmClient.isEnabled()) {
-      if (llmProvider === 'gemini') {
-        return next(badRequest('Gemini não configurado (defina GEMINI_API_KEY no backend/.env)', 'GEMINI_NOT_CONFIGURED'));
-      }
-      return next(badRequest('Ollama desabilitado (defina OLLAMA_ENABLED=true no backend/.env)', 'OLLAMA_DISABLED'));
+      return next(badRequest('Gemini não configurado (defina GEMINI_API_KEY no backend/.env)', 'GEMINI_NOT_CONFIGURED'));
     }
 
     // Gemini tends to be very fast, but if maxOutputTokens is too small it can truncate JSON mid-output.
-    const classifyMaxTokens = (llmProvider === 'gemini')
-      ? clampInt(process.env.GEMINI_CLASSIFY_MAX_TOKENS, 700, { min: 200, max: 2048 })
-      : clampInt(process.env.OLLAMA_CLASSIFY_NUM_PREDICT, 280, { min: 100, max: 2048 });
+    const classifyMaxTokens = clampInt(process.env.GEMINI_CLASSIFY_MAX_TOKENS, 700, { min: 200, max: 2048 });
 
     // Classification tends to be heavier (masterdata + question). Avoid aborting too early,
-    // because Ollama may keep generating server-side even after the client disconnects.
-    const classifyTimeoutMs = (llmProvider === 'gemini')
-      ? clampInt(
-        process.env.GEMINI_CLASSIFY_TIMEOUT_MS,
-        clampInt(process.env.GEMINI_TIMEOUT_MS, 120000, { min: 5000, max: 900000 }),
-        { min: 5000, max: 900000 }
-      )
-      : clampInt(
-        process.env.OLLAMA_CLASSIFY_TIMEOUT_MS,
-        Math.max(
-          720000,
-          clampInt(process.env.OLLAMA_TIMEOUT_MS, 120000, { min: 5000, max: 900000 })
-        ),
-        { min: 5000, max: 900000 }
-      );
+    // because the payload can be large.
+    const classifyTimeoutMs = clampInt(
+      process.env.GEMINI_CLASSIFY_TIMEOUT_MS,
+      clampInt(process.env.GEMINI_TIMEOUT_MS, 120000, { min: 5000, max: 900000 }),
+      { min: 5000, max: 900000 }
+    );
 
     const web = (body && body.web && typeof body.web === 'object') ? body.web : null;
     const useWeb = web ? (web.enabled === true) : false;
@@ -720,9 +706,7 @@ async function classifyQuestion(req, res, next) {
         })
       };
 
-      const refineMaxTokens = (llmProvider === 'gemini')
-        ? clampInt(process.env.GEMINI_CLASSIFY_JUSTIFY_MAX_TOKENS, 450, { min: 200, max: 2048 })
-        : clampInt(process.env.OLLAMA_CLASSIFY_JUSTIFY_NUM_PREDICT, 280, { min: 100, max: 2048 });
+      const refineMaxTokens = clampInt(process.env.GEMINI_CLASSIFY_JUSTIFY_MAX_TOKENS, 450, { min: 200, max: 2048 });
 
       try {
         const llm2 = await llmClient.chat({
@@ -813,12 +797,8 @@ async function classifyQuestion(req, res, next) {
     }
 
     // Common LLM/network failures should be easier to spot.
-    const provider = llmClient.getProvider();
-    if (/\b(ECONNREFUSED|ENOTFOUND|EAI_AGAIN)\b/i.test(msg) || /fetch failed/i.test(msg) || /timeout/i.test(msg) || /ollama/i.test(msg) || /gemini/i.test(msg)) {
-      if (provider === 'gemini') {
-        return next(internalError('Falha ao chamar Gemini', 'GEMINI_ERROR', { error: msg }));
-      }
-      return next(internalError('Falha ao chamar Ollama', 'OLLAMA_ERROR', { error: msg }));
+    if (/\b(ECONNREFUSED|ENOTFOUND|EAI_AGAIN)\b/i.test(msg) || /fetch failed/i.test(msg) || /timeout/i.test(msg) || /gemini/i.test(msg)) {
+      return next(internalError('Falha ao chamar Gemini', 'GEMINI_ERROR', { error: msg }));
     }
 
     return next(internalError('Falha ao classificar questão via IA', 'AI_QUESTION_CLASSIFY_ERROR', { error: msg }));

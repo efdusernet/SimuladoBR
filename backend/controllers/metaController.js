@@ -3,6 +3,7 @@ const sequelize = require('../config/database');
 const { logger } = require('../utils/logger');
 const { internalError } = require('../middleware/errors');
 const userParamsStore = require('../services/userParamsStore');
+const llmClient = require('../services/llmClient');
 // Helper: list grupos de processo preferindo a coluna que casa com questao.codgrupoprocesso
 async function listGruposProcessoSmart(req, res, next, table) {
   try {
@@ -160,8 +161,8 @@ exports.getConfig = async (_req, res, next) => {
     const freeExamQuestionLimit = Number(params && params.freeExamQuestionLimit);
 
     const examVersion = (process.env.EXAM_VER || '').trim();
-    const ollamaEnabled = String(process.env.OLLAMA_ENABLED || '').toLowerCase() === 'true';
-    return res.json({ fullExamQuestionCount, freeExamQuestionLimit, examVersion, ollamaEnabled });
+    const aiEnabled = llmClient.isEnabled();
+    return res.json({ fullExamQuestionCount, freeExamQuestionLimit, examVersion, aiEnabled });
   } catch (e) {
     return next(internalError('Erro interno', 'GET_CONFIG_ERROR', e));
   }

@@ -371,4 +371,4 @@ Quando aberto, o widget faz polling (a cada ~5s) para atualizar mensagens.
 
 ## Observação (LLM provider layer)
 
-Existe um `src/services/llmClient.js` com seleção de provider por env (`LLM_PROVIDER`, `OLLAMA_*`, `GEMINI_*`) para manter compatibilidade conceitual com o SimuladosBR, mas o chat inicial não depende de LLM para funcionar.
+Existe um `src/services/llmClient.js` como camada fina para chamadas ao Gemini (via `GEMINI_*`), mas o chat inicial não depende de LLM para funcionar.

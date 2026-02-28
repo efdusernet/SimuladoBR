@@ -1,0 +1,11 @@
+; Example userlist for PgBouncer.
+; Suggested location on VPS: /etc/pgbouncer/userlist.txt
+;
+; DO NOT put real secrets in the repository.
+; Use SCRAM verifiers (recommended) or md5 hashes.
+;
+; Example formats:
+;   "username" "SCRAM-SHA-256$..."
+;   "username" "md5<md5hash>"
+;
+"simulados_user" "SCRAM-SHA-256$CHANGE_ME_VERIFIER"

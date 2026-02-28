@@ -1359,9 +1359,9 @@
                         const cfg = await fetch(base + '/api/meta/config', { cache: 'no-store', credentials: 'include' })
                             .then(r => r.ok ? r.json() : null)
                             .catch(() => null);
-                        if (cfg && cfg.ollamaEnabled === false) {
+                        if (cfg && cfg.llmEnabled === false) {
                             el.style.display = 'none';
-                        } else if (cfg && cfg.ollamaEnabled === true) {
+                        } else if (cfg && cfg.llmEnabled === true) {
                             el.style.display = '';
                         }
                     } catch(_e) {}

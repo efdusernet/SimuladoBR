@@ -1,11 +1,8 @@
 param(
-  [int]$OllamaTimeoutMs = 60000,
-  [int]$OllamaInsightsTimeoutMs = 720000
+  [int]$Port = 3000
 )
 
-$env:OLLAMA_TIMEOUT_MS = "$OllamaTimeoutMs"
-$env:OLLAMA_INSIGHTS_TIMEOUT_MS = "$OllamaInsightsTimeoutMs"
-
-Write-Host "[start-windows] OLLAMA_TIMEOUT_MS=$env:OLLAMA_TIMEOUT_MS OLLAMA_INSIGHTS_TIMEOUT_MS=$env:OLLAMA_INSIGHTS_TIMEOUT_MS"
-
+$env:CHAT_SERVICE_BASE_URL = "http://localhost:4010"
+$env:PORT = "$Port"
+Write-Host "[start-windows] PORT=$env:PORT" -ForegroundColor Cyan
 node "$(Join-Path $PSScriptRoot 'index.js')"

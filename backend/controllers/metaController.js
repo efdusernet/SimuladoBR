@@ -164,15 +164,10 @@ exports.getConfig = async (_req, res, next) => {
     const llmProvider = llmClient.getProvider();
     const llmEnabled = llmClient.isEnabled();
 
-    // Legacy name used by the frontend to show/hide Insights IA.
-    // Keep it, but make it reflect the effective LLM availability (Gemini or Ollama).
-    const ollamaEnabled = llmEnabled;
-
     return res.json({
       fullExamQuestionCount,
       freeExamQuestionLimit,
       examVersion,
-      ollamaEnabled,
       llmEnabled,
       llmProvider,
     });

@@ -524,9 +524,9 @@
         .then(r => r.ok ? r.json() : null)
         .catch(() => null);
 
-      if (cfg && cfg.ollamaEnabled === false) {
+      if (cfg && cfg.llmEnabled === false) {
         link.style.display = 'none';
-      } else if (cfg && cfg.ollamaEnabled === true) {
+      } else if (cfg && cfg.llmEnabled === true) {
         link.style.display = '';
       }
     } catch (_e) {

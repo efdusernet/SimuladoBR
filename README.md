@@ -4,11 +4,6 @@ Este documento consolida o que foi implementado recentemente (multi-exames), com
 
 Leitura rápida recomendada (onboarding): `CONTEXT.md`, `FEATURES.md` e `KNOWN_ISSUES.md`.
 
-Infra (produção / 1 VPS):
-- [docs/INFRAESTRUTURA_RECOMENDADA.md](docs/INFRAESTRUTURA_RECOMENDADA.md)
-- [deploy/ONE_VPS_SETUP.md](deploy/ONE_VPS_SETUP.md)
-- [docs/TUTORIAL_VPS_CLOUDPANEL.md](docs/TUTORIAL_VPS_CLOUDPANEL.md)
-
 ## Resumo das mudanças recentes
 
 - Suporte a múltiplos exames (Exam Types), com blueprint vindo do banco quando disponível.
@@ -113,7 +108,7 @@ Pré‑requisitos: Node.js 18+, PostgreSQL acessível com as credenciais em `.en
 
 ### Rodando em app.localhost (subdomínio local) + PWA
 
-Para simular o cenário de produção em domínio (ex.: `www.simuladorbr.com.br`) localmente, rode o app em `http://app.localhost:3000`.
+Para simular o cenário de produção em subdomínio (ex.: `app.seudominio.com`) localmente, rode o app em `http://app.localhost:3000`.
 
 1) (Windows) Registre `app.localhost` no arquivo hosts (precisa Admin):
 	 - `powershell -ExecutionPolicy Bypass -File .\scripts\setup-app-localhost.ps1`

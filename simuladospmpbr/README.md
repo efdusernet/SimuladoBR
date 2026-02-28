@@ -77,7 +77,6 @@ A sincronização é **idempotente** e baseada no estado atual de entitlement:
 Variáveis de ambiente necessárias no checkout:
 
 - `SIMULADOS_BR_BASE_URL` (base URL do backend do app principal, ex.: `https://app.seudominio.com`)
-- `SIMULADOS_BR_BASE_URL` (base URL do backend do app principal, ex.: `https://www.simuladorbr.com.br`)
 - `ACCESS_API_KEY` (mesmo valor usado no SimuladosBR; enviado no header `x-access-api-key`)
 
 ## Smoke tests

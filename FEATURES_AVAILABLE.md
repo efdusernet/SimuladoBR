@@ -158,6 +158,7 @@ Formato:
 - [backend/services/geminiClient.js](backend/services/geminiClient.js) --> ai_provider_gemini_client, 2026-01-01
 - [backend/services/llmClient.js](backend/services/llmClient.js) --> ai_provider_client_router, 2026-01-01
 - [backend/services/masterdataService.js](backend/services/masterdataService.js) --> masterdata_loading_service, 2025-12-31
+- [backend/services/ollamaClient.js](backend/services/ollamaClient.js) --> ai_provider_ollama_client, 2025-12-24
 - [backend/services/webContext.js](backend/services/webContext.js) --> ai_web_context_fetch_service, 2025-12-31
 
 - [backend/services/exams/ExamRegistry.js](backend/services/exams/ExamRegistry.js) --> exams_registry_catalog_service, 2025-11-01
@@ -195,6 +196,7 @@ Formato:
 - [backend/scripts/reconcile_user_stats.js](backend/scripts/reconcile_user_stats.js) --> maintenance_reconcile_user_stats, 2025-11-24
 - [backend/scripts/reset_exam_data.js](backend/scripts/reset_exam_data.js) --> maintenance_reset_exam_data, 2025-11-13
 - [backend/scripts/seed_test_user.js](backend/scripts/seed_test_user.js) --> maintenance_seed_test_user, 2025-11-30
+- [backend/scripts/smoke_insights_ollama.js](backend/scripts/smoke_insights_ollama.js) --> maintenance_smoke_ai_insights_ollama, 2025-12-24
 - [backend/scripts/unlock_user.js](backend/scripts/unlock_user.js) --> maintenance_unlock_user, 2026-01-02
 
 - [backend/test-validation.js](backend/test-validation.js) --> dev_test_validation_suite, 2025-12-11
@@ -246,6 +248,7 @@ Formato:
 - [chat-service/src/services/jwt.js](chat-service/src/services/jwt.js) --> support_chat_jwt_helpers, 2026-01-02
 - [chat-service/src/services/llmClient.js](chat-service/src/services/llmClient.js) --> support_chat_ai_provider_router, 2026-01-02
 - [chat-service/src/services/mailer.js](chat-service/src/services/mailer.js) --> support_chat_email_sender, 2026-01-02
+- [chat-service/src/services/ollamaClient.js](chat-service/src/services/ollamaClient.js) --> support_chat_ai_ollama_client, 2026-01-02
 - [chat-service/src/services/supportContactNotifier.js](chat-service/src/services/supportContactNotifier.js) --> support_chat_support_contact_notifications, 2026-01-14
 - [chat-service/src/services/supportMailer.js](chat-service/src/services/supportMailer.js) --> support_chat_support_mailer, 2026-01-14
 

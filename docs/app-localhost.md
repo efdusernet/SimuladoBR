@@ -1,6 +1,6 @@
 # Rodando em `app.localhost:3000` (subdomínio local)
 
-Este guia configura o SimuladosBR para rodar como se estivesse em um subdomínio (ex.: `www.simuladorbr.com.br`), mas localmente.
+Este guia configura o SimuladosBR para rodar como se estivesse em um subdomínio (ex.: `app.seudominio.com`), mas localmente.
 
 **Objetivo:** acessar o app em `http://app.localhost:3000` com **frontend + backend no mesmo servidor/origem** e **PWA/Service Worker habilitados**.
 

@@ -1,11 +1,11 @@
 param(
-  [int]$GeminiTimeoutMs = 60000,
-  [int]$GeminiInsightsTimeoutMs = 60000
+  [int]$OllamaTimeoutMs = 60000,
+  [int]$OllamaInsightsTimeoutMs = 720000
 )
 
-$env:GEMINI_TIMEOUT_MS = "$GeminiTimeoutMs"
-$env:GEMINI_INSIGHTS_TIMEOUT_MS = "$GeminiInsightsTimeoutMs"
+$env:OLLAMA_TIMEOUT_MS = "$OllamaTimeoutMs"
+$env:OLLAMA_INSIGHTS_TIMEOUT_MS = "$OllamaInsightsTimeoutMs"
 
-Write-Host "[start-windows] GEMINI_TIMEOUT_MS=$env:GEMINI_TIMEOUT_MS GEMINI_INSIGHTS_TIMEOUT_MS=$env:GEMINI_INSIGHTS_TIMEOUT_MS"
+Write-Host "[start-windows] OLLAMA_TIMEOUT_MS=$env:OLLAMA_TIMEOUT_MS OLLAMA_INSIGHTS_TIMEOUT_MS=$env:OLLAMA_INSIGHTS_TIMEOUT_MS"
 
 node "$(Join-Path $PSScriptRoot 'index.js')"

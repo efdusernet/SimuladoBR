@@ -29,10 +29,17 @@ Campos cobertos (e somente estes):
 ## Pré-requisitos
 
 - Usuário com papel **admin** (ver middleware `backend/middleware/requireAdmin.js`).
-- Gemini (Google AI Studio) configurado no backend:
-  - `GEMINI_API_KEY=...`
-  - `GEMINI_MODEL` (default `gemini-1.5-flash`)
-  - `GEMINI_TIMEOUT_MS` (default 60000)
+- Um provedor de LLM configurado no backend (selecionado por `LLM_PROVIDER`):
+  - **Ollama (default)**
+    - `LLM_PROVIDER=ollama`
+    - `OLLAMA_ENABLED=true`
+    - `OLLAMA_URL` (default `http://localhost:11434`)
+    - `OLLAMA_MODEL` (default `llama3.1:8b`)
+  - **Gemini (Google AI Studio)**
+    - `LLM_PROVIDER=gemini`
+    - `GEMINI_API_KEY=...`
+    - `GEMINI_MODEL` (default `gemini-1.5-flash`)
+    - `GEMINI_TIMEOUT_MS` (default 60000)
 
 ## Masterdata dinâmica (DB)
 

@@ -54,7 +54,7 @@ Este documento consolida todos os passos necessários para publicar o **Simulado
 ### 1.4. Domínio e HTTPS
 - [ ] Garantir que o app roda em domínio próprio com HTTPS válido
 - [ ] Configurar certificado SSL (Let's Encrypt, Cloudflare, etc.)
-- [ ] Testar acessibilidade via `https://www.simuladorbr.com.br`
+- [ ] Testar acessibilidade via `https://seudominio.com`
 
 ---
 
@@ -200,11 +200,11 @@ Adicionar em `<head>` de todas as páginas principais:
 No diretório raiz do projeto:
 
 ```bash
-bubblewrap init --manifest https://www.simuladorbr.com.br/manifest.json
+bubblewrap init --manifest https://seudominio.com/manifest.json
 ```
 
 **Respostas típicas:**
-- **Domain:** `www.simuladorbr.com.br`
+- **Domain:** `seudominio.com`
 - **Name:** `SimuladosBR`
 - **Package name:** `br.simulados.pmp`
 - **Start URL:** `/`
@@ -246,14 +246,14 @@ Mecanismo do Android para verificar que seu app Android está autorizado a abrir
    ]
    ```
 
-3. Publicar em `https://www.simuladorbr.com.br/.well-known/assetlinks.json`
+3. Publicar em `https://seudominio.com/.well-known/assetlinks.json`
    - ⚠️ Deve estar acessível publicamente
    - Content-Type: `application/json`
    - Sem redirecionamento
 
 4. Validar:
    ```bash
-  bubblewrap validate --url https://www.simuladorbr.com.br
+   bubblewrap validate --url https://seudominio.com
    ```
 
 ### 3.4. Personalizações TWA
@@ -263,7 +263,7 @@ Edite `twa-manifest.json`:
 ```json
 {
   "packageId": "br.simulados.pmp",
-  "host": "www.simuladorbr.com.br",
+  "host": "seudominio.com",
   "name": "SimuladosBR",
   "launcherName": "SimuladosBR",
   "display": "standalone",
@@ -272,8 +272,8 @@ Edite `twa-manifest.json`:
   "backgroundColor": "#0f172a",
   "enableNotifications": false,
   "startUrl": "/",
-  "iconUrl": "https://www.simuladorbr.com.br/assets/icon-512.png",
-  "maskableIconUrl": "https://www.simuladorbr.com.br/assets/icon-512.png",
+  "iconUrl": "https://seudominio.com/assets/icon-512.png",
+  "maskableIconUrl": "https://seudominio.com/assets/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "enableSiteSettingsShortcut": false,
   "orientation": "portrait",
@@ -373,7 +373,7 @@ Se não for lançar em Android TV, pode ignorar.
 - Contato do desenvolvedor
 
 **Onde publicar:**
-- Página web dedicada: `https://www.simuladorbr.com.br/privacidade`
+- Página web dedicada: `https://seudominio.com/privacidade`
 - Link informado na Play Console
 
 **Template LGPD compatível:**
@@ -596,7 +596,7 @@ adb install app-release-signed.apk
 ### 7.3. Detalhes de Contato
 
 - **E-mail do desenvolvedor:** contato@simuladosbr.com (ou seu email)
-- **Website:** https://www.simuladorbr.com.br
+- **Website:** https://seudominio.com
 - **Telefone:** (opcional, mas ajuda na credibilidade)
 
 ### 7.4. Países e Regiões

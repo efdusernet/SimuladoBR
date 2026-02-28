@@ -51,7 +51,7 @@ Configure variáveis (exemplos; use seus próprios valores):
 - `PORT=4010` (ou outro)
 - `DATABASE_URL=...`
 - `PGSSLMODE=disable|require|verify-full`
-- `CORS_ORIGINS=https://www.simuladorbr.com.br`
+- `CORS_ORIGINS=https://simuladosbr.com,https://www.simuladosbr.com`
 
 Admin:
 
@@ -110,22 +110,18 @@ Exemplo de bloco (ajuste domínio/portas):
 
 ```nginx
 server {
-  server_name www.simuladorbr.com.br;
+  server_name chat.seudominio.com;
 
-  location = /chat { return 301 /chat/; }
-
-  # Mount do chat-service em /chat/* (strip do prefixo /chat/)
-  location /chat/ {
-    proxy_pass http://127.0.0.1:4010/;
+  location / {
+    proxy_pass http://127.0.0.1:4010;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
   }
 
-  # WebSocket do painel admin (sob /chat)
-  location /chat/v1/admin/ws {
-    proxy_pass http://127.0.0.1:4010/v1/admin/ws;
+  location /v1/admin/ws {
+    proxy_pass http://127.0.0.1:4010;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";

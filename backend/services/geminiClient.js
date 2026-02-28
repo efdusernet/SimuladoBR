@@ -192,7 +192,7 @@ async function chat({ model, messages, format = undefined, options = undefined, 
   const parts = candidate && candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : [];
   const text = parts.map(p => (p && p.text != null ? String(p.text) : '')).join('') || '';
 
-  // Match the response shape used by controllers.
+  // Match Ollama's response shape used by controllers.
   return {
     model: finalModel,
     message: {

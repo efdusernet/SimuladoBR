@@ -106,10 +106,6 @@ Variáveis de ambiente são injetadas automaticamente.
 
 **Melhor para:** Controle total
 
-Guias prontos deste repositório:
-- [deploy/ONE_VPS_SETUP.md](../deploy/ONE_VPS_SETUP.md) — setup completo em 1 VPS (Nginx + Node/PM2 + Postgres + Redis + PgBouncer)
-- [docs/TUTORIAL_VPS_CLOUDPANEL.md](TUTORIAL_VPS_CLOUDPANEL.md) — tutorial do zero usando CloudPanel (Ubuntu suportado pelo CloudPanel)
-
 #### Setup Ubuntu 22.04:
 
 ```bash
@@ -144,7 +140,7 @@ sudo apt install nginx
 ```nginx
 server {
     listen 80;
-  server_name www.simuladorbr.com.br;
+    server_name seudominio.com.br;
     
     # Frontend
     root /var/www/simuladosbr/frontend;
@@ -176,38 +172,10 @@ sudo systemctl restart nginx
 
 # SSL com Let's Encrypt
 sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d www.simuladorbr.com.br
+sudo certbot --nginx -d seudominio.com.br
 ```
 
 **Custo:** $5-10/mês (Droplet básico)
-
----
-
-## Produção (VPS) — Redis + PgBouncer (recomendado)
-
-Para 100+ usuários simultâneos e Postgres no mesmo VPS, **use Redis** (sessões) e **PgBouncer** (pooling de conexões), para evitar saturar o PostgreSQL.
-
-### Redis (sessões)
-
-- No backend, habilite:
-  - `USE_REDIS=true`
-  - `REDIS_URL=redis://127.0.0.1:6379`
-
-### PgBouncer (pooling)
-
-1) Instale e configure PgBouncer no VPS (porta típica `6432`).
-
-2) Aponte o backend para o PgBouncer:
-- `DB_HOST=127.0.0.1`
-- `DB_PORT=6432`
-- `PGBOUNCER=true`
-
-3) Ajuste o pool do Node/Sequelize (por processo):
-- Exemplo seguro para começar (quando `PGBOUNCER=true`):
-  - `DB_POOL_MAX=10`
-  - `DB_POOL_MIN=0`
-
-Obs.: se você usar `pool_mode=transaction` no PgBouncer, algumas features de ORMs podem se comportar diferente. Para maior compatibilidade, prefira `pool_mode=session`.
 
 ---
 
@@ -319,7 +287,7 @@ jobs:
 ```
 Type    Name    Value
 A       @       IP_DO_SERVIDOR
-CNAME   www     simuladorbr.com.br
+CNAME   www     seudominio.com.br
 TXT     @       "vercel-domain-verification=..."
 ```
 
@@ -364,7 +332,7 @@ TXT     @       "vercel-domain-verification=..."
   <meta property="og:title" content="SimuladosBR - Simulados PMP">
   <meta property="og:description" content="Prepare-se para a certificação PMP com nossos simulados reais">
   <meta property="og:image" content="/assets/og-image.png">
-  <meta property="og:url" content="https://www.simuladorbr.com.br">
+  <meta property="og:url" content="https://simuladosbr.com.br">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
@@ -379,7 +347,7 @@ TXT     @       "vercel-domain-verification=..."
     "@type": "EducationalOrganization",
     "name": "SimuladosBR",
     "description": "Plataforma de simulados PMP",
-    "url": "https://www.simuladorbr.com.br"
+    "url": "https://simuladosbr.com.br"
   }
   </script>
 </head>
@@ -390,11 +358,11 @@ TXT     @       "vercel-domain-verification=..."
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.simuladorbr.com.br/</loc>
+    <loc>https://simuladosbr.com.br/</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.simuladorbr.com.br/login</loc>
+    <loc>https://simuladosbr.com.br/login</loc>
     <priority>0.8</priority>
   </url>
 </urlset>
@@ -407,7 +375,7 @@ Allow: /
 Disallow: /api/
 Disallow: /pages/admin/
 
-Sitemap: https://www.simuladorbr.com.br/sitemap.xml
+Sitemap: https://simuladosbr.com.br/sitemap.xml
 ```
 
 ---
@@ -436,7 +404,7 @@ app.get('/health', (req, res) => {
 ### Monitoring com UptimeRobot (grátis):
 1. Criar conta em [uptimerobot.com](https://uptimerobot.com)
 2. Adicionar monitor HTTP(s)
-3. URL: `https://www.simuladorbr.com.br/health`
+3. URL: `https://seudominio.com.br/health`
 4. Intervalo: 5 minutos
 5. Alertas: Email/SMS quando down
 

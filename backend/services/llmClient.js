@@ -2,7 +2,15 @@ const ollama = require('./ollamaClient');
 const gemini = require('./geminiClient');
 
 function getProvider() {
-  return String(process.env.LLM_PROVIDER || 'ollama').trim().toLowerCase();
+  const explicit = String(process.env.LLM_PROVIDER || '').trim().toLowerCase();
+  if (explicit) return explicit;
+
+  // If Gemini is configured, prefer it by default.
+  // This keeps "no-config" dev behavior (falls back to Ollama) while making
+  // Gemini work out-of-the-box when GEMINI_API_KEY is present.
+  if (gemini.isEnabled()) return 'gemini';
+
+  return 'ollama';
 }
 
 function isEnabled() {

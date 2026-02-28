@@ -1,6 +1,6 @@
 # IA com contexto da Web (Admin)
 
-Este documento descreve os endpoints de IA que **buscam dados na internet** e fornecem esse conteúdo ao modelo (Ollama), com foco em segurança (anti‑SSRF), limites e exemplos de uso.
+Este documento descreve os endpoints de IA que **buscam dados na internet** e fornecem esse conteúdo ao modelo (LLM/Gemini), com foco em segurança (anti‑SSRF), limites e exemplos de uso.
 
 ## Visão geral
 
@@ -8,7 +8,7 @@ Foram adicionados 3 endpoints sob `/api/ai`:
 
 - `GET /api/ai/web/search` — busca na web (Bing ou SerpAPI)
 - `POST /api/ai/web/fetch` — fetch seguro + extração de texto
-- `POST /api/ai/question-audit` — usa search + fetch para montar contexto e chama o Ollama retornando JSON
+- `POST /api/ai/question-audit` — usa search + fetch para montar contexto e chama o LLM (Gemini) retornando JSON
 
 Também foram adicionados endpoints para **classificação de questão com masterdata dinâmica (DB)**:
 
@@ -19,11 +19,10 @@ Documentação detalhada da classificação (inclui UI “Analisar com IA”): v
 
 **Autorização:** todos são **Admin** (middleware `requireAdmin`).
 
-## Modelo (Ollama)
+## Modelo (Gemini)
 
-- O backend chama o Ollama via `backend/services/ollamaClient.js`.
-- Modelo padrão: `llama3.1:8b` (pode ser alterado com `OLLAMA_MODEL`).
-- URL padrão do Ollama: `http://localhost:11434` (via `OLLAMA_URL`).
+- O backend chama o Gemini via `backend/services/geminiClient.js` (orquestrado por `backend/services/llmClient.js`).
+- Variáveis principais: `GEMINI_API_KEY` e `GEMINI_MODEL`.
 
 ## Variáveis de ambiente
 

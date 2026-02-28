@@ -54,7 +54,7 @@ Este documento consolida **todos** os endpoints do backend em formato de referê
 |--------|----------|------|--------|----------|-----------|
 | GET | `/api/ai/web/search` | Admin | Query: `q` (obrigatório), `k` (1-10, default 5) | `{ success, provider, query, results[] }` | Busca na web via provedor configurado (Bing/SerpAPI). |
 | POST | `/api/ai/web/fetch` | Admin | Body: `{ url }` | `{ success, page }` | Faz fetch seguro de URL (com allowlist/SSRF guard) e retorna texto extraído. |
-| POST | `/api/ai/question-audit` | Admin | Body: `{ question, web? }` | `{ success, audit, sources, meta }` | Audita coerência/correção de questão usando contexto retornado pelos endpoints web e gera JSON via Ollama. |
+| POST | `/api/ai/question-audit` | Admin | Body: `{ question, web? }` | `{ success, audit, sources, meta }` | Audita coerência/correção de questão usando contexto retornado pelos endpoints web e gera JSON via LLM (Gemini). |
 | GET | `/api/ai/masterdata/question-classification` | Admin | — | `{ success, masterdata }` | Retorna dicionários dinâmicos (DB) para orientar a IA a sugerir apenas valores válidos. |
 | POST | `/api/ai/question-classify` | Admin | Body: `{ question, current, dicaMaxChars? }` | `{ success, result, disagreements, validationIssues, meta }` | Classifica uma questão e sugere valores para campos (somente IDs do dicionário). Indica divergências com valores atuais. |
 

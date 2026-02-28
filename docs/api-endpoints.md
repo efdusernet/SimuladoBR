@@ -18,14 +18,14 @@ Docs relacionadas (fora de `/api/exams`):
 - `docs/flashcards-admin.md`
 
 ## GET /api/ai/insights?days=30
-Retorna um “dashboard” de insights: KPIs agregados do período + série diária + recomendações geradas (Ollama quando habilitado; fallback por regras quando não).
+Retorna um “dashboard” de insights: KPIs agregados do período + série diária + recomendações geradas (LLM/Gemini quando configurado; fallback por regras quando não).
 
 - Auth: JWT (cookie `sessionToken` / `Authorization: Bearer` / `X-Session-Token`)
 - Query:
   - `days` (1–180; default 30)
 - Response (sucesso):
   - `success`: `true`
-  - `meta`: `{ generatedAt, usedOllama, usedLlm, llmProvider?, model? }` *(campos extras podem existir em `development`)*
+  - `meta`: `{ generatedAt, usedLlm, llmProvider?, model? }` *(campos extras podem existir em `development`)*
   - `kpis`: `{ readinessScore, consistencyScore, avgScorePercent, completionRate, abandonRate, trendDeltaScore7d, passProbabilityPercent?, passProbabilityOverallPercent?, passProbabilityThresholdPercent? }`
   - `timeseries`: lista diária com `{ date, avgScorePercent, completionRate, abandonRate, started, finished }`
   - `ai`: `{ headline, insights[], risks[], actions7d[], focusAreas[], explainability? }`
@@ -42,8 +42,7 @@ Retorna um “dashboard” de insights: KPIs agregados do período + série diá
     - Falhas ao gravar snapshot **não quebram** o retorno do endpoint (erro é apenas logado).
   - Quota de geração por IA (Gemini · `gemini-2.5-flash`):
     - Objetivo: limitar quantas vezes o usuário pode clicar no botão `#btnCarregar` (InsightsIA) quando o resultado for “Gerado por IA (Gemini · gemini-2.5-flash)”.
-    - A quota só é aplicada quando **ambas** as condições forem verdade:
-      - `LLM_PROVIDER=gemini`
+    - A quota só é aplicada quando a configuração alvo estiver ativa:
       - `GEMINI_MODEL=gemini-2.5-flash`
     - A contagem é persistida em `public.user_ai_insights_click` (migração `backend/sql/062_create_user_ai_insights_click.sql`).
     - Regras por usuário premium (usa a mesma lógica de `/api/users/me/premium-remaining`):
@@ -93,7 +92,7 @@ Detalhes do armazenamento (tabela, campos e regras): ver `docs/insights-snapshot
 Esses endpoints são **somente admin** e permitem:
 - buscar na internet (Bing/SerpAPI),
 - fazer fetch seguro de páginas (anti-SSRF),
-- e passar o conteúdo como contexto para o Ollama (ex.: auditoria de questão).
+- e passar o conteúdo como contexto para o LLM (Gemini) (ex.: auditoria de questão).
 
 Documentação completa (config, segurança, exemplos): ver `docs/ai-web-context.md`.
 
